@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../domain/track.dart';
 import '../playback/playback_controller.dart';
@@ -50,19 +49,7 @@ class PlaylistPanel extends StatelessWidget {
             onAddFiles: onAddFiles,
           ),
           Expanded(
-            child: Focus(
-              autofocus: true,
-              onKeyEvent: (node, event) {
-                if (event is! KeyDownEvent ||
-                    event.logicalKey != LogicalKeyboardKey.delete) {
-                  return KeyEventResult.ignored;
-                }
-                final index = playlist.selectedIndex;
-                if (index == null) return KeyEventResult.ignored;
-                playlist.removeAt(index);
-                return KeyEventResult.handled;
-              },
-              child: ListenableBuilder(
+            child: ListenableBuilder(
                 listenable: playlist,
                 builder: (context, _) {
                   final tracks = playlist.playlist.tracks;
@@ -94,7 +81,6 @@ class PlaylistPanel extends StatelessWidget {
                   );
                 },
               ),
-            ),
           ),
         ],
       ),
@@ -163,80 +149,92 @@ class _PlaylistRow extends StatelessWidget {
     final indexLabel = (index + 1).toString().padLeft(2, '0');
     final artist = track.artist?.trim();
 
+    final semanticLabel = artist != null && artist.isNotEmpty
+        ? '${track.displayTitle}, $artist'
+        : track.displayTitle;
+
     return ReorderableDragStartListener(
       index: index,
-      child: Actions(
-        actions: {
-          ActivateIntent: CallbackAction<ActivateIntent>(
-            onInvoke: (_) {
-              onActivate();
-              return null;
-            },
-          ),
-        },
-        child: GestureDetector(
-          onTap: onSelect,
-          onDoubleTap: onActivate,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: active ? TrampColors.ink : null,
-              border: Border(
-                bottom: BorderSide(
-                  color: TrampColors.ink.withValues(alpha: 0.12),
+      child: Semantics(
+        selected: active,
+        button: true,
+        label: semanticLabel,
+        child: Actions(
+          actions: {
+            ActivateIntent: CallbackAction<ActivateIntent>(
+              onInvoke: (_) {
+                onActivate();
+                return null;
+              },
+            ),
+          },
+          child: GestureDetector(
+            onTap: onSelect,
+            onDoubleTap: onActivate,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: active ? TrampColors.ink : null,
+                border: Border(
+                  bottom: BorderSide(
+                    color: TrampColors.ink.withValues(alpha: 0.12),
+                  ),
                 ),
               ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 28,
-                    child: Text(
-                      indexLabel,
-                      style: TextStyle(color: muted, fontSize: 13),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: track.displayTitle,
-                            style: TextStyle(
-                              color: foreground,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                          ),
-                          if (artist != null && artist.isNotEmpty)
-                            TextSpan(
-                              text: ' — $artist',
-                              style: TextStyle(color: muted, fontSize: 13),
-                            ),
-                        ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 28,
+                      child: Text(
+                        indexLabel,
+                        style: TextStyle(color: muted, fontSize: 13),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    formatTrackDuration(track.duration),
-                    style: TextStyle(
-                      color: muted,
-                      fontSize: 13,
-                      fontFeatures: const [FontFeature.tabularFigures()],
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: track.displayTitle,
+                              style: TextStyle(
+                                color: foreground,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                            if (artist != null && artist.isNotEmpty)
+                              TextSpan(
+                                text: ' — $artist',
+                                style: TextStyle(color: muted, fontSize: 13),
+                              ),
+                          ],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.drag_handle,
-                    size: 16,
-                    color: muted,
-                  ),
-                ],
+                    const SizedBox(width: 10),
+                    Text(
+                      formatTrackDuration(track.duration),
+                      style: TextStyle(
+                        color: muted,
+                        fontSize: 13,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Semantics(
+                      label: 'Reorder',
+                      child: Icon(
+                        Icons.drag_handle,
+                        size: 16,
+                        color: muted,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

@@ -156,7 +156,16 @@ class _TrampAppState extends State<TrampApp> {
         listenable: _playlist,
         builder: (context, _) {
           return TrampShell(
+            playback: _playback,
+            playlistController: _playlist,
+            hasTracks: _playlist.playlist.tracks.isNotEmpty,
             onDropPaths: _handleDroppedPaths,
+            onOpenFiles: () async {
+              final paths = await pickAudioFiles();
+              if (paths == null || paths.isEmpty) return;
+              _playlist.addTracks(tracksFromPaths(paths));
+            },
+            onSavePlaylist: _savePlaylist,
             transport: TransportPanel(
               playback: _playback,
               hasTracks: _playlist.playlist.tracks.isNotEmpty,

@@ -50,28 +50,38 @@ class _TrampButtonState extends State<TrampButton> {
       }
     }
 
-    return MouseRegion(
-      onEnter: enabled ? (_) => setState(() => _hovered = true) : null,
-      onExit: enabled ? (_) => setState(() => _hovered = false) : null,
-      child: GestureDetector(
-        onTap: widget.onPressed,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: background,
-            border: Border.all(
-              color: border,
-              width: TrampColors.borderWidth,
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: _semanticLabel(widget.child),
+      child: MouseRegion(
+        onEnter: enabled ? (_) => setState(() => _hovered = true) : null,
+        onExit: enabled ? (_) => setState(() => _hovered = false) : null,
+        child: GestureDetector(
+          onTap: widget.onPressed,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: background,
+              border: Border.all(
+                color: border,
+                width: TrampColors.borderWidth,
+              ),
             ),
-          ),
-          child: DefaultTextStyle(
-            style: TextStyle(color: foreground),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              child: widget.child,
+            child: DefaultTextStyle(
+              style: TextStyle(color: foreground),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                child: widget.child,
+              ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  String? _semanticLabel(Widget child) {
+    if (child is Text) return child.data;
+    return null;
   }
 }

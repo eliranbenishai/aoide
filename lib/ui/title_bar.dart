@@ -67,11 +67,13 @@ class _WindowControls extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _WindowControlButton(
+          label: 'Minimize',
           color: TrampColors.minimize,
           onPressed: windowManager.minimize,
         ),
         const SizedBox(width: 6),
         _WindowControlButton(
+          label: 'Close',
           color: TrampColors.accent,
           onPressed: windowManager.close,
         ),
@@ -82,23 +84,29 @@ class _WindowControls extends StatelessWidget {
 
 class _WindowControlButton extends StatelessWidget {
   const _WindowControlButton({
+    required this.label,
     required this.color,
     required this.onPressed,
   });
 
+  final String label;
   final Color color;
   final Future<void> Function() onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: () => onPressed(),
-        child: SizedBox(
-          width: 12,
-          height: 12,
-          child: ColoredBox(color: color),
+    return Semantics(
+      button: true,
+      label: label,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () => onPressed(),
+          child: SizedBox(
+            width: 12,
+            height: 12,
+            child: ColoredBox(color: color),
+          ),
         ),
       ),
     );
