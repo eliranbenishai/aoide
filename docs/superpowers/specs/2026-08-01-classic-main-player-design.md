@@ -1,6 +1,6 @@
 # Classic main player chrome — design
 
-**Status:** Draft for user review → then implementation plan  
+**Status:** Approved — implementation plan at `docs/superpowers/plans/2026-08-01-classic-main-player.md`  
 **Date:** 2026-08-01  
 **Visual source of truth:** [`assets/tramp-main-player-idealized-mockup.png`](assets/tramp-main-player-idealized-mockup.png)
 
