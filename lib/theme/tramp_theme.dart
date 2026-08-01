@@ -6,21 +6,20 @@ import 'tramp_colors.dart';
 ThemeData buildTrampTheme() {
   final base = ThemeData(
     useMaterial3: true,
-    brightness: Brightness.light,
-    scaffoldBackgroundColor: TrampColors.surface,
-    colorScheme: const ColorScheme.light(
-      primary: TrampColors.ink,
-      secondary: TrampColors.accent,
-      surface: TrampColors.surface,
-      onPrimary: TrampColors.surface,
-      onSurface: TrampColors.ink,
+    brightness: Brightness.dark,
+    scaffoldBackgroundColor: TrampColors.metalMid,
+    colorScheme: const ColorScheme.dark(
+      primary: TrampColors.lcdPhosphor,
+      secondary: TrampColors.fillAccent,
+      surface: TrampColors.metalFace,
+      onPrimary: TrampColors.lcdBackground,
+      onSurface: TrampColors.metalDeep,
     ),
   );
   return base.copyWith(
     textTheme: GoogleFonts.ibmPlexMonoTextTheme(base.textTheme).apply(
-      bodyColor: TrampColors.ink,
-      displayColor: TrampColors.ink,
+      bodyColor: TrampColors.metalDeep,
+      displayColor: TrampColors.metalDeep,
     ),
-    primaryTextTheme: GoogleFonts.syneTextTheme(base.primaryTextTheme),
   );
 }
