@@ -47,7 +47,7 @@ flowchart TB
 
 | Area | Responsibility | Status |
 |------|----------------|--------|
-| App chrome / UI | `TrampShell`, `TitleBar`, `TrampButton`; frameless resize/drag via `window_manager`; transport + playlist slots | Implemented |
+| App chrome / UI | `TrampShell`, `TitleBar`, `TrampButton`, `TransportPanel`, `PlaylistPanel`, `InkSlider`; frameless resize/drag via `window_manager` | Implemented |
 | Playback | `PlayerEngine` seam, `PlaybackController` (transport, seek, volume, shuffle/repeat); media_kit adapter later | In progress |
 | Formats | MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus | Not started |
 | Playlist | Open/save M3U/M3U8, edit order, restore last playlist (`PlaylistController`) | In progress |
