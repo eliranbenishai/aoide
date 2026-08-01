@@ -1,0 +1,55 @@
+---
+description: Auto-apply matching saved skills every session
+alwaysApply: true
+---
+
+# Apply saved skills by default
+
+At the start of each user turn (and whenever intent becomes clear), **match the task to installed skills and use them**. Do not wait for `/skill-name` if the fit is clear.
+
+## Where to look
+
+1. Skills already listed in this session (agent_skills / available_skills)
+2. User skills under `~/.agents/skills/*/SKILL.md` (e.g. `to-spec`, `to-tickets`, `implement`, `tdd`, `triage`)
+3. Cursor / plugin skills (e.g. Superpowers brainstorming, writing-plans)
+4. Project guidance in `AGENTS.md` and `docs/agents/`
+
+If unsure a skill exists, use **find-skills** or read the skill’s `SKILL.md` before improvising the same workflow.
+
+## How to apply
+
+- **Read** the matching skill file, announce briefly (“Using X to …”), then **follow it**.
+- Prefer **process** skills first when several apply (e.g. brainstorm → write plan → implement → review).
+- **User override wins:** explicit `/skill` or “use X” / “skip X” beats auto-match.
+- Skills marked `disable-model-invocation: true` are still in scope here when the task clearly matches — that flag only means Cursor won’t auto-attach them; **this rule says to use them anyway**.
+- Do not stack redundant skills that solve the same step (pick the best fit).
+
+## When the match is unclear
+
+If it is **not clear** which skill (or flow) fits:
+
+1. Use **`ask-matt`** (`~/.agents/skills/ask-matt/SKILL.md`) as the router — read it and follow its recommendation.
+2. If `ask-matt` yields **no appropriate skill**, proceed **without** a saved skill (normal agent judgment). Do not invent a fake skill workflow.
+
+```text
+❌ BAD: Guess a skill, or stall forever when unsure
+✅ GOOD: Clear match → use it; unclear → ask-matt; no fit → proceed without a skill
+```
+
+## Quick matches (examples)
+
+| User intent | Prefer |
+|-------------|--------|
+| Turn discussion into a PRD/spec for the tracker | `to-spec` |
+| Break a spec/plan into tickets | `to-tickets` |
+| Implement from a spec/tickets | `implement` (+ `tdd` at seams) |
+| Creative feature / UI before coding | Superpowers `brainstorming` |
+| Multi-step plan after approved design | Superpowers `writing-plans` |
+| Bug / unexpected failure | `diagnosing-bugs` or Superpowers `systematic-debugging` |
+| Domain language / ADR | `domain-modeling` |
+| Review branch/PR vs standards+spec | `code-review` |
+
+```text
+❌ BAD: Write a design/spec from scratch while ignoring to-spec / brainstorming
+✅ GOOD: Task matches → read skill → follow its process (tracker paths from docs/agents/)
+```

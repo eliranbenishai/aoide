@@ -47,3 +47,7 @@ app.*.map.json
 # Local agent / brainstorm session files
 .superpowers/
 
+
+# Git worktrees
+.worktrees/
+

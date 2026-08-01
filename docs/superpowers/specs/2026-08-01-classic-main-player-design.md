@@ -1,6 +1,7 @@
 # Classic main player chrome — design
 
-**Status:** Approved — implemented (docs/cleanup Task 8); plan at `docs/superpowers/plans/2026-08-01-classic-main-player.md`  
+**Status:** Approved — implemented; plan at `docs/superpowers/plans/2026-08-01-classic-main-player.md`  
+
 **Date:** 2026-08-01  
 **Visual source of truth:** [`assets/tramp-main-player-idealized-mockup.png`](assets/tramp-main-player-idealized-mockup.png)
 

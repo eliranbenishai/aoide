@@ -1,5 +1,9 @@
 ## Agent skills
 
+### Auto-apply
+
+Every session: match the task to installed skills and apply them (including user skills like `to-spec` / `implement` even when they disable model auto-invocation). If the match is unclear, use `ask-matt`; if that finds nothing appropriate, proceed without a saved skill. See `.cursor/rules/apply-skills.mdc`.
+
 ### Issue tracker
 
 Issues live as local markdown under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
