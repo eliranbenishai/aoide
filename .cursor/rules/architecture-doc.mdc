@@ -1,0 +1,32 @@
+---
+description: Keep docs/architecture.md current with app changes
+alwaysApply: true
+---
+
+# Architecture design doc
+
+This repo maintains a living architecture design doc at `docs/architecture.md`.
+
+## When you must update it
+
+Update `docs/architecture.md` in the **same change** whenever you:
+
+- Add, remove, or rename a major module, package, or boundary
+- Change how layers interact (UI, playback, playlist, platform, persistence, etc.)
+- Introduce or replace a dependency that shapes architecture (UI toolkit, audio engine, IPC, packaging)
+- Lock or revise a stack/platform decision that affects structure
+- Add a feature that creates new components or data flow
+
+Do not leave architecture drift for a follow-up. If the change is tiny and truly local (typo, pure styling, comment), skip the doc update.
+
+## How to update
+
+- Keep the doc as a map of **structure and responsibilities**, not a changelog or API reference
+- Prefer short sections + diagrams (mermaid when helpful) over long prose
+- Reflect reality in the repo; if unsure, inspect the code and correct the doc
+- If the file is missing, recreate it from the current codebase before finishing the task
+
+## Related docs
+
+- Domain vocabulary: `CONTEXT.md`
+- Hard-to-reverse decisions: `docs/adr/` (ADRs) — link from the architecture doc when relevant

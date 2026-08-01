@@ -1,0 +1,18 @@
+---
+description: Restrict Claude/ChatGPT subagent models unless approved
+alwaysApply: true
+---
+
+# Subagent model policy
+
+When launching subagents (Task tool, background agents, research runners, etc.):
+
+- **Do not** select Claude or ChatGPT/GPT family models by default.
+- Prefer the session default model, or non-Claude/non-GPT options available in this environment (e.g. Composer, Grok).
+- **Allowed without asking** only when the user explicitly names Claude or ChatGPT/GPT for that run.
+- If a task appears to *require* Claude or ChatGPT/GPT (tooling/model capability gap), **stop and get approval** before launching with that model. Explain why in one or two sentences.
+
+```text
+❌ BAD: Task(model: "claude-…") or Task(model: "gpt-…") without user request/approval
+✅ GOOD: Task() with default model, or Task(model: "…") only after explicit user instruction/approval
+```
