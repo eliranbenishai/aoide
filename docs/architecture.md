@@ -4,33 +4,35 @@ Living design map of how Tramp is structured. Agents and humans update this when
 
 ## Status
 
-**Pre-implementation.** Product direction is being decided via the wayfinder map at `.scratch/tramp-v1-spec/`. Stack and module boundaries below are placeholders until locked.
+**Pre-implementation.** v1 product spec is written at [`tramp-v1-spec.md`](tramp-v1-spec.md). Stack is locked (Flutter); module boundaries below are still expected shape until code exists. Wayfinder map: `.scratch/tramp-v1-spec/`.
 
 ## Intended product shape (v1)
 
-- Multi-platform desktop player (Windows, Linux, macOS)
+- Multi-platform desktop player (Windows, Linux, macOS); shippable via Flutter packaging (stores not required)
 - Local playback; scalable UI with custom **app chrome** (no OS window frame)
-- Playlist-centric (M3U/M3U8); no media library in v1
-- Classic Winamp skins: out of v1
+- Playlist-centric (M3U/M3U8); file associations for v1 audio + playlists; no media library in v1
+- Classic Winamp skins, gapless, and crossfade: out of v1
+- Product spec target: `docs/tramp-v1-spec.md`
+- UI direction: transport-stack layout; paper/ink design language (see `.scratch/tramp-v1-spec/prototype/?variant=W`)
 
 ## System overview
 
 ```mermaid
 flowchart TB
-  subgraph ui [UI]
+  subgraph ui [UI - Flutter]
     Chrome[App chrome / window]
     Player[Player controls]
     Playlist[Playlist view]
   end
-  subgraph core [Core - TBD with stack]
-    Playback[Playback engine]
+  subgraph core [Core - Flutter / Dart]
+    Playback[Playback - media_kit preferred]
     PlaylistSvc[Playlist service]
-    Formats[Decoders / demux]
+    Formats[Decoders via media_kit / libmpv]
   end
   subgraph platform [Platform]
     FS[Filesystem]
     MediaKeys[OS media keys]
-    Pack[Packaging / installers]
+    Pack[flutter build packaging]
   end
   Chrome --> Player
   Chrome --> Playlist
@@ -45,16 +47,19 @@ flowchart TB
 
 | Area | Responsibility | Status |
 |------|----------------|--------|
-| App chrome / UI | One-window scalable surface, resize, drag-to-move, close/minimize | Not started |
-| Playback | Transport, seek, volume, shuffle/repeat | Not started |
+| App chrome / UI | One-window scalable surface, resize, drag-to-move, close/minimize (`window_manager` preferred) | Not started |
+| Playback | Transport, seek, volume, shuffle/repeat (media_kit preferred) | Not started |
 | Formats | MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus | Not started |
 | Playlist | Open/save M3U/M3U8, edit order, restore last playlist | Not started |
-| Platform | Media keys, packaging per OS | Not started |
+| Platform | Media keys, `flutter build` packaging per OS | Not started |
 
 ## Stack
 
-**Not locked.** Research in progress: Flutter (primary candidate) vs Tauri 2 + Rust (runner-up). See `.scratch/tramp-v1-spec/`.
+**Locked:** Flutter for v1 (Windows, Linux, macOS). Preferred defaults: `window_manager` (app chrome), media_kit/libmpv (playback). Not locked: state management, routing, SDK versions, design-system packages. Not v1: Tauri, Electron, second UI toolkit.
+
+- ADR: [0001-flutter-for-v1.md](adr/0001-flutter-for-v1.md)
+- Research: [`.scratch/tramp-v1-spec/research/v1-stack.md`](../.scratch/tramp-v1-spec/research/v1-stack.md)
 
 ## ADRs
 
-None yet. Add links here when `docs/adr/` entries exist.
+- [0001 — Flutter for Tramp v1](adr/0001-flutter-for-v1.md)
