@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'platform/file_open.dart';
+import 'platform/os_media_controls.dart';
 
 import 'playback/media_kit_player_engine.dart';
 
@@ -31,11 +32,14 @@ class TrampApp extends StatefulWidget {
     super.key,
     this.launchArgs = const [],
     this.engine,
+    this.osMediaControls,
   });
 
   final List<String> launchArgs;
 
   final PlayerEngine? engine;
+
+  final OsMediaControls? osMediaControls;
 
   @override
   State<TrampApp> createState() => _TrampAppState();
@@ -45,6 +49,8 @@ class _TrampAppState extends State<TrampApp> {
   late final PlaylistController _playlist;
 
   late final PlaybackController _playback;
+
+  late final OsMediaControls _osMediaControls;
 
   @override
   void initState() {
@@ -77,11 +83,14 @@ class _TrampAppState extends State<TrampApp> {
           ),
     );
 
+    _osMediaControls = widget.osMediaControls ?? createOsMediaControls();
+    unawaited(_osMediaControls.start(_playback));
     unawaited(_playlist.restoreLastPlaylist());
   }
 
   @override
   void dispose() {
+    unawaited(_osMediaControls.stop());
     unawaited(_playback.dispose());
 
     super.dispose();
