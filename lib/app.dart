@@ -3,8 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'playback/fake_player_engine.dart';
+import 'playback/media_kit_player_engine.dart';
 import 'playback/playback_controller.dart';
+import 'playback/player_engine.dart';
 import 'playlist/playlist_controller.dart';
 import 'playlist/playlist_store.dart';
 import 'theme/tramp_theme.dart';
@@ -13,9 +14,14 @@ import 'ui/transport_panel.dart';
 import 'ui/tramp_shell.dart';
 
 class TrampApp extends StatefulWidget {
-  const TrampApp({super.key, this.launchArgs = const []});
+  const TrampApp({
+    super.key,
+    this.launchArgs = const [],
+    this.engine,
+  });
 
   final List<String> launchArgs;
+  final PlayerEngine? engine;
 
   @override
   State<TrampApp> createState() => _TrampAppState();
@@ -34,7 +40,19 @@ class _TrampAppState extends State<TrampApp> {
     _playlist = PlaylistController(store: store);
     _playback = PlaybackController(
       playlist: _playlist,
-      engine: FakePlayerEngine(),
+      engine: widget.engine ??
+          MediaKitPlayerEngine(
+            onMetadata: (update) {
+              final index = _playlist.selectedIndex;
+              if (index == null) return;
+              final tracks = List.of(_playlist.playlist.tracks);
+              tracks[index] = update(tracks[index]);
+              _playlist.setTracks(
+                tracks,
+                sourcePath: _playlist.playlist.sourcePath,
+              );
+            },
+          ),
     );
     unawaited(_playlist.restoreLastPlaylist());
   }
