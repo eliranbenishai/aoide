@@ -5,7 +5,10 @@ import 'package:media_kit/media_kit.dart' hide Track;
 import '../domain/track.dart';
 import 'player_engine.dart';
 
-typedef TrackMetadataCallback = void Function(Track Function(Track) update);
+typedef TrackMetadataCallback = void Function(
+  String path,
+  Track Function(Track) update,
+);
 
 class MediaKitPlayerEngine implements PlayerEngine {
   MediaKitPlayerEngine({this.onMetadata, Player? player})
@@ -73,7 +76,7 @@ class MediaKitPlayerEngine implements PlayerEngine {
         return;
       }
 
-      callback((current) {
+      callback(track.path, (current) {
         return current.copyWith(
           title: title ?? current.title,
           artist: artist ?? current.artist,

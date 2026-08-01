@@ -42,10 +42,10 @@ class _TrampAppState extends State<TrampApp> {
       playlist: _playlist,
       engine: widget.engine ??
           MediaKitPlayerEngine(
-            onMetadata: (update) {
-              final index = _playlist.selectedIndex;
-              if (index == null) return;
+            onMetadata: (path, update) {
               final tracks = List.of(_playlist.playlist.tracks);
+              final index = tracks.indexWhere((track) => track.path == path);
+              if (index < 0) return;
               tracks[index] = update(tracks[index]);
               _playlist.setTracks(
                 tracks,
