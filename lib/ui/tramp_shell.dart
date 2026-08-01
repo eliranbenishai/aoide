@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
@@ -206,35 +207,41 @@ class TrampShell extends StatelessWidget {
               width: TrampColors.borderWidth,
             ),
           ),
-          child: Column(
-            children: [
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final logical = ClassicMainPlayer.logicalSize;
-                  final height =
-                      constraints.maxWidth * logical.height / logical.width;
-                  return Align(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final logical = ClassicMainPlayer.logicalSize;
+              final widthScale = constraints.maxWidth / logical.width;
+              final heightScale = constraints.maxHeight.isFinite
+                  ? constraints.maxHeight / logical.height
+                  : widthScale;
+              final scale = math.min(widthScale, heightScale);
+              final playerWidth = logical.width * scale;
+              final playerHeight = logical.height * scale;
+
+              return Column(
+                children: [
+                  Align(
                     alignment: Alignment.topCenter,
                     child: SizedBox(
-                      width: constraints.maxWidth,
-                      height: height,
+                      width: playerWidth,
+                      height: playerHeight,
                       child: FittedBox(
                         fit: BoxFit.contain,
                         child: transport,
                       ),
                     ),
-                  );
-                },
-              ),
-              Expanded(
-                child: playlistFocusNode == null
-                    ? playlist
-                    : Focus(
-                        focusNode: playlistFocusNode,
-                        child: playlist,
-                      ),
-              ),
-            ],
+                  ),
+                  Expanded(
+                    child: playlistFocusNode == null
+                        ? playlist
+                        : Focus(
+                            focusNode: playlistFocusNode,
+                            child: playlist,
+                          ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),

@@ -6,6 +6,7 @@ import 'package:tramp/playback/fake_player_engine.dart';
 import 'package:tramp/playback/playback_controller.dart';
 import 'package:tramp/playlist/playlist_controller.dart';
 import 'package:tramp/playlist/playlist_store.dart';
+import 'package:tramp/theme/tramp_colors.dart';
 import 'package:tramp/ui/classic_main_player.dart';
 import 'package:tramp/ui/tramp_shell.dart';
 
@@ -105,6 +106,7 @@ void main() {
           transport: ClassicMainPlayer(
             playback: playback,
             hasTracks: true,
+            playlistFocusNode: playlistFocus,
             onFocusPlaylist: playlistFocus.requestFocus,
           ),
           playlist: const SizedBox(
@@ -121,6 +123,59 @@ void main() {
     await tester.tap(find.byKey(const Key('lcd-playlist')));
     await tester.pump();
     expect(playlistFocus.hasFocus, isTrue);
+  });
+
+  testWidgets('PL lit when tracks present or playlist focused', (tester) async {
+    final playlistFocus = FocusNode();
+    addTearDown(playlistFocus.dispose);
+
+    Color? plColor() {
+      final text = tester.widget<Text>(
+        find.descendant(
+          of: find.byKey(const Key('lcd-playlist')),
+          matching: find.text('PL'),
+        ),
+      );
+      return text.style?.color;
+    }
+
+    Future<void> pump({required bool hasTracks}) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TrampShell(
+            playback: playback,
+            playlistController: playlist,
+            hasTracks: hasTracks,
+            playlistFocusNode: playlistFocus,
+            transport: ClassicMainPlayer(
+              playback: playback,
+              hasTracks: hasTracks,
+              playlistFocusNode: playlistFocus,
+              onFocusPlaylist: playlistFocus.requestFocus,
+            ),
+            playlist: const SizedBox(height: 80, child: Text('playlist')),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    await pump(hasTracks: false);
+    expect(playlistFocus.hasFocus, isFalse);
+    expect(plColor(), isNot(TrampColors.lcdPhosphor));
+
+    await tester.tap(find.byKey(const Key('lcd-playlist')));
+    await tester.pumpAndSettle();
+    expect(playlistFocus.hasFocus, isTrue);
+    expect(plColor(), TrampColors.lcdPhosphor);
+
+    playlistFocus.unfocus();
+    await tester.pumpAndSettle();
+    expect(playlistFocus.hasFocus, isFalse);
+    expect(plColor(), isNot(TrampColors.lcdPhosphor));
+
+    await pump(hasTracks: true);
+    expect(plColor(), TrampColors.lcdPhosphor);
   });
 
   testWidgets('volume speaker toggles mute', (tester) async {

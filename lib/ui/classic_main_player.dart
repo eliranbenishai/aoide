@@ -22,6 +22,7 @@ class ClassicMainPlayer extends StatefulWidget {
     super.key,
     required this.playback,
     required this.hasTracks,
+    this.playlistFocusNode,
     this.onFocusPlaylist,
   });
 
@@ -29,6 +30,7 @@ class ClassicMainPlayer extends StatefulWidget {
 
   final PlaybackController playback;
   final bool hasTracks;
+  final FocusNode? playlistFocusNode;
   final VoidCallback? onFocusPlaylist;
 
   @override
@@ -36,7 +38,6 @@ class ClassicMainPlayer extends StatefulWidget {
 }
 
 class _ClassicMainPlayerState extends State<ClassicMainPlayer> {
-  double? _seekFraction;
   double? _volumeFraction;
 
   PlaybackController get playback => widget.playback;
@@ -55,6 +56,8 @@ class _ClassicMainPlayerState extends State<ClassicMainPlayer> {
 
   @override
   Widget build(BuildContext context) {
+    final focusNode = widget.playlistFocusNode;
+
     return SizedBox(
       width: ClassicMainPlayer.logicalSize.width,
       height: ClassicMainPlayer.logicalSize.height,
@@ -65,90 +68,106 @@ class _ClassicMainPlayerState extends State<ClassicMainPlayer> {
           child: ListenableBuilder(
             listenable: playback,
             builder: (context, _) {
-              final track = playback.currentTrack;
-              final duration = playback.duration;
-              final durationMs = duration.inMilliseconds;
-              final positionFraction = durationMs > 0
-                  ? playback.position.inMilliseconds / durationMs
-                  : 0.0;
-              final seekValue =
-                  (_seekFraction ?? positionFraction).clamp(0.0, 1.0);
-              final volumeValue =
-                  (_volumeFraction ?? playback.volume).clamp(0.0, 1.0);
-              final canTransport = track != null || widget.hasTracks;
-              final titleLine = track == null
-                  ? 'No track'
-                  : [
-                      if (track.artist != null &&
-                          track.artist!.trim().isNotEmpty)
-                        track.artist!.trim(),
-                      track.displayTitle,
-                    ].join(' - ');
+              Widget buildChrome({required bool playlistActive}) {
+                final track = playback.currentTrack;
+                final duration = playback.duration;
+                final durationMs = duration.inMilliseconds;
+                final positionFraction = durationMs > 0
+                    ? playback.position.inMilliseconds / durationMs
+                    : 0.0;
+                final seekValue = positionFraction.clamp(0.0, 1.0);
+                final volumeValue =
+                    (_volumeFraction ?? playback.volume).clamp(0.0, 1.0);
+                final canTransport = track != null || widget.hasTracks;
+                final titleLine = track == null
+                    ? 'No track'
+                    : [
+                        if (track.artist != null &&
+                            track.artist!.trim().isNotEmpty)
+                          track.artist!.trim(),
+                        track.displayTitle,
+                      ].join(' - ');
 
-              return Column(
-                children: [
-                  const _TitleBar(),
-                  const SizedBox(height: 6),
-                  Expanded(
-                    child: _LcdRow(
-                      positionLabel: formatDuration(playback.position),
-                      titleLine: titleLine,
-                      trackOpen: track != null,
-                      playing: playback.playing,
-                      volume: playback.muted ? 0 : playback.volume,
-                      shuffle: playback.shuffle,
-                      repeatMode: playback.repeatMode,
-                      onToggleShuffle: playback.toggleShuffle,
-                      onCycleRepeat: playback.cycleRepeatMode,
-                      onFocusPlaylist: widget.onFocusPlaylist,
+                return Column(
+                  children: [
+                    const _TitleBar(),
+                    const SizedBox(height: 6),
+                    Expanded(
+                      child: _LcdRow(
+                        positionLabel: formatDuration(playback.position),
+                        titleLine: titleLine,
+                        trackOpen: track != null,
+                        playing: playback.playing,
+                        volume: playback.muted ? 0 : playback.volume,
+                        shuffle: playback.shuffle,
+                        repeatMode: playback.repeatMode,
+                        playlistActive: playlistActive,
+                        onToggleShuffle: playback.toggleShuffle,
+                        onCycleRepeat: playback.cycleRepeatMode,
+                        onFocusPlaylist: widget.onFocusPlaylist,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  SizedBox(
-                    height: 22,
-                    child: ChromeSlider(
-                      key: const Key('transport-seek'),
-                      value: seekValue,
-                      onChanged: durationMs > 0
-                          ? (value) => setState(() => _seekFraction = value)
-                          : null,
-                      onChangeEnd: durationMs > 0
-                          ? (value) {
-                              setState(() => _seekFraction = null);
-                              unawaited(
-                                playback.seek(
-                                  Duration(
-                                    milliseconds: (value * durationMs).round(),
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      height: 22,
+                      child: ChromeSlider(
+                        key: const Key('transport-seek'),
+                        value: seekValue,
+                        onChangeEnd: durationMs > 0
+                            ? (value) {
+                                unawaited(
+                                  playback.seek(
+                                    Duration(
+                                      milliseconds:
+                                          (value * durationMs).round(),
+                                    ),
                                   ),
-                                ),
-                              );
-                            }
-                          : null,
+                                );
+                              }
+                            : null,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  _TransportRow(
-                    volume: volumeValue,
-                    muted: playback.muted,
-                    onPrevious: canTransport
-                        ? () => unawaited(playback.previous())
-                        : null,
-                    onPlay: canTransport ? () => unawaited(_play()) : null,
-                    onPause: canTransport ? () => unawaited(_pause()) : null,
-                    onStop: track != null
-                        ? () => unawaited(playback.stop())
-                        : null,
-                    onNext:
-                        canTransport ? () => unawaited(playback.next()) : null,
-                    onVolumeChanged: (value) {
-                      setState(() => _volumeFraction = value);
-                      playback.setVolume(value);
-                    },
-                    onVolumeChangeEnd: (_) =>
-                        setState(() => _volumeFraction = null),
-                    onToggleMute: playback.toggleMute,
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    _TransportRow(
+                      volume: volumeValue,
+                      muted: playback.muted,
+                      onPrevious: canTransport
+                          ? () => unawaited(playback.previous())
+                          : null,
+                      onPlay:
+                          canTransport ? () => unawaited(_play()) : null,
+                      onPause:
+                          canTransport ? () => unawaited(_pause()) : null,
+                      onStop: track != null
+                          ? () => unawaited(playback.stop())
+                          : null,
+                      onNext: canTransport
+                          ? () => unawaited(playback.next())
+                          : null,
+                      onVolumeChanged: (value) {
+                        setState(() => _volumeFraction = value);
+                        playback.setVolume(value);
+                      },
+                      onVolumeChangeEnd: (_) =>
+                          setState(() => _volumeFraction = null),
+                      onToggleMute: playback.toggleMute,
+                    ),
+                  ],
+                );
+              }
+
+              if (focusNode == null) {
+                return buildChrome(playlistActive: widget.hasTracks);
+              }
+
+              return ListenableBuilder(
+                listenable: focusNode,
+                builder: (context, _) {
+                  return buildChrome(
+                    playlistActive:
+                        widget.hasTracks || focusNode.hasFocus,
+                  );
+                },
               );
             },
           ),
@@ -243,6 +262,7 @@ class _LcdRow extends StatelessWidget {
     required this.volume,
     required this.shuffle,
     required this.repeatMode,
+    required this.playlistActive,
     required this.onToggleShuffle,
     required this.onCycleRepeat,
     this.onFocusPlaylist,
@@ -255,6 +275,7 @@ class _LcdRow extends StatelessWidget {
   final double volume;
   final bool shuffle;
   final RepeatMode repeatMode;
+  final bool playlistActive;
   final VoidCallback onToggleShuffle;
   final VoidCallback onCycleRepeat;
   final VoidCallback? onFocusPlaylist;
@@ -358,7 +379,7 @@ class _LcdRow extends StatelessWidget {
                         _LcdToggle(
                           key: const Key('lcd-playlist'),
                           label: 'PL',
-                          active: true,
+                          active: playlistActive,
                           onTap: onFocusPlaylist!,
                           chrome: true,
                         ),
@@ -411,8 +432,10 @@ class _LcdToggle extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
               child: Text(
                 label,
-                style: const TextStyle(
-                  color: TrampColors.metalHi,
+                style: TextStyle(
+                  color: active
+                      ? TrampColors.lcdPhosphor
+                      : TrampColors.metalShadow,
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   height: 1,

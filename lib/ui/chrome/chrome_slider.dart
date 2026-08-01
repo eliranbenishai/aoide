@@ -45,6 +45,10 @@ class _ChromeSliderState extends State<ChromeSlider> {
     setState(() => _dragValue = null);
   }
 
+  void _cancelDrag() {
+    setState(() => _dragValue = null);
+  }
+
   @override
   Widget build(BuildContext context) {
     final enabled = widget.onChanged != null || widget.onChangeEnd != null;
@@ -68,11 +72,13 @@ class _ChromeSliderState extends State<ChromeSlider> {
                   _setDragValue(_valueFromLocalDx(details.localPosition.dx, width))
               : null,
           onHorizontalDragEnd: enabled ? (_) => _endDrag() : null,
+          onHorizontalDragCancel: enabled ? _cancelDrag : null,
           onTapDown: enabled
               ? (details) =>
                   _setDragValue(_valueFromLocalDx(details.localPosition.dx, width))
               : null,
           onTapUp: enabled ? (_) => _endDrag() : null,
+          onTapCancel: enabled ? _cancelDrag : null,
           child: SizedBox(
             width: width,
             height: constraints.maxHeight.isFinite

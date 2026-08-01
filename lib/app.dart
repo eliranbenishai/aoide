@@ -205,6 +205,7 @@ class _TrampAppState extends State<TrampApp> {
             transport: ClassicMainPlayer(
               playback: _playback,
               hasTracks: _playlist.playlist.tracks.isNotEmpty,
+              playlistFocusNode: _playlistFocusNode,
               onFocusPlaylist: _playlistFocusNode.requestFocus,
             ),
             playlist: PlaylistPanel(
