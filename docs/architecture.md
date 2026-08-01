@@ -51,7 +51,7 @@ flowchart TB
 | Playback | `PlayerEngine` seam, `PlaybackController`, `MediaKitPlayerEngine` (local files via media_kit/libmpv) | Implemented |
 | Formats | MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus via media_kit | Implemented |
 | Playlist | Open/save M3U/M3U8, edit order, restore last playlist (`PlaylistController`) | In progress |
-| Platform | Media keys, `flutter build` packaging per OS | Not started |
+| Platform | `tramp_window` (frameless chrome); `file_open` (pickers, folder expand, DnD paths) | In progress |
 
 ## Stack
 
