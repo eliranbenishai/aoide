@@ -48,9 +48,9 @@ flowchart TB
 | Area | Responsibility | Status |
 |------|----------------|--------|
 | App chrome / UI | One-window scalable surface, resize, drag-to-move, close/minimize (`window_manager` preferred) | Scaffolding |
-| Playback | Transport, seek, volume, shuffle/repeat (media_kit preferred) | Not started |
+| Playback | `PlayerEngine` seam, `PlaybackController` (transport, seek, volume, shuffle/repeat); media_kit adapter later | In progress |
 | Formats | MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus | Not started |
-| Playlist | Open/save M3U/M3U8, edit order, restore last playlist | Not started |
+| Playlist | Open/save M3U/M3U8, edit order, restore last playlist (`PlaylistController`) | In progress |
 | Platform | Media keys, `flutter build` packaging per OS | Not started |
 
 ## Stack
