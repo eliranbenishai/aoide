@@ -11,9 +11,9 @@ Living design map of how Tramp is structured. Agents and humans update this when
 - Multi-platform desktop player (Windows, Linux, macOS); shippable via Flutter packaging (stores not required)
 - Local playback; scalable UI with custom **app chrome** (no OS window frame)
 - Playlist-centric (M3U/M3U8); file associations for v1 audio + playlists; no media library in v1
-- Classic Winamp skins, gapless, and crossfade: out of v1
+- Classic Winamp WSZ/bitmap skins, gapless, and crossfade: out of v1
 - Product spec target: `docs/tramp-v1-spec.md`
-- UI direction: transport-stack layout; paper/ink design language (see `.scratch/tramp-v1-spec/prototype/?variant=W`)
+- UI direction: scaled classic main player + matching playlist chrome (metal/LCD vector; see `docs/superpowers/specs/2026-08-01-classic-main-player-design.md`)
 
 ## System overview
 
@@ -47,7 +47,7 @@ flowchart TB
 
 | Area | Responsibility | Status |
 |------|----------------|--------|
-| App chrome / UI | `TrampShell`, `TitleBar`, `TrampButton`, `TransportPanel`, `PlaylistPanel`, `InkSlider`; frameless resize/drag via `window_manager`; keyboard shortcuts | Implemented |
+| App chrome / UI | `TrampShell`, `ClassicMainPlayer`, `PlaylistPanel`, `lib/ui/chrome/` (`ChromeButton`, `ChromeSlider`, `MetalPanel`, `SpectrumVisualizer`, `TrampLogo`, transport icons); frameless resize/drag via `window_manager`; keyboard shortcuts | Implemented |
 | Playback | `PlayerEngine` seam, `PlaybackController`, `MediaKitPlayerEngine` (local files via media_kit/libmpv); shuffle/repeat/volume/mute/seek | Implemented |
 | Formats | MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus via media_kit | Implemented |
 | Playlist | Open/save M3U/M3U8, add/remove/reorder, play from selection, restore last playlist (`PlaylistController`, `M3uCodec`, `PlaylistStore`) | Implemented |

@@ -18,15 +18,4 @@ abstract final class TrampColors {
 
   static const skinBorder = Color(0xFF555555);
   static const borderWidth = 1.0;
-
-  // Compatibility aliases while migrating call sites in later tasks:
-  static const surface = metalFace;
-  static const ink = metalDeep;
-  static const accent = fillAccent;
-  static const muted = metalShadow;
-  static const transportWash = metalHi;
-  static const playlistTop = metalHi;
-  static const playlistBottom = metalFace;
-  static const brandAccent = lcdPeak;
-  static const minimize = metalShadow;
 }

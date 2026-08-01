@@ -188,7 +188,7 @@ class _TitleBar extends StatelessWidget {
           ),
           _WindowControlButton(
             label: 'Minimize',
-            color: TrampColors.minimize,
+            color: TrampColors.metalShadow,
             onPressed: windowManager.minimize,
           ),
           const SizedBox(width: 6),

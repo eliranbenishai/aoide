@@ -1,6 +1,6 @@
 # Classic main player chrome — design
 
-**Status:** Approved — implementation plan at `docs/superpowers/plans/2026-08-01-classic-main-player.md`  
+**Status:** Approved — implemented (docs/cleanup Task 8); plan at `docs/superpowers/plans/2026-08-01-classic-main-player.md`  
 **Date:** 2026-08-01  
 **Visual source of truth:** [`assets/tramp-main-player-idealized-mockup.png`](assets/tramp-main-player-idealized-mockup.png)
 
@@ -59,7 +59,7 @@ flowchart TB
 | Scaled player host | Centers/scales `ClassicMainPlayer` to available width | Shell |
 | Playlist chrome restyle | Same tokens on toolbar/rows/background | Tokens |
 
-Existing `TitleBar` + `TransportPanel` + paper/ink `TrampButton`/`InkSlider` usage in the player stack are replaced or retired for that surface. Playlist may keep structure but swap decorations/controls to chrome widgets.
+Paper/ink `TitleBar`, `TransportPanel`, `TrampButton`, and `InkSlider` were retired; the player stack uses `ClassicMainPlayer` + `lib/ui/chrome/`. Playlist keeps list semantics with matching metal/LCD chrome.
 
 ## Layout (main player)
 

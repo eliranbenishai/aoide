@@ -35,13 +35,13 @@ Tramp is a multi-platform desktop music player — a spiritual successor to Wina
 
 ## UI direction
 
-Locked from the throwaway prototype ([`.scratch/tramp-v1-spec/prototype/`](../.scratch/tramp-v1-spec/prototype/), variant **W**):
+Classic Winamp 2.x–inspired **vector chrome** (not paper/ink; not bitmap/WSZ skins):
 
-- **Layout:** transport stack — brand + now-playing/transport on top; playlist fills the rest.
-- **Design language:** paper/ink — warm surface `#f2ebe0`, ink `#1a1410`, terracotta accent `#c43c17`, Syne (or equivalent) wordmark, hard 2px borders, ink primary buttons.
-- Dense, playlist-centric, playful but not “streaming clean.” Not Material/Fluent defaults.
+- **Layout:** scaled main player (fixed classic aspect) on top; playlist fills remaining window space with matching metal/LCD chrome.
+- **Design language:** brushed metal panels, inset LCD greens, embossed transport controls, soft pin-up logo + **TRAMP** wordmark — all vector (`CustomPainter` / decorations), no raster skin assets.
+- Dense, playlist-centric, control-forward. Not Material/Fluent defaults.
 
-Implementation should match this direction in Flutter; the HTML prototype is a reference, not production code.
+Visual target: [`docs/superpowers/specs/2026-08-01-classic-main-player-design.md`](superpowers/specs/2026-08-01-classic-main-player-design.md). Classic Winamp **WSZ skins** remain a non-goal for v1.
 
 ## Playback
 
@@ -83,11 +83,11 @@ Associate Tramp with v1 audio formats and `.m3u` / `.m3u8` so “Open with Tramp
 
 ## Non-goals (v1)
 
-- Classic Winamp skins
+- Classic Winamp **WSZ** / bitmap skins (vector chrome is the v1 look; skin loading comes later)
 - Media library / scanned catalog
 - Streaming services
 - Plugin ecosystem
-- Equalizer and visualizations as requirements
+- Equalizer and visualizations as requirements (spectrum pulse in chrome is presentation-only)
 - Gapless playback
 - Crossfade
 - Detachable multi-window layout (main / playlist / EQ frames)
@@ -96,7 +96,7 @@ Associate Tramp with v1 audio formats and `.m3u` / `.m3u8` so “Open with Tramp
 
 ## Success criteria
 
-v1 is done when a user can install Tramp on Windows, Linux, and macOS, open local audio and playlists, manage a playlist, control playback with the transport chrome above, and use a frameless, resizable, paper/ink UI that matches the locked direction — without depending on a library, skins, or store distribution.
+v1 is done when a user can install Tramp on Windows, Linux, and macOS, open local audio and playlists, manage a playlist, control playback with the classic vector chrome above, and use a frameless, resizable UI that matches the locked direction — without depending on a library, WSZ skins, or store distribution.
 
 ## Related artifacts
 
@@ -106,5 +106,5 @@ v1 is done when a user can install Tramp on Windows, Linux, and macOS, open loca
 | [`architecture.md`](architecture.md) | Living structure map |
 | [`adr/0001-flutter-for-v1.md`](adr/0001-flutter-for-v1.md) | Flutter stack ADR |
 | [`.scratch/tramp-v1-spec/research/v1-stack.md`](../.scratch/tramp-v1-spec/research/v1-stack.md) | Stack research evidence |
-| [`.scratch/tramp-v1-spec/prototype/`](../.scratch/tramp-v1-spec/prototype/) | UI direction prototype (variant W) |
+| [`superpowers/specs/2026-08-01-classic-main-player-design.md`](superpowers/specs/2026-08-01-classic-main-player-design.md) | Classic vector chrome UI direction |
 | [`.scratch/tramp-v1-spec/map.md`](../.scratch/tramp-v1-spec/map.md) | Wayfinder decision index |
