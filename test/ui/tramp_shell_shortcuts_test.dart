@@ -59,6 +59,17 @@ void main() {
     expect(playback.currentTrack?.path, '/a.mp3');
   });
 
+  testWidgets('Space plays selected track when selection differs', (tester) async {
+    await playback.playIndex(0);
+    playlist.select(2);
+    await pumpShell(tester);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(playback.currentTrack?.path, '/c.mp3');
+    expect(playback.playing, isTrue);
+  });
+
   testWidgets('arrow keys move playlist selection', (tester) async {
     playlist.select(1);
     await pumpShell(tester);

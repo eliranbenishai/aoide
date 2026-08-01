@@ -22,6 +22,14 @@ flutter build linux     # → build/linux/x64/release/bundle/
 
 macOS and Linux builds require those hosts (or CI). This repo was smoke-tested on **Windows** only; run the macOS/Linux commands on the matching OS before shipping.
 
+## Known v1 limits
+
+| Limit | Notes |
+|-------|--------|
+| Linux MPRIS | OS media keys / Now Playing via D-Bus not implemented (`LinuxOsMediaControls` stub). In-app media keys work when Tramp is focused. |
+| Second-instance “Open with” | Cold-start argv and file associations work; a second running instance does not forward paths to the first (starts a new process). |
+| macOS/Linux packaging smoke | Release builds not verified on this host; Windows release build verified. |
+
 App-store listings are not required for v1.
 
 ## v1 success criteria
@@ -37,7 +45,7 @@ From [`docs/tramp-v1-spec.md`](docs/tramp-v1-spec.md). Manual smoke on each targ
 | Frameless resizable paper/ink UI (variant W) | Implemented (`TrampShell`, `window_manager`) |
 | No library/skins/store dependency | Confirmed (non-goals excluded) |
 
-Automated gate: `flutter test` (26 tests) and `flutter build windows` must pass.
+Automated gate: `flutter test` and `flutter build windows` must pass.
 
 ## File associations
 
@@ -57,7 +65,7 @@ foreach ($ext in $exts) {
 }
 ```
 
-The Flutter Windows runner forwards argv to Dart automatically. A second running instance starts a new process with the file path; single-instance forwarding is not implemented in v1.
+The Flutter Windows runner forwards argv to Dart automatically. A second running instance starts a new process with the file path; **single-instance forwarding is not implemented in v1** (see [Known v1 limits](#known-v1-limits)).
 
 ### macOS
 

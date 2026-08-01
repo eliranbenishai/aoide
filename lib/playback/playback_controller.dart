@@ -36,6 +36,7 @@ class PlaybackController extends ChangeNotifier {
         unawaited(_onCompleted());
       }),
     );
+    _previousTrackCount = _playlist.playlist.tracks.length;
     _playlist.addListener(_onPlaylistChanged);
   }
 
@@ -52,8 +53,12 @@ class PlaybackController extends ChangeNotifier {
   bool _shuffle = false;
   RepeatMode _repeatMode = RepeatMode.off;
   List<int> _shuffledOrder = [];
+  int? _playingIndex;
+  String? _playingPath;
+  int _previousTrackCount = 0;
 
   bool get playing => _playing;
+  int? get playingIndex => _playingIndex;
   bool get muted => _muted;
   double get volume => _volume;
   Duration get position => _position;
@@ -62,7 +67,7 @@ class PlaybackController extends ChangeNotifier {
   RepeatMode get repeatMode => _repeatMode;
 
   Track? get currentTrack {
-    final index = _playlist.selectedIndex;
+    final index = _playingIndex;
     if (index == null) return null;
     final tracks = _playlist.playlist.tracks;
     if (index < 0 || index >= tracks.length) return null;
@@ -70,6 +75,29 @@ class PlaybackController extends ChangeNotifier {
   }
 
   Future<void> playPause() async {
+    final selected = _playlist.selectedIndex;
+    final nothingOpen = _playingIndex == null;
+    final selectionDiffers =
+        selected != null && selected != _playingIndex;
+
+    if (nothingOpen || selectionDiffers) {
+      if (selected != null) {
+        await playIndex(selected);
+      } else if (_playingIndex != null) {
+        if (_playing) {
+          await _engine.pause();
+        } else {
+          await _engine.play();
+        }
+      } else {
+        final tracks = _playlist.playlist.tracks;
+        if (tracks.isNotEmpty) {
+          await playIndex(0);
+        }
+      }
+      return;
+    }
+
     if (_playing) {
       await _engine.pause();
     } else {
@@ -85,7 +113,7 @@ class PlaybackController extends ChangeNotifier {
     final tracks = _playlist.playlist.tracks;
     if (tracks.isEmpty) return;
 
-    final current = _playlist.selectedIndex ?? 0;
+    final current = _playingIndex ?? _playlist.selectedIndex ?? 0;
     final nextIndex = _resolveNextIndex(current, tracks.length);
     if (nextIndex == null) {
       await stop();
@@ -98,7 +126,7 @@ class PlaybackController extends ChangeNotifier {
     final tracks = _playlist.playlist.tracks;
     if (tracks.isEmpty) return;
 
-    final current = _playlist.selectedIndex ?? 0;
+    final current = _playingIndex ?? _playlist.selectedIndex ?? 0;
     final previousIndex = _resolvePreviousIndex(current, tracks.length);
     if (previousIndex == null) {
       await _engine.seek(Duration.zero);
@@ -111,6 +139,8 @@ class PlaybackController extends ChangeNotifier {
     final tracks = _playlist.playlist.tracks;
     if (index < 0 || index >= tracks.length) return;
 
+    _playingIndex = index;
+    _playingPath = tracks[index].path;
     _playlist.select(index);
     final track = tracks[index];
     await _engine.open(track);
@@ -178,6 +208,31 @@ class PlaybackController extends ChangeNotifier {
     if (_shuffle) {
       _rebuildShuffleOrder();
     }
+
+    final tracks = _playlist.playlist.tracks;
+    final previousLength = _previousTrackCount;
+    _previousTrackCount = tracks.length;
+
+    if (_playingPath != null) {
+      final newIndex = tracks.indexWhere((track) => track.path == _playingPath);
+      if (newIndex != -1) {
+        _playingIndex = newIndex;
+      } else if (tracks.length == previousLength - 1) {
+        final advanceIndex = _playingIndex;
+        _playingPath = null;
+        if (advanceIndex != null && advanceIndex < tracks.length) {
+          unawaited(playIndex(advanceIndex));
+          return;
+        }
+        _playingIndex = null;
+        unawaited(_engine.stop());
+      } else {
+        _playingIndex = null;
+        _playingPath = null;
+        unawaited(_engine.stop());
+      }
+    }
+
     notifyListeners();
   }
 
@@ -232,7 +287,7 @@ class PlaybackController extends ChangeNotifier {
       case RepeatMode.all:
         await next();
       case RepeatMode.off:
-        final current = _playlist.selectedIndex;
+        final current = _playingIndex;
         if (current == null || current >= _playlist.playlist.tracks.length - 1) {
           await stop();
         } else {

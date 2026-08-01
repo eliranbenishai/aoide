@@ -157,11 +157,8 @@ class TrampShell extends StatelessWidget {
   }
 
   Future<void> _playPause() async {
-    if (playback.currentTrack == null && hasTracks) {
-      await playback.playIndex(0);
-    } else {
-      await playback.playPause();
-    }
+    if (!hasTracks) return;
+    await playback.playPause();
   }
 
   Future<void> _playSelected() async {

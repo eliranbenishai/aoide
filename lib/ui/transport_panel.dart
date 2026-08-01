@@ -157,15 +157,8 @@ class _TransportPanelState extends State<TransportPanel> {
                     ),
                     TrampButton(
                       primary: true,
-                      onPressed: canTransport
-                          ? () async {
-                              if (track == null && widget.hasTracks) {
-                                await playback.playIndex(0);
-                              } else {
-                                await playback.playPause();
-                              }
-                            }
-                          : null,
+                      onPressed:
+                          canTransport ? () => playback.playPause() : null,
                       child: Text(playback.playing ? 'Pause' : 'Play'),
                     ),
                     TrampButton(

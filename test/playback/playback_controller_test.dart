@@ -56,4 +56,46 @@ void main() {
     await playback.next();
     expect(playback.currentTrack?.path, '/a.mp3');
   });
+
+  test('selecting another row does not change now-playing', () async {
+    await playback.playIndex(0);
+    playlist.select(2);
+    expect(playback.currentTrack?.path, '/a.mp3');
+    expect(playlist.selectedIndex, 2);
+  });
+
+  test('playPause opens selected track when selection differs', () async {
+    await playback.playIndex(0);
+    playlist.select(2);
+    await playback.playPause();
+    expect(playback.currentTrack?.path, '/c.mp3');
+    expect(playback.playing, isTrue);
+    expect(engine.lastOpenedPath, '/c.mp3');
+  });
+
+  test('playPause resumes when selection matches playing track', () async {
+    await playback.playIndex(1);
+    await playback.playPause(); // pause
+    expect(playback.playing, isFalse);
+    await playback.playPause(); // resume
+    expect(playback.playing, isTrue);
+    expect(playback.currentTrack?.path, '/b.mp3');
+    expect(engine.lastOpenedPath, '/b.mp3');
+  });
+
+  test('removing playing track advances to next remaining', () async {
+    await playback.playIndex(1);
+    playlist.removeAt(1);
+    await Future<void>.delayed(Duration.zero);
+    expect(playback.currentTrack?.path, '/c.mp3');
+    expect(playback.playing, isTrue);
+  });
+
+  test('removing last playing track stops playback', () async {
+    await playback.playIndex(2);
+    playlist.removeAt(2);
+    await Future<void>.delayed(Duration.zero);
+    expect(playback.currentTrack, isNull);
+    expect(playback.playing, isFalse);
+  });
 }
