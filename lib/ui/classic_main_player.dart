@@ -9,6 +9,7 @@ import '../theme/tramp_colors.dart';
 import 'chrome/chrome_button.dart';
 import 'chrome/chrome_slider.dart';
 import 'chrome/metal_panel.dart';
+import 'chrome/spectrum_visualizer.dart';
 import 'chrome/transport_icons.dart';
 import 'format.dart';
 
@@ -92,6 +93,8 @@ class _ClassicMainPlayerState extends State<ClassicMainPlayer> {
                       positionLabel: formatDuration(playback.position),
                       titleLine: titleLine,
                       trackOpen: track != null,
+                      playing: playback.playing,
+                      volume: playback.muted ? 0 : playback.volume,
                       shuffle: playback.shuffle,
                       repeatMode: playback.repeatMode,
                       onToggleShuffle: playback.toggleShuffle,
@@ -235,6 +238,8 @@ class _LcdRow extends StatelessWidget {
     required this.positionLabel,
     required this.titleLine,
     required this.trackOpen,
+    required this.playing,
+    required this.volume,
     required this.shuffle,
     required this.repeatMode,
     required this.onToggleShuffle,
@@ -245,6 +250,8 @@ class _LcdRow extends StatelessWidget {
   final String positionLabel;
   final String titleLine;
   final bool trackOpen;
+  final bool playing;
+  final double volume;
   final bool shuffle;
   final RepeatMode repeatMode;
   final VoidCallback onToggleShuffle;
@@ -282,8 +289,11 @@ class _LcdRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Expanded(
-                    child: SizedBox.expand(), // spectrum placeholder (Task 5)
+                  Expanded(
+                    child: SpectrumVisualizer(
+                      playing: playing,
+                      volume: volume,
+                    ),
                   ),
                   Text(
                     positionLabel,
