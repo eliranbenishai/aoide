@@ -1,15 +1,21 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:window_manager/window_manager.dart';
 
+import '../domain/repeat_mode.dart';
 import '../playback/playback_controller.dart';
 import '../theme/tramp_colors.dart';
 import 'chrome/chrome_button.dart';
 import 'chrome/chrome_slider.dart';
 import 'chrome/metal_panel.dart';
 import 'chrome/transport_icons.dart';
+import 'format.dart';
+
+export 'format.dart' show formatDuration;
 
 /// Fixed-aspect classic main player chrome, scaled by the shell via [FittedBox].
-class ClassicMainPlayer extends StatelessWidget {
+class ClassicMainPlayer extends StatefulWidget {
   const ClassicMainPlayer({
     super.key,
     required this.playback,
@@ -24,10 +30,32 @@ class ClassicMainPlayer extends StatelessWidget {
   final VoidCallback? onFocusPlaylist;
 
   @override
+  State<ClassicMainPlayer> createState() => _ClassicMainPlayerState();
+}
+
+class _ClassicMainPlayerState extends State<ClassicMainPlayer> {
+  double? _seekFraction;
+  double? _volumeFraction;
+
+  PlaybackController get playback => widget.playback;
+
+  Future<void> _play() async {
+    if (!widget.hasTracks) return;
+    if (playback.playing) return;
+    await playback.playPause();
+  }
+
+  Future<void> _pause() async {
+    if (playback.playing) {
+      await playback.playPause();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: logicalSize.width,
-      height: logicalSize.height,
+      width: ClassicMainPlayer.logicalSize.width,
+      height: ClassicMainPlayer.logicalSize.height,
       child: MetalPanel(
         style: MetalPanelStyle.raised,
         child: Padding(
@@ -35,20 +63,86 @@ class ClassicMainPlayer extends StatelessWidget {
           child: ListenableBuilder(
             listenable: playback,
             builder: (context, _) {
+              final track = playback.currentTrack;
+              final duration = playback.duration;
+              final durationMs = duration.inMilliseconds;
+              final positionFraction = durationMs > 0
+                  ? playback.position.inMilliseconds / durationMs
+                  : 0.0;
+              final seekValue =
+                  (_seekFraction ?? positionFraction).clamp(0.0, 1.0);
+              final volumeValue =
+                  (_volumeFraction ?? playback.volume).clamp(0.0, 1.0);
+              final canTransport = track != null || widget.hasTracks;
+              final titleLine = track == null
+                  ? 'No track'
+                  : [
+                      if (track.artist != null &&
+                          track.artist!.trim().isNotEmpty)
+                        track.artist!.trim(),
+                      track.displayTitle,
+                    ].join(' - ');
+
               return Column(
                 children: [
-                  const _TitleBarStub(),
+                  const _TitleBar(),
                   const SizedBox(height: 6),
-                  const Expanded(child: _LcdRowStub()),
+                  Expanded(
+                    child: _LcdRow(
+                      positionLabel: formatDuration(playback.position),
+                      titleLine: titleLine,
+                      trackOpen: track != null,
+                      shuffle: playback.shuffle,
+                      repeatMode: playback.repeatMode,
+                      onToggleShuffle: playback.toggleShuffle,
+                      onCycleRepeat: playback.cycleRepeatMode,
+                      onFocusPlaylist: widget.onFocusPlaylist,
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   SizedBox(
                     height: 22,
-                    child: ChromeSlider(value: 0, onChanged: (_) {}),
+                    child: ChromeSlider(
+                      key: const Key('transport-seek'),
+                      value: seekValue,
+                      onChanged: durationMs > 0
+                          ? (value) => setState(() => _seekFraction = value)
+                          : null,
+                      onChangeEnd: durationMs > 0
+                          ? (value) {
+                              setState(() => _seekFraction = null);
+                              unawaited(
+                                playback.seek(
+                                  Duration(
+                                    milliseconds: (value * durationMs).round(),
+                                  ),
+                                ),
+                              );
+                            }
+                          : null,
+                    ),
                   ),
                   const SizedBox(height: 6),
-                  _TransportRowStub(
-                    hasTracks: hasTracks,
-                    onFocusPlaylist: onFocusPlaylist,
+                  _TransportRow(
+                    volume: volumeValue,
+                    muted: playback.muted,
+                    onPrevious: canTransport
+                        ? () => unawaited(playback.previous())
+                        : null,
+                    onPlay: canTransport ? () => unawaited(_play()) : null,
+                    onPause: canTransport ? () => unawaited(_pause()) : null,
+                    onStop: track != null
+                        ? () => unawaited(playback.stop())
+                        : null,
+                    onNext:
+                        canTransport ? () => unawaited(playback.next()) : null,
+                    onVolumeChanged: (value) {
+                      setState(() => _volumeFraction = value);
+                      playback.setVolume(value);
+                    },
+                    onVolumeChangeEnd: (_) =>
+                        setState(() => _volumeFraction = null),
+                    onToggleMute: playback.toggleMute,
                   ),
                 ],
               );
@@ -60,8 +154,8 @@ class ClassicMainPlayer extends StatelessWidget {
   }
 }
 
-class _TitleBarStub extends StatelessWidget {
-  const _TitleBarStub();
+class _TitleBar extends StatelessWidget {
+  const _TitleBar();
 
   @override
   Widget build(BuildContext context) {
@@ -69,6 +163,8 @@ class _TitleBarStub extends StatelessWidget {
       height: 28,
       child: Row(
         children: [
+          const SizedBox(width: 22, height: 22), // logo placeholder (Task 6)
+          const SizedBox(width: 6),
           Expanded(
             child: DragToMoveArea(
               child: const Align(
@@ -134,26 +230,132 @@ class _WindowControlButton extends StatelessWidget {
   }
 }
 
-class _LcdRowStub extends StatelessWidget {
-  const _LcdRowStub();
+class _LcdRow extends StatelessWidget {
+  const _LcdRow({
+    required this.positionLabel,
+    required this.titleLine,
+    required this.trackOpen,
+    required this.shuffle,
+    required this.repeatMode,
+    required this.onToggleShuffle,
+    required this.onCycleRepeat,
+    this.onFocusPlaylist,
+  });
+
+  final String positionLabel;
+  final String titleLine;
+  final bool trackOpen;
+  final bool shuffle;
+  final RepeatMode repeatMode;
+  final VoidCallback onToggleShuffle;
+  final VoidCallback onCycleRepeat;
+  final VoidCallback? onFocusPlaylist;
+
+  static const _lcdText = TextStyle(
+    color: TrampColors.lcdPhosphor,
+    fontSize: 12,
+    fontWeight: FontWeight.w600,
+    fontFamily: 'IBMPlexMono',
+    height: 1.1,
+  );
+
+  static const _lcdDim = TextStyle(
+    color: TrampColors.lcdPhosphorDim,
+    fontSize: 10,
+    fontWeight: FontWeight.w600,
+    fontFamily: 'IBMPlexMono',
+    height: 1.1,
+  );
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    final repeatOn = repeatMode != RepeatMode.off;
+
+    return Row(
       children: [
         Expanded(
           flex: 2,
           child: MetalPanel(
             style: MetalPanelStyle.insetLcd,
-            child: SizedBox.expand(),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Expanded(
+                    child: SizedBox.expand(), // spectrum placeholder (Task 5)
+                  ),
+                  Text(
+                    positionLabel,
+                    textAlign: TextAlign.center,
+                    style: _lcdText.copyWith(fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
-        SizedBox(width: 6),
+        const SizedBox(width: 6),
         Expanded(
           flex: 3,
           child: MetalPanel(
             style: MetalPanelStyle.insetLcd,
-            child: SizedBox.expand(),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Text(titleLine, style: _lcdText),
+                      ),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Text('— kbps', style: _lcdDim),
+                      const Spacer(),
+                      Text('— kHz', style: _lcdDim),
+                      const Spacer(),
+                      Text(
+                        'STEREO',
+                        style: trackOpen ? _lcdText.copyWith(fontSize: 10) : _lcdDim,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      _LcdToggle(
+                        key: const Key('lcd-shuffle'),
+                        label: 'SHUF',
+                        active: shuffle,
+                        onTap: onToggleShuffle,
+                      ),
+                      const SizedBox(width: 8),
+                      _LcdToggle(
+                        key: const Key('lcd-repeat'),
+                        label: 'REP',
+                        active: repeatOn,
+                        onTap: onCycleRepeat,
+                      ),
+                      const Spacer(),
+                      if (onFocusPlaylist != null)
+                        _LcdToggle(
+                          key: const Key('lcd-playlist'),
+                          label: 'PL',
+                          active: true,
+                          onTap: onFocusPlaylist!,
+                          chrome: true,
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ],
@@ -161,51 +363,159 @@ class _LcdRowStub extends StatelessWidget {
   }
 }
 
-class _TransportRowStub extends StatelessWidget {
-  const _TransportRowStub({
-    required this.hasTracks,
-    this.onFocusPlaylist,
+class _LcdToggle extends StatelessWidget {
+  const _LcdToggle({
+    super.key,
+    required this.label,
+    required this.active,
+    required this.onTap,
+    this.chrome = false,
   });
 
-  final bool hasTracks;
-  final VoidCallback? onFocusPlaylist;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  final bool chrome;
 
   @override
   Widget build(BuildContext context) {
-    // Stubs only — full wiring is Task 4.
-    final onPressed = hasTracks ? () {} : null;
+    final text = Text(
+      label,
+      style: TextStyle(
+        color: active ? TrampColors.lcdPhosphor : TrampColors.lcdPhosphorDim,
+        fontSize: 10,
+        fontWeight: FontWeight.w700,
+        fontFamily: 'IBMPlexMono',
+        height: 1,
+      ),
+    );
 
+    final child = chrome
+        ? DecoratedBox(
+            decoration: BoxDecoration(
+              color: TrampColors.metalMid,
+              border: Border.all(color: TrampColors.metalDeep),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: TrampColors.metalHi,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  height: 1,
+                ),
+              ),
+            ),
+          )
+        : text;
+
+    return Semantics(
+      button: true,
+      label: label,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _TransportRow extends StatelessWidget {
+  const _TransportRow({
+    required this.volume,
+    required this.muted,
+    required this.onPrevious,
+    required this.onPlay,
+    required this.onPause,
+    required this.onStop,
+    required this.onNext,
+    required this.onVolumeChanged,
+    required this.onVolumeChangeEnd,
+    required this.onToggleMute,
+  });
+
+  final double volume;
+  final bool muted;
+  final VoidCallback? onPrevious;
+  final VoidCallback? onPlay;
+  final VoidCallback? onPause;
+  final VoidCallback? onStop;
+  final VoidCallback? onNext;
+  final ValueChanged<double> onVolumeChanged;
+  final ValueChanged<double> onVolumeChangeEnd;
+  final VoidCallback onToggleMute;
+
+  @override
+  Widget build(BuildContext context) {
     return SizedBox(
       height: 36,
       child: Row(
         children: [
-          ChromeButton(onPressed: onPressed, child: TransportIcons.prev()),
+          ChromeButton(
+            key: const Key('transport-prev'),
+            onPressed: onPrevious,
+            child: TransportIcons.prev(),
+          ),
           const SizedBox(width: 4),
           ChromeButton(
-            onPressed: onPressed,
+            key: const Key('transport-play'),
+            onPressed: onPlay,
             primary: true,
             child: TransportIcons.play(),
           ),
           const SizedBox(width: 4),
-          ChromeButton(onPressed: onPressed, child: TransportIcons.pause()),
+          ChromeButton(
+            key: const Key('transport-pause'),
+            onPressed: onPause,
+            child: TransportIcons.pause(),
+          ),
           const SizedBox(width: 4),
-          ChromeButton(onPressed: onPressed, child: TransportIcons.stop()),
+          ChromeButton(
+            key: const Key('transport-stop'),
+            onPressed: onStop,
+            child: TransportIcons.stop(),
+          ),
           const SizedBox(width: 4),
-          ChromeButton(onPressed: onPressed, child: TransportIcons.next()),
+          ChromeButton(
+            key: const Key('transport-next'),
+            onPressed: onNext,
+            child: TransportIcons.next(),
+          ),
           const SizedBox(width: 12),
-          const Expanded(
-            child: SizedBox(
-              height: 22,
-              child: ChromeSlider(value: 0.7),
+          Semantics(
+            button: true,
+            label: muted ? 'Unmute' : 'Mute',
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                key: const Key('transport-mute'),
+                onTap: onToggleMute,
+                child: Icon(
+                  muted ? Icons.volume_off : Icons.volume_up,
+                  size: 18,
+                  color: TrampColors.metalDeep,
+                ),
+              ),
             ),
           ),
-          if (onFocusPlaylist != null) ...[
-            const SizedBox(width: 8),
-            ChromeButton(
-              onPressed: onFocusPlaylist,
-              child: const Text('PL'),
+          const SizedBox(width: 6),
+          Expanded(
+            child: SizedBox(
+              height: 22,
+              child: ChromeSlider(
+                key: const Key('transport-volume'),
+                value: muted ? 0 : volume,
+                onChanged: onVolumeChanged,
+                onChangeEnd: onVolumeChangeEnd,
+              ),
             ),
-          ],
+          ),
         ],
       ),
     );

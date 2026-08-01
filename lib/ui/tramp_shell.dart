@@ -58,6 +58,7 @@ class TrampShell extends StatelessWidget {
     required this.playback,
     required this.playlistController,
     this.hasTracks = false,
+    this.playlistFocusNode,
     this.onDropPaths,
     this.onOpenFiles,
     this.onSavePlaylist,
@@ -68,6 +69,7 @@ class TrampShell extends StatelessWidget {
   final PlaybackController playback;
   final PlaylistController playlistController;
   final bool hasTracks;
+  final FocusNode? playlistFocusNode;
   final void Function(List<String> paths)? onDropPaths;
   final Future<void> Function()? onOpenFiles;
   final Future<void> Function()? onSavePlaylist;
@@ -224,7 +226,14 @@ class TrampShell extends StatelessWidget {
                   );
                 },
               ),
-              Expanded(child: playlist),
+              Expanded(
+                child: playlistFocusNode == null
+                    ? playlist
+                    : Focus(
+                        focusNode: playlistFocusNode,
+                        child: playlist,
+                      ),
+              ),
             ],
           ),
         ),

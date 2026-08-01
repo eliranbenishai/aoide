@@ -4,15 +4,11 @@ import '../domain/repeat_mode.dart';
 import '../domain/track.dart';
 import '../playback/playback_controller.dart';
 import '../theme/tramp_colors.dart';
+import 'format.dart';
 import 'widgets/ink_slider.dart';
 import 'widgets/tramp_button.dart';
 
-String formatDuration(Duration duration) {
-  final totalSeconds = duration.inSeconds;
-  final minutes = totalSeconds ~/ 60;
-  final seconds = totalSeconds % 60;
-  return '$minutes:${seconds.toString().padLeft(2, '0')}';
-}
+export 'format.dart' show formatDuration;
 
 String trackSubtitle(Track? track) {
   if (track == null) return '';

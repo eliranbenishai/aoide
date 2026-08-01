@@ -53,6 +53,8 @@ class _TrampAppState extends State<TrampApp> {
 
   late final OsMediaControls _osMediaControls;
 
+  final FocusNode _playlistFocusNode = FocusNode();
+
   @override
   void initState() {
     super.initState();
@@ -113,6 +115,7 @@ class _TrampAppState extends State<TrampApp> {
 
   @override
   void dispose() {
+    _playlistFocusNode.dispose();
     unawaited(_osMediaControls.stop());
     unawaited(_playback.dispose());
 
@@ -191,6 +194,7 @@ class _TrampAppState extends State<TrampApp> {
             playback: _playback,
             playlistController: _playlist,
             hasTracks: _playlist.playlist.tracks.isNotEmpty,
+            playlistFocusNode: _playlistFocusNode,
             onDropPaths: _handleDroppedPaths,
             onOpenFiles: () async {
               final paths = await pickAudioFiles();
@@ -201,6 +205,7 @@ class _TrampAppState extends State<TrampApp> {
             transport: ClassicMainPlayer(
               playback: _playback,
               hasTracks: _playlist.playlist.tracks.isNotEmpty,
+              onFocusPlaylist: _playlistFocusNode.requestFocus,
             ),
             playlist: PlaylistPanel(
               playlist: _playlist,
