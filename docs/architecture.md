@@ -51,7 +51,7 @@ flowchart TB
 | Playback | `PlayerEngine` seam, `PlaybackController`, `MediaKitPlayerEngine` (local files via media_kit/libmpv) | Implemented |
 | Formats | MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus via media_kit | Implemented |
 | Playlist | Open/save M3U/M3U8, edit order, restore last playlist (`PlaylistController`) | In progress |
-| Platform | `tramp_window` (frameless chrome); `file_open` (pickers, folder expand, DnD paths); `OsMediaControls` (`smtc_windows` on Windows, macOS MethodChannel + `MPRemoteCommandCenter`, Linux MPRIS stub) | In progress |
+| Platform | `tramp_window` (frameless chrome); `file_open` (pickers, folder expand, DnD paths); `launch_args` (argv → playlist/audio open); `OsMediaControls` (`smtc_windows` on Windows, macOS MethodChannel + `MPRemoteCommandCenter`, Linux MPRIS stub) | In progress |
 
 ## Stack
 

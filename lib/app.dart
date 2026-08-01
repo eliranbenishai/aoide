@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'platform/file_open.dart';
+import 'platform/launch_args.dart';
 import 'platform/os_media_controls.dart';
 
 import 'playback/media_kit_player_engine.dart';
@@ -85,7 +86,29 @@ class _TrampAppState extends State<TrampApp> {
 
     _osMediaControls = widget.osMediaControls ?? createOsMediaControls();
     unawaited(_osMediaControls.start(_playback));
-    unawaited(_playlist.restoreLastPlaylist());
+    unawaited(_bootstrapPlaylist());
+  }
+
+  Future<void> _bootstrapPlaylist() async {
+    final action = parseLaunchArgs(widget.launchArgs);
+    if (action.openPlaylist != null || action.openTracks.isNotEmpty) {
+      await _applyLaunchAction(action);
+      return;
+    }
+
+    await _playlist.restoreLastPlaylist();
+  }
+
+  Future<void> _applyLaunchAction(LaunchAction action) async {
+    if (action.openPlaylist != null) {
+      await _playlist.openPlaylistFile(action.openPlaylist!);
+      return;
+    }
+
+    if (action.openTracks.isEmpty) return;
+
+    _playlist.setTracks(tracksFromPaths(action.openTracks));
+    await _playback.playIndex(0);
   }
 
   @override

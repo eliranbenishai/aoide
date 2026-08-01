@@ -20,13 +20,13 @@ const playlistExtensions = {'.m3u', '.m3u8'};
 bool isPlaylistPath(String path) =>
     playlistExtensions.contains(p.extension(path).toLowerCase());
 
-bool _isAudioPath(String path) =>
+bool isAudioPath(String path) =>
     audioExtensions.contains(p.extension(path).toLowerCase());
 
 List<String> _collectAudioFiles(Directory dir) {
   final paths = <String>[];
   for (final entity in dir.listSync(recursive: true, followLinks: false)) {
-    if (entity is File && _isAudioPath(entity.path)) {
+    if (entity is File && isAudioPath(entity.path)) {
       paths.add(entity.path);
     }
   }
@@ -43,7 +43,7 @@ List<Track> tracksFromPaths(List<String> paths) {
     final type = FileSystemEntity.typeSync(path, followLinks: false);
     if (type == FileSystemEntityType.directory) {
       audioPaths.addAll(_collectAudioFiles(Directory(path)));
-    } else if (type == FileSystemEntityType.file && _isAudioPath(path)) {
+    } else if (type == FileSystemEntityType.file && isAudioPath(path)) {
       audioPaths.add(path);
     }
   }
