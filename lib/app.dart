@@ -22,9 +22,9 @@ import 'playlist/playlist_store.dart';
 
 import 'theme/tramp_theme.dart';
 
-import 'ui/playlist_panel.dart';
+import 'ui/classic_main_player.dart';
 
-import 'ui/transport_panel.dart';
+import 'ui/playlist_panel.dart';
 
 import 'ui/tramp_shell.dart';
 
@@ -198,7 +198,7 @@ class _TrampAppState extends State<TrampApp> {
               _playlist.addTracks(tracksFromPaths(paths));
             },
             onSavePlaylist: _savePlaylist,
-            transport: TransportPanel(
+            transport: ClassicMainPlayer(
               playback: _playback,
               hasTracks: _playlist.playlist.tracks.isNotEmpty,
             ),

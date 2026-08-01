@@ -8,7 +8,7 @@ import 'package:window_manager/window_manager.dart';
 import '../playback/playback_controller.dart';
 import '../playlist/playlist_controller.dart';
 import '../theme/tramp_colors.dart';
-import 'title_bar.dart';
+import 'classic_main_player.dart';
 
 class PlayPauseIntent extends Intent {
   const PlayPauseIntent();
@@ -196,18 +196,34 @@ class TrampShell extends StatelessWidget {
     final shell = DragToResizeArea(
       resizeEdgeSize: 6,
       child: ColoredBox(
-        color: TrampColors.surface,
+        color: TrampColors.metalMid,
         child: DecoratedBox(
           decoration: BoxDecoration(
             border: Border.all(
-              color: TrampColors.ink,
+              color: TrampColors.skinBorder,
               width: TrampColors.borderWidth,
             ),
           ),
           child: Column(
             children: [
-              const TitleBar(),
-              transport,
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final logical = ClassicMainPlayer.logicalSize;
+                  final height =
+                      constraints.maxWidth * logical.height / logical.width;
+                  return Align(
+                    alignment: Alignment.topCenter,
+                    child: SizedBox(
+                      width: constraints.maxWidth,
+                      height: height,
+                      child: FittedBox(
+                        fit: BoxFit.contain,
+                        child: transport,
+                      ),
+                    ),
+                  );
+                },
+              ),
               Expanded(child: playlist),
             ],
           ),
