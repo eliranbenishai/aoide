@@ -4,7 +4,7 @@ import '../domain/track.dart';
 import '../playback/playback_controller.dart';
 import '../playlist/playlist_controller.dart';
 import '../theme/tramp_colors.dart';
-import 'widgets/tramp_button.dart';
+import 'chrome/chrome_button.dart';
 
 String formatTrackDuration(Duration? duration) {
   if (duration == null) return '';
@@ -37,7 +37,25 @@ class PlaylistPanel extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [TrampColors.playlistTop, TrampColors.playlistBottom],
+          colors: [TrampColors.metalHi, TrampColors.metalFace],
+        ),
+        border: Border(
+          top: BorderSide(
+            color: TrampColors.metalHi,
+            width: TrampColors.borderWidth,
+          ),
+          left: BorderSide(
+            color: TrampColors.metalHi,
+            width: TrampColors.borderWidth,
+          ),
+          right: BorderSide(
+            color: TrampColors.metalDeep,
+            width: TrampColors.borderWidth,
+          ),
+          bottom: BorderSide(
+            color: TrampColors.metalDeep,
+            width: TrampColors.borderWidth,
+          ),
         ),
       ),
       child: Column(
@@ -50,37 +68,37 @@ class PlaylistPanel extends StatelessWidget {
           ),
           Expanded(
             child: ListenableBuilder(
-                listenable: playlist,
-                builder: (context, _) {
-                  final tracks = playlist.playlist.tracks;
-                  if (tracks.isEmpty) {
-                    return const Center(
-                      child: Text(
-                        'No tracks',
-                        style: TextStyle(color: TrampColors.muted),
-                      ),
-                    );
-                  }
-
-                  return ReorderableListView.builder(
-                    buildDefaultDragHandles: false,
-                    itemCount: tracks.length,
-                    onReorder: playlist.move,
-                    itemBuilder: (context, index) {
-                      final track = tracks[index];
-                      final active = playlist.selectedIndex == index;
-                      return _PlaylistRow(
-                        key: ValueKey(track.path),
-                        index: index,
-                        track: track,
-                        active: active,
-                        onActivate: () => playback.playIndex(index),
-                        onSelect: () => playlist.select(index),
-                      );
-                    },
+              listenable: playlist,
+              builder: (context, _) {
+                final tracks = playlist.playlist.tracks;
+                if (tracks.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      'No tracks',
+                      style: TextStyle(color: TrampColors.metalShadow),
+                    ),
                   );
-                },
-              ),
+                }
+
+                return ReorderableListView.builder(
+                  buildDefaultDragHandles: false,
+                  itemCount: tracks.length,
+                  onReorder: playlist.move,
+                  itemBuilder: (context, index) {
+                    final track = tracks[index];
+                    final active = playlist.selectedIndex == index;
+                    return _PlaylistRow(
+                      key: ValueKey(track.path),
+                      index: index,
+                      track: track,
+                      active: active,
+                      onActivate: () => playback.playIndex(index),
+                      onSelect: () => playlist.select(index),
+                    );
+                  },
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -102,10 +120,16 @@ class _PlaylistToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [TrampColors.metalHi, TrampColors.metalMid],
+        ),
         border: Border(
           bottom: BorderSide(
-            color: TrampColors.ink.withValues(alpha: 0.12),
+            color: TrampColors.groove,
+            width: TrampColors.borderWidth,
           ),
         ),
       ),
@@ -114,9 +138,27 @@ class _PlaylistToolbar extends StatelessWidget {
         child: Wrap(
           spacing: 8,
           children: [
-            TrampButton(onPressed: onOpen, child: const Text('Open…')),
-            TrampButton(onPressed: onSave, child: const Text('Save…')),
-            TrampButton(onPressed: onAddFiles, child: const Text('Add files…')),
+            ChromeButton(
+              onPressed: onOpen,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                child: Text('Open…'),
+              ),
+            ),
+            ChromeButton(
+              onPressed: onSave,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                child: Text('Save…'),
+              ),
+            ),
+            ChromeButton(
+              onPressed: onAddFiles,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                child: Text('Add files…'),
+              ),
+            ),
           ],
         ),
       ),
@@ -142,10 +184,10 @@ class _PlaylistRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = active ? TrampColors.surface : TrampColors.ink;
-    final muted = active
-        ? TrampColors.surface.withValues(alpha: 0.55)
-        : TrampColors.muted;
+    final foreground =
+        active ? TrampColors.lcdPhosphor : TrampColors.metalDeep;
+    final muted =
+        active ? TrampColors.lcdPhosphorDim : TrampColors.metalShadow;
     final indexLabel = (index + 1).toString().padLeft(2, '0');
     final artist = track.artist?.trim();
 
@@ -173,10 +215,11 @@ class _PlaylistRow extends StatelessWidget {
             onDoubleTap: onActivate,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: active ? TrampColors.ink : null,
-                border: Border(
+                color: active ? TrampColors.lcdBackground : null,
+                border: const Border(
                   bottom: BorderSide(
-                    color: TrampColors.ink.withValues(alpha: 0.12),
+                    color: TrampColors.groove,
+                    width: TrampColors.borderWidth,
                   ),
                 ),
               ),
