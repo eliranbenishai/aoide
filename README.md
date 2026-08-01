@@ -10,6 +10,35 @@ flutter run -d windows   # or macos / linux
 flutter test
 ```
 
+## Packaging
+
+Release builds per platform:
+
+```bash
+flutter build windows   # → build/windows/x64/runner/Release/tramp.exe
+flutter build macos     # → build/macos/Build/Products/Release/tramp.app
+flutter build linux     # → build/linux/x64/release/bundle/
+```
+
+macOS and Linux builds require those hosts (or CI). This repo was smoke-tested on **Windows** only; run the macOS/Linux commands on the matching OS before shipping.
+
+App-store listings are not required for v1.
+
+## v1 success criteria
+
+From [`docs/tramp-v1-spec.md`](docs/tramp-v1-spec.md). Manual smoke on each target OS; automated checks below.
+
+| Criterion | Status |
+|-----------|--------|
+| Install/run on Win/Linux/macOS (build artifacts) | Windows release build verified; macOS/Linux need host build |
+| Open local audio + playlists | Implemented (file picker, DnD, argv, folder expand) |
+| Manage playlist (add/remove/reorder/save/restore) | Implemented (`PlaylistController`, M3U/M3U8) |
+| Transport chrome controls + tags when present | Implemented (`TransportPanel`, media_kit tags) |
+| Frameless resizable paper/ink UI (variant W) | Implemented (`TrampShell`, `window_manager`) |
+| No library/skins/store dependency | Confirmed (non-goals excluded) |
+
+Automated gate: `flutter test` (26 tests) and `flutter build windows` must pass.
+
 ## File associations
 
 Tramp accepts file paths on the command line (`main` → `parseLaunchArgs`). Double-click / “Open with” must register the OS handler to pass those paths to the executable.

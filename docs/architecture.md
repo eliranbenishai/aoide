@@ -4,7 +4,7 @@ Living design map of how Tramp is structured. Agents and humans update this when
 
 ## Status
 
-**Implementation in progress.** v1 product spec is written at [`tramp-v1-spec.md`](tramp-v1-spec.md). Stack is locked (Flutter). The Flutter app lives at repo root (`lib/`, `pubspec.yaml`, desktop runners under `windows/`, `macos/`, `linux/`). Wayfinder map: `.scratch/tramp-v1-spec/`.
+**v1 implemented.** All modules below match the shipped codebase. Product spec: [`tramp-v1-spec.md`](tramp-v1-spec.md). Stack locked (Flutter). App at repo root (`lib/`, `pubspec.yaml`, desktop runners under `windows/`, `macos/`, `linux/`). Release packaging smoke-tested on Windows (`flutter build windows`); macOS/Linux builds require those hosts.
 
 ## Intended product shape (v1)
 
@@ -43,15 +43,15 @@ flowchart TB
   Playback --> MediaKeys
 ```
 
-## Modules (expected)
+## Modules
 
 | Area | Responsibility | Status |
 |------|----------------|--------|
-| App chrome / UI | `TrampShell`, `TitleBar`, `TrampButton`, `TransportPanel`, `PlaylistPanel`, `InkSlider`; frameless resize/drag via `window_manager` | Implemented |
-| Playback | `PlayerEngine` seam, `PlaybackController`, `MediaKitPlayerEngine` (local files via media_kit/libmpv) | Implemented |
+| App chrome / UI | `TrampShell`, `TitleBar`, `TrampButton`, `TransportPanel`, `PlaylistPanel`, `InkSlider`; frameless resize/drag via `window_manager`; keyboard shortcuts | Implemented |
+| Playback | `PlayerEngine` seam, `PlaybackController`, `MediaKitPlayerEngine` (local files via media_kit/libmpv); shuffle/repeat/volume/mute/seek | Implemented |
 | Formats | MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus via media_kit | Implemented |
-| Playlist | Open/save M3U/M3U8, edit order, restore last playlist (`PlaylistController`) | In progress |
-| Platform | `tramp_window` (frameless chrome); `file_open` (pickers, folder expand, DnD paths); `launch_args` (argv → playlist/audio open); `OsMediaControls` (`smtc_windows` on Windows, macOS MethodChannel + `MPRemoteCommandCenter`, Linux MPRIS stub) | In progress |
+| Playlist | Open/save M3U/M3U8, add/remove/reorder, play from selection, restore last playlist (`PlaylistController`, `M3uCodec`, `PlaylistStore`) | Implemented |
+| Platform | `tramp_window` (frameless chrome); `file_open` (pickers, folder expand, DnD); `launch_args` (argv → playlist/audio); file associations (Windows registry, macOS Info.plist, Linux `.desktop`); `OsMediaControls` (Windows SMTC, macOS MPRemoteCommandCenter, Linux MPRIS stub) | Implemented |
 
 ## Stack
 
