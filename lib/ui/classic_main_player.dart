@@ -10,6 +10,7 @@ import 'chrome/chrome_button.dart';
 import 'chrome/chrome_slider.dart';
 import 'chrome/metal_panel.dart';
 import 'chrome/spectrum_visualizer.dart';
+import 'chrome/tramp_logo.dart';
 import 'chrome/transport_icons.dart';
 import 'format.dart';
 
@@ -166,7 +167,7 @@ class _TitleBar extends StatelessWidget {
       height: 28,
       child: Row(
         children: [
-          const SizedBox(width: 22, height: 22), // logo placeholder (Task 6)
+          const TrampLogo(size: 24),
           const SizedBox(width: 6),
           Expanded(
             child: DragToMoveArea(
