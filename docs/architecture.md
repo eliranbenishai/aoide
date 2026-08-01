@@ -4,7 +4,7 @@ Living design map of how Tramp is structured. Agents and humans update this when
 
 ## Status
 
-**Pre-implementation.** v1 product spec is written at [`tramp-v1-spec.md`](tramp-v1-spec.md). Stack is locked (Flutter); module boundaries below are still expected shape until code exists. Wayfinder map: `.scratch/tramp-v1-spec/`.
+**Implementation in progress.** v1 product spec is written at [`tramp-v1-spec.md`](tramp-v1-spec.md). Stack is locked (Flutter). The Flutter app lives at repo root (`lib/`, `pubspec.yaml`, desktop runners under `windows/`, `macos/`, `linux/`). Wayfinder map: `.scratch/tramp-v1-spec/`.
 
 ## Intended product shape (v1)
 
@@ -47,7 +47,7 @@ flowchart TB
 
 | Area | Responsibility | Status |
 |------|----------------|--------|
-| App chrome / UI | One-window scalable surface, resize, drag-to-move, close/minimize (`window_manager` preferred) | Not started |
+| App chrome / UI | One-window scalable surface, resize, drag-to-move, close/minimize (`window_manager` preferred) | Scaffolding |
 | Playback | Transport, seek, volume, shuffle/repeat (media_kit preferred) | Not started |
 | Formats | MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus | Not started |
 | Playlist | Open/save M3U/M3U8, edit order, restore last playlist | Not started |
