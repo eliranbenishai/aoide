@@ -32,6 +32,7 @@ flutter:
   assets:
     - lib/ui/chrome/logo.svg
     - assets/skin/graphite/
+    - assets/skin/graphite/controls/
   fonts:
     - family: BarlowSemiCondensed
       fonts:

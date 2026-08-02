@@ -43,4 +43,23 @@ void main() {
     expect(size.$1, 1624);
     expect(size.$2, 412);
   });
+
+  // Transport buttons are logical 69x40, authored at 2x -> 138x80.
+  for (final name in const ['transport_play_idle', 'transport_play_pressed']) {
+    test('$name is 138x80', () {
+      final bytes =
+          File('assets/skin/graphite/controls/$name.png').readAsBytesSync();
+      final size = readPngSize(bytes);
+      expect(size.$1, 138);
+      expect(size.$2, 80);
+    });
+  }
+
+  test('slider_thumb is a non-empty crop', () {
+    final bytes =
+        File('assets/skin/graphite/controls/slider_thumb.png').readAsBytesSync();
+    final size = readPngSize(bytes);
+    expect(size.$1, greaterThan(0));
+    expect(size.$2, greaterThan(0));
+  });
 }
