@@ -33,3 +33,7 @@ The rejected alternative — scaled metric tokens — keeps hairlines exact with
 snapping, but requires every widget to consume metrics correctly. A single
 widget forgetting one silently breaks visual fidelity, which is the specific
 failure this redesign cannot tolerate.
+
+Still accepted under the PNG graphite skin ([ADR 0004](0004-png-graphite-skin.md)):
+one master-density asset set scales with the same root transform. Hairline snap
+matters less once faces are bitmaps; the fixed-canvas + zoom-step model remains.

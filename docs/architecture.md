@@ -4,16 +4,16 @@ Living design map of how Tramp is structured. Agents and humans update this when
 
 ## Status
 
-**v1 implemented.** All modules below match the shipped codebase. Product spec: [`tramp-v1-spec.md`](tramp-v1-spec.md). Stack locked (Flutter). App at repo root (`lib/`, `pubspec.yaml`, desktop runners under `windows/`, `macos/`, `linux/`). Release packaging smoke-tested on Windows (`flutter build windows`); macOS/Linux builds require those hosts.
+**v1 mostly implemented; chrome delivery pivoting.** Playback/playlist/platform match the shipped codebase; UI is moving from painted graphite chrome to a PNG graphite skin with zoom-only window sizing (ADRs 0003/0004). Product spec: [`tramp-v1-spec.md`](tramp-v1-spec.md). Stack locked (Flutter). App at repo root (`lib/`, `pubspec.yaml`, desktop runners under `windows/`, `macos/`, `linux/`). Release packaging smoke-tested on Windows (`flutter build windows`); macOS/Linux builds require those hosts.
 
 ## Intended product shape (v1)
 
 - Multi-platform desktop player (Windows, Linux, macOS); shippable via Flutter packaging (stores not required)
-- Local playback; scalable UI with custom **app chrome** (no OS window frame)
+- Local playback; custom **app chrome** (no OS window frame); main/EQ never stretch — EQ mode sized by **zoom step** only; playlist mode freely resizes the window around a fixed main canvas ([ADR 0003](adr/0003-zoom-only-window-size.md))
 - Playlist-centric (M3U/M3U8); file associations for v1 audio + playlists; no media library in v1
-- Classic Winamp WSZ/bitmap skins, gapless, and crossfade: out of v1
+- Classic Winamp WSZ loading, whole-chrome “Scalable UI”, gapless, and crossfade: out of v1
 - Product spec target: `docs/tramp-v1-spec.md`
-- UI direction: graphite chrome redesign — fixed logical canvases (main 812×242, equalizer 812×206) with absolute placement, zoom at the root; see `docs/superpowers/specs/2026-08-02-graphite-chrome-redesign-design.md`
+- UI direction: **graphite skin** — PNG-first chrome ([ADR 0004](adr/0004-png-graphite-skin.md)); delivery design [`2026-08-02-graphite-skin-delivery-design.md`](superpowers/specs/2026-08-02-graphite-skin-delivery-design.md); fixed logical canvases (main 812×242, equalizer 812×206) + root zoom ([ADR 0002](adr/0002-fixed-canvas-zoom.md))
 
 ## System overview
 
@@ -50,15 +50,15 @@ flowchart TB
 
 | Area | Responsibility | Status |
 |------|----------------|--------|
-| App chrome / UI | `TrampShell` hosts the single root `Transform.scale` zoom transform and switches the lower region between `EqualizerPanel` and `PlaylistPanel` (drop target, shortcuts including Ctrl±/0). `MainPlayerPanel` and `EqualizerPanel` are fixed logical canvases (812×242 / 812×206). Shared primitives live in `lib/ui/chrome/` (`MetalPanel`, `ChromeButton`, `ChromeSlider`, `TrampTitleBar`, `LcdText`, `SpectrumVisualizer`, `TrampMark`, `TrampLogo`, `TransportIcons`). Frameless resize/drag via `window_manager` (`configureTrampWindow` / `resizeTrampWindow` follow the zoom step) | Implemented |
-| Theme | `lib/theme/` — `TrampColors`, `TrampSurface` / `tramp_surfaces.dart`, `TrampText`, `TrampMetrics`. No widget composes its own gradient or bevel; surfaces are the single material source | Implemented |
-| Zoom | `lib/ui/zoom/` — `ZoomController` (six discrete steps 100–300%, persisted, steps too large for the display disabled) and `ZoomScope` (hairline snap). See [ADR 0002](adr/0002-fixed-canvas-zoom.md) | Implemented |
-| Brand art | Full colour badge is `lib/ui/chrome/logo.svg` via `TrampLogo` (app icon / splash / About). Compact title-bar mark is `TrampMark` (ring + headphones). Chrome widgets other than the logo stay hand-drawn in Dart so they can react to state | Implemented |
+| App chrome / UI | `TrampShell` hosts the single root `Transform.scale` zoom transform and switches the lower region between `EqualizerPanel` and `PlaylistPanel` (drop target, shortcuts including Ctrl±/0). `MainPlayerPanel` and `EqualizerPanel` are fixed logical canvases (812×242 / 812×206) and never stretch. **Target:** PNG graphite skin under hit targets; EQ mode zoom-only window; playlist mode free resize + 9-slice playlist chrome; code draws spectrum, LCD/playlist text, thumbs, and asset state. **Current code:** still mostly painted chrome in `lib/ui/chrome/` with edge resize always on — pivoting per skin delivery design + ADRs 0003/0004. Frameless drag via `window_manager` | Pivot in progress |
+| Theme | `lib/theme/` — `TrampColors`, `TrampSurface` / `tramp_surfaces.dart`, `TrampText`, `TrampMetrics`. Surfaces remain for any coded overlays; skin PNGs own most panel faces under the new direction | Partial |
+| Zoom | `lib/ui/zoom/` — `ZoomController` (six discrete steps 100–300%, persisted, steps too large for the display disabled) and `ZoomScope` (hairline snap). Title-bar zoom-in/out replace maximize. See [ADR 0002](adr/0002-fixed-canvas-zoom.md), [ADR 0003](adr/0003-zoom-only-window-size.md) | Implemented (controls/resize edges to align with 0003) |
+| Brand art / skin | Full colour badge is `lib/ui/chrome/logo.svg` via `TrampLogo`. Compact title-bar mark is `TrampMark`. **Target:** graphite skin PNG pack for panel/control faces; SVG brand marks retained where useful ([ADR 0004](adr/0004-png-graphite-skin.md)) | Brand SVG shipped; skin PNGs not yet |
 | Playback | `PlayerEngine` seam, `PlaybackController`, `MediaKitPlayerEngine` (local files via media_kit/libmpv); shuffle/repeat/volume/mute/seek. `levelsStream` → `AudioLevels` (media_kit emits synthetic frames; `SpectrumVisualizer` subscribes directly, not via `notifyListeners`). `formatStream` → `AudioFormatInfo` (bitrate / sample rate / channels as controller state). Levels contract: see the design spec’s “Audio levels” section | Implemented |
 | Formats | MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus via media_kit | Implemented |
 | Playlist | Open/save M3U/M3U8, add/remove/reorder, play from selection, restore last playlist (`PlaylistController`, `M3uCodec`, `PlaylistStore`) | Implemented |
 | Equalizer | UI: `EqualizerPanel` (preamp + ten bands, ON/AUTO, presets menu, windowshade collapse). State: `EqualizerSettings`, `EqualizerPresets`, `EqualizerController` in `lib/eq/`; persists via `TrampSettings` / `SettingsStore`. `EqualizerSink` seam has only `NoopEqualizerSink` — gains do not reach the audio path (shipped libmpv disables filter graphs while reporting success) | Chrome UI + state |
-| Platform | `tramp_window` (frameless chrome sized to zoom step); `file_open` (pickers, folder expand, DnD); `launch_args` (argv → playlist/audio); file associations (Windows registry, macOS Info.plist, Linux `.desktop`); `OsMediaControls` (Windows SMTC, macOS MPRemoteCommandCenter; **Linux MPRIS stub — v1 gap**); `SettingsStore` (`settings.json` — zoom %, lower region, equalizer) | Implemented |
+| Platform | `tramp_window` (frameless chrome sized to zoom step; drag-resize to be removed per ADR 0003); `file_open` (pickers, folder expand, DnD); `launch_args` (argv → playlist/audio); file associations (Windows registry, macOS Info.plist, Linux `.desktop`); `OsMediaControls` (Windows SMTC, macOS MPRemoteCommandCenter; **Linux MPRIS stub — v1 gap**); `SettingsStore` (`settings.json` — zoom %, lower region, equalizer) | Implemented |
 
 ## Playback vs selection
 
@@ -66,6 +66,7 @@ flowchart TB
 
 ## Known v1 gaps
 
+- **Graphite skin PNGs + mode-aware window sizing** — product direction locked (ADRs 0003/0004, skin delivery design); codebase still has painted chrome and always-on resize edges until that pivot lands.
 - **Equalizer is chrome-only** — the panel and persisted curve ship; audible equalization does not, because the shipped libmpv cannot construct filter graphs (it reports success while silently disabling them). A real `EqualizerSink` must be verified by measuring output.
 - **Spectrum levels are synthetic** — `MediaKitPlayerEngine` publishes `AudioLevels` with `synthetic: true` until the spectrogram subsystem lands. The display is honest about that contract.
 - **Linux MPRIS** — session D-Bus player not registered; in-app shortcuts/media keys when focused still work.
@@ -87,9 +88,13 @@ These cost real time and will bite again:
 
 - ADR: [0001-flutter-for-v1.md](adr/0001-flutter-for-v1.md)
 - ADR: [0002-fixed-canvas-zoom.md](adr/0002-fixed-canvas-zoom.md)
+- ADR: [0003-zoom-only-window-size.md](adr/0003-zoom-only-window-size.md)
+- ADR: [0004-png-graphite-skin.md](adr/0004-png-graphite-skin.md)
 - Research: [`.scratch/tramp-v1-spec/research/v1-stack.md`](../.scratch/tramp-v1-spec/research/v1-stack.md)
 
 ## ADRs
 
 - [0001 — Flutter for Tramp v1](adr/0001-flutter-for-v1.md)
 - [0002 — Fixed logical canvas plus a single transform for zoom](adr/0002-fixed-canvas-zoom.md)
+- [0003 — Window size only via zoom steps](adr/0003-zoom-only-window-size.md)
+- [0004 — PNG-first graphite skin for chrome look](adr/0004-png-graphite-skin.md)

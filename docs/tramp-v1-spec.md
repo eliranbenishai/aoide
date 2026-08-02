@@ -6,7 +6,7 @@ Wayfinding decisions that produced this document live under [`.scratch/tramp-v1-
 
 ## Vision
 
-Tramp is a multi-platform desktop music player — a spiritual successor to Winamp: dense, control-forward, playlist-centric, with distinctive chrome rather than a generic streaming-app shell. v1 is local playback only, with a scalable custom UI (classic Winamp skins come later).
+Tramp is a multi-platform desktop music player — a spiritual successor to Winamp: dense, control-forward, playlist-centric, with distinctive chrome rather than a generic streaming-app shell. v1 is local playback only, with fixed main/equalizer canvases sized by discrete zoom steps and a freely resizable playlist well (classic Winamp WSZ skins come later).
 
 ## Platforms
 
@@ -29,16 +29,16 @@ Tramp is a multi-platform desktop music player — a spiritual successor to Wina
 
 - **One window** — transport, now-playing, and playlist/equalizer in a single surface (no detachable multi-window layout).
 - **App chrome** — no OS title bar or standard window frame; the visible UI is the app surface.
-- **Resize** from edges/corners.
+- **Main / equalizer never stretch** — permanent. In equalizer mode, window size is the panel stack at the current zoom step only (no edge resize). In playlist mode, the window is freely resizable (width and height); the main canvas stays fixed (× zoom) and the playlist well grows ([ADR 0003](adr/0003-zoom-only-window-size.md)).
 - **Drag** a designated region to move the window.
-- **Controls:** in-app minimize, maximize, and close are all implemented.
-- **Zoom:** six discrete steps from 100% to 300%, persisted across sessions; steps larger than the current display’s work area are disabled.
+- **Controls:** in-app minimize, zoom-in, zoom-out, and close (no maximize-as-size-control).
+- **Zoom:** six discrete steps from 100% to 300%, persisted across sessions; steps larger than the current display’s work area are disabled. Title-bar zoom-in / zoom-out (and matching menu/shortcuts) change the step.
 
 ## UI direction
 
-Dark **graphite chrome** with acid chartreuse phosphor — near-black panels, warm yellow title-bar rails, fixed logical canvases (main player 812×242, equalizer 812×206) with absolute placement and a single root zoom transform. Dense, playlist-centric, control-forward. Not Material/Fluent defaults; not the earlier light brushed-metal / vector-chrome direction.
+Dark **graphite skin** with acid chartreuse phosphor — near-black panels, warm yellow title-bar rails, fixed logical canvases (main player 812×242, equalizer 812×206) with absolute placement and a single root zoom transform. Look is **PNG-first** for main, equalizer, and playlist chrome ([ADR 0004](adr/0004-png-graphite-skin.md)); code draws spectrum, LCD/playlist text, hit targets, asset state, and slider thumbs. Dense, playlist-centric, control-forward. Not Material/Fluent defaults; not whole-chrome “Scalable UI”; not the earlier light brushed-metal / coded-vector-chrome direction.
 
-Visual target: [`docs/superpowers/specs/2026-08-02-graphite-chrome-redesign-design.md`](superpowers/specs/2026-08-02-graphite-chrome-redesign-design.md). Reference mockup: [`docs/mockups/graphite-chrome.png`](mockups/graphite-chrome.png). Classic Winamp **WSZ skins** remain a non-goal for v1.
+Delivery design: [`docs/superpowers/specs/2026-08-02-graphite-skin-delivery-design.md`](superpowers/specs/2026-08-02-graphite-skin-delivery-design.md). Earlier painted-chrome notes: [`graphite-chrome-redesign-design.md`](superpowers/specs/2026-08-02-graphite-chrome-redesign-design.md). Reference mockup: [`docs/mockups/graphite-chrome.png`](mockups/graphite-chrome.png). Classic Winamp **WSZ** skin loading remains a non-goal for v1.
 
 ## Playback
 
@@ -80,7 +80,9 @@ Associate Tramp with v1 audio formats and `.m3u` / `.m3u8` so “Open with Tramp
 
 ## Non-goals (v1)
 
-- Classic Winamp **WSZ** / bitmap skins (graphite chrome is the v1 look; skin loading comes later)
+- Classic Winamp **WSZ** skin loading (built-in graphite PNG skin is the v1 look; third-party WSZ comes later)
+- Freely resizing or stretching the main player or equalizer canvases (permanent)
+- Whole-chrome continuously scaling UI (“Scalable UI”); playlist-mode window resize is allowed
 - Media library / scanned catalog
 - Streaming services
 - Plugin ecosystem
@@ -94,7 +96,7 @@ Associate Tramp with v1 audio formats and `.m3u` / `.m3u8` so “Open with Tramp
 
 ## Success criteria
 
-v1 is done when a user can install Tramp on Windows, Linux, and macOS, open local audio and playlists, manage a playlist, control playback with the graphite chrome above, and use a frameless, resizable, zoomable UI that matches the locked direction — without depending on a library, WSZ skins, or store distribution.
+v1 is done when a user can install Tramp on Windows, Linux, and macOS, open local audio and playlists, manage a large playlist in a freely resizable playlist well, control playback with the graphite skin above, and use frameless zoomable main/EQ chrome that matches the locked direction — without depending on a library, WSZ skins, or store distribution.
 
 ## Related artifacts
 
@@ -104,7 +106,10 @@ v1 is done when a user can install Tramp on Windows, Linux, and macOS, open loca
 | [`architecture.md`](architecture.md) | Living structure map |
 | [`adr/0001-flutter-for-v1.md`](adr/0001-flutter-for-v1.md) | Flutter stack ADR |
 | [`adr/0002-fixed-canvas-zoom.md`](adr/0002-fixed-canvas-zoom.md) | Fixed-canvas zoom ADR |
+| [`adr/0003-zoom-only-window-size.md`](adr/0003-zoom-only-window-size.md) | Zoom-only window size ADR |
+| [`adr/0004-png-graphite-skin.md`](adr/0004-png-graphite-skin.md) | PNG graphite skin ADR |
 | [`.scratch/tramp-v1-spec/research/v1-stack.md`](../.scratch/tramp-v1-spec/research/v1-stack.md) | Stack research evidence |
-| [`superpowers/specs/2026-08-02-graphite-chrome-redesign-design.md`](superpowers/specs/2026-08-02-graphite-chrome-redesign-design.md) | Graphite chrome UI direction |
+| [`superpowers/specs/2026-08-02-graphite-skin-delivery-design.md`](superpowers/specs/2026-08-02-graphite-skin-delivery-design.md) | Graphite skin delivery design |
+| [`superpowers/specs/2026-08-02-graphite-chrome-redesign-design.md`](superpowers/specs/2026-08-02-graphite-chrome-redesign-design.md) | Earlier graphite direction (painted construction superseded) |
 | [`mockups/graphite-chrome.png`](mockups/graphite-chrome.png) | Style reference mockup |
 | [`.scratch/tramp-v1-spec/map.md`](../.scratch/tramp-v1-spec/map.md) | Wayfinder decision index |
