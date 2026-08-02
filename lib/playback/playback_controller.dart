@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../domain/repeat_mode.dart';
 import '../domain/track.dart';
 import '../playlist/playlist_controller.dart';
+import 'audio_format_info.dart';
 import 'audio_levels.dart';
 import 'player_engine.dart';
 
@@ -37,6 +38,12 @@ class PlaybackController extends ChangeNotifier {
         unawaited(_onCompleted());
       }),
     );
+    _subscriptions.add(
+      _engine.formatStream.listen((value) {
+        _formatInfo = value;
+        notifyListeners();
+      }),
+    );
     _previousTrackCount = _playlist.playlist.tracks.length;
     _playlist.addListener(_onPlaylistChanged);
   }
@@ -57,6 +64,7 @@ class PlaybackController extends ChangeNotifier {
   int? _playingIndex;
   String? _playingPath;
   int _previousTrackCount = 0;
+  AudioFormatInfo _formatInfo = AudioFormatInfo.unknown;
 
   bool get playing => _playing;
   int? get playingIndex => _playingIndex;
@@ -66,6 +74,7 @@ class PlaybackController extends ChangeNotifier {
   Duration get duration => _duration;
   bool get shuffle => _shuffle;
   RepeatMode get repeatMode => _repeatMode;
+  AudioFormatInfo get formatInfo => _formatInfo;
 
   /// Analyser frames, consumed directly by the spectrum display.
   ///
@@ -148,6 +157,7 @@ class PlaybackController extends ChangeNotifier {
 
     _playingIndex = index;
     _playingPath = tracks[index].path;
+    _formatInfo = AudioFormatInfo.unknown;
     _playlist.select(index);
     final track = tracks[index];
     await _engine.open(track);
