@@ -19,6 +19,9 @@ abstract final class TrampMetrics {
   /// Default height given to the lower region at 100%.
   static const minLowerRegion = 240.0;
 
+  /// Default playlist well height at 100% when no persisted size exists.
+  static const defaultPlaylistWellHeight = 400.0;
+
   /// Height of a panel title bar, and therefore of a collapsed equalizer.
   static const titleBar = 35.0;
 }

@@ -83,4 +83,15 @@ void main() {
     await store().write(written);
     expect(await store().read(), written);
   });
+
+  test('round-trips playlist window size', () async {
+    const written = TrampSettings(
+      zoomPercent: 100,
+      lowerRegion: LowerRegion.playlist,
+      playlistWindowWidth: 900,
+      playlistWindowHeight: 700,
+    );
+    await store().write(written);
+    expect(await store().read(), written);
+  });
 }
