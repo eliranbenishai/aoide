@@ -27,6 +27,7 @@ flowchart TB
   subgraph core [Core - Flutter / Dart]
     Playback[Playback - media_kit preferred]
     PlaylistSvc[Playlist service]
+    Eq[Equalizer - chrome state]
     Formats[Decoders via media_kit / libmpv]
   end
   subgraph platform [Platform]
@@ -36,10 +37,12 @@ flowchart TB
   end
   Chrome --> Player
   Chrome --> Playlist
+  Chrome --> Eq
   Player --> Playback
   Playlist --> PlaylistSvc
   Playback --> Formats
   PlaylistSvc --> FS
+  Eq --> FS
   Playback --> MediaKeys
 ```
 
@@ -52,7 +55,8 @@ flowchart TB
 | Playback | `PlayerEngine` seam, `PlaybackController`, `MediaKitPlayerEngine` (local files via media_kit/libmpv); shuffle/repeat/volume/mute/seek; `levelsStream` → `AudioLevels` (media_kit emits `synthetic: true` frames; `SpectrumVisualizer` subscribes directly, not via `notifyListeners`); `formatStream` → `AudioFormatInfo` (bitrate/sample rate/channels as controller state via `notifyListeners`) | Implemented |
 | Formats | MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus via media_kit | Implemented |
 | Playlist | Open/save M3U/M3U8, add/remove/reorder, play from selection, restore last playlist (`PlaylistController`, `M3uCodec`, `PlaylistStore`) | Implemented |
-| Platform | `tramp_window` (frameless chrome); `file_open` (pickers, folder expand, DnD); `launch_args` (argv → playlist/audio); file associations (Windows registry, macOS Info.plist, Linux `.desktop`); `OsMediaControls` (Windows SMTC, macOS MPRemoteCommandCenter; **Linux MPRIS stub — v1 gap**) | Implemented |
+| Equalizer | Ten-band chrome state (`EqualizerSettings`, `EqualizerPresets`, `EqualizerController`); persists via `TrampSettings` / `SettingsStore`; `EqualizerSink` seam has only `NoopEqualizerSink` — gains do not reach the audio path (shipped libmpv disables filters while reporting success) | State only |
+| Platform | `tramp_window` (frameless chrome); `file_open` (pickers, folder expand, DnD); `launch_args` (argv → playlist/audio); file associations (Windows registry, macOS Info.plist, Linux `.desktop`); `OsMediaControls` (Windows SMTC, macOS MPRemoteCommandCenter; **Linux MPRIS stub — v1 gap**); `SettingsStore` (`settings.json`) | Implemented |
 
 ## Playback vs selection
 

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tramp/domain/equalizer_settings.dart';
 import 'package:tramp/domain/tramp_settings.dart';
 import 'package:tramp/platform/settings_store.dart';
 
@@ -42,5 +43,21 @@ void main() {
         .writeAsString('{"zoomPercent":137,"lowerRegion":"playlist"}');
     final settings = await store().read();
     expect(settings.zoomPercent, TrampSettings.defaults.zoomPercent);
+  });
+
+  test('round-trips equalizer state', () async {
+    const written = TrampSettings(
+      zoomPercent: 150,
+      lowerRegion: LowerRegion.equalizer,
+      equalizer: EqualizerSettings(
+        enabled: true,
+        auto: false,
+        preamp: 2,
+        gains: [1, 0, -1, 0, 0, 0, 0, 0, 0, 3],
+        presetName: 'Rock',
+      ),
+    );
+    await store().write(written);
+    expect(await store().read(), written);
   });
 }
