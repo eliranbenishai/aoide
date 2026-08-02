@@ -121,7 +121,7 @@ Panels are separated by a 6-logical-pixel `frame` gutter.
 |---|---|
 | Title bar | full width × 35 tall |
 | Logo / menu button | 27 × 27 at x 30 |
-| Title rails | two 2px lines at y 26 and y 31; left run x 71–361, right run x 472–676 |
+| Title rails | two 2px lines with their tops at y 17 and y 22; left run x 71–361, right run x 472–676 |
 | `TRAMP` wordmark | centred in the rail gap, x 361–472 |
 | Window buttons | 27 wide, at x 691 / 733 / 775 (minimize, maximize, close) |
 | Display well | x 41–568, y 41–178 |
@@ -224,7 +224,7 @@ Every control the mockup draws is assigned real behaviour. Nothing is decorative
 | Display well, left | Spectrum analyser over a 2px seek bar; the bar is draggable to seek |
 | Display well, centre | Play-state glyph, `N. Artist - Title`, large elapsed time, small total time, and real bitrate / sample rate / channel count from the decoded stream |
 | `EQ` / `PL` indicators | Which lower region is showing |
-| Shuffle / repeat buttons | Toggles, lit in `phosphor` when active. Repeat cycles off → all → one, with `1` overlaid on the glyph for one |
+| Shuffle / repeat buttons | Toggles, lit in `phosphor` when active. Repeat cycles off → all → one. Repeat-one adds a single vertical stroke inside the loop — the numeral one reduced to what reads at 16 logical pixels, where a real glyph would be about four pixels tall and illegible |
 | Volume slider | Volume, in the equalizer's slider language, horizontal. Replaces the mockup's L/R meters |
 | Mute button | Toggles mute; the slider fill dims to `phosphorDim` while muted |
 | `EQ` / `PL` buttons | Switch the lower region |

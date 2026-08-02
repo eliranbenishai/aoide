@@ -21,7 +21,8 @@
 - Equalizer band centres are exactly `[60, 170, 310, 600, 1000, 3000, 6000, 12000, 14000, 16000]` Hz; gain range ±12 dB.
 - No runtime font fetching. `google_fonts` is removed from `pubspec.yaml`; fonts are bundled TTFs.
 - **Bundling a font does not make `flutter_test` use it.** The test harness substitutes a fallback face unless the real TTFs are registered with a `FontLoader`, and its metrics are wildly different — `OPEN` measures 46.4px in the fallback versus 26.28px in Barlow Semi Condensed. Any test that asserts text layout, and **every** golden, must call `loadTrampFonts()` from `test/support/test_fonts.dart` in `setUpAll`. Never "fix" a layout overflow that only appears in the fallback font by changing production code.
-- All chrome is vector — gradients, `CustomPainter`, SVG. No raster skin assets.
+- All chrome is vector — gradients, `CustomPainter`, SVG. No raster skin assets, and **no icon fonts or glyph characters**. Both fail the same way: `□` and `✕` are absent from Barlow Semi Condensed and render as tofu boxes, and `Icons.volume_up` needs the MaterialIcons font. Window controls and the mute speaker are painted, like every other glyph. Verified by rendering the assembled panel.
+- **The panel stack needs a `Material` ancestor.** Without one, Flutter's debug build decorates every `Text` with a missing-Material underline, which makes the whole display look wrong. `TrampShell` supplies it.
 - The equalizer is chrome and state only. It must **not** claim to alter audio. See the spec's "Equalizer audio path" section: mpv reports success while silently disabling filters, so any future sink must verify by measurement, never by return code.
 - Every task ends with `flutter analyze` clean and `flutter test` green before committing.
 
@@ -1686,6 +1687,8 @@ width from the ambient zoom, so no widget composes its own gradient."
   - `ChromeButton.dropdown({Key? key, required String text, required VoidCallback? onPressed, Size? size})`
   - All expose `bool get isEnabled`. A disabled button renders its content in `TrampColors.labelDim` and does not react to taps. An `active` button renders content in `TrampColors.phosphor`.
 
+**How content tinting applies to icons.** Label text and the chevron take the resolved content colour directly. An `icon` or `leading` is an arbitrary widget the caller already tinted — the play triangle arrives in `phosphor`, for instance — so the button must not blanket-recolour it, or that intent is lost. The rule: when the button is **disabled** or **active**, wrap the glyph in a `ColorFiltered` with `BlendMode.srcIn` to force `labelDim` or `phosphor` respectively; otherwise pass it through untouched. That way a disabled transport button visibly dims, a lit toggle visibly lights, and the play triangle keeps its phosphor in the ordinary case.
+
 - [ ] **Step 1: Write the failing test**
 
 Create `test/ui/chrome/chrome_button_test.dart`:
@@ -1951,9 +1954,14 @@ class _ChromeButtonState extends State<ChromeButton> {
       );
     }
 
+    // Horizontal padding is only for buttons that size themselves to their
+    // label. When an explicit `size` is given, that size IS the constraint —
+    // adding padding on top steals width from the label and overflows tight
+    // buttons. `AUTO` needs 25.87px in Barlow and a 37px button leaves only
+    // 23px once 7px is taken from each side.
     Widget button = MetalPanel(
       surface: _down ? TrampSurface.pressedButton : TrampSurface.raisedButton,
-      padding: widget.icon != null
+      padding: (widget.icon != null || widget.size != null)
           ? null
           : const EdgeInsets.symmetric(horizontal: 7),
       child: content,
@@ -3134,24 +3142,39 @@ class TrampTitleBar extends StatelessWidget {
 
 /// Two horizontal accent lines, the classic title-bar grip motif.
 class RailPainter extends CustomPainter {
-  const RailPainter({required this.colour, required this.thickness});
+  const RailPainter({
+    required this.colour,
+    required this.thickness,
+    this.firstY = 17,
+    this.secondY = 22,
+  });
 
   final Color colour;
   final double thickness;
 
+  /// Distance from the bar's top to each rail, in logical pixels.
+  ///
+  /// Absolute rather than fractional: these come from measuring the reference
+  /// mockup, where the rails sit at logical y 17 and y 22 of the 35-tall bar.
+  /// Expressing them as fractions of the height invites drift.
+  final double firstY;
+  final double secondY;
+
   @override
   void paint(Canvas canvas, Size size) {
-    // Positions mirror the mockup: rails at y 26 and y 31 of a 35-tall bar,
-    // measured from the panel top.
     final paint = Paint()..color = colour;
-    for (final y in [size.height * 0.40, size.height * 0.55]) {
+    for (final y in [firstY, secondY]) {
+      if (y + thickness > size.height) continue;
       canvas.drawRect(Rect.fromLTWH(0, y, size.width, thickness), paint);
     }
   }
 
   @override
   bool shouldRepaint(RailPainter old) =>
-      old.colour != colour || old.thickness != thickness;
+      old.colour != colour ||
+      old.thickness != thickness ||
+      old.firstY != firstY ||
+      old.secondY != secondY;
 }
 ```
 
@@ -4937,7 +4960,17 @@ grep -rn "audioBitrate\|audioParams" ~/.pub-cache/hosted/pub.dev/media_kit-*/lib
 
 On Windows the cache lives at `%LOCALAPPDATA%\Pub\Cache\hosted\pub.dev\`.
 
-Record the real field names for sample rate and channel count. The next step assumes `AudioParams.sampleRate` (`int?`) and `AudioParams.channels` (`int?`), and `PlayerStream.audioBitrate` (`Stream<double?>`). If they differ, adjust the mapping in Step 7 accordingly — the surrounding structure does not change.
+**Verified against the installed package, 2026-08-02:**
+
+| Member | Real type | Note |
+|---|---|---|
+| `AudioParams.sampleRate` | `int?` | as assumed |
+| `AudioParams.channels` | `String?` | a channel-layout string, **not** a count — do not use it for `channels` |
+| `AudioParams.channelCount` | `int?` | this is the count `AudioFormatInfo` wants |
+| `PlayerStream.audioBitrate` | `Stream<double?>` | bits per second, so divide by 1000 for kbps |
+
+Step 7's code uses `channelCount`. The original assumption that `channels` was an
+`int` was wrong, which is exactly why this verification step exists.
 
 - [ ] **Step 7: Wire the media_kit engine**
 
@@ -4969,7 +5002,8 @@ Add to the constructor body:
 ```dart
     _paramsSubscription = _player.stream.audioParams.listen((params) {
       _sampleRateHz = params.sampleRate;
-      _channels = params.channels;
+      // `channels` is a layout string ("stereo"); `channelCount` is the number.
+      _channels = params.channelCount;
       _emitFormat();
     });
     _bitrateSubscription = _player.stream.audioBitrate.listen((bitrate) {
