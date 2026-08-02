@@ -1,197 +1,295 @@
-import 'package:flutter/material.dart';
+import 'dart:math' as math;
+
+import 'package:flutter/widgets.dart';
 
 import '../../theme/tramp_colors.dart';
 
-/// Vector transport glyphs sized for [ChromeButton] children.
+/// Vector glyphs for every icon in the chrome.
+///
+/// Painted rather than drawn from a font so they stay crisp at every zoom step
+/// and need no icon-font asset.
 abstract final class TransportIcons {
-  static Widget prev({
-    double size = 14,
-    Color color = TrampColors.metalDeep,
-  }) {
-    return _TransportIcon(
-      size: size,
-      painter: _PrevPainter(color),
-    );
-  }
+  static const defaultGlyphColour = TrampColors.label;
+  static const defaultBoltColour = TrampColors.railAccent;
 
-  static Widget play({
-    double size = 14,
-    Color color = TrampColors.metalDeep,
-  }) {
-    return _TransportIcon(
-      size: size,
-      painter: _PlayPainter(color),
-    );
-  }
+  static Widget prev({Color colour = defaultGlyphColour}) =>
+      _paint(SkipPainter(colour: colour, forward: false), const Size(16, 12));
 
-  static Widget pause({
-    double size = 14,
-    Color color = TrampColors.metalDeep,
-  }) {
-    return _TransportIcon(
-      size: size,
-      painter: _PausePainter(color),
-    );
-  }
+  static Widget next({Color colour = defaultGlyphColour}) =>
+      _paint(SkipPainter(colour: colour, forward: true), const Size(16, 12));
 
-  static Widget stop({
-    double size = 14,
-    Color color = TrampColors.metalDeep,
-  }) {
-    return _TransportIcon(
-      size: size,
-      painter: _StopPainter(color),
-    );
-  }
+  static Widget play({Color colour = TrampColors.phosphor}) =>
+      _paint(PlayPainter(colour: colour), const Size(14, 14));
 
-  static Widget next({
-    double size = 14,
-    Color color = TrampColors.metalDeep,
-  }) {
-    return _TransportIcon(
-      size: size,
-      painter: _NextPainter(color),
-    );
-  }
+  static Widget pause({Color colour = defaultGlyphColour}) =>
+      _paint(PausePainter(colour: colour), const Size(12, 14));
+
+  static Widget stop({Color colour = defaultGlyphColour}) =>
+      _paint(StopPainter(colour: colour), const Size(12, 12));
+
+  static Widget shuffle({Color colour = defaultGlyphColour}) =>
+      _paint(ShufflePainter(colour: colour), const Size(16, 12));
+
+  static Widget repeat({Color colour = defaultGlyphColour, bool one = false}) =>
+      _paint(RepeatPainter(colour: colour, one: one), const Size(16, 13));
+
+  static Widget eject({Color colour = defaultGlyphColour}) =>
+      _paint(EjectPainter(colour: colour), const Size(13, 12));
+
+  static Widget bolt({Color colour = defaultBoltColour}) =>
+      _paint(BoltPainter(colour: colour), const Size(13, 16));
+
+  static Widget _paint(CustomPainter painter, Size size) => SizedBox(
+        width: size.width,
+        height: size.height,
+        child: CustomPaint(painter: painter),
+      );
 }
 
-class _TransportIcon extends StatelessWidget {
-  const _TransportIcon({
-    required this.size,
-    required this.painter,
-  });
+Paint _fill(Color colour) => Paint()..color = colour;
 
-  final double size;
-  final CustomPainter painter;
+Paint _stroke(Color colour, double width) => Paint()
+  ..color = colour
+  ..style = PaintingStyle.stroke
+  ..strokeWidth = width
+  ..strokeJoin = StrokeJoin.round;
 
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      size: Size.square(size),
-      painter: painter,
-    );
-  }
-}
+class PlayPainter extends CustomPainter {
+  const PlayPainter({required this.colour});
 
-class _PrevPainter extends CustomPainter {
-  _PrevPainter(this.color);
-
-  final Color color;
+  final Color colour;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
-    final w = size.width;
-    final h = size.height;
-    // Vertical bar + left-pointing triangle.
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.12, h * 0.2, w * 0.16, h * 0.6),
-      paint,
-    );
     final path = Path()
-      ..moveTo(w * 0.88, h * 0.18)
-      ..lineTo(w * 0.88, h * 0.82)
-      ..lineTo(w * 0.32, h * 0.5)
+      ..moveTo(0, 0)
+      ..lineTo(size.width, size.height / 2)
+      ..lineTo(0, size.height)
       ..close();
-    canvas.drawPath(path, paint);
+    canvas.drawPath(path, _fill(colour));
   }
 
   @override
-  bool shouldRepaint(covariant _PrevPainter oldDelegate) =>
-      oldDelegate.color != color;
+  bool shouldRepaint(PlayPainter old) => old.colour != colour;
 }
 
-class _PlayPainter extends CustomPainter {
-  _PlayPainter(this.color);
+class PausePainter extends CustomPainter {
+  const PausePainter({required this.colour});
 
-  final Color color;
+  final Color colour;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
-    final w = size.width;
-    final h = size.height;
+    final barWidth = size.width * 0.36;
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, barWidth, size.height),
+      _fill(colour),
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(size.width - barWidth, 0, barWidth, size.height),
+      _fill(colour),
+    );
+  }
+
+  @override
+  bool shouldRepaint(PausePainter old) => old.colour != colour;
+}
+
+class StopPainter extends CustomPainter {
+  const StopPainter({required this.colour});
+
+  final Color colour;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(Offset.zero & size, _fill(colour));
+  }
+
+  @override
+  bool shouldRepaint(StopPainter old) => old.colour != colour;
+}
+
+class SkipPainter extends CustomPainter {
+  const SkipPainter({required this.colour, required this.forward});
+
+  final Color colour;
+  final bool forward;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final triangle = size.width * 0.42;
+    final barWidth = size.width * 0.12;
+
+    void wedge(double left, bool pointsRight) {
+      final path = Path();
+      if (pointsRight) {
+        path
+          ..moveTo(left, 0)
+          ..lineTo(left + triangle, size.height / 2)
+          ..lineTo(left, size.height);
+      } else {
+        path
+          ..moveTo(left + triangle, 0)
+          ..lineTo(left, size.height / 2)
+          ..lineTo(left + triangle, size.height);
+      }
+      canvas.drawPath(path..close(), _fill(colour));
+    }
+
+    if (forward) {
+      wedge(0, true);
+      wedge(triangle * 0.9, true);
+      canvas.drawRect(
+        Rect.fromLTWH(size.width - barWidth, 0, barWidth, size.height),
+        _fill(colour),
+      );
+    } else {
+      canvas.drawRect(Rect.fromLTWH(0, 0, barWidth, size.height), _fill(colour));
+      wedge(barWidth + triangle * 0.1, false);
+      wedge(barWidth + triangle, false);
+    }
+  }
+
+  @override
+  bool shouldRepaint(SkipPainter old) =>
+      old.colour != colour || old.forward != forward;
+}
+
+class ShufflePainter extends CustomPainter {
+  const ShufflePainter({required this.colour});
+
+  final Color colour;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = _stroke(colour, math.max(1.0, size.height * 0.13));
+    // Two crossing paths with arrowheads: the classic shuffle mark.
+    canvas.drawLine(Offset(0, size.height * 0.2),
+        Offset(size.width * 0.78, size.height * 0.8), p);
+    canvas.drawLine(Offset(0, size.height * 0.8),
+        Offset(size.width * 0.78, size.height * 0.2), p);
+
+    for (final y in [size.height * 0.2, size.height * 0.8]) {
+      final path = Path()
+        ..moveTo(size.width * 0.72, y - size.height * 0.18)
+        ..lineTo(size.width, y)
+        ..lineTo(size.width * 0.72, y + size.height * 0.18)
+        ..close();
+      canvas.drawPath(path, _fill(colour));
+    }
+  }
+
+  @override
+  bool shouldRepaint(ShufflePainter old) => old.colour != colour;
+}
+
+class RepeatPainter extends CustomPainter {
+  const RepeatPainter({required this.colour, required this.one});
+
+  final Color colour;
+
+  /// Draws a `1` inside the loop for repeat-one.
+  final bool one;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = math.max(1.0, size.height * 0.13);
+    final p = _stroke(colour, stroke);
+    final rect = Rect.fromLTWH(
+      stroke,
+      stroke,
+      size.width - stroke * 2,
+      size.height - stroke * 2,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, Radius.circular(size.height * 0.35)),
+      p,
+    );
+
+    final head = Path()
+      ..moveTo(rect.right - size.width * 0.22, rect.top - size.height * 0.06)
+      ..lineTo(rect.right, rect.top + size.height * 0.14)
+      ..lineTo(rect.right - size.width * 0.22, rect.top + size.height * 0.34)
+      ..close();
+    canvas.drawPath(head, _fill(colour));
+
+    if (one) {
+      final bar = Rect.fromLTWH(
+        size.width / 2 - stroke / 2,
+        size.height * 0.32,
+        stroke,
+        size.height * 0.36,
+      );
+      canvas.drawRect(bar, _fill(colour));
+    }
+  }
+
+  @override
+  bool shouldRepaint(RepeatPainter old) =>
+      old.colour != colour || old.one != one;
+}
+
+class EjectPainter extends CustomPainter {
+  const EjectPainter({required this.colour});
+
+  final Color colour;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final triangle = Path()
+      ..moveTo(0, size.height * 0.62)
+      ..lineTo(size.width / 2, 0)
+      ..lineTo(size.width, size.height * 0.62)
+      ..close();
+    canvas.drawPath(triangle, _fill(colour));
+    canvas.drawRect(
+      Rect.fromLTWH(0, size.height * 0.78, size.width, size.height * 0.22),
+      _fill(colour),
+    );
+  }
+
+  @override
+  bool shouldRepaint(EjectPainter old) => old.colour != colour;
+}
+
+class BoltPainter extends CustomPainter {
+  const BoltPainter({required this.colour});
+
+  final Color colour;
+
+  @override
+  void paint(Canvas canvas, Size size) {
     final path = Path()
-      ..moveTo(w * 0.28, h * 0.15)
-      ..lineTo(w * 0.28, h * 0.85)
-      ..lineTo(w * 0.88, h * 0.5)
+      ..moveTo(size.width * 0.58, 0)
+      ..lineTo(0, size.height * 0.56)
+      ..lineTo(size.width * 0.40, size.height * 0.56)
+      ..lineTo(size.width * 0.34, size.height)
+      ..lineTo(size.width, size.height * 0.40)
+      ..lineTo(size.width * 0.56, size.height * 0.40)
       ..close();
-    canvas.drawPath(path, paint);
+    canvas.drawPath(path, _fill(colour));
   }
 
   @override
-  bool shouldRepaint(covariant _PlayPainter oldDelegate) =>
-      oldDelegate.color != color;
+  bool shouldRepaint(BoltPainter old) => old.colour != colour;
 }
 
-class _PausePainter extends CustomPainter {
-  _PausePainter(this.color);
+/// Small downward chevron for dropdown buttons.
+class ChevronPainter extends CustomPainter {
+  const ChevronPainter({required this.colour});
 
-  final Color color;
+  final Color colour;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
-    final w = size.width;
-    final h = size.height;
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.22, h * 0.18, w * 0.2, h * 0.64),
-      paint,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.58, h * 0.18, w * 0.2, h * 0.64),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _PausePainter oldDelegate) =>
-      oldDelegate.color != color;
-}
-
-class _StopPainter extends CustomPainter {
-  _StopPainter(this.color);
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
-    final inset = size.shortestSide * 0.22;
-    canvas.drawRect(
-      Rect.fromLTRB(inset, inset, size.width - inset, size.height - inset),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _StopPainter oldDelegate) =>
-      oldDelegate.color != color;
-}
-
-class _NextPainter extends CustomPainter {
-  _NextPainter(this.color);
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
-    final w = size.width;
-    final h = size.height;
     final path = Path()
-      ..moveTo(w * 0.12, h * 0.18)
-      ..lineTo(w * 0.12, h * 0.82)
-      ..lineTo(w * 0.68, h * 0.5)
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
       ..close();
-    canvas.drawPath(path, paint);
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.72, h * 0.2, w * 0.16, h * 0.6),
-      paint,
-    );
+    canvas.drawPath(path, _fill(colour));
   }
 
   @override
-  bool shouldRepaint(covariant _NextPainter oldDelegate) =>
-      oldDelegate.color != color;
+  bool shouldRepaint(ChevronPainter old) => old.colour != colour;
 }
