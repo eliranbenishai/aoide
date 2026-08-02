@@ -20,6 +20,10 @@ String formatTrackDuration(Duration? duration) {
   return '$minutes:${seconds.toString().padLeft(2, '0')}';
 }
 
+/// Width reserved for the right-aligned duration column (tabular m:ss).
+/// Fits `999:59` at [TrampText.lcd] (~39.6 logical px measured).
+const _kDurationColumnWidth = 40.0;
+
 class PlaylistPanel extends StatelessWidget {
   const PlaylistPanel({
     super.key,
@@ -201,37 +205,49 @@ class _PlaylistRow extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // Title and artist are separate Text widgets rather than one
-                    // Text.rich so each is directly findable and assertable.
-                    Flexible(
-                      child: Text(
-                        track.displayTitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TrampText.lcd.copyWith(color: foreground),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          // Title and artist are separate Text widgets rather
+                          // than one Text.rich so each is directly findable and
+                          // assertable.
+                          Flexible(
+                            child: Text(
+                              track.displayTitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TrampText.lcd.copyWith(color: foreground),
+                            ),
+                          ),
+                          if (hasArtist) ...[
+                            Text(
+                              ' — ',
+                              style: TrampText.lcd.copyWith(color: muted),
+                            ),
+                            Flexible(
+                              child: Text(
+                                artist,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TrampText.lcd.copyWith(color: muted),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                    if (hasArtist) ...[
-                      Text(
-                        ' — ',
-                        style: TrampText.lcd.copyWith(color: muted),
-                      ),
-                      Flexible(
-                        child: Text(
-                          artist,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TrampText.lcd.copyWith(color: muted),
-                        ),
-                      ),
-                    ],
-                    const Spacer(),
                     const SizedBox(width: 8),
-                    Text(
-                      formatTrackDuration(track.duration),
-                      style: TrampText.lcd.copyWith(
-                        color: muted,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                    SizedBox(
+                      width: _kDurationColumnWidth,
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          formatTrackDuration(track.duration),
+                          style: TrampText.lcd.copyWith(
+                            color: muted,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 6),

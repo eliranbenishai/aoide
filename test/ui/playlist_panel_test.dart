@@ -153,4 +153,47 @@ void main() {
     await pump(tester);
     expect(find.byType(Icon), findsNothing);
   });
+
+  testWidgets('drag handles align across rows with varying content',
+      (tester) async {
+    playlist.clear();
+    playlist.addTracks(const [
+      Track(
+        path: 'a.mp3',
+        title: 'A',
+        duration: Duration(minutes: 3, seconds: 45),
+      ),
+      Track(
+        path: 'b.mp3',
+        title: 'A Very Long Title That Must Not Push The Trailing Controls',
+        artist: 'Someone',
+        duration: Duration(minutes: 12, seconds: 34),
+      ),
+      Track(
+        path: 'c.mp3',
+        title: 'Short',
+        artist: 'Someone With A Long Artist Name',
+      ),
+    ]);
+    await pump(tester);
+    await tester.pumpAndSettle();
+
+    final handles = find.byWidgetPredicate(
+      (widget) =>
+          widget is SizedBox &&
+          widget.width == 12 &&
+          widget.height == 10 &&
+          widget.child is CustomPaint,
+    );
+    expect(handles, findsNWidgets(3));
+
+    final xPositions = <double>[
+      for (var i = 0; i < 3; i++) tester.getTopLeft(handles.at(i)).dx,
+    ];
+    expect(
+      xPositions.toSet().length,
+      1,
+      reason: 'drag handles must share the same x; got $xPositions',
+    );
+  });
 }
