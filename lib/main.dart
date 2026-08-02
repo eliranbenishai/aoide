@@ -4,6 +4,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
 import 'platform/tramp_window.dart';
+import 'ui/window_layout.dart';
 import 'ui/zoom/zoom_controller.dart';
 
 Future<void> main(List<String> args) async {
@@ -16,8 +17,10 @@ Future<void> main(List<String> args) async {
   const workArea = Size(1920, 1080);
   final initialPercent = ZoomController.bestInitialPercent(workArea);
   final probe = ZoomController(workArea: workArea);
+  // Open at the playlist-mode default; once settings load the app snaps to
+  // the restored region and any persisted playlist size.
   await configureTrampWindow(
-    size: probe.windowSizeFor(initialPercent),
+    size: defaultPlaylistModeWindowSize(initialPercent / 100),
     minimumSize: probe.minimumWindowSizeFor(initialPercent),
   );
   runApp(TrampApp(launchArgs: args));

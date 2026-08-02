@@ -23,6 +23,7 @@ import 'ui/equalizer/equalizer_panel.dart';
 import 'ui/main_player/main_player_panel.dart';
 import 'ui/playlist_panel.dart';
 import 'ui/tramp_shell.dart';
+import 'ui/window_layout.dart';
 import 'ui/zoom/zoom_controller.dart';
 
 class TrampApp extends StatefulWidget {
@@ -31,6 +32,7 @@ class TrampApp extends StatefulWidget {
     this.launchArgs = const [],
     this.engine,
     this.osMediaControls,
+    this.settingsStore,
   });
 
   final List<String> launchArgs;
@@ -39,11 +41,13 @@ class TrampApp extends StatefulWidget {
 
   final OsMediaControls? osMediaControls;
 
+  final SettingsStore? settingsStore;
+
   @override
   State<TrampApp> createState() => _TrampAppState();
 }
 
-class _TrampAppState extends State<TrampApp> {
+class _TrampAppState extends State<TrampApp> with WindowListener {
   late final PlaylistController _playlist;
   late final PlaybackController _playback;
   late final OsMediaControls _osMediaControls;
@@ -52,6 +56,9 @@ class _TrampAppState extends State<TrampApp> {
   late final EqualizerController _equalizer;
   LowerRegion _lowerRegion = LowerRegion.playlist;
   bool _equalizerCollapsed = false;
+  double? _playlistWindowWidth;
+  double? _playlistWindowHeight;
+  Timer? _resizePersistDebounce;
   final FocusNode _playlistFocusNode = FocusNode();
 
   @override
@@ -86,7 +93,8 @@ class _TrampAppState extends State<TrampApp> {
     );
 
     _osMediaControls = widget.osMediaControls ?? createOsMediaControls();
-    _settingsStore = FileSettingsStore(supportDir: getApplicationSupportDirectory);
+    _settingsStore = widget.settingsStore ??
+        FileSettingsStore(supportDir: getApplicationSupportDirectory);
     _zoom = ZoomController(
       workArea: const Size(1920, 1080),
       onPercentChanged: _onZoomChanged,
@@ -95,6 +103,7 @@ class _TrampAppState extends State<TrampApp> {
       store: _settingsStore,
       sink: const NoopEqualizerSink(),
     );
+    windowManager.addListener(this);
     unawaited(_osMediaControls.start(_playback));
     unawaited(_bootstrapPlaylist());
     unawaited(_restoreSettings());
@@ -128,8 +137,15 @@ class _TrampAppState extends State<TrampApp> {
     if (!mounted) return;
     setState(() {
       _lowerRegion = settings.lowerRegion;
+      // Assigned before setPercent: a restored zoom step fires
+      // _onZoomChanged, which applies the window mode using these values.
+      _playlistWindowWidth = settings.playlistWindowWidth;
+      _playlistWindowHeight = settings.playlistWindowHeight;
       _zoom.setPercent(settings.zoomPercent);
     });
+    // setPercent no-ops when the restored step is already current, so the
+    // startup snap to the restored region/size has to happen explicitly.
+    unawaited(_applyWindowMode());
   }
 
   Future<void> _persistSettings() async {
@@ -143,14 +159,26 @@ class _TrampAppState extends State<TrampApp> {
   }
 
   void _onZoomChanged(int percent) {
-    unawaited(resizeTrampWindow(
-      size: _zoom.windowSizeFor(percent),
-      minimumSize: _zoom.minimumWindowSizeFor(percent),
-    ));
+    unawaited(_applyWindowMode());
     unawaited(_persistSettings());
   }
 
+  /// Snaps the live window to the current mode's target (ADR 0003): the fixed
+  /// EQ stack in equalizer mode, the restored/default size with free resize in
+  /// playlist mode.
+  Future<void> _applyWindowMode() async {
+    final target = windowModeTarget(
+      lowerRegion: _lowerRegion,
+      factor: _zoom.factor,
+      storedPlaylistWidth: _playlistWindowWidth,
+      storedPlaylistHeight: _playlistWindowHeight,
+    );
+    await setTrampWindowResizable(target.resizable);
+    await resizeTrampWindow(size: target.size, minimumSize: target.minimumSize);
+  }
+
   void _selectRegion(LowerRegion region) {
+    final regionChanged = region != _lowerRegion;
     setState(() {
       // Tapping the visible region's own button toggles the equalizer's
       // windowshade rather than doing nothing.
@@ -162,10 +190,50 @@ class _TrampAppState extends State<TrampApp> {
       }
     });
     unawaited(_persistSettings());
+    if (regionChanged) {
+      unawaited(_applyWindowMode());
+    }
+  }
+
+  @override
+  void onWindowResized() {
+    // Windows/macOS: fired once when the resize drag ends.
+    _resizePersistDebounce?.cancel();
+    unawaited(_persistPlaylistWindowSize());
+  }
+
+  @override
+  void onWindowResize() {
+    // Linux has no end-of-resize event; a quiet spell after live resize
+    // events stands in for it.
+    _resizePersistDebounce?.cancel();
+    _resizePersistDebounce = Timer(
+      const Duration(milliseconds: 400),
+      () => unawaited(_persistPlaylistWindowSize()),
+    );
+  }
+
+  Future<void> _persistPlaylistWindowSize() async {
+    if (_lowerRegion != LowerRegion.playlist) return;
+    final size = await windowManager.getSize();
+    // Stored logical (zoom-independent) so the size restores proportionally
+    // at any zoom step.
+    final logical = logicalPlaylistWindowSize(size, _zoom.factor);
+    _playlistWindowWidth = logical.width;
+    _playlistWindowHeight = logical.height;
+    final current = await _settingsStore.read();
+    await _settingsStore.write(
+      current.copyWith(
+        playlistWindowWidth: logical.width,
+        playlistWindowHeight: logical.height,
+      ),
+    );
   }
 
   @override
   void dispose() {
+    _resizePersistDebounce?.cancel();
+    windowManager.removeListener(this);
     _playlistFocusNode.dispose();
     unawaited(_osMediaControls.stop());
     unawaited(_playback.dispose());

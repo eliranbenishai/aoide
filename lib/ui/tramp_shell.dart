@@ -10,6 +10,7 @@ import '../playback/playback_controller.dart';
 import '../playlist/playlist_controller.dart';
 import '../theme/tramp_colors.dart';
 import '../theme/tramp_metrics.dart';
+import 'window_layout.dart';
 import 'zoom/zoom_controller.dart';
 import 'zoom/zoom_scope.dart';
 
@@ -247,64 +248,90 @@ class TrampShell extends StatelessWidget {
   Widget build(BuildContext context) {
     // Material supplies the ink/text theme ancestor. MaterialApp alone is not
     // enough without a Scaffold; without this, debug builds underline every Text.
-    final shell = DragToResizeArea(
-      resizeEdgeSize: 6,
-      child: Material(
-        color: TrampColors.frame,
-        child: ListenableBuilder(
-          listenable: zoom,
-          builder: (context, _) {
-            final factor = zoom.factor;
-            final ratio = MediaQuery.devicePixelRatioOf(context);
+    final content = Material(
+      color: TrampColors.frame,
+      child: ListenableBuilder(
+        listenable: zoom,
+        builder: (context, _) {
+          final factor = zoom.factor;
+          final ratio = MediaQuery.devicePixelRatioOf(context);
 
-            final focusedPlaylist = playlistFocusNode == null
-                ? playlist
-                : Focus(focusNode: playlistFocusNode, child: playlist);
+          final focusedPlaylist = playlistFocusNode == null
+              ? playlist
+              : Focus(focusNode: playlistFocusNode, child: playlist);
 
-            // Transform.scale paints larger but does not change layout size.
-            // The keyed host is sized by the zoom factor so layout tests (and
-            // the window) observe the scaled stack; one transform still scales
-            // the authored canvases.
-            final logicalWidth = TrampMetrics.mainPlayer.width;
-            return ZoomScope(
-              factor: factor,
-              devicePixelRatio: ratio,
-              child: Padding(
-                padding: const EdgeInsets.all(TrampMetrics.frame),
-                child: Align(
-                  alignment: Alignment.topLeft,
-                  child: SizedBox(
-                    key: panelStackKey,
-                    width: logicalWidth * factor,
-                    child: Transform.scale(
-                      scale: factor,
-                      alignment: Alignment.topLeft,
-                      child: SizedBox(
-                        width: logicalWidth,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            mainPlayer,
-                            const SizedBox(height: TrampMetrics.gutter),
-                            if (lowerRegion == LowerRegion.equalizer)
-                              equalizer
-                            else
-                              SizedBox(
-                                height: TrampMetrics.minLowerRegion,
-                                child: focusedPlaylist,
-                              ),
-                          ],
+          // Transform.scale paints larger but does not change layout size, and
+          // it forwards its (tight) constraints to the child — which would
+          // clamp the "logical" stack up to the scaled host size. OverflowBox
+          // re-imposes logical constraints so the stack lays out at its true
+          // logical size while the keyed host observes the scaled size.
+          return ZoomScope(
+            factor: factor,
+            devicePixelRatio: ratio,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final layout = panelStackLayout(
+                  lowerRegion: lowerRegion,
+                  factor: factor,
+                  contentSize: Size(
+                    constraints.maxWidth - TrampMetrics.frame * 2,
+                    constraints.maxHeight - TrampMetrics.frame * 2,
+                  ),
+                );
+                final host = layout.hostSize(factor);
+                return Padding(
+                  padding: const EdgeInsets.all(TrampMetrics.frame),
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: SizedBox(
+                      key: panelStackKey,
+                      width: host.width,
+                      height: host.height,
+                      child: Transform.scale(
+                        scale: factor,
+                        alignment: Alignment.topLeft,
+                        child: OverflowBox(
+                          alignment: Alignment.topLeft,
+                          minWidth: 0,
+                          maxWidth: layout.logicalWidth,
+                          minHeight: 0,
+                          maxHeight: layout.logicalHeight,
+                          child: SizedBox(
+                            width: layout.logicalWidth,
+                            height: layout.logicalHeight,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                mainPlayer,
+                                const SizedBox(height: TrampMetrics.gutter),
+                                if (lowerRegion == LowerRegion.equalizer)
+                                  equalizer
+                                else
+                                  SizedBox(
+                                    width: layout.logicalWidth,
+                                    height: layout.lowerHeight,
+                                    child: focusedPlaylist,
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ),
-            );
-          },
-        ),
+                );
+              },
+            ),
+          );
+        },
       ),
     );
+
+    // Resize edges exist only in playlist mode (ADR 0003); in equalizer mode
+    // the window is snapped to the fixed stack and must not edge-resize.
+    final shell = lowerRegion == LowerRegion.playlist
+        ? DragToResizeArea(resizeEdgeSize: 6, child: content)
+        : content;
 
     final focusedShell = Shortcuts(
       shortcuts: _shortcuts,

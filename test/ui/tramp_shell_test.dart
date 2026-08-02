@@ -82,7 +82,10 @@ void main() {
   });
 
   testWidgets('the stack scales by the zoom factor', (tester) async {
-    await pump(tester, surface: const Size(3000, 2000));
+    // Equalizer mode is the exact stack at any window size, so the host
+    // directly observes the zoom factor.
+    await pump(tester,
+        region: LowerRegion.equalizer, surface: const Size(3000, 2000));
     final at100 = tester.getSize(find.byKey(panelStackKey));
 
     zoom.setPercent(200);
@@ -90,6 +93,7 @@ void main() {
     final at200 = tester.getSize(find.byKey(panelStackKey));
 
     expect(at200.width, closeTo(at100.width * 2, 0.01));
+    expect(at200.height, closeTo(at100.height * 2, 0.01));
   });
 
   testWidgets('no overflow at any zoom step', (tester) async {

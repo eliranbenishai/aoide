@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
-import '../theme/tramp_metrics.dart';
-
 /// Frameless window sized for the active zoom step.
 Future<void> configureTrampWindow({
   required Size size,
@@ -35,19 +33,6 @@ Future<void> resizeTrampWindow({
 }) async {
   await windowManager.setMinimumSize(minimumSize);
   await windowManager.setSize(size);
-}
-
-/// Default playlist-mode window size when no persisted dimensions exist.
-Size defaultPlaylistWindowSize(int zoomPercent) {
-  final f = zoomPercent / 100;
-  final width =
-      (TrampMetrics.mainPlayer.width + TrampMetrics.frame * 2) * f;
-  final height = (TrampMetrics.frame * 2 +
-          TrampMetrics.mainPlayer.height +
-          TrampMetrics.gutter +
-          TrampMetrics.defaultPlaylistWellHeight) *
-      f;
-  return Size(width, height);
 }
 
 Future<void> setTrampWindowResizable(bool resizable) async {
