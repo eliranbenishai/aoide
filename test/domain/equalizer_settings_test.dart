@@ -54,6 +54,28 @@ void main() {
     );
   });
 
+  test('a non-numeric gain element falls back to flat', () {
+    expect(
+      EqualizerSettings.fromJson(const {
+        'gains': [0, 0, 0, 0, 0, 0, 0, 0, 0, 'bad'],
+      }),
+      EqualizerSettings.flat,
+    );
+  });
+
+  test('a non-string presetName is treated as absent', () {
+    final settings = EqualizerSettings.fromJson(const {
+      'enabled': true,
+      'auto': false,
+      'preamp': 0,
+      'gains': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      'presetName': 42,
+    });
+    expect(settings.presetName, isNull);
+    expect(settings.enabled, isTrue);
+    expect(settings.gains, EqualizerSettings.flat.gains);
+  });
+
   test('every built-in preset has ten in-range gains', () {
     expect(EqualizerPresets.builtIn, isNotEmpty);
     for (final entry in EqualizerPresets.builtIn.entries) {

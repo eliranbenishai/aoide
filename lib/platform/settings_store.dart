@@ -31,7 +31,10 @@ class FileSettingsStore implements SettingsStore {
       final decoded = jsonDecode(await f.readAsString());
       if (decoded is! Map<String, dynamic>) return TrampSettings.defaults;
       return TrampSettings.fromJson(decoded);
-    } on FormatException {
+    } catch (_) {
+      // Deliberate catch-all: on-disk JSON is untrusted input. Any decode or
+      // interpretation failure (malformed syntax, wrong types, etc.) yields
+      // defaults rather than crashing startup.
       return TrampSettings.defaults;
     }
   }

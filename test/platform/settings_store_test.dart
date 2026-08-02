@@ -45,6 +45,29 @@ void main() {
     expect(settings.zoomPercent, TrampSettings.defaults.zoomPercent);
   });
 
+  test('type-corrupt equalizer presetName does not crash read', () async {
+    await File('${dir.path}/settings.json').writeAsString(
+      '{"zoomPercent":150,"lowerRegion":"equalizer",'
+      '"equalizer":{"enabled":true,"auto":false,"preamp":0,'
+      '"gains":[0,0,0,0,0,0,0,0,0,0],"presetName":42}}',
+    );
+    final settings = await store().read();
+    expect(settings.zoomPercent, 150);
+    expect(settings.lowerRegion, LowerRegion.equalizer);
+    expect(settings.equalizer.presetName, isNull);
+    expect(settings.equalizer.enabled, isTrue);
+  });
+
+  test('non-map equalizer falls back to flat while other fields load', () async {
+    await File('${dir.path}/settings.json').writeAsString(
+      '{"zoomPercent":200,"lowerRegion":"playlist","equalizer":"garbage"}',
+    );
+    final settings = await store().read();
+    expect(settings.zoomPercent, 200);
+    expect(settings.lowerRegion, LowerRegion.playlist);
+    expect(settings.equalizer, EqualizerSettings.flat);
+  });
+
   test('round-trips equalizer state', () async {
     const written = TrampSettings(
       zoomPercent: 150,

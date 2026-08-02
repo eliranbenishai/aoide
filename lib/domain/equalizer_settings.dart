@@ -82,12 +82,13 @@ class EqualizerSettings {
       gains.add(_clamp(value.toDouble()));
     }
     final preamp = json['preamp'];
+    final presetName = json['presetName'];
     return EqualizerSettings(
       enabled: json['enabled'] == true,
       auto: json['auto'] == true,
       preamp: preamp is num ? _clamp(preamp.toDouble()) : 0,
       gains: gains,
-      presetName: json['presetName'] as String?,
+      presetName: presetName is String ? presetName : null,
     );
   }
 
