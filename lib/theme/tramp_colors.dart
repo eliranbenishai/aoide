@@ -1,21 +1,49 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/painting.dart';
 
+/// Graphite chrome palette. Every value is sampled from the reference mockup at
+/// `docs/mockups/graphite-chrome.png`.
 abstract final class TrampColors {
-  static const metalHi = Color(0xFFE4E4E4);
-  static const metalFace = Color(0xFFB8B8B8);
-  static const metalMid = Color(0xFF9A9A9A);
-  static const metalShadow = Color(0xFF6E6E6E);
-  static const metalDeep = Color(0xFF4A4A4A);
-  static const groove = Color(0xFF3A3A3A);
+  /// Outer border and the gutter between stacked panels.
+  static const frame = Color(0xFF000000);
 
-  static const lcdBackground = Color(0xFF0A1A0A);
-  static const lcdPhosphor = Color(0xFF33FF33);
-  static const lcdPhosphorDim = Color(0xFF1A8A1A);
-  static const lcdPeak = Color(0xFFCCFF33);
+  static const panelTop = Color(0xFF2C3039);
+  static const panelBottom = Color(0xFF1D2128);
+  static const bevelHi = Color(0xFF555B65);
+  static const bevelLo = Color(0xFF0B0E12);
 
-  static const fillAccent = Color(0xFF2ECC40);
-  static const windowClose = Color(0xFFC44C4C);
+  static const buttonTop = Color(0xFF363B45);
+  static const buttonBottom = Color(0xFF22262E);
 
-  static const skinBorder = Color(0xFF555555);
-  static const borderWidth = 1.0;
+  static const wellDeep = Color(0xFF010306);
+  static const lcdGlass = Color(0xFF03060A);
+
+  /// Lit phosphor: LCD text, spectrum bars, slider fills, active toggles.
+  static const phosphor = Color(0xFFCFEA45);
+  static const phosphorDim = Color(0xFF5C7022);
+
+  /// Chrome accent — deliberately warmer than [phosphor] so the display reads
+  /// as a screen rather than as paint.
+  static const railAccent = Color(0xFFFEE670);
+
+  static const label = Color(0xFFC9CED3);
+  static const labelDim = Color(0xFF979DA6);
+  static const thumbHi = Color(0xFFBFC8D1);
+
+  static const all = <Color>[
+    frame,
+    panelTop,
+    panelBottom,
+    bevelHi,
+    bevelLo,
+    buttonTop,
+    buttonBottom,
+    wellDeep,
+    lcdGlass,
+    phosphor,
+    phosphorDim,
+    railAccent,
+    label,
+    labelDim,
+    thumbHi,
+  ];
 }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'tramp_colors.dart';
 
@@ -7,19 +6,21 @@ ThemeData buildTrampTheme() {
   final base = ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
-    scaffoldBackgroundColor: TrampColors.metalMid,
+    scaffoldBackgroundColor: TrampColors.frame,
     colorScheme: const ColorScheme.dark(
-      primary: TrampColors.lcdPhosphor,
-      secondary: TrampColors.fillAccent,
-      surface: TrampColors.metalFace,
-      onPrimary: TrampColors.lcdBackground,
-      onSurface: TrampColors.metalDeep,
+      primary: TrampColors.phosphor,
+      secondary: TrampColors.railAccent,
+      surface: TrampColors.panelBottom,
+      onPrimary: TrampColors.lcdGlass,
+      onSurface: TrampColors.label,
     ),
   );
+
   return base.copyWith(
-    textTheme: GoogleFonts.ibmPlexMonoTextTheme(base.textTheme).apply(
-      bodyColor: TrampColors.metalDeep,
-      displayColor: TrampColors.metalDeep,
+    textTheme: base.textTheme.apply(
+      fontFamily: 'BarlowSemiCondensed',
+      bodyColor: TrampColors.label,
+      displayColor: TrampColors.label,
     ),
   );
 }
