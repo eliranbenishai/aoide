@@ -155,9 +155,14 @@ class _ChromeButtonState extends State<ChromeButton> {
       );
     }
 
+    // Horizontal padding is only for buttons that size themselves to their
+    // label. When an explicit `size` is given, that size IS the constraint —
+    // adding padding on top steals width from the label and overflows tight
+    // buttons. `AUTO` needs 25.87px in Barlow and a 37px button leaves only
+    // 23px once 7px is taken from each side.
     Widget button = MetalPanel(
       surface: _down ? TrampSurface.pressedButton : TrampSurface.raisedButton,
-      padding: widget.icon != null
+      padding: (widget.icon != null || widget.size != null)
           ? null
           : const EdgeInsets.symmetric(horizontal: 7),
       child: content,
