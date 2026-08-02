@@ -1,82 +1,46 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
-import '../../theme/tramp_colors.dart';
+import '../../theme/tramp_surfaces.dart';
+import '../zoom/zoom_scope.dart';
 
-enum MetalPanelStyle { raised, insetLcd }
+/// Which material a panel wears.
+enum TrampSurface { raisedPanel, raisedButton, pressedButton, insetWell, lcdGlass }
 
+/// Applies one of the shared surface recipes.
+///
+/// This widget deliberately holds no visual decisions of its own — it exists so
+/// callers name a material instead of hand-rolling one. It composes the fill and
+/// the bevel, which are separate because Flutter will not paint a rounded
+/// decoration that also carries a two-tone border.
 class MetalPanel extends StatelessWidget {
   const MetalPanel({
     super.key,
+    required this.surface,
     required this.child,
-    this.style = MetalPanelStyle.raised,
+    this.padding,
   });
 
+  final TrampSurface surface;
   final Widget child;
-  final MetalPanelStyle style;
+  final EdgeInsets? padding;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: _decoration,
-      child: child,
-    );
-  }
+    final bevel = ZoomScope.hairlineFor(context);
+    final spec = switch (surface) {
+      TrampSurface.raisedPanel => TrampSurfaces.raisedPanel(bevel: bevel),
+      TrampSurface.raisedButton => TrampSurfaces.raisedButton(bevel: bevel),
+      TrampSurface.pressedButton => TrampSurfaces.pressedButton(bevel: bevel),
+      TrampSurface.insetWell => TrampSurfaces.insetWell(bevel: bevel),
+      TrampSurface.lcdGlass => TrampSurfaces.lcdGlass(bevel: bevel),
+    };
 
-  BoxDecoration get _decoration {
-    switch (style) {
-      case MetalPanelStyle.raised:
-        return BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              TrampColors.metalHi,
-              TrampColors.metalMid,
-              TrampColors.metalShadow,
-            ],
-            stops: [0.0, 0.45, 1.0],
-          ),
-          border: Border(
-            top: BorderSide(
-              color: TrampColors.metalHi,
-              width: TrampColors.borderWidth,
-            ),
-            left: BorderSide(
-              color: TrampColors.metalHi,
-              width: TrampColors.borderWidth,
-            ),
-            right: BorderSide(
-              color: TrampColors.metalDeep,
-              width: TrampColors.borderWidth,
-            ),
-            bottom: BorderSide(
-              color: TrampColors.metalDeep,
-              width: TrampColors.borderWidth,
-            ),
-          ),
-        );
-      case MetalPanelStyle.insetLcd:
-        return BoxDecoration(
-          color: TrampColors.lcdBackground,
-          border: Border(
-            top: BorderSide(
-              color: TrampColors.metalDeep,
-              width: TrampColors.borderWidth * 2,
-            ),
-            left: BorderSide(
-              color: TrampColors.metalDeep,
-              width: TrampColors.borderWidth * 2,
-            ),
-            right: BorderSide(
-              color: TrampColors.skinBorder,
-              width: TrampColors.borderWidth,
-            ),
-            bottom: BorderSide(
-              color: TrampColors.skinBorder,
-              width: TrampColors.borderWidth,
-            ),
-          ),
-        );
-    }
+    final inner =
+        padding == null ? child : Padding(padding: padding!, child: child);
+
+    return CustomPaint(
+      foregroundPainter: BevelPainter(spec: spec),
+      child: DecoratedBox(decoration: spec.decoration, child: inner),
+    );
   }
 }
