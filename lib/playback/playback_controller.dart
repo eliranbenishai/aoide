@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../domain/repeat_mode.dart';
 import '../domain/track.dart';
 import '../playlist/playlist_controller.dart';
+import 'audio_levels.dart';
 import 'player_engine.dart';
 
 class PlaybackController extends ChangeNotifier {
@@ -65,6 +66,12 @@ class PlaybackController extends ChangeNotifier {
   Duration get duration => _duration;
   bool get shuffle => _shuffle;
   RepeatMode get repeatMode => _repeatMode;
+
+  /// Analyser frames, consumed directly by the spectrum display.
+  ///
+  /// Not surfaced as controller state on purpose: notifying listeners at frame
+  /// rate would rebuild the entire player chrome thirty times a second.
+  Stream<AudioLevels> get levelsStream => _engine.levelsStream;
 
   Track? get currentTrack {
     final index = _playingIndex;

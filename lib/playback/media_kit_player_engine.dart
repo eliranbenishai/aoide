@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:media_kit/media_kit.dart' hide Track;
 
 import '../domain/track.dart';
+import 'audio_levels.dart';
 import 'player_engine.dart';
 
 typedef TrackMetadataCallback = void Function(
@@ -12,10 +13,38 @@ typedef TrackMetadataCallback = void Function(
 
 class MediaKitPlayerEngine implements PlayerEngine {
   MediaKitPlayerEngine({this.onMetadata, Player? player})
-      : _player = player ?? Player();
+      : _player = player ?? Player() {
+    // The engine cannot measure real audio, so it publishes a synthesised
+    // spectrum shape driven by playing state and volume. See the design spec:
+    // libmpv ships without the filters any real metering would need.
+    _playingSubscription = _player.stream.playing.listen((playing) {
+      _isPlaying = playing;
+    });
+    _levelsTimer = Timer.periodic(const Duration(milliseconds: 33), (_) {
+      if (_levels.isClosed) return;
+      _levels.add(
+        _isPlaying
+            ? AudioLevels.synthesised(
+                intensity: _currentVolume,
+                seed: _levelsSeed++,
+              )
+            : AudioLevels.silent,
+      );
+    });
+  }
 
   final Player _player;
   final TrackMetadataCallback? onMetadata;
+
+  final _levels = StreamController<AudioLevels>.broadcast();
+  StreamSubscription<bool>? _playingSubscription;
+  Timer? _levelsTimer;
+  int _levelsSeed = 0;
+  bool _isPlaying = false;
+  double _currentVolume = 1;
+
+  @override
+  Stream<AudioLevels> get levelsStream => _levels.stream;
 
   @override
   Stream<Duration> get positionStream => _player.stream.position;
@@ -50,11 +79,18 @@ class MediaKitPlayerEngine implements PlayerEngine {
   Future<void> seek(Duration position) => _player.seek(position);
 
   @override
-  Future<void> setVolume(double volume) =>
-      _player.setVolume(volume.clamp(0.0, 1.0) * 100);
+  Future<void> setVolume(double volume) {
+    _currentVolume = volume.clamp(0.0, 1.0);
+    return _player.setVolume(_currentVolume * 100);
+  }
 
   @override
-  Future<void> dispose() => _player.dispose();
+  Future<void> dispose() async {
+    _levelsTimer?.cancel();
+    await _playingSubscription?.cancel();
+    await _levels.close();
+    await _player.dispose();
+  }
 
   Future<void> _tryEmitMetadata(Track track) async {
     final callback = onMetadata;

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../domain/track.dart';
+import 'audio_levels.dart';
 import 'player_engine.dart';
 
 class FakePlayerEngine implements PlayerEngine {
@@ -18,6 +19,7 @@ class FakePlayerEngine implements PlayerEngine {
   final _durationController = StreamController<Duration>.broadcast();
   final _playingController = StreamController<bool>.broadcast();
   final _completedController = StreamController<void>.broadcast();
+  final _levelsController = StreamController<AudioLevels>.broadcast();
 
   @override
   Stream<Duration> get positionStream => _positionController.stream;
@@ -30,6 +32,13 @@ class FakePlayerEngine implements PlayerEngine {
 
   @override
   Stream<void> get completedStream => _completedController.stream;
+
+  @override
+  Stream<AudioLevels> get levelsStream => _levelsController.stream;
+
+  /// Push one analyser frame. Tests drive the spectrum through this rather than
+  /// waiting on a timer, so they stay deterministic.
+  void emitLevels(AudioLevels levels) => _levelsController.add(levels);
 
   @override
   Future<void> open(Track track) async {
@@ -75,6 +84,7 @@ class FakePlayerEngine implements PlayerEngine {
     await _durationController.close();
     await _playingController.close();
     await _completedController.close();
+    await _levelsController.close();
   }
 
   Future<void> emitCompleted() async {
