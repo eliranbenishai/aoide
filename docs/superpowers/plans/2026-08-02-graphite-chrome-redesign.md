@@ -44,6 +44,7 @@
 | `lib/ui/zoom/zoom_scope.dart` | `InheritedWidget` exposing the factor and device-pixel snapping |
 | `lib/ui/chrome/title_bar.dart` | Rails, wordmark, drag region, leading/trailing slots |
 | `lib/ui/chrome/lcd_text.dart` | Phosphor text widget with lit/dim treatment |
+| `lib/ui/chrome/tramp_mark.dart` | The compact Tramp mark for chrome at control size. `logo.svg` / `TrampLogo` remains the full-size brand asset for icon, splash and About |
 | `lib/ui/main_player/main_player_panel.dart` | The 812×242 canvas and its three rows |
 | `lib/ui/equalizer/equalizer_panel.dart` | The 812×206 canvas, preamp and ten bands |
 
@@ -5242,10 +5243,10 @@ import '../../theme/tramp_text.dart';
 import '../chrome/chrome_button.dart';
 import '../chrome/chrome_slider.dart';
 import '../chrome/lcd_text.dart';
-import '../chrome/logo.dart';
 import '../chrome/metal_panel.dart';
 import '../chrome/spectrum_visualizer.dart';
 import '../chrome/title_bar.dart';
+import '../chrome/tramp_mark.dart';
 import '../chrome/transport_icons.dart';
 import '../format.dart';
 import '../zoom/zoom_controller.dart';
@@ -5341,11 +5342,12 @@ class _MainPlayerPanelState extends State<MainPlayerPanel> {
           child: TrampTitleBar(
             title: 'TRAMP',
             draggable: widget.draggableTitle,
-            // Tramp's own mark, not a painted glyph. The mockup shows Winamp's
-            // lightning bolt here; that is their brand, not a generic icon.
+            // Tramp's compact mark. The mockup shows Winamp's lightning bolt
+            // here — that is their brand, not a generic icon. The full colour
+            // logo is illegible at this size; see the spec's Brand assets.
             leading: ChromeButton.icon(
               key: const Key('player-menu'),
-              icon: const TrampLogo(size: 19),
+              icon: const TrampMark(size: 19),
               onPressed: widget.onOpenMenu,
               semanticLabel: 'Tramp menu',
               size: const Size(27, 27),

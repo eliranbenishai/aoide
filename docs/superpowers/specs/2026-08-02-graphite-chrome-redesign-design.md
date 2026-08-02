@@ -25,10 +25,24 @@ branded "WINAMP". Two consequences are binding:
 - **Nothing of Winamp's identity transfers.** Proportions, bevels, groove
   sliders, the dense control-forward layout and the band frequencies are generic
   90s-player vocabulary and are fair to reuse. The lightning-bolt mark, the
-  wordmark, and the bundled demo track are Winamp's brand. Tramp has its own
-  mark — `TrampLogo` in [`lib/ui/chrome/logo.dart`](../../../lib/ui/chrome/logo.dart),
-  rendered from `logo.svg`: a pin-up in headphones inside a ring badge. That is
-  what occupies the title bar's leading slot. No bolt appears anywhere.
+  wordmark, and the bundled demo track are Winamp's brand. No bolt appears
+  anywhere in Tramp.
+
+## Brand assets
+
+Tramp uses two marks, because one asset cannot do both jobs.
+
+| Asset | Where |
+|---|---|
+| `TrampLogo` — `lib/ui/chrome/logo.dart`, rendered from `logo.svg`. The full mark: a colour illustration of a pin-up in headphones inside a ring badge | App icon, splash, About, README — anywhere it has room to be itself |
+| `TrampMark` — `lib/ui/chrome/tramp_mark.dart`, a `CustomPainter`. The compact mark: the ring and the headphones, single colour, tinted by the caller | Chrome at control size, including the title bar's leading slot |
+
+The full logo was tried in the title bar first and does not work there. At the 19
+logical pixels the slot allows, the figure collapses into a smudge; and its skin
+tones read as a photograph pasted onto a metal panel even at 300% zoom, where it
+is otherwise legible. The compact mark keeps the two structural cues that survive
+reduction — the ring and the headphones — and drops the figure. Recognition
+between the two assets therefore rests on the ring silhouette.
 
 One known artifact: the main panel's top-left corner shows a visible gradient
 stop. That is a rendering defect, not a design feature. Panel faces use a single
@@ -204,7 +218,7 @@ Every control the mockup draws is assigned real behaviour. Nothing is decorative
 
 | Control | Behaviour |
 |---|---|
-| Tramp logo (title bar) | `TrampLogo`, not a painted glyph. Opens the main menu: open files, open folder, open playlist, save playlist, zoom, about, exit |
+| Tramp mark (title bar) | `TrampMark`, the compact mark — not the full colour logo, which is illegible at this size. Opens the main menu: open files, open folder, open playlist, save playlist, zoom, about, exit |
 | Title bar centre | `TRAMP` wordmark; drag region for moving the window |
 | Minimize / maximize / close | Real window operations. Maximize is not required by the v1 spec, but the button is in the mockup and wiring it is trivial, so it works rather than being drawn |
 | Display well, left | Spectrum analyser over a 2px seek bar; the bar is draggable to seek |
