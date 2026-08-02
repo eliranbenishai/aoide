@@ -10,7 +10,7 @@ import 'chrome/chrome_button.dart';
 import 'chrome/chrome_slider.dart';
 import 'chrome/metal_panel.dart';
 import 'chrome/spectrum_visualizer.dart';
-import 'chrome/tramp_logo.dart';
+import 'chrome/logo.dart';
 import 'chrome/transport_icons.dart';
 import 'format.dart';
 

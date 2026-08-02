@@ -11,6 +11,12 @@ import '../playlist/playlist_controller.dart';
 import '../theme/tramp_colors.dart';
 import 'classic_main_player.dart';
 
+/// The box that scales the fixed-aspect player to the window.
+///
+/// Named so layout tests can measure it without guessing which `FittedBox`
+/// they mean — widgets nested inside the player use their own.
+const Key playerScaleHostKey = Key('player-scale-host');
+
 class PlayPauseIntent extends Intent {
   const PlayPauseIntent();
 }
@@ -226,6 +232,7 @@ class TrampShell extends StatelessWidget {
                       width: playerWidth,
                       height: playerHeight,
                       child: FittedBox(
+                        key: playerScaleHostKey,
                         fit: BoxFit.contain,
                         child: transport,
                       ),

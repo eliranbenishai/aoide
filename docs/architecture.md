@@ -48,6 +48,7 @@ flowchart TB
 | Area | Responsibility | Status |
 |------|----------------|--------|
 | App chrome / UI | `TrampShell`, `ClassicMainPlayer`, `PlaylistPanel`, `lib/ui/chrome/` (`ChromeButton`, `ChromeSlider`, `MetalPanel`, `SpectrumVisualizer`, `TrampLogo`, transport icons); frameless resize/drag via `window_manager`; keyboard shortcuts | Implemented |
+| Brand art | Master mark is `lib/ui/chrome/logo.svg` (declared as an asset), rendered by `TrampLogo` through `flutter_svg`. Chrome widgets other than the logo stay hand-drawn in Dart so they can react to state | Implemented |
 | Playback | `PlayerEngine` seam, `PlaybackController`, `MediaKitPlayerEngine` (local files via media_kit/libmpv); shuffle/repeat/volume/mute/seek | Implemented |
 | Formats | MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus via media_kit | Implemented |
 | Playlist | Open/save M3U/M3U8, add/remove/reorder, play from selection, restore last playlist (`PlaylistController`, `M3uCodec`, `PlaylistStore`) | Implemented |
@@ -65,7 +66,7 @@ flowchart TB
 
 ## Stack
 
-**Locked:** Flutter for v1 (Windows, Linux, macOS). Preferred defaults: `window_manager` (app chrome), media_kit/libmpv (playback). Not locked: state management, routing, SDK versions, design-system packages. Not v1: Tauri, Electron, second UI toolkit.
+**Locked:** Flutter for v1 (Windows, Linux, macOS). Preferred defaults: `window_manager` (app chrome), media_kit/libmpv (playback), `flutter_svg` (brand art). Not locked: state management, routing, SDK versions, design-system packages. Not v1: Tauri, Electron, second UI toolkit.
 
 - ADR: [0001-flutter-for-v1.md](adr/0001-flutter-for-v1.md)
 - Research: [`.scratch/tramp-v1-spec/research/v1-stack.md`](../.scratch/tramp-v1-spec/research/v1-stack.md)

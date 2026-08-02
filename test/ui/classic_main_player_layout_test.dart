@@ -67,7 +67,7 @@ void main() {
     await tester.pump();
 
     expect(tester.takeException(), isNull);
-    final host = tester.getSize(find.byType(FittedBox));
+    final host = tester.getSize(find.byKey(playerScaleHostKey));
     expect(host.height, lessThanOrEqualTo(160));
     expect(host.width / host.height, closeTo(550 / 232, 0.05));
   });

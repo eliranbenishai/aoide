@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tramp/playback/fake_player_engine.dart';
 import 'package:tramp/playback/playback_controller.dart';
 import 'package:tramp/playlist/playlist_controller.dart';
 import 'package:tramp/playlist/playlist_store.dart';
-import 'package:tramp/ui/chrome/tramp_logo.dart';
+import 'package:tramp/ui/chrome/logo.dart';
 import 'package:tramp/ui/classic_main_player.dart';
 
 class _Mem implements PlaylistStore {
@@ -16,7 +17,7 @@ class _Mem implements PlaylistStore {
 }
 
 void main() {
-  testWidgets('TrampLogo paints via CustomPaint', (tester) async {
+  testWidgets('TrampLogo renders the SVG artwork', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
@@ -24,8 +25,17 @@ void main() {
         ),
       ),
     );
-    expect(find.byType(TrampLogo), findsOneWidget);
-    expect(find.byType(CustomPaint), findsWidgets);
+    expect(find.byType(SvgPicture), findsOneWidget);
+  });
+
+  testWidgets('logo asset parses into a picture', (tester) async {
+    await tester.runAsync(() async {
+      final loader = SvgAssetLoader(trampLogoAsset);
+      final info = await vg.loadPicture(loader, null);
+      addTearDown(info.picture.dispose);
+      expect(info.size.width, greaterThan(0));
+      expect(info.size.height, greaterThan(0));
+    });
   });
 
   testWidgets('ClassicMainPlayer title bar includes TrampLogo', (tester) async {
@@ -45,7 +55,6 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byType(TrampLogo), findsOneWidget);
     expect(
       find.descendant(
         of: find.byType(ClassicMainPlayer),
