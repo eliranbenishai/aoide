@@ -22,6 +22,13 @@ branded "WINAMP". Two consequences are binding:
   materials, proportions, and control vocabulary exactly. Do not chase
   pixel-identity with a lossy AI render. Measured values below are the
   authority; where the mockup contradicts them it is noise.
+- **Nothing of Winamp's identity transfers.** Proportions, bevels, groove
+  sliders, the dense control-forward layout and the band frequencies are generic
+  90s-player vocabulary and are fair to reuse. The lightning-bolt mark, the
+  wordmark, and the bundled demo track are Winamp's brand. Tramp has its own
+  mark — `TrampLogo` in [`lib/ui/chrome/logo.dart`](../../../lib/ui/chrome/logo.dart),
+  rendered from `logo.svg`: a pin-up in headphones inside a ring badge. That is
+  what occupies the title bar's leading slot. No bolt appears anywhere.
 
 One known artifact: the main panel's top-left corner shows a visible gradient
 stop. That is a rendering defect, not a design feature. Panel faces use a single
@@ -46,7 +53,7 @@ are removed rather than extended.
 | `lcdGlass` | `#03060A` | Display background |
 | `phosphor` | `#CFEA45` | LCD text, spectrum bars, slider fills, lit toggles |
 | `phosphorDim` | `#5C7022` | Unlit toggles, spectrum floor |
-| `railAccent` | `#FEE670` | Title-bar rails, bolt glyph |
+| `railAccent` | `#FEE670` | Title-bar rails |
 | `label` | `#C9CED3` | Chrome button text, wordmark |
 | `labelDim` | `#979DA6` | Total-time text, disabled labels |
 | `thumbHi` | `#BFC8D1` | Slider thumb highlight |
@@ -99,7 +106,7 @@ Panels are separated by a 6-logical-pixel `frame` gutter.
 | Element | Logical bounds |
 |---|---|
 | Title bar | full width × 35 tall |
-| Bolt / menu button | 27 × 27 at x 30 |
+| Logo / menu button | 27 × 27 at x 30 |
 | Title rails | two 2px lines at y 26 and y 31; left run x 71–361, right run x 472–676 |
 | `TRAMP` wordmark | centred in the rail gap, x 361–472 |
 | Window buttons | 27 wide, at x 691 / 733 / 775 (minimize, maximize, close) |
@@ -157,7 +164,7 @@ dropdown rather than allowed to clip the chrome — at 300% the player alone nee
 2436 logical pixels of width. On first run the initial step is the largest one
 that fits comfortably in the work area, capped at 150%.
 
-Zoom is also reachable by `Ctrl+=` / `Ctrl+-` / `Ctrl+0` and from the bolt menu.
+Zoom is also reachable by `Ctrl+=` / `Ctrl+-` / `Ctrl+0` and from the logo menu.
 
 At 100% the default window is 824 × 500: an 812 panel plus 6px of frame either
 side; and vertically 6 frame + 242 player + 6 gutter + 240 lower region + 6 frame.
@@ -166,7 +173,7 @@ side; and vertically 6 frame + 242 player + 6 gutter + 240 lower region + 6 fram
 
 ```
 ┌─ MainPlayerPanel (812 × 242) ──────────────────────────┐
-│ bolt │ ══════ TRAMP ══════ │ min  max  close           │
+│ logo │ ══════ TRAMP ══════ │ min  max  close           │
 │ ┌ display well ─────────────────┐   shuffle   repeat   │
 │ │ spectrum  │ ▶ 1. Artist - Ti  │   ◄── volume ──► ⏻   │
 │ │ + seek    │ 0:05  0:22        │                      │
@@ -197,7 +204,7 @@ Every control the mockup draws is assigned real behaviour. Nothing is decorative
 
 | Control | Behaviour |
 |---|---|
-| Bolt (title bar) | Main menu: open files, open folder, open playlist, save playlist, zoom, about, exit |
+| Tramp logo (title bar) | `TrampLogo`, not a painted glyph. Opens the main menu: open files, open folder, open playlist, save playlist, zoom, about, exit |
 | Title bar centre | `TRAMP` wordmark; drag region for moving the window |
 | Minimize / maximize / close | Real window operations. Maximize is not required by the v1 spec, but the button is in the mockup and wiring it is trivial, so it works rather than being drawn |
 | Display well, left | Spectrum analyser over a 2px seek bar; the bar is draggable to seek |
@@ -233,7 +240,7 @@ New and rewritten files, each with one responsibility.
 | `lib/ui/chrome/metal_panel.dart` | Thin wrapper applying a named surface (rewritten) |
 | `lib/ui/chrome/lcd_text.dart` | Phosphor text with the correct dim/lit treatment (new) |
 | `lib/ui/chrome/spectrum_visualizer.dart` | Bars from real levels, with smoothing and peak caps (rewritten) |
-| `lib/ui/chrome/transport_icons.dart` | Adds shuffle, repeat, repeat-one, eject, chevron, bolt (extended) |
+| `lib/ui/chrome/transport_icons.dart` | Adds shuffle, repeat, repeat-one, eject, chevron (extended) |
 | `lib/ui/main_player/main_player_panel.dart` | The 812×242 canvas and its three rows (new; replaces `classic_main_player.dart`) |
 | `lib/ui/equalizer/equalizer_panel.dart` | The 812×206 canvas, preamp and bands (new) |
 | `lib/ui/playlist_panel.dart` | Unchanged list behaviour, new skin |

@@ -20,7 +20,6 @@ void main() {
       'repeat': TransportIcons.repeat(),
       'repeatOne': TransportIcons.repeat(one: true),
       'eject': TransportIcons.eject(),
-      'bolt': TransportIcons.bolt(),
     };
 
     for (final entry in glyphs.entries) {
@@ -45,7 +44,14 @@ void main() {
     expect(all.shouldRepaint(one), isTrue);
   });
 
-  test('bolt paints in the rail accent by default', () {
-    expect(TransportIcons.defaultBoltColour, TrampColors.railAccent);
+  // Tramp's own mark lives in `TrampLogo` (lib/ui/chrome/logo.dart), rendered
+  // from logo.svg. The glyph set must not carry a brand mark of its own — the
+  // reference mockup's lightning bolt is Winamp's logo, not a generic icon.
+  test('the glyph set contains no brand mark', () {
+    expect(
+      TransportIcons.defaultGlyphColour,
+      TrampColors.label,
+      reason: 'glyphs are neutral chrome, tinted by the caller',
+    );
   });
 }

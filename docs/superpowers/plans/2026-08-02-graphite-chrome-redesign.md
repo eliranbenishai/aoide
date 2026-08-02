@@ -57,7 +57,7 @@
 | `lib/ui/chrome/metal_panel.dart` | Thin wrapper over `TrampSurfaces` |
 | `lib/ui/chrome/chrome_button.dart` | Icon / label / toggle / dropdown variants |
 | `lib/ui/chrome/chrome_slider.dart` | Groove + fill + thumb, horizontal and vertical |
-| `lib/ui/chrome/transport_icons.dart` | Adds shuffle, repeat, repeat-one, eject, chevron, bolt |
+| `lib/ui/chrome/transport_icons.dart` | Adds shuffle, repeat, repeat-one, eject, chevron |
 | `lib/ui/chrome/spectrum_visualizer.dart` | Consumes `Stream<AudioLevels>` instead of animating itself |
 | `lib/ui/playlist_panel.dart` | Reskinned to the new tokens |
 | `lib/ui/tramp_shell.dart` | Zoom host, `LowerRegion` switching |
@@ -1338,8 +1338,9 @@ void main() {
       devicePixelRatio: 2,
       child: SizedBox(),
     );
-    // 1 * 1.25 * 2 = 2.5 device px -> rounds to 2 -> 2 / 2.5 logical.
-    expect(scope.snap(1), closeTo(2 / 2.5, 1e-9));
+    // 1 * 1.25 * 2 = 2.5 device px. Dart rounds half away from zero, so that
+    // is 3 device px, or 3 / 2.5 logical.
+    expect(scope.snap(1), closeTo(3 / 2.5, 1e-9));
   });
 
   testWidgets('hairlineFor falls back to an unsnapped hairline with no scope',
@@ -1373,27 +1374,21 @@ void main() {
     expect(seen, closeTo(2 / 1.5, 1e-9));
   });
 
-  testWidgets('updateShouldNotify fires only when the factor changes',
-      (tester) async {
-    var builds = 0;
-    Widget wrap(double factor) => ZoomScope(
-          factor: factor,
-          devicePixelRatio: 1,
-          child: Builder(
-            builder: (context) {
-              ZoomScope.of(context);
-              builds++;
-              return const SizedBox();
-            },
-          ),
-        );
+  // Tested directly rather than by counting rebuilds: a widget test that
+  // re-pumps a fresh child rebuilds it on widget identity alone, so it cannot
+  // isolate the inherited dependency.
+  test('updateShouldNotify fires only when the factor or ratio changes', () {
+    const base = ZoomScope(factor: 1, devicePixelRatio: 1, child: SizedBox());
+    const sameValues =
+        ZoomScope(factor: 1, devicePixelRatio: 1, child: SizedBox());
+    const otherFactor =
+        ZoomScope(factor: 2, devicePixelRatio: 1, child: SizedBox());
+    const otherRatio =
+        ZoomScope(factor: 1, devicePixelRatio: 2, child: SizedBox());
 
-    await tester.pumpWidget(wrap(1));
-    expect(builds, 1);
-    await tester.pumpWidget(wrap(1));
-    expect(builds, 1, reason: 'same factor must not rebuild dependents');
-    await tester.pumpWidget(wrap(2));
-    expect(builds, 2);
+    expect(base.updateShouldNotify(sameValues), isFalse);
+    expect(otherFactor.updateShouldNotify(base), isTrue);
+    expect(otherRatio.updateShouldNotify(base), isTrue);
   });
 }
 ```
@@ -1668,6 +1663,13 @@ width from the ambient zoom, so no widget composes its own gradient."
 ---
 
 ### Task 5: ChromeButton variants
+
+> **Execution order:** run **Task 7 before this task.** `ChromeButton`'s dropdown
+> variant imports `ChevronPainter` from `lib/ui/chrome/transport_icons.dart`, and
+> that file does not compile until Task 7 rewrites it off the deleted palette —
+> so Task 5's tests cannot even build first. Task 7 has no dependency on Task 5.
+> The numbering is left alone so task references stay stable; only the order
+> changes: 1, 2, 3, 4, **7**, **5**, 6, 8, …
 
 **Files:**
 - Modify: `lib/ui/chrome/chrome_button.dart` (replace contents)
@@ -1987,32 +1989,9 @@ class _ChromeButtonState extends State<ChromeButton> {
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `flutter test test/ui/chrome/chrome_button_test.dart`
-Expected: FAIL — `ChevronPainter` is not defined. The dropdown variant needs it, so this task owns it. Add it at the bottom of `lib/ui/chrome/transport_icons.dart` — it is permanent, and Task 7's rewrite of that file retains it verbatim:
-
-```dart
-/// Small downward chevron for dropdown buttons.
-class ChevronPainter extends CustomPainter {
-  const ChevronPainter({required this.colour});
-
-  final Color colour;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width / 2, size.height)
-      ..close();
-    canvas.drawPath(path, Paint()..color = colour);
-  }
-
-  @override
-  bool shouldRepaint(ChevronPainter oldDelegate) => oldDelegate.colour != colour;
-}
-```
-
-Re-run: `flutter test test/ui/chrome/chrome_button_test.dart`
 Expected: PASS (8 tests)
+
+`ChevronPainter` and every transport glyph come from `lib/ui/chrome/transport_icons.dart`, which **Task 7 must have completed first** — see the execution-order note below. Do not define a chevron here.
 
 - [ ] **Step 5: Commit**
 
@@ -2414,8 +2393,12 @@ with a phosphor fill that dims while muted."
 
 ### Task 7: Glyphs and LCD text
 
+> **Execution order:** run this task **before Task 5**. It is self-contained, and
+> Task 5's dropdown button imports `ChevronPainter` from the file this task
+> rewrites.
+
 **Files:**
-- Modify: `lib/ui/chrome/transport_icons.dart` (replace contents, keeping `ChevronPainter` from Task 5)
+- Modify: `lib/ui/chrome/transport_icons.dart` (replace contents; this task creates `ChevronPainter`, which Task 5 then consumes)
 - Create: `lib/ui/chrome/lcd_text.dart`
 - Test: `test/ui/chrome/transport_icons_test.dart`
 - Test: `test/ui/chrome/lcd_text_test.dart`
@@ -2423,7 +2406,9 @@ with a phosphor fill that dims while muted."
 **Interfaces:**
 - Consumes: `TrampColors`, `TrampText` (Task 1).
 - Produces:
-  - `TransportIcons.prev({Color colour})`, `.play({Color colour})`, `.pause({Color colour})`, `.stop({Color colour})`, `.next({Color colour})`, `.shuffle({Color colour})`, `.repeat({Color colour, bool one})`, `.eject({Color colour})`, `.bolt({Color colour})` — each returns a `Widget`.
+  - `TransportIcons.prev({Color colour})`, `.play({Color colour})`, `.pause({Color colour})`, `.stop({Color colour})`, `.next({Color colour})`, `.shuffle({Color colour})`, `.repeat({Color colour, bool one})`, `.eject({Color colour})` — each returns a `Widget`.
+
+**No brand mark belongs in this file.** The reference mockup's lightning bolt is Winamp's logo. Tramp has its own mark, `TrampLogo` in `lib/ui/chrome/logo.dart`, and that is what the title bar uses.
   - `ChevronPainter({required Color colour})` (already added in Task 5).
   - `LcdText(String text, {Key? key, bool lit = true, LcdSize size = LcdSize.normal})` and `enum LcdSize { normal, large }`.
   - `LcdIndicator(String label, {Key? key, required bool lit, required VoidCallback? onTap})` — the small `EQ`/`PL` markers inside the display well.
@@ -2455,7 +2440,6 @@ void main() {
       'repeat': TransportIcons.repeat(),
       'repeatOne': TransportIcons.repeat(one: true),
       'eject': TransportIcons.eject(),
-      'bolt': TransportIcons.bolt(),
     };
 
     for (final entry in glyphs.entries) {
@@ -2480,8 +2464,15 @@ void main() {
     expect(all.shouldRepaint(one), isTrue);
   });
 
-  test('bolt paints in the rail accent by default', () {
-    expect(TransportIcons.defaultBoltColour, TrampColors.railAccent);
+  // Tramp's own mark lives in `TrampLogo` (lib/ui/chrome/logo.dart), rendered
+  // from logo.svg. The glyph set must not carry a brand mark of its own — the
+  // reference mockup's lightning bolt is Winamp's logo, not a generic icon.
+  test('the glyph set contains no brand mark', () {
+    expect(
+      TransportIcons.defaultGlyphColour,
+      TrampColors.label,
+      reason: 'glyphs are neutral chrome, tinted by the caller',
+    );
   });
 }
 ```
@@ -2489,7 +2480,7 @@ void main() {
 - [ ] **Step 2: Run it to verify it fails**
 
 Run: `flutter test test/ui/chrome/transport_icons_test.dart`
-Expected: FAIL — `shuffle`, `repeat`, `eject`, `bolt`, `RepeatPainter` and `defaultBoltColour` are undefined.
+Expected: FAIL — `shuffle`, `repeat`, `eject` and `RepeatPainter` are undefined.
 
 - [ ] **Step 3: Replace the glyph library**
 
@@ -2508,7 +2499,6 @@ import '../../theme/tramp_colors.dart';
 /// and need no icon-font asset.
 abstract final class TransportIcons {
   static const defaultGlyphColour = TrampColors.label;
-  static const defaultBoltColour = TrampColors.railAccent;
 
   static Widget prev({Color colour = defaultGlyphColour}) =>
       _paint(SkipPainter(colour: colour, forward: false), const Size(16, 12));
@@ -2533,9 +2523,6 @@ abstract final class TransportIcons {
 
   static Widget eject({Color colour = defaultGlyphColour}) =>
       _paint(EjectPainter(colour: colour), const Size(13, 12));
-
-  static Widget bolt({Color colour = defaultBoltColour}) =>
-      _paint(BoltPainter(colour: colour), const Size(13, 16));
 
   static Widget _paint(CustomPainter painter, Size size) => SizedBox(
         width: size.width,
@@ -2750,28 +2737,6 @@ class EjectPainter extends CustomPainter {
   bool shouldRepaint(EjectPainter old) => old.colour != colour;
 }
 
-class BoltPainter extends CustomPainter {
-  const BoltPainter({required this.colour});
-
-  final Color colour;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..moveTo(size.width * 0.58, 0)
-      ..lineTo(0, size.height * 0.56)
-      ..lineTo(size.width * 0.40, size.height * 0.56)
-      ..lineTo(size.width * 0.34, size.height)
-      ..lineTo(size.width, size.height * 0.40)
-      ..lineTo(size.width * 0.56, size.height * 0.40)
-      ..close();
-    canvas.drawPath(path, _fill(colour));
-  }
-
-  @override
-  bool shouldRepaint(BoltPainter old) => old.colour != colour;
-}
-
 /// Small downward chevron for dropdown buttons.
 class ChevronPainter extends CustomPainter {
   const ChevronPainter({required this.colour});
@@ -2977,7 +2942,7 @@ git add lib/ui/chrome/transport_icons.dart lib/ui/chrome/lcd_text.dart \
         test/ui/chrome/transport_icons_test.dart test/ui/chrome/lcd_text_test.dart
 git commit -m "feat(chrome): full vector glyph set and LCD text widgets
 
-Adds shuffle, repeat, repeat-one, eject, bolt and chevron glyphs alongside the
+Adds shuffle, repeat, repeat-one, eject and chevron glyphs alongside the
 transport marks, plus phosphor text and the EQ/PL display indicators."
 ```
 
@@ -3198,7 +3163,7 @@ Expected: PASS (5 tests)
 git add lib/ui/chrome/title_bar.dart test/ui/chrome/title_bar_test.dart
 git commit -m "feat(chrome): shared title bar with accent rails
 
-One title bar serves both panels, with slots for the bolt menu, the window
+One title bar serves both panels, with slots for the logo menu, the window
 controls and the equalizer's collapse and close buttons."
 ```
 
@@ -5277,6 +5242,7 @@ import '../../theme/tramp_text.dart';
 import '../chrome/chrome_button.dart';
 import '../chrome/chrome_slider.dart';
 import '../chrome/lcd_text.dart';
+import '../chrome/logo.dart';
 import '../chrome/metal_panel.dart';
 import '../chrome/spectrum_visualizer.dart';
 import '../chrome/title_bar.dart';
@@ -5375,11 +5341,13 @@ class _MainPlayerPanelState extends State<MainPlayerPanel> {
           child: TrampTitleBar(
             title: 'TRAMP',
             draggable: widget.draggableTitle,
+            // Tramp's own mark, not a painted glyph. The mockup shows Winamp's
+            // lightning bolt here; that is their brand, not a generic icon.
             leading: ChromeButton.icon(
               key: const Key('player-menu'),
-              icon: TransportIcons.bolt(),
+              icon: const TrampLogo(size: 19),
               onPressed: widget.onOpenMenu,
-              semanticLabel: 'Main menu',
+              semanticLabel: 'Tramp menu',
               size: const Size(27, 27),
             ),
             trailing: [
@@ -6657,7 +6625,7 @@ In `lib/app.dart`, make these changes:
 
 and pass `zoom: _zoom`, `lowerRegion: _lowerRegion`, `equalizerCollapsed: _equalizerCollapsed` to `TrampShell`.
 
-6. Add the bolt menu:
+6. Add the logo menu:
 
 ```dart
   void _showMainMenu() {
@@ -6810,7 +6778,8 @@ void main() {
       final engine = FakePlayerEngine();
       final playlist = PlaylistController();
       playlist.addTracks(const [
-        Track(path: 'a.mp3', title: "Llama Whippin' Intro", artist: 'DJ Mike Llama'),
+        // Neutral fixture. Do not use Winamp's bundled demo track here.
+        Track(path: 'a.mp3', title: 'Night Ferry', artist: 'The Sleepless'),
       ]);
       final playback = PlaybackController(playlist: playlist, engine: engine);
       addTearDown(playback.dispose);

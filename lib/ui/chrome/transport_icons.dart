@@ -10,7 +10,6 @@ import '../../theme/tramp_colors.dart';
 /// and need no icon-font asset.
 abstract final class TransportIcons {
   static const defaultGlyphColour = TrampColors.label;
-  static const defaultBoltColour = TrampColors.railAccent;
 
   static Widget prev({Color colour = defaultGlyphColour}) =>
       _paint(SkipPainter(colour: colour, forward: false), const Size(16, 12));
@@ -35,9 +34,6 @@ abstract final class TransportIcons {
 
   static Widget eject({Color colour = defaultGlyphColour}) =>
       _paint(EjectPainter(colour: colour), const Size(13, 12));
-
-  static Widget bolt({Color colour = defaultBoltColour}) =>
-      _paint(BoltPainter(colour: colour), const Size(13, 16));
 
   static Widget _paint(CustomPainter painter, Size size) => SizedBox(
         width: size.width,
@@ -250,28 +246,6 @@ class EjectPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(EjectPainter old) => old.colour != colour;
-}
-
-class BoltPainter extends CustomPainter {
-  const BoltPainter({required this.colour});
-
-  final Color colour;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..moveTo(size.width * 0.58, 0)
-      ..lineTo(0, size.height * 0.56)
-      ..lineTo(size.width * 0.40, size.height * 0.56)
-      ..lineTo(size.width * 0.34, size.height)
-      ..lineTo(size.width, size.height * 0.40)
-      ..lineTo(size.width * 0.56, size.height * 0.40)
-      ..close();
-    canvas.drawPath(path, _fill(colour));
-  }
-
-  @override
-  bool shouldRepaint(BoltPainter old) => old.colour != colour;
 }
 
 /// Small downward chevron for dropdown buttons.
