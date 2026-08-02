@@ -172,13 +172,15 @@ class _TrampAppState extends State<TrampApp> with WindowListener {
       factor: _zoom.factor,
       storedPlaylistWidth: _playlistWindowWidth,
       storedPlaylistHeight: _playlistWindowHeight,
+      equalizerCollapsed: _equalizerCollapsed,
     );
     await setTrampWindowResizable(target.resizable);
     await resizeTrampWindow(size: target.size, minimumSize: target.minimumSize);
   }
 
   void _selectRegion(LowerRegion region) {
-    final regionChanged = region != _lowerRegion;
+    final previousRegion = _lowerRegion;
+    final previousCollapsed = _equalizerCollapsed;
     setState(() {
       // Tapping the visible region's own button toggles the equalizer's
       // windowshade rather than doing nothing.
@@ -190,7 +192,16 @@ class _TrampAppState extends State<TrampApp> with WindowListener {
       }
     });
     unawaited(_persistSettings());
-    if (regionChanged) {
+    // Region or windowshade changes both alter the target window height.
+    if (region != previousRegion || _equalizerCollapsed != previousCollapsed) {
+      unawaited(_applyWindowMode());
+    }
+  }
+
+  /// Toggles the equalizer windowshade and snaps the window to the new height.
+  void _toggleEqualizerCollapsed() {
+    setState(() => _equalizerCollapsed = !_equalizerCollapsed);
+    if (_lowerRegion == LowerRegion.equalizer) {
       unawaited(_applyWindowMode());
     }
   }
@@ -371,8 +382,7 @@ class _TrampAppState extends State<TrampApp> with WindowListener {
             equalizer: EqualizerPanel(
               controller: _equalizer,
               collapsed: _equalizerCollapsed,
-              onCollapse: () =>
-                  setState(() => _equalizerCollapsed = !_equalizerCollapsed),
+              onCollapse: _toggleEqualizerCollapsed,
               onClose: () => _selectRegion(LowerRegion.playlist),
             ),
             playlist: PlaylistPanel(

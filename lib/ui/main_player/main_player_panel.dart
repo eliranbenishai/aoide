@@ -99,6 +99,7 @@ class _MainPlayerPanelState extends State<MainPlayerPanel> {
         ..._transport(),
         ..._rightControls(),
         _open(),
+        _mute(),
       ],
     );
   }
@@ -143,8 +144,8 @@ class _MainPlayerPanelState extends State<MainPlayerPanel> {
           axis: Axis.horizontal,
           value: seek,
           trackSize: const Size(200, 5),
-          thumbAsset: GraphiteSkin.sliderThumb,
-          thumbSize: const Size(7, 5),
+          thumbAsset: GraphiteSkin.seekThumb,
+          thumbSize: const Size(9, 6),
           semanticLabel: 'Seek',
           onChangeEnd: durationMs > 0
               ? (v) => unawaited(playback.seek(
@@ -325,6 +326,12 @@ class _MainPlayerPanelState extends State<MainPlayerPanel> {
             size: const Size(69, 40),
             idleAsset: GraphiteSkin.transportIdle[specs[i].$1]!,
             pressedAsset: GraphiteSkin.transportPressed[specs[i].$1],
+            // The play glyph lights green while playing; every other transport
+            // icon stays idle grey (the mockup's baked green is this state).
+            activeAsset: specs[i].$1 == 'play'
+                ? GraphiteSkin.transportPlayActive
+                : null,
+            active: specs[i].$1 == 'play' && playback.playing,
             onPressed: specs[i].$3,
             semanticLabel: specs[i].$2,
           ),
@@ -354,39 +361,39 @@ class _MainPlayerPanelState extends State<MainPlayerPanel> {
       Positioned(
         left: 728.5,
         top: 49,
-        child: SkinButton(
-          key: const Key('player-repeat'),
-          size: const Size(76, 29),
-          idleAsset: GraphiteSkin.repeatIdle,
-          activeAsset: GraphiteSkin.repeatActive,
-          active: playback.repeatMode != RepeatMode.off,
-          onPressed: playback.cycleRepeatMode,
-          semanticLabel: 'Repeat',
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            SkinButton(
+              key: const Key('player-repeat'),
+              size: const Size(76, 29),
+              idleAsset: GraphiteSkin.repeatIdle,
+              activeAsset: GraphiteSkin.repeatActive,
+              active: playback.repeatMode != RepeatMode.off,
+              onPressed: playback.cycleRepeatMode,
+              semanticLabel: 'Repeat',
+            ),
+            // Repeat-one gets a small lit "1" badge over the arrows so the
+            // three repeat states (off / all / one) read apart at a glance.
+            if (playback.repeatMode == RepeatMode.one)
+              const Positioned(
+                right: 6,
+                bottom: 3,
+                child: _RepeatOneBadge(),
+              ),
+          ],
         ),
       ),
 
-      // Volume rides the L/R meter chrome (that chrome is the volume slider).
+      // The L/R meter chrome is the volume slider: two live segmented phosphor
+      // bars fill to the volume (both to 0 when muted), a metal grip rides the
+      // gap between them, and a horizontal drag sets the volume.
       Positioned(
-        left: 604.5,
-        top: 96,
-        width: 117,
-        height: 34,
-        child: SkinSlider(
-          key: const Key('transport-volume'),
-          axis: Axis.horizontal,
-          value: playback.muted ? 0 : playback.volume.clamp(0.0, 1.0),
-          trackSize: const Size(117, 34),
-          thumbAsset: GraphiteSkin.sliderThumb,
-          thumbSize: const Size(16, 23),
-          semanticLabel: 'Volume',
-          onChanged: playback.setVolume,
-          onChangeEnd: playback.setVolume,
-        ),
-      ),
-      Positioned(
-        left: 724,
-        top: 102,
-        child: _MuteButton(playback: playback),
+        left: 603,
+        top: 98,
+        width: 119,
+        height: 32,
+        child: _VolumeMeters(playback: playback),
       ),
 
       Positioned(
@@ -427,6 +434,39 @@ class _MainPlayerPanelState extends State<MainPlayerPanel> {
         size: const Size(148, 28),
         semanticLabel: 'Open files',
         onPressed: widget.onOpenFiles,
+      ),
+    );
+  }
+
+  /// Mute rides the small bezel right of OPEN (the mockup's old bolt slot) as a
+  /// practical control: a speaker glyph over the face's own metal bezel, with a
+  /// slash when muted. Kept off the L/R meters so those read like the mockup.
+  Widget _mute() {
+    return Positioned(
+      left: 734,
+      top: 192,
+      child: Semantics(
+        button: true,
+        label: playback.muted ? 'Unmute' : 'Mute',
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            key: const Key('transport-mute'),
+            behavior: HitTestBehavior.opaque,
+            onTap: playback.toggleMute,
+            child: SizedBox(
+              width: 66,
+              height: 26,
+              child: Center(
+                child: TransportIcons.speaker(
+                  colour:
+                      playback.muted ? TrampColors.labelDim : TrampColors.label,
+                  muted: playback.muted,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -523,7 +563,7 @@ class _WindowButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SkinButton(
       key: buttonKey,
-      size: const Size(30, 22),
+      size: const Size(32, 24),
       idleAsset: idleAsset,
       pressedAsset: pressedAsset,
       overlay: glyph,
@@ -533,27 +573,114 @@ class _WindowButton extends StatelessWidget {
   }
 }
 
-/// Mute toggle: the blank window bezel (PNG metal) with a speaker glyph stamped
-/// on top. The mockup carries no mute art, so the bezel is borrowed from the
-/// title-bar buttons and only the speaker itself is code-drawn.
-class _MuteButton extends StatelessWidget {
-  const _MuteButton({required this.playback});
+/// The live L/R volume meters: two segmented phosphor bars that fill to the
+/// volume (both to 0 when muted), a metal grip riding the gap between them, and
+/// a horizontal drag that sets the volume. The baked green meter fills were
+/// cleared from the face (`slice_mockup.py`), leaving the recessed wells this
+/// paints into.
+class _VolumeMeters extends StatelessWidget {
+  const _VolumeMeters({required this.playback});
 
   final PlaybackController playback;
 
+  // Bar geometry within the 119 x 32 box, measured from the cleared wells.
+  static const double _barLeft = 3;
+  static const double _barWidth = 113;
+  static const double _lTop = 1;
+  static const double _rTop = 24.5;
+  static const double _barHeight = 7;
+  static const Size _thumb = Size(10, 12);
+
+  double _fractionFor(double dx) =>
+      ((dx - _barLeft) / _barWidth).clamp(0.0, 1.0);
+
   @override
   Widget build(BuildContext context) {
-    return SkinButton(
-      key: const Key('transport-mute'),
-      size: const Size(26, 20),
-      idleAsset: GraphiteSkin.winBlankIdle,
-      pressedAsset: GraphiteSkin.winBlankPressed,
-      overlay: TransportIcons.speaker(
-        colour: playback.muted ? TrampColors.labelDim : TrampColors.label,
-        muted: playback.muted,
+    final level = playback.muted ? 0.0 : playback.volume.clamp(0.0, 1.0);
+    final thumbX =
+        _barLeft + level * (_barWidth - _thumb.width) + _thumb.width / 2;
+
+    return Semantics(
+      slider: true,
+      label: 'Volume',
+      value: '${(level * 100).round()}%',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (d) => playback.setVolume(_fractionFor(d.localPosition.dx)),
+        onHorizontalDragUpdate: (d) =>
+            playback.setVolume(_fractionFor(d.localPosition.dx)),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            CustomPaint(
+              size: const Size(119, 32),
+              painter: _MeterPainter(level),
+            ),
+            Positioned(
+              left: thumbX - _thumb.width / 2,
+              top: (32 - _thumb.height) / 2,
+              child: const SkinImage(
+                asset: GraphiteSkin.volumeThumb,
+                logicalSize: _thumb,
+              ),
+            ),
+          ],
+        ),
       ),
-      onPressed: playback.toggleMute,
-      semanticLabel: playback.muted ? 'Unmute' : 'Mute',
+    );
+  }
+}
+
+/// Paints the two meter bars as segmented phosphor: lit cells up to [level],
+/// faint cells beyond, mirroring the mockup's L/R VU segments.
+class _MeterPainter extends CustomPainter {
+  const _MeterPainter(this.level);
+
+  final double level;
+
+  static const double _cell = 4.3;
+  static const double _seg = 3.1;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    _bar(canvas, _VolumeMeters._lTop);
+    _bar(canvas, _VolumeMeters._rTop);
+  }
+
+  void _bar(Canvas canvas, double top) {
+    const left = _VolumeMeters._barLeft;
+    const width = _VolumeMeters._barWidth;
+    final count = (width / _cell).floor();
+    final litUntil = (level * count).round();
+    final lit = Paint()..color = TrampColors.phosphor;
+    final dim = Paint()..color = TrampColors.phosphorDim.withValues(alpha: 0.45);
+    for (var i = 0; i < count; i++) {
+      final x = left + i * _cell;
+      canvas.drawRect(
+        Rect.fromLTWH(x, top, _seg, _VolumeMeters._barHeight),
+        i < litUntil ? lit : dim,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_MeterPainter old) => old.level != level;
+}
+
+/// A small lit "1" badge marking [RepeatMode.one] on the repeat button.
+class _RepeatOneBadge extends StatelessWidget {
+  const _RepeatOneBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      '1',
+      style: TrampText.lcd.copyWith(
+        color: TrampColors.phosphor,
+        fontSize: 11,
+        height: 1,
+        fontWeight: FontWeight.w700,
+      ),
     );
   }
 }
@@ -567,8 +694,8 @@ class _SignGlyph extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 10,
-      height: 10,
+      width: 12,
+      height: 12,
       child: CustomPaint(painter: _SignPainter(plus: plus)),
     );
   }

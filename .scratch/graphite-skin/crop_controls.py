@@ -51,6 +51,12 @@ TRANSPORT = {
     "next": (658, 380, 796, 460),
 }
 
+# Play glyph inner box (relative to the play crop) for the idle grey recolour.
+# The mockup bakes the play triangle green; that is the `active` sprite, and
+# `idle` recolours the triangle to neutral label grey like the other transport
+# icons (Task fidelity pass, decision 4).
+PLAY_GLYPH = (30, 8, 112, 72)
+
 # Toggle buttons: (crop box, glyph inner box relative to the crop).
 SHUFFLE_BOX = (1316, 116, 1468, 174)   # 152 x 58
 REPEAT_BOX = (1476, 116, 1628, 174)    # 152 x 58
@@ -159,6 +165,33 @@ def recolour(crop, glyph_box, target):
     return out
 
 
+def neutralise_green(crop, glyph_box, target, warm=6):
+    """Desaturate the *warm* (green/yellow) pixels in `glyph_box` to `target`.
+
+    The mockup's lit glyphs (play triangle, repeat arrows) sit in a phosphor
+    bloom whose rim runs green->yellow. The graphite metal is cool (blue-
+    leaning), so any pixel whose red/green rises above blue (`max(r,g) - b >
+    warm`) is phosphor, not metal: it is remapped to the neutral grey `target`
+    at its own luminance. Cool metal and neutral bevels pass through untouched,
+    and luminance preservation keeps the anti-aliased edges and emboss.
+    """
+    out = crop.copy()
+    px = out.load()
+    tr, tg, tb = target
+    l, t, r, b = glyph_box
+    for y in range(t, b):
+        for x in range(l, r):
+            cr, cg, cb, ca = px[x, y]
+            if ca == 0:
+                continue
+            if max(cr, cg) - cb <= warm:
+                continue
+            lum = 0.3 * cr + 0.6 * cg + 0.1 * cb
+            f = min(1.0, lum / 205.0)
+            px[x, y] = (int(tr * f), int(tg * f), int(tb * f), ca)
+    return out
+
+
 def main():
     im = Image.open(SRC).convert("RGBA")
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -167,16 +200,27 @@ def main():
         img.save(os.path.join(OUT_DIR, name + ".png"))
 
     for name, box in TRANSPORT.items():
-        idle = im.crop(box)
-        save("transport_%s_idle" % name, idle)
-        save("transport_%s_pressed" % name, press(idle))
+        crop = im.crop(box)
+        if name == "play":
+            # Mockup play is lit green -> active; idle neutralises the triangle
+            # and its phosphor glow to label grey (decision 4). The bloom spills
+            # across the whole bezel, so scan the full crop (cool metal is safe).
+            save("transport_play_active", crop)
+            idle = neutralise_green(
+                crop, (0, 0, crop.width, crop.height), LABEL, warm=1)
+            save("transport_play_idle", idle)
+            save("transport_play_pressed", press(idle))
+            continue
+        save("transport_%s_idle" % name, crop)
+        save("transport_%s_pressed" % name, press(crop))
 
     shuffle = im.crop(SHUFFLE_BOX)
     save("shuffle_idle", shuffle)
     save("shuffle_active", recolour(shuffle, SHUFFLE_GLYPH, PHOSPHOR))
 
     repeat = im.crop(REPEAT_BOX)
-    save("repeat_idle", recolour(repeat, REPEAT_GLYPH, LABEL))
+    save("repeat_idle",
+         neutralise_green(repeat, (0, 0, repeat.width, repeat.height), LABEL))
     save("repeat_active", repeat)
 
     eq = im.crop(EQ_BOX)

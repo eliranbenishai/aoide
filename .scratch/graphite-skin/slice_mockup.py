@@ -163,6 +163,45 @@ def recolour_region(img, box, target, lum_min=90, lum_ref=205):
             px[x, y] = (int(tr * f), int(tg * f), int(tb * f), ca)
 
 
+def neutralise_green(img, box, target=LABEL_GREY, warm=6):
+    """Desaturate the *warm* (green/yellow) pixels in `box` to a neutral grey.
+
+    The graphite metal is cool (blue-leaning), so any pixel whose red/green
+    rises above blue (`max(r,g) - b > warm`) is phosphor, not metal: a baked
+    lit glyph — the play triangle, the repeat arrows, and the green->yellow
+    bloom around them — reads idle grey while the button's own metal grain is
+    preserved. Luminance is kept so the emboss survives.
+    """
+    px = img.load()
+    tr, tg, tb = target
+    l, t, r, b = box
+    for y in range(t, b):
+        for x in range(l, r):
+            cr, cg, cb, ca = px[x, y]
+            if ca == 0:
+                continue
+            if max(cr, cg) - cb <= warm:
+                continue
+            lum = 0.3 * cr + 0.6 * cg + 0.1 * cb
+            f = min(1.0, lum / 205.0)
+            px[x, y] = (int(tr * f), int(tg * f), int(tb * f), ca)
+
+
+def clear_meter_well(img, box, fill=(6, 9, 13, 255)):
+    """Empty a meter track to a flat dark well, keeping the recessed frame.
+
+    The mockup bakes the L/R volume meters as lit green segments. Live code
+    draws the segmented phosphor fill from the volume, so the baked fill (and
+    its unlit slots) are cleared to a uniform recessed dark inside the bevel;
+    the well's bevelled frame around `box` stays opaque face art.
+    """
+    px = img.load()
+    l, t, r, b = box
+    for y in range(t, b):
+        for x in range(l, r):
+            px[x, y] = fill
+
+
 def clean_eq_face(eq_face):
     """Remove baked thumbs / fills / gain numbers; neutralise the ON glyph."""
     for cx in EQ_BAND_CX:
@@ -204,6 +243,13 @@ def main():
     # from x=1075 at the SAME rows, so the bar's vertical bevel is preserved.
     clone_strip(im, (1356, 24, 1644, 78), 1075, 24)
 
+    # The gold pinstripe rail runs full width, so the clone above carried it
+    # into the button band and it then shows through the gaps between the four
+    # controls. The mockup runs no rail behind its buttons, so erase the rail
+    # rows there by cloning the clean metal just above them (x>=1338 = left edge
+    # of the leftmost control), leaving the rail to flank the TRAMP wordmark.
+    clone_strip(im, (1338, 48, 1644, 68), 1338, 28)
+
     # The bottom-right "SHUFFLE" button is redundant with the shuffle icon in
     # the top-right toggle pair, so it becomes OPEN. Clone the button's own
     # clean interior column across the glyph+label, then stamp "OPEN" in the
@@ -224,6 +270,18 @@ def main():
         for x in range(px_l, px_r):
             r, g, b, _ = punch[x, y]
             punch[x, y] = (r, g, b, 0)
+
+    # --- 4a. Neutralise baked active states (main-face local px) ------------
+    # The mockup bakes the play triangle and the repeat arrows lit green; live
+    # SkinButton sprites own the lit state now, so the face reads idle grey.
+    neutralise_green(main_face, (219, 362, 357, 442))    # play triangle bezel
+    neutralise_green(main_face, (1457, 98, 1609, 156))   # repeat arrows bezel
+
+    # --- 4a2. Clear the baked L/R volume-meter fills ------------------------
+    # Live code paints the segmented phosphor volume meters; empty the two
+    # tracks to a flat recessed dark inside their bevelled frames.
+    clear_meter_well(main_face, (1206, 198, 1444, 212))  # L row
+    clear_meter_well(main_face, (1206, 245, 1444, 259))  # R row
 
     # --- 4b. Clean the equalizer face + emit the windowshade title strip ----
     clean_eq_face(eq_face)

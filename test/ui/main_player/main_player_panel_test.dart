@@ -125,6 +125,21 @@ void main() {
     expect(playback.muted, isTrue);
   });
 
+  testWidgets('repeat-one shows a "1" badge; other modes do not',
+      (tester) async {
+    await pump(tester);
+    // off -> all: no badge yet.
+    await tester.tap(find.byKey(const Key('player-repeat')));
+    await tester.pump();
+    expect(playback.repeatMode.name, 'all');
+    expect(find.text('1'), findsNothing);
+    // all -> one: badge appears.
+    await tester.tap(find.byKey(const Key('player-repeat')));
+    await tester.pump();
+    expect(playback.repeatMode.name, 'one');
+    expect(find.text('1'), findsOneWidget);
+  });
+
   testWidgets('panel contains no Icon widgets', (tester) async {
     await pump(tester);
     expect(find.byType(Icon), findsNothing);

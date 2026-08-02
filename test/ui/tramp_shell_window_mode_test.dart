@@ -31,6 +31,17 @@ void main() {
     });
   });
 
+  group('eqModeWindowSize (collapsed)', () {
+    test('snaps the lower region to the title bar when collapsed', () {
+      // 812+12 wide; 12 + 242 + 6 + 35 (titleBar) tall.
+      expect(eqModeWindowSize(1, collapsed: true), const Size(824, 295));
+    });
+
+    test('scales the collapsed stack with the zoom factor', () {
+      expect(eqModeWindowSize(2, collapsed: true), const Size(1648, 590));
+    });
+  });
+
   group('playlistModeMinimumSize', () {
     test('fits the main player plus the minimum well at 100%', () {
       // 12 + 242 + 6 + 240 tall.
@@ -148,6 +159,17 @@ void main() {
       expect(target.minimumSize, const Size(824, 500));
       expect(target.resizable, isTrue);
     });
+
+    test('collapsed equalizer mode snaps to the shade stack', () {
+      final target = windowModeTarget(
+        lowerRegion: LowerRegion.equalizer,
+        factor: 1,
+        equalizerCollapsed: true,
+      );
+      expect(target.size, const Size(824, 295));
+      expect(target.minimumSize, const Size(824, 295));
+      expect(target.resizable, isFalse);
+    });
   });
 
   group('panelStackLayout', () {
@@ -166,6 +188,19 @@ void main() {
       );
       expect(eq.logicalWidth, 812);
       expect(eq.lowerHeight, 206);
+    });
+
+    test('collapsed equalizer mode drops the lower region to the title bar',
+        () {
+      final eq = panelStackLayout(
+        lowerRegion: LowerRegion.equalizer,
+        factor: 2,
+        contentSize: const Size(5000, 3000),
+        equalizerCollapsed: true,
+      );
+      expect(eq.logicalWidth, 812);
+      expect(eq.lowerHeight, 35);
+      expect(eq.logicalHeight, 283);
     });
 
     test('playlist mode fills the content area', () {

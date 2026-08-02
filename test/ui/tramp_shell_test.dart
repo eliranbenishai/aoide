@@ -56,10 +56,11 @@ void main() {
             width: 812,
             height: 242,
           ),
-          equalizer: const SizedBox(
-            key: Key('equalizer'),
+          equalizer: SizedBox(
+            key: const Key('equalizer'),
             width: 812,
-            height: 206,
+            // Mirror the real panel: collapsed, it is only the title strip.
+            height: collapsed ? TrampMetrics.titleBar : 206,
           ),
           playlist: const SizedBox(key: Key('playlist')),
         ),
@@ -142,7 +143,12 @@ void main() {
 
   testWidgets('a collapsed equalizer occupies only its title bar',
       (tester) async {
-    await pump(tester, region: LowerRegion.equalizer, collapsed: true);
+    await pump(tester,
+        region: LowerRegion.equalizer,
+        collapsed: true,
+        surface: const Size(824, 295));
     expect(tester.takeException(), isNull);
+    // main (242) + gutter (6) + title bar (35).
+    expect(tester.getSize(find.byKey(panelStackKey)).height, 283);
   });
 }

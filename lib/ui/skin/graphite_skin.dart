@@ -45,6 +45,10 @@ abstract final class GraphiteSkin {
   static const transportPlayIdle = '$_controls/transport_play_idle.png';
   static const transportPlayPressed = '$_controls/transport_play_pressed.png';
 
+  /// Lit (green) play sprite, shown while playing. The idle/pressed sprites are
+  /// neutral grey (the mockup's baked green triangle is this active state).
+  static const transportPlayActive = '$_controls/transport_play_active.png';
+
   // Title-bar window buttons, cropped from the pristine mockup so the metal
   // bezel is real PNG art (slice_mockup.py blanks these on the face). 90x50.
   // minimize / close keep their mockup glyphs; the two zoom buttons use the
@@ -69,6 +73,12 @@ abstract final class GraphiteSkin {
 
   /// Metal fader grip shared by the sliders (equalizer bands, volume).
   static const sliderThumb = '$_controls/slider_thumb.png';
+
+  /// Horizontal grips authored for the transport sliders (fidelity pass): the
+  /// volume grip rides the L/R meter gap; the seek grip rides the seek bar.
+  /// Both are fresh brushed-metal crops, not the squashed vertical EQ grip.
+  static const volumeThumb = '$_controls/volume_thumb.png';
+  static const seekThumb = '$_controls/seek_thumb.png';
 
   // ---------------------------------------------------------------------------
   // Equalizer controls (Task 7), cropped by `crop_controls.py`. ON/AUTO are

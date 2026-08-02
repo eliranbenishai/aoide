@@ -13,12 +13,17 @@ import '../theme/tramp_metrics.dart';
 /// saved at one zoom step restores proportionally at another.
 
 /// Fixed window size in equalizer mode: the exact panel stack at [factor].
-Size eqModeWindowSize(double factor) => Size(
+///
+/// When [collapsed] the equalizer is a windowshade, so the lower region snaps
+/// to the title-bar strip height rather than the full panel.
+Size eqModeWindowSize(double factor, {bool collapsed = false}) => Size(
       (TrampMetrics.mainPlayer.width + TrampMetrics.frame * 2) * factor,
       (TrampMetrics.frame * 2 +
               TrampMetrics.mainPlayer.height +
               TrampMetrics.gutter +
-              TrampMetrics.equalizer.height) *
+              (collapsed
+                  ? TrampMetrics.titleBar
+                  : TrampMetrics.equalizer.height)) *
           factor,
     );
 
@@ -93,9 +98,10 @@ WindowModeTarget windowModeTarget({
   required double factor,
   double? storedPlaylistWidth,
   double? storedPlaylistHeight,
+  bool equalizerCollapsed = false,
 }) {
   if (lowerRegion == LowerRegion.equalizer) {
-    final size = eqModeWindowSize(factor);
+    final size = eqModeWindowSize(factor, collapsed: equalizerCollapsed);
     return WindowModeTarget(
       size: size,
       minimumSize: size,
@@ -147,11 +153,14 @@ PanelStackLayout panelStackLayout({
   required LowerRegion lowerRegion,
   required double factor,
   required Size contentSize,
+  bool equalizerCollapsed = false,
 }) {
   if (lowerRegion == LowerRegion.equalizer) {
     return PanelStackLayout(
       logicalWidth: TrampMetrics.mainPlayer.width,
-      lowerHeight: TrampMetrics.equalizer.height,
+      lowerHeight: equalizerCollapsed
+          ? TrampMetrics.titleBar
+          : TrampMetrics.equalizer.height,
     );
   }
   final logicalWidth = math.max(

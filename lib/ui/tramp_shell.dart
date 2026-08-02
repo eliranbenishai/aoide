@@ -273,6 +273,7 @@ class TrampShell extends StatelessWidget {
                 final layout = panelStackLayout(
                   lowerRegion: lowerRegion,
                   factor: factor,
+                  equalizerCollapsed: equalizerCollapsed,
                   contentSize: Size(
                     constraints.maxWidth - TrampMetrics.frame * 2,
                     constraints.maxHeight - TrampMetrics.frame * 2,
