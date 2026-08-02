@@ -85,6 +85,7 @@ class NineSliceSkin extends StatefulWidget {
 
 class _NineSliceSkinState extends State<NineSliceSkin> {
   final Map<String, ui.Image> _images = {};
+  final Set<String> _pending = {};
   final List<(ImageStream, ImageStreamListener)> _subscriptions = [];
 
   @override
@@ -105,10 +106,12 @@ class _NineSliceSkinState extends State<NineSliceSkin> {
   void _resolve() {
     final config = createLocalImageConfiguration(context);
     for (final asset in widget.slices.assets) {
-      if (_images.containsKey(asset)) continue;
+      if (_images.containsKey(asset) || _pending.contains(asset)) continue;
+      _pending.add(asset);
       final stream = AssetImage(asset).resolve(config);
       void onImage(ImageInfo info, bool _) {
         if (!mounted) return;
+        _pending.remove(asset);
         setState(() => _images[asset] = info.image);
       }
 
@@ -123,6 +126,7 @@ class _NineSliceSkinState extends State<NineSliceSkin> {
       stream.removeListener(listener);
     }
     _subscriptions.clear();
+    _pending.clear();
     _images.clear();
   }
 
@@ -142,7 +146,11 @@ class _NineSliceSkinState extends State<NineSliceSkin> {
         const ColoredBox(color: TrampColors.wellDeep),
         Positioned.fill(
           child: CustomPaint(
-            painter: _NineSlicePainter(slices: widget.slices, images: _images),
+            painter: NineSlicePainter(
+              slices: widget.slices,
+              images: _images,
+              loadedCount: _images.length,
+            ),
           ),
         ),
         if (widget.child != null)
@@ -163,11 +171,20 @@ class _NineSliceSkinState extends State<NineSliceSkin> {
 }
 
 /// Draws the nine regions. Art is 2x, so every region draws at [_scale].
-class _NineSlicePainter extends CustomPainter {
-  _NineSlicePainter({required this.slices, required this.images});
+@visibleForTesting
+class NineSlicePainter extends CustomPainter {
+  NineSlicePainter({
+    required this.slices,
+    required this.images,
+    required this.loadedCount,
+  });
 
   final PlaylistSlices slices;
   final Map<String, ui.Image> images;
+
+  /// Snapshot of [images.length] at construction; shared [images] mutates in
+  /// place so [shouldRepaint] must compare this, not the live map length.
+  final int loadedCount;
 
   static const double _scale = 0.5;
 
@@ -238,6 +255,6 @@ class _NineSlicePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_NineSlicePainter old) =>
-      old.slices != slices || old.images.length != images.length;
+  bool shouldRepaint(NineSlicePainter old) =>
+      old.slices != slices || old.loadedCount != loadedCount;
 }
