@@ -20,6 +20,7 @@
 - Zoom steps are exactly `[100, 125, 150, 200, 250, 300]` percent.
 - Equalizer band centres are exactly `[60, 170, 310, 600, 1000, 3000, 6000, 12000, 14000, 16000]` Hz; gain range ±12 dB.
 - No runtime font fetching. `google_fonts` is removed from `pubspec.yaml`; fonts are bundled TTFs.
+- **Bundling a font does not make `flutter_test` use it.** The test harness substitutes a fallback face unless the real TTFs are registered with a `FontLoader`, and its metrics are wildly different — `OPEN` measures 46.4px in the fallback versus 26.28px in Barlow Semi Condensed. Any test that asserts text layout, and **every** golden, must call `loadTrampFonts()` from `test/support/test_fonts.dart` in `setUpAll`. Never "fix" a layout overflow that only appears in the fallback font by changing production code.
 - All chrome is vector — gradients, `CustomPainter`, SVG. No raster skin assets.
 - The equalizer is chrome and state only. It must **not** claim to alter audio. See the spec's "Equalizer audio path" section: mpv reports success while silently disabling filters, so any future sink must verify by measurement, never by return code.
 - Every task ends with `flutter analyze` clean and `flutter test` green before committing.
@@ -45,6 +46,7 @@
 | `lib/ui/chrome/title_bar.dart` | Rails, wordmark, drag region, leading/trailing slots |
 | `lib/ui/chrome/lcd_text.dart` | Phosphor text widget with lit/dim treatment |
 | `lib/ui/chrome/tramp_mark.dart` | The compact Tramp mark for chrome at control size. `logo.svg` / `TrampLogo` remains the full-size brand asset for icon, splash and About |
+| `test/support/test_fonts.dart` | `loadTrampFonts()` — registers the bundled TTFs so tests and goldens measure the real faces instead of the harness fallback |
 | `lib/ui/main_player/main_player_panel.dart` | The 812×242 canvas and its three rows |
 | `lib/ui/equalizer/equalizer_panel.dart` | The 812×206 canvas, preamp and ten bands |
 
@@ -6850,6 +6852,18 @@ void main() {
 ```
 
 - [ ] **Step 2: Generate the goldens and inspect them**
+
+The golden test file must begin with
+
+```dart
+import '../support/test_fonts.dart';
+
+void main() {
+  setUpAll(loadTrampFonts);
+```
+
+Without it every golden renders in the harness's fallback face and pins the
+wrong image — the fallback's metrics differ enormously from Barlow's.
 
 ```bash
 flutter test --update-goldens test/golden/panels_golden_test.dart
