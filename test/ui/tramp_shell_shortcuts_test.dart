@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tramp/domain/track.dart';
+import 'package:tramp/domain/tramp_settings.dart';
 import 'package:tramp/playback/fake_player_engine.dart';
 import 'package:tramp/playback/playback_controller.dart';
 import 'package:tramp/playlist/playlist_controller.dart';
 import 'package:tramp/playlist/playlist_store.dart';
 import 'package:tramp/ui/tramp_shell.dart';
+import 'package:tramp/ui/zoom/zoom_controller.dart';
 
 class MemoryStore implements PlaylistStore {
   @override
@@ -43,7 +45,10 @@ void main() {
           playback: playback,
           playlistController: playlist,
           hasTracks: true,
-          transport: const SizedBox(),
+          zoom: ZoomController(workArea: const Size(6000, 4000)),
+          lowerRegion: LowerRegion.playlist,
+          mainPlayer: const SizedBox(),
+          equalizer: const SizedBox(),
           playlist: const SizedBox(),
         ),
       ),

@@ -1,32 +1,29 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-
 import 'package:path/path.dart' as p;
-
 import 'package:path_provider/path_provider.dart';
+import 'package:window_manager/window_manager.dart';
 
+import 'domain/tramp_settings.dart';
+import 'eq/equalizer_controller.dart';
 import 'platform/file_open.dart';
 import 'platform/launch_args.dart';
 import 'platform/os_media_controls.dart';
-
+import 'platform/settings_store.dart';
+import 'platform/tramp_window.dart';
 import 'playback/media_kit_player_engine.dart';
-
 import 'playback/playback_controller.dart';
-
 import 'playback/player_engine.dart';
-
 import 'playlist/playlist_controller.dart';
-
 import 'playlist/playlist_store.dart';
-
+import 'theme/tramp_metrics.dart';
 import 'theme/tramp_theme.dart';
-
-import 'ui/classic_main_player.dart';
-
+import 'ui/equalizer/equalizer_panel.dart';
+import 'ui/main_player/main_player_panel.dart';
 import 'ui/playlist_panel.dart';
-
 import 'ui/tramp_shell.dart';
+import 'ui/zoom/zoom_controller.dart';
 
 class TrampApp extends StatefulWidget {
   const TrampApp({
@@ -48,11 +45,13 @@ class TrampApp extends StatefulWidget {
 
 class _TrampAppState extends State<TrampApp> {
   late final PlaylistController _playlist;
-
   late final PlaybackController _playback;
-
   late final OsMediaControls _osMediaControls;
-
+  late final SettingsStore _settingsStore;
+  late final ZoomController _zoom;
+  late final EqualizerController _equalizer;
+  LowerRegion _lowerRegion = LowerRegion.playlist;
+  bool _equalizerCollapsed = false;
   final FocusNode _playlistFocusNode = FocusNode();
 
   @override
@@ -87,8 +86,18 @@ class _TrampAppState extends State<TrampApp> {
     );
 
     _osMediaControls = widget.osMediaControls ?? createOsMediaControls();
+    _settingsStore = FileSettingsStore(supportDir: getApplicationSupportDirectory);
+    _zoom = ZoomController(
+      workArea: const Size(1920, 1080),
+      onPercentChanged: _onZoomChanged,
+    );
+    _equalizer = EqualizerController(
+      store: _settingsStore,
+      sink: const NoopEqualizerSink(),
+    );
     unawaited(_osMediaControls.start(_playback));
     unawaited(_bootstrapPlaylist());
+    unawaited(_restoreSettings());
   }
 
   Future<void> _bootstrapPlaylist() async {
@@ -113,6 +122,48 @@ class _TrampAppState extends State<TrampApp> {
     await _playback.playIndex(0);
   }
 
+  Future<void> _restoreSettings() async {
+    final settings = await _settingsStore.read();
+    await _equalizer.load();
+    if (!mounted) return;
+    setState(() {
+      _lowerRegion = settings.lowerRegion;
+      _zoom.setPercent(settings.zoomPercent);
+    });
+  }
+
+  Future<void> _persistSettings() async {
+    final current = await _settingsStore.read();
+    await _settingsStore.write(
+      current.copyWith(
+        zoomPercent: _zoom.percent,
+        lowerRegion: _lowerRegion,
+      ),
+    );
+  }
+
+  void _onZoomChanged(int percent) {
+    unawaited(resizeTrampWindow(
+      size: _zoom.windowSizeFor(percent),
+      minimumSize: _zoom.minimumWindowSizeFor(percent),
+    ));
+    unawaited(_persistSettings());
+  }
+
+  void _selectRegion(LowerRegion region) {
+    setState(() {
+      // Tapping the visible region's own button toggles the equalizer's
+      // windowshade rather than doing nothing.
+      if (region == _lowerRegion && region == LowerRegion.equalizer) {
+        _equalizerCollapsed = !_equalizerCollapsed;
+      } else {
+        _lowerRegion = region;
+        _equalizerCollapsed = false;
+      }
+    });
+    unawaited(_persistSettings());
+  }
+
   @override
   void dispose() {
     _playlistFocusNode.dispose();
@@ -120,6 +171,18 @@ class _TrampAppState extends State<TrampApp> {
     unawaited(_playback.dispose());
 
     super.dispose();
+  }
+
+  Future<void> _openFiles() async {
+    final paths = await pickAudioFiles();
+    if (paths == null || paths.isEmpty) return;
+    _playlist.addTracks(tracksFromPaths(paths));
+  }
+
+  Future<void> _openFolder() async {
+    final path = await pickFolder();
+    if (path == null) return;
+    _playlist.addTracks(tracksFromPaths([path]));
   }
 
   Future<void> _openPlaylist() async {
@@ -153,22 +216,13 @@ class _TrampAppState extends State<TrampApp> {
     );
 
     if (action == 'folder') {
-      final path = await pickFolder();
-
-      if (path == null) return;
-
-      _playlist.addTracks(tracksFromPaths([path]));
-
+      await _openFolder();
       return;
     }
 
     if (action != 'files') return;
 
-    final paths = await pickAudioFiles();
-
-    if (paths == null || paths.isEmpty) return;
-
-    _playlist.addTracks(tracksFromPaths(paths));
+    await _openFiles();
   }
 
   Future<void> _handleDroppedPaths(List<String> paths) async {
@@ -181,6 +235,41 @@ class _TrampAppState extends State<TrampApp> {
     _playlist.addTracks(tracksFromPaths(paths));
   }
 
+  void _showMainMenu(BuildContext context) {
+    final overlay =
+        Overlay.of(context).context.findRenderObject()! as RenderBox;
+    unawaited(showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        TrampMetrics.frame,
+        TrampMetrics.frame + TrampMetrics.titleBar,
+        overlay.size.width,
+        0,
+      ),
+      items: const [
+        PopupMenuItem(value: 'files', child: Text('Open files…')),
+        PopupMenuItem(value: 'folder', child: Text('Open folder…')),
+        PopupMenuItem(value: 'playlist', child: Text('Open playlist…')),
+        PopupMenuItem(value: 'save', child: Text('Save playlist…')),
+        PopupMenuDivider(),
+        PopupMenuItem(value: 'quit', child: Text('Exit')),
+      ],
+    ).then((choice) async {
+      switch (choice) {
+        case 'files':
+          await _openFiles();
+        case 'folder':
+          await _openFolder();
+        case 'playlist':
+          await _openPlaylist();
+        case 'save':
+          await _savePlaylist();
+        case 'quit':
+          await windowManager.close();
+      }
+    }));
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -188,25 +277,35 @@ class _TrampAppState extends State<TrampApp> {
       debugShowCheckedModeBanner: false,
       theme: buildTrampTheme(),
       home: ListenableBuilder(
-        listenable: _playlist,
+        listenable: Listenable.merge([_playlist, _zoom]),
         builder: (context, _) {
+          final hasTracks = _playlist.playlist.tracks.isNotEmpty;
           return TrampShell(
             playback: _playback,
             playlistController: _playlist,
-            hasTracks: _playlist.playlist.tracks.isNotEmpty,
+            hasTracks: hasTracks,
             playlistFocusNode: _playlistFocusNode,
             onDropPaths: _handleDroppedPaths,
-            onOpenFiles: () async {
-              final paths = await pickAudioFiles();
-              if (paths == null || paths.isEmpty) return;
-              _playlist.addTracks(tracksFromPaths(paths));
-            },
+            onOpenFiles: _openFiles,
             onSavePlaylist: _savePlaylist,
-            transport: ClassicMainPlayer(
+            zoom: _zoom,
+            lowerRegion: _lowerRegion,
+            equalizerCollapsed: _equalizerCollapsed,
+            mainPlayer: MainPlayerPanel(
               playback: _playback,
-              hasTracks: _playlist.playlist.tracks.isNotEmpty,
-              playlistFocusNode: _playlistFocusNode,
-              onFocusPlaylist: _playlistFocusNode.requestFocus,
+              zoom: _zoom,
+              lowerRegion: _lowerRegion,
+              hasTracks: hasTracks,
+              onSelectRegion: _selectRegion,
+              onOpenFiles: () => unawaited(_openFiles()),
+              onOpenMenu: () => _showMainMenu(context),
+            ),
+            equalizer: EqualizerPanel(
+              controller: _equalizer,
+              collapsed: _equalizerCollapsed,
+              onCollapse: () =>
+                  setState(() => _equalizerCollapsed = !_equalizerCollapsed),
+              onClose: () => _selectRegion(LowerRegion.playlist),
             ),
             playlist: PlaylistPanel(
               playlist: _playlist,

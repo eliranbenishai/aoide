@@ -1,21 +1,20 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../domain/tramp_settings.dart';
 import '../playback/playback_controller.dart';
 import '../playlist/playlist_controller.dart';
 import '../theme/tramp_colors.dart';
-import 'classic_main_player.dart';
+import '../theme/tramp_metrics.dart';
+import 'zoom/zoom_controller.dart';
+import 'zoom/zoom_scope.dart';
 
-/// The box that scales the fixed-aspect player to the window.
-///
-/// Named so layout tests can measure it without guessing which `FittedBox`
-/// they mean — widgets nested inside the player use their own.
-const Key playerScaleHostKey = Key('player-scale-host');
+/// The scaled stack of panels. Named so layout tests can measure it.
+const Key panelStackKey = Key('panel-stack');
 
 class PlayPauseIntent extends Intent {
   const PlayPauseIntent();
@@ -57,13 +56,29 @@ class SavePlaylistIntent extends Intent {
   const SavePlaylistIntent();
 }
 
+class ZoomInIntent extends Intent {
+  const ZoomInIntent();
+}
+
+class ZoomOutIntent extends Intent {
+  const ZoomOutIntent();
+}
+
+class ZoomResetIntent extends Intent {
+  const ZoomResetIntent();
+}
+
 class TrampShell extends StatelessWidget {
   const TrampShell({
     super.key,
-    required this.transport,
+    required this.mainPlayer,
+    required this.equalizer,
     required this.playlist,
     required this.playback,
     required this.playlistController,
+    required this.zoom,
+    required this.lowerRegion,
+    this.equalizerCollapsed = false,
     this.hasTracks = false,
     this.playlistFocusNode,
     this.onDropPaths,
@@ -71,10 +86,14 @@ class TrampShell extends StatelessWidget {
     this.onSavePlaylist,
   });
 
-  final Widget transport;
+  final Widget mainPlayer;
+  final Widget equalizer;
   final Widget playlist;
   final PlaybackController playback;
   final PlaylistController playlistController;
+  final ZoomController zoom;
+  final LowerRegion lowerRegion;
+  final bool equalizerCollapsed;
   final bool hasTracks;
   final FocusNode? playlistFocusNode;
   final void Function(List<String> paths)? onDropPaths;
@@ -95,6 +114,12 @@ class TrampShell extends StatelessWidget {
     SingleActivator(LogicalKeyboardKey.keyO, meta: true): OpenFilesIntent(),
     SingleActivator(LogicalKeyboardKey.keyS, control: true): SavePlaylistIntent(),
     SingleActivator(LogicalKeyboardKey.keyS, meta: true): SavePlaylistIntent(),
+    SingleActivator(LogicalKeyboardKey.equal, control: true): ZoomInIntent(),
+    SingleActivator(LogicalKeyboardKey.equal, meta: true): ZoomInIntent(),
+    SingleActivator(LogicalKeyboardKey.minus, control: true): ZoomOutIntent(),
+    SingleActivator(LogicalKeyboardKey.minus, meta: true): ZoomOutIntent(),
+    SingleActivator(LogicalKeyboardKey.digit0, control: true): ZoomResetIntent(),
+    SingleActivator(LogicalKeyboardKey.digit0, meta: true): ZoomResetIntent(),
   };
 
   Map<Type, Action<Intent>> _actions() {
@@ -162,6 +187,24 @@ class TrampShell extends StatelessWidget {
           return null;
         },
       ),
+      ZoomInIntent: CallbackAction<ZoomInIntent>(
+        onInvoke: (_) {
+          zoom.stepUp();
+          return null;
+        },
+      ),
+      ZoomOutIntent: CallbackAction<ZoomOutIntent>(
+        onInvoke: (_) {
+          zoom.stepDown();
+          return null;
+        },
+      ),
+      ZoomResetIntent: CallbackAction<ZoomResetIntent>(
+        onInvoke: (_) {
+          zoom.reset();
+          return null;
+        },
+      ),
     };
   }
 
@@ -202,54 +245,63 @@ class TrampShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Material supplies the ink/text theme ancestor. MaterialApp alone is not
+    // enough without a Scaffold; without this, debug builds underline every Text.
     final shell = DragToResizeArea(
       resizeEdgeSize: 6,
-      child: ColoredBox(
-        color: TrampColors.metalMid,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: TrampColors.skinBorder,
-              width: TrampColors.borderWidth,
-            ),
-          ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final logical = ClassicMainPlayer.logicalSize;
-              final widthScale = constraints.maxWidth / logical.width;
-              final heightScale = constraints.maxHeight.isFinite
-                  ? constraints.maxHeight / logical.height
-                  : widthScale;
-              final scale = math.min(widthScale, heightScale);
-              final playerWidth = logical.width * scale;
-              final playerHeight = logical.height * scale;
+      child: Material(
+        color: TrampColors.frame,
+        child: ListenableBuilder(
+          listenable: zoom,
+          builder: (context, _) {
+            final factor = zoom.factor;
+            final ratio = MediaQuery.devicePixelRatioOf(context);
 
-              return Column(
-                children: [
-                  Align(
-                    alignment: Alignment.topCenter,
-                    child: SizedBox(
-                      width: playerWidth,
-                      height: playerHeight,
-                      child: FittedBox(
-                        key: playerScaleHostKey,
-                        fit: BoxFit.contain,
-                        child: transport,
+            final focusedPlaylist = playlistFocusNode == null
+                ? playlist
+                : Focus(focusNode: playlistFocusNode, child: playlist);
+
+            // Transform.scale paints larger but does not change layout size.
+            // The keyed host is sized by the zoom factor so layout tests (and
+            // the window) observe the scaled stack; one transform still scales
+            // the authored canvases.
+            final logicalWidth = TrampMetrics.mainPlayer.width;
+            return ZoomScope(
+              factor: factor,
+              devicePixelRatio: ratio,
+              child: Padding(
+                padding: const EdgeInsets.all(TrampMetrics.frame),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    key: panelStackKey,
+                    width: logicalWidth * factor,
+                    child: Transform.scale(
+                      scale: factor,
+                      alignment: Alignment.topLeft,
+                      child: SizedBox(
+                        width: logicalWidth,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            mainPlayer,
+                            const SizedBox(height: TrampMetrics.gutter),
+                            if (lowerRegion == LowerRegion.equalizer)
+                              equalizer
+                            else
+                              SizedBox(
+                                height: TrampMetrics.minLowerRegion,
+                                child: focusedPlaylist,
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                  Expanded(
-                    child: playlistFocusNode == null
-                        ? playlist
-                        : Focus(
-                            focusNode: playlistFocusNode,
-                            child: playlist,
-                          ),
-                  ),
-                ],
-              );
-            },
-          ),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
