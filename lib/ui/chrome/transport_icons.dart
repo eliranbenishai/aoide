@@ -50,6 +50,9 @@ abstract final class TransportIcons {
   }) =>
       _paint(SpeakerPainter(colour: colour, muted: muted), const Size(12, 12));
 
+  static Widget dragHandle({Color colour = defaultGlyphColour}) =>
+      _paint(DragHandlePainter(colour: colour), const Size(12, 10));
+
   static Widget _paint(CustomPainter painter, Size size) => SizedBox(
         width: size.width,
         height: size.height,
@@ -389,6 +392,30 @@ class SpeakerPainter extends CustomPainter {
   @override
   bool shouldRepaint(SpeakerPainter old) =>
       old.colour != colour || old.muted != muted;
+}
+
+/// Three short horizontal bars for the playlist reorder affordance.
+class DragHandlePainter extends CustomPainter {
+  const DragHandlePainter({required this.colour});
+
+  final Color colour;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final barHeight = math.max(1.5, size.height * 0.15);
+    final insetX = size.width * 0.08;
+    final span = size.height - barHeight;
+    for (var i = 0; i < 3; i++) {
+      final y = span * (i / 2);
+      canvas.drawRect(
+        Rect.fromLTWH(insetX, y, size.width - insetX * 2, barHeight),
+        _fill(colour),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(DragHandlePainter old) => old.colour != colour;
 }
 
 /// Small downward chevron for dropdown buttons.

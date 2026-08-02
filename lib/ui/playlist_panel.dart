@@ -1,10 +1,16 @@
+import 'dart:ui' show FontFeature;
+
 import 'package:flutter/material.dart';
 
 import '../domain/track.dart';
 import '../playback/playback_controller.dart';
 import '../playlist/playlist_controller.dart';
 import '../theme/tramp_colors.dart';
+import '../theme/tramp_text.dart';
 import 'chrome/chrome_button.dart';
+import 'chrome/metal_panel.dart';
+import 'chrome/transport_icons.dart';
+import 'zoom/zoom_scope.dart';
 
 String formatTrackDuration(Duration? duration) {
   if (duration == null) return '';
@@ -32,32 +38,8 @@ class PlaylistPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [TrampColors.metalHi, TrampColors.metalFace],
-        ),
-        border: Border(
-          top: BorderSide(
-            color: TrampColors.metalHi,
-            width: TrampColors.borderWidth,
-          ),
-          left: BorderSide(
-            color: TrampColors.metalHi,
-            width: TrampColors.borderWidth,
-          ),
-          right: BorderSide(
-            color: TrampColors.metalDeep,
-            width: TrampColors.borderWidth,
-          ),
-          bottom: BorderSide(
-            color: TrampColors.metalDeep,
-            width: TrampColors.borderWidth,
-          ),
-        ),
-      ),
+    return MetalPanel(
+      surface: TrampSurface.raisedPanel,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -67,37 +49,43 @@ class PlaylistPanel extends StatelessWidget {
             onAddFiles: onAddFiles,
           ),
           Expanded(
-            child: ListenableBuilder(
-              listenable: playlist,
-              builder: (context, _) {
-                final tracks = playlist.playlist.tracks;
-                if (tracks.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'No tracks',
-                      style: TextStyle(color: TrampColors.metalShadow),
-                    ),
-                  );
-                }
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
+              child: MetalPanel(
+                surface: TrampSurface.lcdGlass,
+                child: ListenableBuilder(
+                  listenable: playlist,
+                  builder: (context, _) {
+                    final tracks = playlist.playlist.tracks;
+                    if (tracks.isEmpty) {
+                      return Center(
+                        child: Text(
+                          'No tracks',
+                          style: TrampText.lcdDim,
+                        ),
+                      );
+                    }
 
-                return ReorderableListView.builder(
-                  buildDefaultDragHandles: false,
-                  itemCount: tracks.length,
-                  onReorder: playlist.move,
-                  itemBuilder: (context, index) {
-                    final track = tracks[index];
-                    final active = playlist.selectedIndex == index;
-                    return _PlaylistRow(
-                      key: ValueKey(track.path),
-                      index: index,
-                      track: track,
-                      active: active,
-                      onActivate: () => playback.playIndex(index),
-                      onSelect: () => playlist.select(index),
+                    return ReorderableListView.builder(
+                      buildDefaultDragHandles: false,
+                      itemCount: tracks.length,
+                      onReorder: playlist.move,
+                      itemBuilder: (context, index) {
+                        final track = tracks[index];
+                        final active = playlist.selectedIndex == index;
+                        return _PlaylistRow(
+                          key: ValueKey(track.path),
+                          index: index,
+                          track: track,
+                          active: active,
+                          onActivate: () => playback.playIndex(index),
+                          onSelect: () => playlist.select(index),
+                        );
+                      },
                     );
                   },
-                );
-              },
+                ),
+              ),
             ),
           ),
         ],
@@ -107,11 +95,7 @@ class PlaylistPanel extends StatelessWidget {
 }
 
 class _PlaylistToolbar extends StatelessWidget {
-  const _PlaylistToolbar({
-    this.onOpen,
-    this.onSave,
-    this.onAddFiles,
-  });
+  const _PlaylistToolbar({this.onOpen, this.onSave, this.onAddFiles});
 
   final VoidCallback? onOpen;
   final VoidCallback? onSave;
@@ -119,48 +103,31 @@ class _PlaylistToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [TrampColors.metalHi, TrampColors.metalMid],
-        ),
-        border: Border(
-          bottom: BorderSide(
-            color: TrampColors.groove,
-            width: TrampColors.borderWidth,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
+      child: Row(
+        children: [
+          ChromeButton.label(
+            key: const Key('playlist-open'),
+            text: 'OPEN',
+            onPressed: onOpen,
+            size: const Size(54, 22),
           ),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Wrap(
-          spacing: 8,
-          children: [
-            ChromeButton(
-              onPressed: onOpen,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                child: Text('Open…'),
-              ),
-            ),
-            ChromeButton(
-              onPressed: onSave,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                child: Text('Save…'),
-              ),
-            ),
-            ChromeButton(
-              onPressed: onAddFiles,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                child: Text('Add files…'),
-              ),
-            ),
-          ],
-        ),
+          const SizedBox(width: 5),
+          ChromeButton.label(
+            key: const Key('playlist-save'),
+            text: 'SAVE',
+            onPressed: onSave,
+            size: const Size(54, 22),
+          ),
+          const SizedBox(width: 5),
+          ChromeButton.label(
+            key: const Key('playlist-add'),
+            text: 'ADD',
+            onPressed: onAddFiles,
+            size: const Size(48, 22),
+          ),
+        ],
       ),
     );
   }
@@ -184,16 +151,15 @@ class _PlaylistRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground =
-        active ? TrampColors.lcdPhosphor : TrampColors.metalDeep;
-    final muted =
-        active ? TrampColors.lcdPhosphorDim : TrampColors.metalShadow;
+    final hairline = ZoomScope.hairlineFor(context);
+    final foreground = active ? TrampColors.phosphor : TrampColors.label;
+    final muted = active ? TrampColors.phosphorDim : TrampColors.labelDim;
     final indexLabel = (index + 1).toString().padLeft(2, '0');
     final artist = track.artist?.trim();
+    final hasArtist = artist != null && artist.isNotEmpty;
 
-    final semanticLabel = artist != null && artist.isNotEmpty
-        ? '${track.displayTitle}, $artist'
-        : track.displayTitle;
+    final semanticLabel =
+        hasArtist ? '${track.displayTitle}, $artist' : track.displayTitle;
 
     return ReorderableDragStartListener(
       index: index,
@@ -215,66 +181,63 @@ class _PlaylistRow extends StatelessWidget {
             onDoubleTap: onActivate,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: active ? TrampColors.lcdBackground : null,
-                border: const Border(
+                border: Border(
                   bottom: BorderSide(
-                    color: TrampColors.groove,
-                    width: TrampColors.borderWidth,
+                    color: TrampColors.bevelLo,
+                    width: hairline,
                   ),
                 ),
               ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                 child: Row(
                   children: [
                     SizedBox(
-                      width: 28,
+                      width: 24,
                       child: Text(
                         indexLabel,
-                        style: TextStyle(color: muted, fontSize: 13),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(
-                              text: track.displayTitle,
-                              style: TextStyle(
-                                color: foreground,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                              ),
-                            ),
-                            if (artist != null && artist.isNotEmpty)
-                              TextSpan(
-                                text: ' — $artist',
-                                style: TextStyle(color: muted, fontSize: 13),
-                              ),
-                          ],
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      formatTrackDuration(track.duration),
-                      style: TextStyle(
-                        color: muted,
-                        fontSize: 13,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                        style: TrampText.lcd.copyWith(color: muted),
                       ),
                     ),
                     const SizedBox(width: 8),
+                    // Title and artist are separate Text widgets rather than one
+                    // Text.rich so each is directly findable and assertable.
+                    Flexible(
+                      child: Text(
+                        track.displayTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TrampText.lcd.copyWith(color: foreground),
+                      ),
+                    ),
+                    if (hasArtist) ...[
+                      Text(
+                        ' — ',
+                        style: TrampText.lcd.copyWith(color: muted),
+                      ),
+                      Flexible(
+                        child: Text(
+                          artist,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TrampText.lcd.copyWith(color: muted),
+                        ),
+                      ),
+                    ],
+                    const Spacer(),
+                    const SizedBox(width: 8),
+                    Text(
+                      formatTrackDuration(track.duration),
+                      style: TrampText.lcd.copyWith(
+                        color: muted,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
                     Semantics(
                       label: 'Reorder',
-                      child: Icon(
-                        Icons.drag_handle,
-                        size: 16,
-                        color: muted,
-                      ),
+                      child: TransportIcons.dragHandle(colour: muted),
                     ),
                   ],
                 ),

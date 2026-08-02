@@ -47,6 +47,7 @@ void main() {
       'close': TransportIcons.close(),
       'speaker': TransportIcons.speaker(),
       'speakerMuted': TransportIcons.speaker(muted: true),
+      'dragHandle': TransportIcons.dragHandle(),
     };
 
     for (final entry in glyphs.entries) {
@@ -110,6 +111,7 @@ void main() {
       'maximize',
       'close',
       'speaker',
+      'dragHandle',
     };
     final factories = <String, Widget Function()>{
       'prev': TransportIcons.prev,
@@ -124,6 +126,7 @@ void main() {
       'maximize': TransportIcons.maximize,
       'close': TransportIcons.close,
       'speaker': TransportIcons.speaker,
+      'dragHandle': TransportIcons.dragHandle,
     };
     expect(factories.keys.toSet(), expected);
     for (final build in factories.values) {
