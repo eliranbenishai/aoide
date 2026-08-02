@@ -40,11 +40,12 @@ class ZoomController extends ChangeNotifier {
     if (_workArea == value) return;
     _workArea = value;
     final clamped = _largestFitting(_percent);
-    if (clamped != _percent) {
+    final percentChanged = clamped != _percent;
+    if (percentChanged) {
       _percent = clamped;
-      notifyListeners();
       onPercentChanged?.call(_percent);
     }
+    notifyListeners();
   }
 
   List<int> get enabledSteps => steps.where(canUse).toList();
