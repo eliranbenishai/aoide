@@ -7,6 +7,8 @@ import 'package:tramp/domain/tramp_settings.dart';
 import 'package:tramp/playback/fake_player_engine.dart';
 import 'package:tramp/platform/os_media_controls_stub.dart';
 import 'package:tramp/platform/settings_store.dart';
+import 'package:tramp/ui/skin/graphite_skin.dart';
+import 'package:tramp/ui/skin/skin_image.dart';
 
 import 'support/test_fonts.dart';
 
@@ -59,7 +61,12 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.textContaining('TRAMP'), findsWidgets);
+    // The TRAMP wordmark is baked into the skin face, so the brand shows as the
+    // main player's skin art rather than a Text widget.
+    final brandFace = tester.widgetList<SkinImage>(find.byType(SkinImage)).any(
+          (image) => image.asset == GraphiteSkin.mainFace,
+        );
+    expect(brandFace, isTrue);
   });
 
   testWidgets('startup applies playlist mode: resizable, default tall size',

@@ -9,6 +9,8 @@ import 'package:tramp/playlist/playlist_controller.dart';
 import 'package:tramp/playlist/playlist_store.dart';
 import 'package:tramp/theme/tramp_metrics.dart';
 import 'package:tramp/ui/main_player/main_player_panel.dart';
+import 'package:tramp/ui/skin/graphite_skin.dart';
+import 'package:tramp/ui/skin/skin_image.dart';
 import 'package:tramp/ui/zoom/zoom_controller.dart';
 
 import '../../support/test_fonts.dart';
@@ -76,9 +78,14 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('is branded TRAMP, never Winamp', (tester) async {
+  testWidgets('is branded TRAMP via the skin face, never Winamp',
+      (tester) async {
     await pump(tester);
-    expect(find.text('TRAMP'), findsOneWidget);
+    // The wordmark lives in the skin PNG, so it is art, not a Text widget.
+    final face = tester.widgetList<SkinImage>(find.byType(SkinImage)).any(
+          (image) => image.asset == GraphiteSkin.mainFace,
+        );
+    expect(face, isTrue);
     expect(find.textContaining('WINAMP'), findsNothing);
   });
 
@@ -138,27 +145,36 @@ void main() {
     expect(opens, 1);
   });
 
-  testWidgets('zoom button shows the current step and opens a menu',
-      (tester) async {
+  testWidgets('title-bar zoom controls step the zoom', (tester) async {
     zoom.setPercent(150);
     await pump(tester);
-    expect(find.text('ZOOM 150%'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('player-zoom')));
-    await tester.pumpAndSettle();
-    expect(find.text('200%'), findsOneWidget);
-    await tester.tap(find.text('200%'));
-    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('window-zoom-in')));
+    await tester.pump();
     expect(zoom.percent, 200);
+
+    await tester.tap(find.byKey(const Key('window-zoom-out')));
+    await tester.pump();
+    expect(zoom.percent, 150);
   });
 
-  testWidgets('steps too large for the display are not offered',
+  testWidgets('zoom-in stops at the largest step the display can host',
       (tester) async {
+    // 1600x1200 hosts 150% but not 200% (needs 1648 wide).
     zoom = ZoomController(workArea: const Size(1600, 1200));
+    zoom.setPercent(150);
     await pump(tester);
-    await tester.tap(find.byKey(const Key('player-zoom')));
-    await tester.pumpAndSettle();
-    expect(find.text('150%'), findsOneWidget);
-    expect(find.text('300%'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('window-zoom-in')));
+    await tester.pump();
+    expect(zoom.percent, 150);
+  });
+
+  testWidgets('the maximize window control is gone', (tester) async {
+    await pump(tester);
+    expect(find.byKey(const Key('window-maximize')), findsNothing);
+    expect(find.byKey(const Key('window-zoom-in')), findsOneWidget);
+    expect(find.byKey(const Key('window-zoom-out')), findsOneWidget);
   });
 
   testWidgets('display shows real stream properties when reported',

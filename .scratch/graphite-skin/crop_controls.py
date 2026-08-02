@@ -4,29 +4,34 @@ Run from the worktree root (the repo root of the worktree):
 
     python .scratch/graphite-skin/crop_controls.py
 
-Outputs (RGBA, authored at 2x like the panel faces):
+Outputs (RGBA, authored at 2x like the panel faces) under
+`assets/skin/graphite/controls/`:
 
-    assets/skin/graphite/controls/transport_play_idle.png      138 x 80
-    assets/skin/graphite/controls/transport_play_pressed.png   138 x 80
-    assets/skin/graphite/controls/slider_thumb.png              32 x 45
+    Task 3
+      transport_play_idle.png       138 x 80    slider_thumb.png   32 x 45
+      transport_play_pressed.png    138 x 80
 
-PNG-first, per the skin's hard rule: the brushed-metal grain, bevels and the
-phosphor-green play glyph all come straight from the mockup pixels. Nothing is
-redrawn as a flat gradient.
+    Task 6 (this pass)
+      transport_prev/pause/stop/next  _idle / _pressed   138 x 80
+      shuffle_idle / shuffle_active                       152 x 58
+      repeat_idle  / repeat_active                        152 x 58
+      eq_idle      / eq_active                            114 x 40
+      pl_idle      / pl_active                            114 x 40
 
-  - The transport row is authored at 2x (main panel = 1624px = 812 logical), so
-    a logical 69x40 button is a 138x80 mockup crop. Button pitch is ~140px; the
-    five bezels (prev/play/pause/stop/next) start at x = 98/238/378/518/658 with
-    tops at y=380. Only play is needed for Task 3's tests; the rest are cropped
-    in Task 6-7.
-  - No "pressed" button is drawn in the mockup, so the pressed sprite is derived
-    from the idle crop's real pixels: darkened (recessed metal) with a top inner
-    shadow and the whole face nudged 1px down-right so the glyph reads as pushed
-    in. This is a tonal transform of genuine grain, not a flat redraw.
-  - The slider thumb is the equalizer band's metal fader grip (x=377..409,
-    y=728..773). Its ~1:1.4 grip aspect is real art; call sites pick thumbSize.
+PNG-first, per the skin's hard rule: the brushed-metal grain, bevels and glyphs
+all come straight from the mockup pixels. Missing states are tonal transforms of
+real pixels, never flat redraws:
 
-Coordinates were measured with .scratch/graphite-skin/probe_transport.py.
+  * transport "pressed" — the idle crop darkened, nudged 1px down-right, with a
+    soft top inner shadow (recessed metal). (Task 3's derivation, reused.)
+  * toggle "active"/"idle" — the button's own glyph pixels are recoloured to the
+    lit phosphor (active) or the neutral label grey (idle). The mockup bakes
+    shuffle grey and repeat green; recolouring both ways gives a consistent
+    off=grey / on=phosphor pair while keeping the real bezel, grain and bevel.
+
+Coordinates are MOCKUP pixel space (source 1663 x 946); measured with
+.scratch/graphite-skin/probe_main_controls.py.  Mockup px -> logical: (px-19)/2
+in x, (py-18)/2 in y.
 """
 import os
 
@@ -36,30 +41,43 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 SRC = os.path.join(ROOT, "docs", "mockups", "graphite-chrome.png")
 OUT_DIR = os.path.join(ROOT, "assets", "skin", "graphite", "controls")
 
-# Transport button crop boxes in mockup px (left, top, right, bottom).
-PLAY_BOX = (238, 380, 376, 460)  # 138 x 80
-# Equalizer band metal fader grip.
+# Transport button crop boxes (left, top, right, bottom); each 138 x 80.
+# Bezels start at x = 98/238/378/518/658 with tops at y = 380 (pitch ~140).
+TRANSPORT = {
+    "prev": (98, 380, 236, 460),
+    "play": (238, 380, 376, 460),
+    "pause": (378, 380, 516, 460),
+    "stop": (518, 380, 656, 460),
+    "next": (658, 380, 796, 460),
+}
+
+# Toggle buttons: (crop box, glyph inner box relative to the crop).
+SHUFFLE_BOX = (1316, 116, 1468, 174)   # 152 x 58
+REPEAT_BOX = (1476, 116, 1628, 174)    # 152 x 58
+EQ_BOX = (1206, 313, 1320, 353)        # 114 x 40
+PL_BOX = (1322, 313, 1436, 353)        # 114 x 40
+
+SHUFFLE_GLYPH = (20, 14, 118, 46)
+REPEAT_GLYPH = (14, 14, 118, 48)
+EQ_GLYPH = (14, 6, 100, 34)
+PL_GLYPH = (18, 6, 104, 34)
+
+# Equalizer band metal fader grip (Task 3).
 THUMB_BOX = (377, 728, 409, 773)  # 32 x 45
+
+PHOSPHOR = (207, 234, 69)   # TrampColors.phosphor 0xCFEA45
+LABEL = (201, 206, 213)     # TrampColors.label   0xC9CED3
 
 
 def press(idle):
-    """Derive a pressed sprite from the idle crop: recessed, real grain kept.
-
-    Darken the whole face, nudge the content 1px down-right (pushed in), then
-    lay a soft top-edge inner shadow so the bezel reads as inverted.
-    """
+    """Derive a pressed sprite from the idle crop: recessed, real grain kept."""
     w, h = idle.size
     pressed = ImageEnhance.Brightness(idle).enhance(0.80)
-
-    # Nudge down-right by 1px; the exposed top/left edges take the face's own
-    # top row/column so no transparent seam appears.
     shifted = Image.new("RGBA", (w, h))
     shifted.paste(pressed, (1, 1))
     shifted.paste(pressed.crop((0, 0, w, 1)), (0, 0))
     shifted.paste(pressed.crop((0, 0, 1, h)), (0, 0))
     pressed = shifted
-
-    # Top inner shadow: opaque black fading over the top ~14px.
     shadow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     sp = shadow.load()
     depth = 14
@@ -70,18 +88,62 @@ def press(idle):
     return Image.alpha_composite(pressed, shadow)
 
 
+def recolour(crop, glyph_box, target):
+    """Recolour the glyph pixels inside `glyph_box` to `target`.
+
+    Only bright pixels (the glyph, not the dark metal or bezel) are touched, and
+    each keeps its own luminance so anti-aliased edges and the emboss survive.
+    """
+    out = crop.copy()
+    px = out.load()
+    tr, tg, tb = target
+    l, t, r, b = glyph_box
+    for y in range(t, b):
+        for x in range(l, r):
+            cr, cg, cb, ca = px[x, y]
+            if ca == 0:
+                continue
+            lum = 0.3 * cr + 0.6 * cg + 0.1 * cb
+            if lum <= 90:
+                continue
+            f = min(1.0, lum / 205.0)
+            px[x, y] = (int(tr * f), int(tg * f), int(tb * f), ca)
+    return out
+
+
 def main():
     im = Image.open(SRC).convert("RGBA")
     os.makedirs(OUT_DIR, exist_ok=True)
 
-    play_idle = im.crop(PLAY_BOX)
-    play_idle.save(os.path.join(OUT_DIR, "transport_play_idle.png"))
-    press(play_idle).save(os.path.join(OUT_DIR, "transport_play_pressed.png"))
+    def save(name, img):
+        img.save(os.path.join(OUT_DIR, name + ".png"))
 
-    thumb = im.crop(THUMB_BOX)
-    thumb.save(os.path.join(OUT_DIR, "slider_thumb.png"))
+    for name, box in TRANSPORT.items():
+        idle = im.crop(box)
+        save("transport_%s_idle" % name, idle)
+        save("transport_%s_pressed" % name, press(idle))
 
-    print("play idle/pressed:", play_idle.size, "thumb:", thumb.size)
+    shuffle = im.crop(SHUFFLE_BOX)
+    save("shuffle_idle", shuffle)
+    save("shuffle_active", recolour(shuffle, SHUFFLE_GLYPH, PHOSPHOR))
+
+    repeat = im.crop(REPEAT_BOX)
+    save("repeat_idle", recolour(repeat, REPEAT_GLYPH, LABEL))
+    save("repeat_active", repeat)
+
+    eq = im.crop(EQ_BOX)
+    save("eq_idle", eq)
+    save("eq_active", recolour(eq, EQ_GLYPH, PHOSPHOR))
+
+    pl = im.crop(PL_BOX)
+    save("pl_idle", pl)
+    save("pl_active", recolour(pl, PL_GLYPH, PHOSPHOR))
+
+    save("slider_thumb", im.crop(THUMB_BOX))
+
+    print("transport:", {k: im.crop(v).size for k, v in TRANSPORT.items()})
+    print("shuffle:", shuffle.size, "repeat:", repeat.size,
+          "eq:", eq.size, "pl:", pl.size)
 
 
 if __name__ == "__main__":

@@ -10,20 +10,23 @@ import '../../theme/tramp_colors.dart';
 import '../../theme/tramp_metrics.dart';
 import '../../theme/tramp_text.dart';
 import '../chrome/chrome_button.dart';
-import '../chrome/chrome_slider.dart';
 import '../chrome/lcd_text.dart';
-import '../chrome/metal_panel.dart';
 import '../chrome/spectrum_visualizer.dart';
-import '../chrome/title_bar.dart';
 import '../chrome/tramp_mark.dart';
 import '../chrome/transport_icons.dart';
 import '../format.dart';
+import '../skin/graphite_skin.dart';
+import '../skin/skin_button.dart';
+import '../skin/skin_image.dart';
+import '../skin/skin_slider.dart';
 import '../zoom/zoom_controller.dart';
 
 /// The main player panel.
 ///
-/// Authored against the fixed 812x242 canvas with absolute positions from the
-/// design spec's geometry table.
+/// The look is the graphite skin PNG ([GraphiteSkin.mainFace]); everything on
+/// top is a live overlay or a hit target aligned to the art. Control positions
+/// are the mockup's own bezels, so a [SkinButton] sits exactly over the face
+/// glyph it drives. Coordinates are the fixed 812x242 logical canvas.
 class MainPlayerPanel extends StatefulWidget {
   const MainPlayerPanel({
     super.key,
@@ -53,8 +56,6 @@ class MainPlayerPanel extends StatefulWidget {
 }
 
 class _MainPlayerPanelState extends State<MainPlayerPanel> {
-  double? _volumePreview;
-
   PlaybackController get playback => widget.playback;
 
   Future<void> _play() async {
@@ -72,24 +73,47 @@ class _MainPlayerPanelState extends State<MainPlayerPanel> {
     return SizedBox(
       width: MainPlayerPanel.logicalSize.width,
       height: MainPlayerPanel.logicalSize.height,
-      child: MetalPanel(
-        surface: TrampSurface.raisedPanel,
-        child: ListenableBuilder(
-          listenable: Listenable.merge([playback, widget.zoom]),
-          builder: (context, _) => _buildChrome(context),
-        ),
+      child: ListenableBuilder(
+        listenable: Listenable.merge([playback, widget.zoom]),
+        builder: (context, _) => _buildChrome(context),
       ),
     );
   }
 
   Widget _buildChrome(BuildContext context) {
+    const well = GraphiteSkin.mainDisplayWell;
+
+    return Stack(
+      children: [
+        // Dark LCD glass shows through the face's punched display well.
+        Positioned.fromRect(
+          rect: well,
+          child: const ColoredBox(color: TrampColors.lcdGlass),
+        ),
+        const SkinImage(
+          asset: GraphiteSkin.mainFace,
+          logicalSize: MainPlayerPanel.logicalSize,
+        ),
+
+        ..._displayWell(),
+        _titleBar(),
+        ..._transport(),
+        ..._rightControls(),
+        _open(),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Display well overlays: spectrum, seek, LCD text, region indicators.
+  // ---------------------------------------------------------------------------
+
+  List<Widget> _displayWell() {
     final track = playback.currentTrack;
     final durationMs = playback.duration.inMilliseconds;
     final seek = durationMs > 0
         ? (playback.position.inMilliseconds / durationMs).clamp(0.0, 1.0)
         : 0.0;
-    final volume = (_volumePreview ?? playback.volume).clamp(0.0, 1.0);
-    final canTransport = track != null || widget.hasTracks;
     final format = playback.formatInfo;
     final index = playback.playingIndex;
 
@@ -102,357 +126,471 @@ class _MainPlayerPanelState extends State<MainPlayerPanel> {
             track.displayTitle,
           ].join(' ');
 
-    return Stack(
-      children: [
-        Positioned(
-          left: 0,
-          right: 0,
-          top: 0,
-          child: TrampTitleBar(
-            title: 'TRAMP',
-            draggable: widget.draggableTitle,
-            // Tramp's compact mark. The mockup shows Winamp's lightning bolt
-            // here — that is their brand, not a generic icon. The full colour
-            // logo is illegible at this size; see the spec's Brand assets.
-            leading: ChromeButton.icon(
-              key: const Key('player-menu'),
-              icon: const TrampMark(size: 19),
-              onPressed: widget.onOpenMenu,
-              semanticLabel: 'Tramp menu',
-              size: const Size(27, 27),
-            ),
-            trailing: [
-              ChromeButton.icon(
-                key: const Key('window-minimize'),
-                icon: TransportIcons.minimize(),
-                onPressed: () => unawaited(windowManager.minimize()),
-                semanticLabel: 'Minimize',
-                size: const Size(27, 22),
+    return [
+      Positioned(
+        left: 44,
+        top: 45,
+        width: 200,
+        height: 96,
+        child: SpectrumVisualizer(levels: playback.levelsStream),
+      ),
+      Positioned(
+        left: 44,
+        top: 150,
+        width: 200,
+        height: 5,
+        child: SkinSlider(
+          key: const Key('transport-seek'),
+          axis: Axis.horizontal,
+          value: seek,
+          trackSize: const Size(200, 5),
+          thumbAsset: GraphiteSkin.sliderThumb,
+          thumbSize: const Size(7, 5),
+          semanticLabel: 'Seek',
+          onChangeEnd: durationMs > 0
+              ? (v) => unawaited(playback.seek(
+                    Duration(milliseconds: (v * durationMs).round()),
+                  ))
+              : null,
+        ),
+      ),
+      Positioned(
+        left: 258,
+        top: 45,
+        width: 296,
+        child: LcdText(title, lit: track != null),
+      ),
+      Positioned(
+        left: 258,
+        top: 70,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            LcdText(formatDuration(playback.position), size: LcdSize.large),
+            const SizedBox(width: 10),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                formatDuration(playback.duration),
+                style: TrampText.lcd.copyWith(color: TrampColors.labelDim),
               ),
-              ChromeButton.icon(
-                key: const Key('window-maximize'),
-                icon: TransportIcons.maximize(),
-                onPressed: () => unawaited(_toggleMaximize()),
-                semanticLabel: 'Maximize',
-                size: const Size(27, 22),
-              ),
-              ChromeButton.icon(
-                key: const Key('window-close'),
-                icon: TransportIcons.close(),
-                onPressed: () => unawaited(windowManager.close()),
-                semanticLabel: 'Close',
-                size: const Size(27, 22),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
+      ),
+      Positioned(
+        left: 258,
+        top: 112,
+        width: 296,
+        child: Row(
+          children: [
+            LcdText(format.bitrateLabel),
+            const SizedBox(width: 12),
+            LcdText(format.sampleRateLabel),
+            const SizedBox(width: 12),
+            LcdText(format.channelLabel),
+          ],
+        ),
+      ),
+      Positioned(
+        left: 258,
+        top: 138,
+        child: Row(
+          children: [
+            LcdIndicator(
+              'EQ',
+              lit: widget.lowerRegion == LowerRegion.equalizer,
+              onTap: () => widget.onSelectRegion(LowerRegion.equalizer),
+            ),
+            const SizedBox(width: 6),
+            LcdIndicator(
+              'PL',
+              lit: widget.lowerRegion == LowerRegion.playlist,
+              onTap: () => widget.onSelectRegion(LowerRegion.playlist),
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
 
-        // Display well.
-        Positioned(
-          left: 41,
-          top: 41,
-          width: 527,
-          height: 137,
-          child: MetalPanel(
-            surface: TrampSurface.lcdGlass,
-            child: Stack(
-              children: [
-                Positioned(
-                  left: 6,
-                  top: 6,
-                  width: 227,
-                  height: 105,
-                  child: SpectrumVisualizer(levels: playback.levelsStream),
-                ),
-                Positioned(
-                  left: 6,
-                  top: 117,
-                  width: 227,
-                  height: 4,
-                  child: ChromeSlider(
-                    key: const Key('transport-seek'),
-                    value: seek,
-                    axis: Axis.horizontal,
-                    thumbExtent: 4,
-                    thumbThickness: 3,
-                    semanticLabel: 'Seek',
-                    onChangeEnd: durationMs > 0
-                        ? (v) => unawaited(playback.seek(
-                              Duration(milliseconds: (v * durationMs).round()),
-                            ))
-                        : null,
-                  ),
-                ),
-                Positioned(
-                  left: 245,
-                  top: 8,
-                  width: 274,
-                  child: LcdText(title, lit: track != null),
-                ),
-                Positioned(
-                  left: 245,
-                  top: 34,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      LcdText(
-                        formatDuration(playback.position),
-                        size: LcdSize.large,
-                      ),
-                      const SizedBox(width: 10),
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          formatDuration(playback.duration),
-                          style: TrampText.lcd
-                              .copyWith(color: TrampColors.labelDim),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Positioned(
-                  left: 245,
-                  top: 74,
-                  width: 274,
-                  child: Row(
-                    children: [
-                      LcdText(format.bitrateLabel),
-                      const SizedBox(width: 12),
-                      LcdText(format.sampleRateLabel),
-                      const SizedBox(width: 12),
-                      LcdText(format.channelLabel),
-                    ],
-                  ),
-                ),
-                Positioned(
-                  left: 245,
-                  top: 100,
-                  child: Row(
-                    children: [
-                      LcdIndicator(
-                        'EQ',
-                        lit: widget.lowerRegion == LowerRegion.equalizer,
-                        onTap: () =>
-                            widget.onSelectRegion(LowerRegion.equalizer),
-                      ),
-                      const SizedBox(width: 6),
-                      LcdIndicator(
-                        'PL',
-                        lit: widget.lowerRegion == LowerRegion.playlist,
-                        onTap: () =>
-                            widget.onSelectRegion(LowerRegion.playlist),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+  // ---------------------------------------------------------------------------
+  // Title bar: mark (menu), draggable rail region, and the window controls
+  // minimize / zoom- / zoom+ / close. The rails and TRAMP wordmark are face art.
+  // ---------------------------------------------------------------------------
+
+  Widget _titleBar() {
+    Widget drag = const SizedBox(
+      width: 610,
+      height: TrampMetrics.titleBar,
+    );
+    if (widget.draggableTitle) drag = DragToMoveArea(child: drag);
+
+    return Positioned(
+      left: 0,
+      top: 0,
+      right: 0,
+      height: TrampMetrics.titleBar,
+      child: Stack(
+        children: [
+          Positioned(left: 50, top: 0, child: drag),
+          Positioned(
+            left: 15,
+            top: 4,
+            child: _MarkButton(onPressed: widget.onOpenMenu),
+          ),
+          Positioned(
+            left: 669,
+            top: 7,
+            child: _WindowButton(
+              buttonKey: const Key('window-minimize'),
+              glyph: TransportIcons.minimize(),
+              semanticLabel: 'Minimize',
+              onPressed: () => unawaited(windowManager.minimize()),
             ),
           ),
-        ),
-
-        // Right block: shuffle, repeat, volume, region buttons.
-        Positioned(
-          left: 665,
-          top: 52,
-          child: ChromeButton.icon(
-            key: const Key('player-shuffle'),
-            icon: TransportIcons.shuffle(
-              colour: playback.shuffle
-                  ? TrampColors.phosphor
-                  : TrampColors.label,
+          Positioned(
+            left: 704,
+            top: 7,
+            child: _WindowButton(
+              buttonKey: const Key('window-zoom-out'),
+              glyph: const _SignGlyph(plus: false),
+              semanticLabel: 'Zoom out',
+              onPressed: widget.zoom.stepDown,
             ),
-            active: playback.shuffle,
-            onPressed: playback.toggleShuffle,
-            semanticLabel: 'Shuffle',
-            size: const Size(52, 26),
           ),
-        ),
-        Positioned(
-          left: 727,
-          top: 52,
-          child: ChromeButton.icon(
-            key: const Key('player-repeat'),
-            icon: TransportIcons.repeat(
-              colour: playback.repeatMode == RepeatMode.off
-                  ? TrampColors.label
-                  : TrampColors.phosphor,
-              one: playback.repeatMode == RepeatMode.one,
+          Positioned(
+            left: 739,
+            top: 7,
+            child: _WindowButton(
+              buttonKey: const Key('window-zoom-in'),
+              glyph: const _SignGlyph(plus: true),
+              semanticLabel: 'Zoom in',
+              onPressed: widget.zoom.stepUp,
             ),
-            active: playback.repeatMode != RepeatMode.off,
-            onPressed: playback.cycleRepeatMode,
-            semanticLabel: 'Repeat',
-            size: const Size(52, 26),
           ),
-        ),
-        Positioned(
-          left: 607,
-          top: 106,
-          width: 148,
-          height: 16,
-          child: ChromeSlider(
-            key: const Key('transport-volume'),
-            value: playback.muted ? 0 : volume,
-            axis: Axis.horizontal,
-            dimmed: playback.muted,
-            semanticLabel: 'Volume',
-            onChanged: (v) {
-              setState(() => _volumePreview = v);
-              playback.setVolume(v);
-            },
-            onChangeEnd: (_) => setState(() => _volumePreview = null),
-          ),
-        ),
-        Positioned(
-          left: 759,
-          top: 104,
-          child: ChromeButton.icon(
-            key: const Key('transport-mute'),
-            icon: TransportIcons.speaker(
-              colour: playback.muted
-                  ? TrampColors.labelDim
-                  : TrampColors.label,
-              muted: playback.muted,
+          Positioned(
+            left: 774,
+            top: 7,
+            child: _WindowButton(
+              buttonKey: const Key('window-close'),
+              glyph: TransportIcons.close(),
+              semanticLabel: 'Close',
+              onPressed: () => unawaited(windowManager.close()),
             ),
-            onPressed: playback.toggleMute,
-            semanticLabel: playback.muted ? 'Unmute' : 'Mute',
-            size: const Size(20, 20),
           ),
-        ),
-        Positioned(
-          left: 610,
-          top: 149,
-          child: ChromeButton.label(
-            key: const Key('player-eq'),
-            text: 'EQ',
-            active: widget.lowerRegion == LowerRegion.equalizer,
-            onPressed: () => widget.onSelectRegion(LowerRegion.equalizer),
-            size: const Size(52, 26),
-          ),
-        ),
-        Positioned(
-          left: 663,
-          top: 149,
-          child: ChromeButton.label(
-            key: const Key('player-pl'),
-            text: 'PL',
-            active: widget.lowerRegion == LowerRegion.playlist,
-            onPressed: () => widget.onSelectRegion(LowerRegion.playlist),
-            size: const Size(52, 26),
-          ),
-        ),
-
-        // Transport row.
-        for (final button in _transportButtons(canTransport, track != null))
-          button,
-
-        Positioned(
-          left: 609,
-          top: 194,
-          child: _ZoomButton(zoom: widget.zoom),
-        ),
-        Positioned(
-          left: 726,
-          top: 194,
-          child: ChromeButton.label(
-            key: const Key('player-open'),
-            text: 'OPEN',
-            leading: TransportIcons.eject(),
-            onPressed: widget.onOpenFiles,
-            size: const Size(54, 26),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  List<Widget> _transportButtons(bool canTransport, bool trackOpen) {
-    final specs = <(String, Widget, VoidCallback?)>[
+  // ---------------------------------------------------------------------------
+  // Transport row: five skinned buttons over the face bezels.
+  // ---------------------------------------------------------------------------
+
+  List<Widget> _transport() {
+    final track = playback.currentTrack;
+    final canTransport = track != null || widget.hasTracks;
+    final trackOpen = track != null;
+
+    final specs = <(String, String, VoidCallback?)>[
       (
+        'prev',
         'transport-prev',
-        TransportIcons.prev(),
         canTransport ? () => unawaited(playback.previous()) : null,
       ),
+      ('play', 'transport-play', canTransport ? () => unawaited(_play()) : null),
       (
-        'transport-play',
-        TransportIcons.play(),
-        canTransport ? () => unawaited(_play()) : null,
-      ),
-      (
+        'pause',
         'transport-pause',
-        TransportIcons.pause(),
         canTransport ? () => unawaited(_pause()) : null,
       ),
-      (
-        'transport-stop',
-        TransportIcons.stop(),
-        trackOpen ? () => unawaited(playback.stop()) : null,
-      ),
-      (
-        'transport-next',
-        TransportIcons.next(),
-        canTransport ? () => unawaited(playback.next()) : null,
-      ),
+      ('stop', 'transport-stop', trackOpen ? () => unawaited(playback.stop()) : null),
+      ('next', 'transport-next', canTransport ? () => unawaited(playback.next()) : null),
     ];
-
-    const lefts = [43.0, 116.0, 190.0, 264.0, 338.0];
+    const lefts = [39.5, 109.5, 179.5, 249.5, 319.5];
 
     return [
       for (var i = 0; i < specs.length; i++)
         Positioned(
           left: lefts[i],
-          top: 182,
-          child: ChromeButton.icon(
-            key: Key(specs[i].$1),
-            icon: specs[i].$2,
-            onPressed: specs[i].$3,
-            semanticLabel: specs[i].$1,
+          top: 181,
+          child: SkinButton(
+            key: Key(specs[i].$2),
             size: const Size(69, 40),
+            idleAsset: GraphiteSkin.transportIdle[specs[i].$1]!,
+            pressedAsset: GraphiteSkin.transportPressed[specs[i].$1],
+            onPressed: specs[i].$3,
+            semanticLabel: specs[i].$2,
           ),
         ),
     ];
   }
 
-  Future<void> _toggleMaximize() async {
-    if (await windowManager.isMaximized()) {
-      await windowManager.unmaximize();
-    } else {
-      await windowManager.maximize();
-    }
+  // ---------------------------------------------------------------------------
+  // Right block: shuffle / repeat toggles, volume + mute, EQ / PL buttons.
+  // ---------------------------------------------------------------------------
+
+  List<Widget> _rightControls() {
+    return [
+      Positioned(
+        left: 648.5,
+        top: 49,
+        child: SkinButton(
+          key: const Key('player-shuffle'),
+          size: const Size(76, 29),
+          idleAsset: GraphiteSkin.shuffleIdle,
+          activeAsset: GraphiteSkin.shuffleActive,
+          active: playback.shuffle,
+          onPressed: playback.toggleShuffle,
+          semanticLabel: 'Shuffle',
+        ),
+      ),
+      Positioned(
+        left: 728.5,
+        top: 49,
+        child: SkinButton(
+          key: const Key('player-repeat'),
+          size: const Size(76, 29),
+          idleAsset: GraphiteSkin.repeatIdle,
+          activeAsset: GraphiteSkin.repeatActive,
+          active: playback.repeatMode != RepeatMode.off,
+          onPressed: playback.cycleRepeatMode,
+          semanticLabel: 'Repeat',
+        ),
+      ),
+
+      // Volume rides the L/R meter chrome (that chrome is the volume slider).
+      Positioned(
+        left: 604.5,
+        top: 96,
+        width: 117,
+        height: 34,
+        child: SkinSlider(
+          key: const Key('transport-volume'),
+          axis: Axis.horizontal,
+          value: playback.muted ? 0 : playback.volume.clamp(0.0, 1.0),
+          trackSize: const Size(117, 34),
+          thumbAsset: GraphiteSkin.sliderThumb,
+          thumbSize: const Size(16, 23),
+          semanticLabel: 'Volume',
+          onChanged: playback.setVolume,
+          onChangeEnd: playback.setVolume,
+        ),
+      ),
+      Positioned(
+        left: 726,
+        top: 101,
+        child: _MuteButton(playback: playback),
+      ),
+
+      Positioned(
+        left: 593.5,
+        top: 147.5,
+        child: SkinButton(
+          key: const Key('player-eq'),
+          size: const Size(57, 20),
+          idleAsset: GraphiteSkin.eqIdle,
+          activeAsset: GraphiteSkin.eqActive,
+          active: widget.lowerRegion == LowerRegion.equalizer,
+          onPressed: () => widget.onSelectRegion(LowerRegion.equalizer),
+          semanticLabel: 'Equalizer',
+        ),
+      ),
+      Positioned(
+        left: 651.5,
+        top: 147.5,
+        child: SkinButton(
+          key: const Key('player-pl'),
+          size: const Size(57, 20),
+          idleAsset: GraphiteSkin.plIdle,
+          activeAsset: GraphiteSkin.plActive,
+          active: widget.lowerRegion == LowerRegion.playlist,
+          onPressed: () => widget.onSelectRegion(LowerRegion.playlist),
+          semanticLabel: 'Playlist',
+        ),
+      ),
+    ];
+  }
+
+  Widget _open() {
+    return Positioned(
+      left: 588,
+      top: 191,
+      child: _HitTarget(
+        buttonKey: const Key('player-open'),
+        size: const Size(148, 28),
+        semanticLabel: 'Open files',
+        onPressed: widget.onOpenFiles,
+      ),
+    );
   }
 }
 
-/// Shows the current step and offers the ones the display can host.
-class _ZoomButton extends StatelessWidget {
-  const _ZoomButton({required this.zoom});
+/// Transparent tap area over a control the face already paints (e.g. OPEN).
+class _HitTarget extends StatelessWidget {
+  const _HitTarget({
+    required this.buttonKey,
+    required this.size,
+    required this.semanticLabel,
+    required this.onPressed,
+  });
 
-  final ZoomController zoom;
+  final Key buttonKey;
+  final Size size;
+  final String semanticLabel;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return ChromeButton.dropdown(
-      key: const Key('player-zoom'),
-      text: 'ZOOM ${zoom.percent}%',
-      size: const Size(108, 26),
-      semanticLabel: 'Zoom level',
-      onPressed: () async {
-        final box = context.findRenderObject()! as RenderBox;
-        final origin = box.localToGlobal(Offset.zero);
-        final chosen = await showMenu<int>(
-          context: context,
-          position: RelativeRect.fromLTRB(
-            origin.dx,
-            origin.dy + box.size.height,
-            origin.dx,
-            origin.dy,
-          ),
-          items: [
-            for (final step in zoom.enabledSteps)
-              PopupMenuItem<int>(value: step, child: Text('$step%')),
-          ],
-        );
-        if (chosen != null) zoom.setPercent(chosen);
-      },
+    return Semantics(
+      button: true,
+      enabled: onPressed != null,
+      label: semanticLabel,
+      child: MouseRegion(
+        cursor: onPressed != null
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
+        child: GestureDetector(
+          key: buttonKey,
+          behavior: HitTestBehavior.opaque,
+          onTap: onPressed,
+          child: SizedBox.fromSize(size: size),
+        ),
+      ),
     );
   }
+}
+
+/// The Tramp mark in the title bar's leading slot; opens the app menu.
+class _MarkButton extends StatelessWidget {
+  const _MarkButton({required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Tramp menu',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          key: const Key('player-menu'),
+          behavior: HitTestBehavior.opaque,
+          onTap: onPressed,
+          child: const SizedBox(
+            width: 30,
+            height: 26,
+            child: Center(child: TrampMark(size: 19)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A title-bar window control: a raised bevel with a code-drawn glyph.
+///
+/// The mockup only paints minimize / maximize / close, and Tramp replaces
+/// maximize with zoom- and zoom+; keeping all four on the shared [ChromeButton]
+/// bevel gives a consistent set where the two zoom glyphs have no source art.
+class _WindowButton extends StatelessWidget {
+  const _WindowButton({
+    required this.buttonKey,
+    required this.glyph,
+    required this.semanticLabel,
+    required this.onPressed,
+  });
+
+  final Key buttonKey;
+  final Widget glyph;
+  final String semanticLabel;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChromeButton.icon(
+      key: buttonKey,
+      icon: glyph,
+      onPressed: onPressed,
+      semanticLabel: semanticLabel,
+      size: const Size(30, 22),
+    );
+  }
+}
+
+/// Speaker glyph toggle over the face metal beside the volume meter.
+class _MuteButton extends StatelessWidget {
+  const _MuteButton({required this.playback});
+
+  final PlaybackController playback;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: playback.muted ? 'Unmute' : 'Mute',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          key: const Key('transport-mute'),
+          behavior: HitTestBehavior.opaque,
+          onTap: playback.toggleMute,
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: Center(
+              child: TransportIcons.speaker(
+                colour:
+                    playback.muted ? TrampColors.labelDim : TrampColors.label,
+                muted: playback.muted,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Minus / plus glyph for the zoom-out / zoom-in window controls.
+class _SignGlyph extends StatelessWidget {
+  const _SignGlyph({required this.plus});
+
+  final bool plus;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 10,
+      height: 10,
+      child: CustomPaint(painter: _SignPainter(plus: plus)),
+    );
+  }
+}
+
+class _SignPainter extends CustomPainter {
+  const _SignPainter({required this.plus});
+
+  final bool plus;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = TrampColors.label
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.square;
+    final cy = size.height / 2;
+    final cx = size.width / 2;
+    canvas.drawLine(Offset(size.width * 0.1, cy), Offset(size.width * 0.9, cy),
+        paint);
+    if (plus) {
+      canvas.drawLine(Offset(cx, size.height * 0.1),
+          Offset(cx, size.height * 0.9), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SignPainter old) => old.plus != plus;
 }

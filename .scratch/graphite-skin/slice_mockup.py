@@ -124,6 +124,21 @@ def main():
     eq_font = ImageFont.truetype(FONT_PATH, 26)
     stamp_text(draw, 827, 553, "TRAMP EQUALIZER", eq_font, tracking=3)
 
+    # --- 2b. Task 6 main-panel retouch -------------------------------------
+    # The title bar changes to minimize / zoom- / zoom+ / close (four controls,
+    # code-drawn glyphs). Erase the mockup's three painted window buttons
+    # (minimize / maximize / close, x=1356..1644) by cloning clean title metal
+    # from x=1075 at the SAME rows, so the bar's vertical bevel is preserved.
+    clone_strip(im, (1356, 24, 1644, 78), 1075, 24)
+
+    # The bottom-right "SHUFFLE" button is redundant with the shuffle icon in
+    # the top-right toggle pair, so it becomes OPEN. Clone the button's own
+    # clean interior column across the glyph+label, then stamp "OPEN" in the
+    # same embossed face as the wordmark. The bezel, grain and bevel are kept.
+    tile_fill(im, (1214, 405, 1472, 451), (1200, 405, 1212, 451))
+    open_font = ImageFont.truetype(FONT_PATH, 30)
+    stamp_text(draw, 1341, 440, "OPEN", open_font, tracking=5)
+
     # --- 3. Crop panel faces ------------------------------------------------
     main_face = im.crop(MAIN_CROP)
     eq_face = im.crop(EQ_CROP)

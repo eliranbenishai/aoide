@@ -45,15 +45,42 @@ void main() {
   });
 
   // Transport buttons are logical 69x40, authored at 2x -> 138x80.
-  for (final name in const ['transport_play_idle', 'transport_play_pressed']) {
-    test('$name is 138x80', () {
-      final bytes =
-          File('assets/skin/graphite/controls/$name.png').readAsBytesSync();
-      final size = readPngSize(bytes);
-      expect(size.$1, 138);
-      expect(size.$2, 80);
-    });
+  const transportNames = [
+    'transport_prev', 'transport_play', 'transport_pause',
+    'transport_stop', 'transport_next',
+  ];
+  for (final base in transportNames) {
+    for (final state in const ['idle', 'pressed']) {
+      final name = '${base}_$state';
+      test('$name is 138x80', () {
+        final bytes =
+            File('assets/skin/graphite/controls/$name.png').readAsBytesSync();
+        final size = readPngSize(bytes);
+        expect(size.$1, 138);
+        expect(size.$2, 80);
+      });
+    }
   }
+
+  // Toggle sprites: shuffle/repeat 152x58, EQ/PL 114x40, in idle + active.
+  const toggles = {
+    'shuffle': (152, 58),
+    'repeat': (152, 58),
+    'eq': (114, 40),
+    'pl': (114, 40),
+  };
+  toggles.forEach((base, dims) {
+    for (final state in const ['idle', 'active']) {
+      final name = '${base}_$state';
+      test('$name is ${dims.$1}x${dims.$2}', () {
+        final bytes =
+            File('assets/skin/graphite/controls/$name.png').readAsBytesSync();
+        final size = readPngSize(bytes);
+        expect(size.$1, dims.$1);
+        expect(size.$2, dims.$2);
+      });
+    }
+  });
 
   test('slider_thumb is a non-empty crop', () {
     final bytes =

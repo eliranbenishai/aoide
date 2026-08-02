@@ -71,6 +71,21 @@ Widget frame(Widget panel, Size logical, double factor) {
   );
 }
 
+/// Decodes every [Image] in the tree so goldens capture skin PNGs.
+///
+/// Widget tests don't await asynchronous asset decoding, so a freshly pumped
+/// [SkinImage] paints nothing. Precaching each provider inside [runAsync] then
+/// pumping again lets the real pixels land before the golden is captured.
+Future<void> precacheSkin(WidgetTester tester) async {
+  await tester.runAsync(() async {
+    for (final element in find.byType(Image).evaluate()) {
+      final image = element.widget as Image;
+      await precacheImage(image.image, element);
+    }
+  });
+  await tester.pumpAndSettle();
+}
+
 void main() {
   setUpAll(loadTrampFonts);
 
@@ -116,6 +131,7 @@ void main() {
         AudioLevels.synthesised(intensity: 0.75, seed: 42),
       );
       await tester.pumpAndSettle();
+      await precacheSkin(tester);
 
       await expectLater(
         find.byType(MainPlayerPanel),
