@@ -14,8 +14,11 @@ abstract class PlayerEngine {
   /// `synthetic: true` rather than silently fabricating measured-looking data.
   Stream<AudioLevels> get levelsStream;
 
-  /// Stream properties of the open track. Emits [AudioFormatInfo.unknown] until
-  /// decoding reports real values.
+  /// Stream properties of the open track.
+  ///
+  /// Event-driven: emits when format data changes (including reset to
+  /// [AudioFormatInfo.unknown] on [open]). Consumers should treat no event yet
+  /// as [AudioFormatInfo.unknown].
   Stream<AudioFormatInfo> get formatStream;
 
   Future<void> open(Track track);

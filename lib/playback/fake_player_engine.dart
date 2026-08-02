@@ -23,6 +23,18 @@ class FakePlayerEngine implements PlayerEngine {
   final _levelsController = StreamController<AudioLevels>.broadcast();
   final _formatController = StreamController<AudioFormatInfo>.broadcast();
 
+  int? _sampleRateHz;
+  int? _channels;
+  int? _bitrateKbps;
+
+  void _emitFormat() {
+    _formatController.add(AudioFormatInfo(
+      bitrateKbps: _bitrateKbps,
+      sampleRateHz: _sampleRateHz,
+      channels: _channels,
+    ));
+  }
+
   @override
   Stream<Duration> get positionStream => _positionController.stream;
 
@@ -45,7 +57,18 @@ class FakePlayerEngine implements PlayerEngine {
   /// waiting on a timer, so they stay deterministic.
   void emitLevels(AudioLevels levels) => _levelsController.add(levels);
 
-  void emitFormat(AudioFormatInfo info) => _formatController.add(info);
+  void emitFormat(AudioFormatInfo info) {
+    _bitrateKbps = info.bitrateKbps;
+    _sampleRateHz = info.sampleRateHz;
+    _channels = info.channels;
+    _emitFormat();
+  }
+
+  /// Simulates a lone media_kit bitrate tick after a track change.
+  void emitBitrate(int? kbps) {
+    _bitrateKbps = kbps;
+    _emitFormat();
+  }
 
   @override
   Future<void> open(Track track) async {
@@ -54,6 +77,10 @@ class FakePlayerEngine implements PlayerEngine {
     _duration = track.duration ?? trackDuration;
     _positionController.add(_position);
     _durationController.add(_duration);
+    _sampleRateHz = null;
+    _channels = null;
+    _bitrateKbps = null;
+    _emitFormat();
   }
 
   @override

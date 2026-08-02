@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tramp/domain/repeat_mode.dart';
 import 'package:tramp/domain/track.dart';
+import 'package:tramp/playback/audio_format_info.dart';
+import 'package:tramp/playback/audio_levels.dart';
 import 'package:tramp/playback/fake_player_engine.dart';
 import 'package:tramp/playback/playback_controller.dart';
 import 'package:tramp/playlist/playlist_controller.dart';
@@ -97,5 +99,40 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(playback.currentTrack, isNull);
     expect(playback.playing, isFalse);
+  });
+
+  test('formatInfo returns to unknown when switching tracks', () async {
+    await playback.playIndex(0);
+    engine.emitFormat(const AudioFormatInfo(
+      bitrateKbps: 320,
+      sampleRateHz: 44100,
+      channels: 2,
+    ));
+    await Future<void>.delayed(Duration.zero);
+    expect(playback.formatInfo.sampleRateHz, 44100);
+
+    await playback.playIndex(1);
+    expect(playback.formatInfo, AudioFormatInfo.unknown);
+
+    // Lone bitrate tick must not resurrect the previous track's sample rate.
+    engine.emitBitrate(256);
+    await Future<void>.delayed(Duration.zero);
+    expect(playback.formatInfo.sampleRateHz, isNull);
+    expect(playback.formatInfo.bitrateKbps, 256);
+  });
+
+  test('level frames do not notify listeners', () async {
+    var listenerCalls = 0;
+    playback.addListener(() => listenerCalls++);
+
+    await playback.playIndex(0);
+    listenerCalls = 0;
+
+    for (var i = 0; i < 5; i++) {
+      engine.emitLevels(AudioLevels.synthesised(intensity: 0.5, seed: i));
+    }
+    await Future<void>.delayed(Duration.zero);
+
+    expect(listenerCalls, 0);
   });
 }

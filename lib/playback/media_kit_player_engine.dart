@@ -92,6 +92,10 @@ class MediaKitPlayerEngine implements PlayerEngine {
 
   @override
   Future<void> open(Track track) async {
+    _sampleRateHz = null;
+    _channels = null;
+    _bitrateKbps = null;
+    _emitFormat();
     await _player.open(Media(track.path), play: false);
     unawaited(_tryEmitMetadata(track));
   }
