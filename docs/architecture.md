@@ -50,12 +50,12 @@ flowchart TB
 
 | Area | Responsibility | Status |
 |------|----------------|--------|
-| App chrome / UI | `TrampShell`, `ClassicMainPlayer`, `PlaylistPanel`, `lib/ui/chrome/` (`ChromeButton`, `ChromeSlider`, `MetalPanel`, `SpectrumVisualizer`, `TrampLogo`, transport icons); frameless resize/drag via `window_manager`; keyboard shortcuts | Implemented |
+| App chrome / UI | `TrampShell`, `ClassicMainPlayer`, `PlaylistPanel`, `EqualizerPanel` (fixed 812×206 absolute canvas), `lib/ui/chrome/` (`ChromeButton`, `ChromeSlider`, `MetalPanel`, `SpectrumVisualizer`, `TrampLogo`, transport icons); frameless resize/drag via `window_manager`; keyboard shortcuts | Implemented |
 | Brand art | Master mark is `lib/ui/chrome/logo.svg` (declared as an asset), rendered by `TrampLogo` through `flutter_svg`. Chrome widgets other than the logo stay hand-drawn in Dart so they can react to state | Implemented |
 | Playback | `PlayerEngine` seam, `PlaybackController`, `MediaKitPlayerEngine` (local files via media_kit/libmpv); shuffle/repeat/volume/mute/seek; `levelsStream` → `AudioLevels` (media_kit emits `synthetic: true` frames; `SpectrumVisualizer` subscribes directly, not via `notifyListeners`); `formatStream` → `AudioFormatInfo` (bitrate/sample rate/channels as controller state via `notifyListeners`) | Implemented |
 | Formats | MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus via media_kit | Implemented |
 | Playlist | Open/save M3U/M3U8, add/remove/reorder, play from selection, restore last playlist (`PlaylistController`, `M3uCodec`, `PlaylistStore`) | Implemented |
-| Equalizer | Ten-band chrome state (`EqualizerSettings`, `EqualizerPresets`, `EqualizerController`); persists via `TrampSettings` / `SettingsStore`; `EqualizerSink` seam has only `NoopEqualizerSink` — gains do not reach the audio path (shipped libmpv disables filters while reporting success) | State only |
+| Equalizer | UI: `EqualizerPanel` (preamp + ten bands, ON/AUTO, presets menu, windowshade collapse). State: `EqualizerSettings`, `EqualizerPresets`, `EqualizerController`; persists via `TrampSettings` / `SettingsStore`; `EqualizerSink` seam has only `NoopEqualizerSink` — gains do not reach the audio path (shipped libmpv disables filters while reporting success) | Chrome UI + state |
 | Platform | `tramp_window` (frameless chrome); `file_open` (pickers, folder expand, DnD); `launch_args` (argv → playlist/audio); file associations (Windows registry, macOS Info.plist, Linux `.desktop`); `OsMediaControls` (Windows SMTC, macOS MPRemoteCommandCenter; **Linux MPRIS stub — v1 gap**); `SettingsStore` (`settings.json`) | Implemented |
 
 ## Playback vs selection
