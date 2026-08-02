@@ -143,10 +143,10 @@ class EqualizerPanel extends StatelessWidget {
                   child: _PresetsButton(controller: controller),
                 ),
 
-                // Preamp, with its printed dB scale.
+                // Preamp label: top 63 clears ON (y 42–62), above _sliderTop (71).
                 const Positioned(
                   left: 40,
-                  top: 56,
+                  top: 63,
                   child: Text('PREAMP', style: TrampText.eqScale),
                 ),
                 _slider(

@@ -43,6 +43,9 @@ class MemoryPlaylistStore implements PlaylistStore {
 }
 
 /// Wraps a fixed-size panel at a zoom factor for capture.
+///
+/// The transparent [Material] matches production (`TrampShell` supplies one)
+/// so text is not painted with Flutter's missing-Material underline decoration.
 Widget frame(Widget panel, Size logical, double factor) {
   return MaterialApp(
     debugShowCheckedModeBanner: false,
@@ -57,7 +60,10 @@ Widget frame(Widget panel, Size logical, double factor) {
           child: SizedBox(
             width: logical.width,
             height: logical.height,
-            child: panel,
+            child: Material(
+              color: Colors.transparent,
+              child: panel,
+            ),
           ),
         ),
       ),
