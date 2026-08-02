@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../../domain/equalizer_settings.dart';
 import '../../eq/equalizer_controller.dart';
 import '../../theme/tramp_colors.dart';
 import '../../theme/tramp_metrics.dart';
 import '../../theme/tramp_text.dart';
-import '../chrome/chrome_button.dart';
-import '../chrome/chrome_slider.dart';
-import '../chrome/metal_panel.dart';
-import '../chrome/title_bar.dart';
+import '../skin/graphite_skin.dart';
+import '../skin/skin_button.dart';
+import '../skin/skin_image.dart';
+import '../skin/skin_slider.dart';
 
 /// The ten-band equalizer panel.
 ///
-/// Authored against the fixed 812x206 canvas with absolute positions taken from
-/// the design spec's geometry table, so the layout is the measured mockup rather
-/// than an approximation of it.
+/// The look is the graphite skin PNG ([GraphiteSkin.equalizerFace]); the baked
+/// mockup thumbs, LED fills and gain numbers were cleaned from that art (see
+/// `.scratch/graphite-skin/slice_mockup.py`) so the live overlays below own
+/// them: a phosphor fill and a [SkinSlider] fader ride each groove, and the
+/// gain readouts are code text. Coordinates are the fixed 812x206 logical
+/// canvas, measured from the face's own grooves. Collapsed, the panel is the
+/// [GraphiteSkin.equalizerShadeFace] title strip.
 class EqualizerPanel extends StatelessWidget {
   const EqualizerPanel({
     super.key,
@@ -27,19 +32,28 @@ class EqualizerPanel extends StatelessWidget {
 
   static const logicalSize = TrampMetrics.equalizer;
 
-  /// Logical x of each band slider's centre.
+  /// Logical x of each band groove's centre (measured from the face).
   static const List<double> bandCentres = [
-    196, 245, 294, 343, 392, 441, 490, 539, 588, 636,
+    186.5, 235.5, 284.5, 333.5, 382.5, 431, 480, 529, 578, 627,
   ];
 
   static const List<String> bandLabels = [
     '60', '170', '310', '600', '1K', '3K', '6K', '12K', '14K', '16K',
   ];
 
-  static const double _preampCentre = 73;
-  static const double _sliderTop = 71;
-  static const double _sliderBottom = 166;
-  static const double _sliderWidth = 34;
+  static const double _preampCentre = 63.5;
+
+  // Band faders share one vertical scale so a flat curve reads level; the
+  // preamp is shorter but its 0 dB lands on the same row (114.75).
+  static const double _bandTrackTop = 57;
+  static const double _bandTrackHeight = 115.5;
+  static const double _bandFillBottom = 182;
+  static const double _preampTrackTop = 69.5;
+  static const double _preampTrackHeight = 90.5;
+  static const double _preampFillBottom = 160;
+
+  static const Size _thumbSize = Size(34, 23);
+  static const double _fillWidth = 5;
 
   final EqualizerController controller;
   final VoidCallback onCollapse;
@@ -57,45 +71,27 @@ class EqualizerPanel extends StatelessWidget {
       fraction * EqualizerSettings.gainLimit * 2 -
       EqualizerSettings.gainLimit;
 
-  static String _format(double gain) =>
-      '${gain >= 0 ? '+' : '-'}${gain.abs().toStringAsFixed(1)}';
+  static String _format(double gain) {
+    final value = double.parse(gain.toStringAsFixed(1));
+    if (value == 0) return '0.0';
+    return '${value > 0 ? '+' : '-'}${value.abs().toStringAsFixed(1)}';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final titleBar = TrampTitleBar(
-      title: 'TRAMP EQUALIZER',
-      draggable: draggableTitle,
-      leading: ChromeButton.icon(
-        key: const Key('eq-collapse'),
-        icon: SizedBox(
-          width: 9,
-          height: 6,
-          child: CustomPaint(
-            painter: _CollapsePainter(colour: TrampColors.label),
-          ),
-        ),
-        onPressed: onCollapse,
-        semanticLabel: 'Collapse equalizer',
-        size: const Size(27, 27),
-      ),
-      trailing: [
-        ChromeButton.label(
-          key: const Key('eq-close'),
-          text: 'X',
-          onPressed: onClose,
-          semanticLabel: 'Close equalizer',
-          size: const Size(27, 27),
-        ),
-      ],
-    );
-
     if (collapsed) {
       return SizedBox(
         width: logicalSize.width,
         height: TrampMetrics.titleBar,
-        child: MetalPanel(
-          surface: TrampSurface.raisedPanel,
-          child: titleBar,
+        child: Stack(
+          children: [
+            const SkinImage(
+              asset: GraphiteSkin.equalizerShadeFace,
+              // logicalSize.width (812) x the title-bar height.
+              logicalSize: Size(812, TrampMetrics.titleBar),
+            ),
+            ..._titleControls(),
+          ],
         ),
       );
     }
@@ -103,139 +99,197 @@ class EqualizerPanel extends StatelessWidget {
     return SizedBox(
       width: logicalSize.width,
       height: logicalSize.height,
-      child: MetalPanel(
-        surface: TrampSurface.raisedPanel,
-        child: ListenableBuilder(
-          listenable: controller,
-          builder: (context, _) {
-            final settings = controller.settings;
+      child: ListenableBuilder(
+        listenable: controller,
+        builder: (context, _) {
+          final settings = controller.settings;
 
-            return Stack(
-              children: [
-                Positioned(left: 0, right: 0, top: 0, child: titleBar),
+          return Stack(
+            children: [
+              const SkinImage(
+                asset: GraphiteSkin.equalizerFace,
+                logicalSize: logicalSize,
+              ),
 
-                Positioned(
-                  left: 36,
-                  top: 42,
-                  child: ChromeButton.label(
-                    key: const Key('eq-on'),
-                    text: 'ON',
-                    active: settings.enabled,
-                    onPressed: () => controller.setEnabled(!settings.enabled),
-                    size: const Size(33, 20),
-                  ),
-                ),
-                Positioned(
-                  left: 93,
-                  top: 42,
-                  child: ChromeButton.label(
-                    key: const Key('eq-auto'),
-                    text: 'AUTO',
-                    active: settings.auto,
-                    onPressed: () => controller.setAuto(!settings.auto),
-                    size: const Size(37, 20),
-                  ),
-                ),
+              ..._titleControls(),
 
-                Positioned(
-                  left: 677,
-                  top: 44,
-                  child: _PresetsButton(controller: controller),
+              Positioned(
+                left: 31,
+                top: 42,
+                child: SkinButton(
+                  key: const Key('eq-on'),
+                  size: const Size(43, 18),
+                  idleAsset: GraphiteSkin.eqOnIdle,
+                  activeAsset: GraphiteSkin.eqOnActive,
+                  active: settings.enabled,
+                  onPressed: () => controller.setEnabled(!settings.enabled),
+                  semanticLabel: 'Equalizer on',
                 ),
+              ),
+              Positioned(
+                left: 78.5,
+                top: 42,
+                child: SkinButton(
+                  key: const Key('eq-auto'),
+                  size: const Size(45, 18),
+                  idleAsset: GraphiteSkin.eqAutoIdle,
+                  activeAsset: GraphiteSkin.eqAutoActive,
+                  active: settings.auto,
+                  onPressed: () => controller.setAuto(!settings.auto),
+                  semanticLabel: 'Auto preamp',
+                ),
+              ),
+              Positioned(
+                left: 666.5,
+                top: 48,
+                child: _PresetsButton(controller: controller),
+              ),
 
-                // Preamp label: top 63 clears ON (y 42–62), above _sliderTop (71).
-                const Positioned(
-                  left: 40,
-                  top: 63,
-                  child: Text('PREAMP', style: TrampText.eqScale),
+              ..._fader(
+                key: const Key('eq-preamp'),
+                centreX: _preampCentre,
+                trackTop: _preampTrackTop,
+                trackHeight: _preampTrackHeight,
+                fillBottom: _preampFillBottom,
+                gain: settings.preamp,
+                onChanged: (f) => controller.setPreamp(_toGain(f)),
+                semanticLabel: 'Preamp',
+              ),
+              for (var i = 0; i < bandCentres.length; i++)
+                ..._fader(
+                  key: Key('eq-band-$i'),
+                  centreX: bandCentres[i],
+                  trackTop: _bandTrackTop,
+                  trackHeight: _bandTrackHeight,
+                  fillBottom: _bandFillBottom,
+                  gain: settings.gains[i],
+                  onChanged: (f) => controller.setGain(i, _toGain(f)),
+                  semanticLabel: '${bandLabels[i]} hertz',
                 ),
-                _slider(
-                  key: const Key('eq-preamp'),
-                  centreX: _preampCentre,
-                  value: _toFraction(settings.preamp),
-                  onChanged: (f) => controller.setPreamp(_toGain(f)),
-                  semanticLabel: 'Preamp',
-                ),
-                _valueLabel(_preampCentre, _format(settings.preamp)),
-                const Positioned(
-                  left: 100,
-                  top: _sliderTop - 4,
-                  child: Text('+12 dB', style: TrampText.eqScale),
-                ),
-                const Positioned(
-                  left: 100,
-                  top: (_sliderTop + _sliderBottom) / 2 - 5,
-                  child: Text('0 dB', style: TrampText.eqScale),
-                ),
-                const Positioned(
-                  left: 100,
-                  top: _sliderBottom - 8,
-                  child: Text('-12 dB', style: TrampText.eqScale),
-                ),
-
-                for (var i = 0; i < bandCentres.length; i++) ...[
-                  Positioned(
-                    left: bandCentres[i] - _sliderWidth / 2,
-                    top: 53,
-                    width: _sliderWidth,
-                    child: Text(
-                      bandLabels[i],
-                      textAlign: TextAlign.center,
-                      style: TrampText.eqScale,
-                    ),
-                  ),
-                  _slider(
-                    key: Key('eq-band-$i'),
-                    centreX: bandCentres[i],
-                    value: _toFraction(settings.gains[i]),
-                    onChanged: (f) => controller.setGain(i, _toGain(f)),
-                    semanticLabel: '${bandLabels[i]} hertz',
-                  ),
-                  _valueLabel(bandCentres[i], _format(settings.gains[i])),
-                ],
-              ],
-            );
-          },
-        ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _slider({
+  /// The title-bar collapse / close controls and the draggable rail, shared by
+  /// the full panel and the collapsed windowshade.
+  List<Widget> _titleControls() {
+    Widget drag = const SizedBox(width: 700, height: TrampMetrics.titleBar);
+    if (draggableTitle) drag = DragToMoveArea(child: drag);
+
+    return [
+      Positioned(left: 50, top: 0, child: drag),
+      Positioned(
+        left: 7,
+        top: 5,
+        child: SkinButton(
+          key: const Key('eq-collapse'),
+          size: const Size(39, 22),
+          idleAsset: GraphiteSkin.eqCollapseIdle,
+          pressedAsset: GraphiteSkin.eqCollapsePressed,
+          onPressed: onCollapse,
+          semanticLabel: 'Collapse equalizer',
+        ),
+      ),
+      Positioned(
+        left: 770,
+        top: 5,
+        child: SkinButton(
+          key: const Key('eq-close'),
+          size: const Size(38, 22),
+          idleAsset: GraphiteSkin.eqCloseIdle,
+          pressedAsset: GraphiteSkin.eqClosePressed,
+          onPressed: onClose,
+          semanticLabel: 'Close equalizer',
+        ),
+      ),
+    ];
+  }
+
+  /// A single fader: a phosphor fill from the groove bottom up to the grip, the
+  /// [SkinSlider] grip on top, and the gain readout below.
+  List<Widget> _fader({
     required Key key,
     required double centreX,
-    required double value,
+    required double trackTop,
+    required double trackHeight,
+    required double fillBottom,
+    required double gain,
     required ValueChanged<double> onChanged,
     required String semanticLabel,
   }) {
-    return Positioned(
-      left: centreX - _sliderWidth / 2,
-      top: _sliderTop,
-      width: _sliderWidth,
-      height: _sliderBottom - _sliderTop,
-      child: ChromeSlider(
-        key: key,
-        value: value,
-        axis: Axis.vertical,
-        semanticLabel: semanticLabel,
-        onChanged: onChanged,
-        onChangeEnd: onChanged,
+    final value = _toFraction(gain);
+    final thumbCentreY =
+        trackTop + (1 - value) * (trackHeight - _thumbSize.height) +
+            _thumbSize.height / 2;
+
+    return [
+      Positioned(
+        left: centreX - _fillWidth / 2,
+        top: thumbCentreY,
+        width: _fillWidth,
+        height: (fillBottom - thumbCentreY).clamp(0.0, double.infinity),
+        child: const _EqFill(),
       ),
-    );
+      Positioned(
+        left: centreX - _thumbSize.width / 2,
+        top: trackTop,
+        width: _thumbSize.width,
+        height: trackHeight,
+        child: SkinSlider(
+          key: key,
+          axis: Axis.vertical,
+          value: value,
+          trackSize: Size(_thumbSize.width, trackHeight),
+          thumbAsset: GraphiteSkin.eqThumb,
+          thumbSize: _thumbSize,
+          semanticLabel: semanticLabel,
+          onChanged: onChanged,
+          onChangeEnd: onChanged,
+        ),
+      ),
+      Positioned(
+        left: centreX - 24,
+        top: 176,
+        width: 48,
+        child: Text(
+          _format(gain),
+          textAlign: TextAlign.center,
+          style: TrampText.eqScale.copyWith(color: TrampColors.phosphor),
+        ),
+      ),
+    ];
+  }
+}
+
+/// The lit segmented column below a fader grip: phosphor LED dashes painted
+/// from the groove bottom up, mirroring the mockup's fader fill.
+class _EqFill extends StatelessWidget {
+  const _EqFill();
+
+  @override
+  Widget build(BuildContext context) {
+    return const CustomPaint(size: Size.infinite, painter: _FillPainter());
+  }
+}
+
+class _FillPainter extends CustomPainter {
+  const _FillPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const segment = 1.8;
+    const gap = 0.9;
+    final paint = Paint()..color = TrampColors.phosphor;
+    for (var y = size.height - segment; y >= 0; y -= segment + gap) {
+      canvas.drawRect(Rect.fromLTWH(0, y, size.width, segment), paint);
+    }
   }
 
-  Widget _valueLabel(double centreX, String text) {
-    return Positioned(
-      left: centreX - _sliderWidth,
-      top: 174,
-      width: _sliderWidth * 2,
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: TrampText.eqScale.copyWith(color: TrampColors.phosphor),
-      ),
-    );
-  }
+  @override
+  bool shouldRepaint(_FillPainter oldDelegate) => false;
 }
 
 class _PresetsButton extends StatelessWidget {
@@ -245,10 +299,12 @@ class _PresetsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChromeButton.dropdown(
+    return SkinButton(
       key: const Key('eq-presets'),
-      text: 'PRESETS',
-      size: const Size(99, 22),
+      size: const Size(113, 17),
+      idleAsset: GraphiteSkin.eqPresetsIdle,
+      pressedAsset: GraphiteSkin.eqPresetsPressed,
+      semanticLabel: 'Presets',
       onPressed: () async {
         final box = context.findRenderObject()! as RenderBox;
         final origin = box.localToGlobal(Offset.zero);
@@ -269,24 +325,4 @@ class _PresetsButton extends StatelessWidget {
       },
     );
   }
-}
-
-/// The upward triangle on the collapse button.
-class _CollapsePainter extends CustomPainter {
-  const _CollapsePainter({required this.colour});
-
-  final Color colour;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..moveTo(0, size.height)
-      ..lineTo(size.width / 2, 0)
-      ..lineTo(size.width, size.height)
-      ..close();
-    canvas.drawPath(path, Paint()..color = colour);
-  }
-
-  @override
-  bool shouldRepaint(_CollapsePainter old) => old.colour != colour;
 }

@@ -4,6 +4,10 @@ abstract final class GraphiteSkin {
   static const mainFace = 'assets/skin/graphite/main_face.png';
   static const equalizerFace = 'assets/skin/graphite/equalizer_face.png';
 
+  /// Title-bar strip shown when the equalizer is collapsed to a windowshade.
+  static const equalizerShadeFace =
+      'assets/skin/graphite/equalizer_shade_face.png';
+
   /// Logical rect cleared in the PNG for spectrum + LCD overlays.
   ///
   /// Matches Task 1 alpha punch in `.scratch/graphite-skin/slice_mockup.py`.
@@ -65,4 +69,24 @@ abstract final class GraphiteSkin {
 
   /// Metal fader grip shared by the sliders (equalizer bands, volume).
   static const sliderThumb = '$_controls/slider_thumb.png';
+
+  // ---------------------------------------------------------------------------
+  // Equalizer controls (Task 7), cropped by `crop_controls.py`. ON/AUTO are
+  // toggles (idle grey / active phosphor, like the main-player toggles);
+  // PRESETS, collapse and close carry a `pressed` recess. `eqThumb` is the full
+  // vertical fader grip (the shared `sliderThumb` is only a partial crop).
+  // ---------------------------------------------------------------------------
+  static const eqOnIdle = '$_controls/eq_on_idle.png';
+  static const eqOnActive = '$_controls/eq_on_active.png';
+  static const eqAutoIdle = '$_controls/eq_auto_idle.png';
+  static const eqAutoActive = '$_controls/eq_auto_active.png';
+  static const eqPresetsIdle = '$_controls/eq_presets_idle.png';
+  static const eqPresetsPressed = '$_controls/eq_presets_pressed.png';
+  static const eqCollapseIdle = '$_controls/eq_collapse_idle.png';
+  static const eqCollapsePressed = '$_controls/eq_collapse_pressed.png';
+  static const eqCloseIdle = '$_controls/eq_close_idle.png';
+  static const eqClosePressed = '$_controls/eq_close_pressed.png';
+
+  /// Full vertical fader grip for the equalizer bands + preamp. 68x46.
+  static const eqThumb = '$_controls/eq_thumb.png';
 }

@@ -5,8 +5,9 @@ Run from the repo root (the worktree root):
     python .scratch/graphite-skin/slice_mockup.py
 
 Outputs (2x logical sizes, RGBA):
-    assets/skin/graphite/main_face.png       1624 x 484   (logical 812 x 242)
-    assets/skin/graphite/equalizer_face.png  1624 x 412   (logical 812 x 206)
+    assets/skin/graphite/main_face.png              1624 x 484   (logical 812 x 242)
+    assets/skin/graphite/equalizer_face.png         1624 x 412   (logical 812 x 206)
+    assets/skin/graphite/equalizer_shade_face.png   1624 x  70   (logical 812 x  35)
 
 What it does (PNG-first: the brushed metal / grain / bevels / emboss all come
 straight from the mockup pixels; nothing is redrawn as a flat gradient):
@@ -23,8 +24,19 @@ straight from the mockup pixels; nothing is redrawn as a flat gradient):
   3. Punches full alpha (transparent) in the main display-well interior that
      code will own -- the spectrum analyser + the LCD text column (track title,
      time, bitrate, EQ/PL toggles). The well's bevelled frame stays opaque.
-     The equalizer face is NOT punched: its slider grooves are face art that
-     code-drawn thumbs overlay.
+
+  4. Cleans the equalizer face for Task 7: the baked mockup fader thumbs, green
+     LED fills and gain-value numbers are removed so live code thumbs / fills /
+     labels do not double-draw over static art. Each groove is emptied by a
+     vertical *period-aligned* clone (copy every row from `pitch` rows above,
+     top-down) seeded from the clean channel above the highest thumb -- this
+     removes thumb + fill while faithfully reproducing the groove's own dark
+     slot and its side tick marks (grain preserved, nothing redrawn as a flat
+     fill). The gain numbers are covered by cloning clean panel metal from the
+     inter-groove gap. The baked ON button (lit green in the mockup) is
+     recoloured to neutral grey so the code toggle owns the lit state.
+     A title-bar strip is also emitted as `equalizer_shade_face.png` for the
+     collapsed windowshade.
 
 All coordinates below are in MOCKUP pixel space (source is 1663 x 946). Edits
 are applied to the full mockup first, then the panels are cropped, so probe
@@ -68,6 +80,17 @@ EQ_CROP = (19, 513, 1643, 925)
 TEXT_FACE = (203, 208, 213, 255)
 TEXT_SHADOW = (14, 16, 20, 200)
 
+# --- Equalizer face cleaning (all coords are eq_face-local px, 1624 x 412) ---
+# Fader groove centres, measured from the baked green fills.
+EQ_PREAMP_CX = 127
+EQ_BAND_CX = [373, 471, 569, 667, 765, 862, 960, 1058, 1156, 1254]
+# Groove side tick pitch (~15.3 px bands, ~14 px preamp); integer keeps the
+# period-aligned clone reproducing the dashes.
+EQ_BAND_PITCH = 15
+EQ_PREAMP_PITCH = 14
+# TrampColors.label grey (0xC9CED3), for neutralising the baked green ON glyph.
+LABEL_GREY = (201, 206, 213)
+
 
 def tile_fill(img, box, patch_box):
     """Cover `box` by tiling the texture inside `patch_box` (grainy metal)."""
@@ -97,6 +120,56 @@ def stamp_text(draw, center_x, baseline_y, text, font, tracking):
                   anchor="ls")
         draw.text((x, baseline_y), ch, font=font, fill=TEXT_FACE, anchor="ls")
         x += adv + tracking
+
+
+def clean_groove(img, cx, start_y, bottom, pitch, half=34):
+    """Empty a fader groove by a period-aligned vertical clone.
+
+    Copies every row from `pitch` rows above, top-down, over the thumb + fill
+    region. `start_y` sits just below the groove's clean channel top (above the
+    highest thumb) so the seed rows carry the real dark slot and side ticks; the
+    copy then propagates that pattern down, removing the baked thumb and green
+    fill while keeping the groove's own grain and dashes.
+    """
+    px = img.load()
+    for y in range(start_y, bottom):
+        for x in range(cx - half, cx + half):
+            px[x, y] = px[x, y - pitch]
+
+
+def blank_gain_numbers(img, centres, top, bottom, half=32, shift=50):
+    """Cover each baked gain-value number with clean inter-groove panel metal."""
+    px = img.load()
+    for cx in centres:
+        for y in range(top, bottom):
+            for x in range(cx - half, cx + half):
+                px[x, y] = px[x + shift, y]
+
+
+def recolour_region(img, box, target, lum_min=90, lum_ref=205):
+    """Recolour bright pixels in `box` to `target`, keeping their luminance."""
+    px = img.load()
+    tr, tg, tb = target
+    l, t, r, b = box
+    for y in range(t, b):
+        for x in range(l, r):
+            cr, cg, cb, ca = px[x, y]
+            if ca == 0:
+                continue
+            lum = 0.3 * cr + 0.6 * cg + 0.1 * cb
+            if lum <= lum_min:
+                continue
+            f = min(1.0, lum / lum_ref)
+            px[x, y] = (int(tr * f), int(tg * f), int(tb * f), ca)
+
+
+def clean_eq_face(eq_face):
+    """Remove baked thumbs / fills / gain numbers; neutralise the ON glyph."""
+    for cx in EQ_BAND_CX:
+        clean_groove(eq_face, cx, 160, 367, EQ_BAND_PITCH)
+    clean_groove(eq_face, EQ_PREAMP_CX, 190, 323, EQ_PREAMP_PITCH)
+    blank_gain_numbers(eq_face, [EQ_PREAMP_CX] + EQ_BAND_CX, 338, 382)
+    recolour_region(eq_face, (72, 90, 140, 114), LABEL_GREY)
 
 
 def main():
@@ -152,11 +225,17 @@ def main():
             r, g, b, _ = punch[x, y]
             punch[x, y] = (r, g, b, 0)
 
+    # --- 4b. Clean the equalizer face + emit the windowshade title strip ----
+    clean_eq_face(eq_face)
+    eq_shade = eq_face.crop((0, 0, 1624, 70))
+
     # --- 5. Save ------------------------------------------------------------
     os.makedirs(OUT_DIR, exist_ok=True)
     main_face.save(os.path.join(OUT_DIR, "main_face.png"))
     eq_face.save(os.path.join(OUT_DIR, "equalizer_face.png"))
-    print("main_face:", main_face.size, "eq_face:", eq_face.size)
+    eq_shade.save(os.path.join(OUT_DIR, "equalizer_shade_face.png"))
+    print("main_face:", main_face.size, "eq_face:", eq_face.size,
+          "eq_shade:", eq_shade.size)
 
 
 if __name__ == "__main__":

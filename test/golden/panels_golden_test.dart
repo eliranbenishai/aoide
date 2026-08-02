@@ -161,6 +161,7 @@ void main() {
         factor,
       ));
       await tester.pumpAndSettle();
+      await precacheSkin(tester);
 
       await expectLater(
         find.byType(EqualizerPanel),
@@ -168,4 +169,34 @@ void main() {
       );
     });
   }
+
+  testWidgets('equalizer windowshade golden', (tester) async {
+    final controller = EqualizerController(
+      store: MemorySettingsStore(),
+      sink: const NoopEqualizerSink(),
+    );
+
+    final size = Size(TrampMetrics.equalizer.width, TrampMetrics.titleBar);
+    await tester.binding.setSurfaceSize(size);
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(frame(
+      EqualizerPanel(
+        controller: controller,
+        collapsed: true,
+        draggableTitle: false,
+        onCollapse: () {},
+        onClose: () {},
+      ),
+      size,
+      1.0,
+    ));
+    await tester.pumpAndSettle();
+    await precacheSkin(tester);
+
+    await expectLater(
+      find.byType(EqualizerPanel),
+      matchesGoldenFile('goldens/equalizer_shade.png'),
+    );
+  });
 }

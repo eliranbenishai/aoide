@@ -81,6 +81,22 @@ WIN_MIN_PATCH = (24, 35, 66, 45)
 # Equalizer band metal fader grip (Task 3).
 THUMB_BOX = (377, 728, 409, 773)  # 32 x 45
 
+# --- Task 7: equalizer control crops --------------------------------------
+# Mockup px = eq_face px + (19, 513). The rebrand only rewrites the title text,
+# so ON / AUTO / PRESETS / collapse / close read the same in the pristine
+# mockup as on the face. Boxes are (left, top, right, bottom).
+EQ_ON_BOX = (81, 597, 167, 633)      # 86 x 36  -> logical 43 x 18
+EQ_AUTO_BOX = (176, 597, 266, 633)   # 90 x 36  -> logical 45 x 18
+EQ_PRESETS_BOX = (1352, 609, 1578, 643)  # 226 x 34 -> logical 113 x 17
+EQ_COLLAPSE_BOX = (33, 523, 111, 567)    # 78 x 44  -> logical 39 x 22
+EQ_CLOSE_BOX = (1559, 523, 1635, 567)    # 76 x 44  -> logical 38 x 22
+# Full metal fader grip (rounded bezel + highlight bar), above the green fill.
+EQ_THUMB_BOX = (553, 679, 621, 725)  # 68 x 46  -> logical 34 x 23
+
+# Glyph inner boxes (relative to the crop) for the ON / AUTO toggle recolours.
+EQ_ON_GLYPH = (10, 6, 78, 30)
+EQ_AUTO_GLYPH = (15, 6, 81, 30)
+
 PHOSPHOR = (207, 234, 69)   # TrampColors.phosphor 0xCFEA45
 LABEL = (201, 206, 213)     # TrampColors.label   0xC9CED3
 
@@ -185,6 +201,34 @@ def main():
 
     save("slider_thumb", im.crop(THUMB_BOX))
 
+    # --- Task 7: equalizer controls ---------------------------------------
+    # ON: mockup bakes it lit green -> that is the `active` sprite; `idle` is the
+    # glyph recoloured to neutral label grey. AUTO is baked grey -> `idle`; its
+    # `active` recolours the glyph to lit phosphor. (Mirror of Task 6 toggles.)
+    eq_on = im.crop(EQ_ON_BOX)
+    save("eq_on_active", eq_on)
+    save("eq_on_idle", recolour(eq_on, EQ_ON_GLYPH, LABEL))
+
+    eq_auto = im.crop(EQ_AUTO_BOX)
+    save("eq_auto_idle", eq_auto)
+    save("eq_auto_active", recolour(eq_auto, EQ_AUTO_GLYPH, PHOSPHOR))
+
+    eq_presets = im.crop(EQ_PRESETS_BOX)
+    save("eq_presets_idle", eq_presets)
+    save("eq_presets_pressed", press(eq_presets))
+
+    eq_collapse = im.crop(EQ_COLLAPSE_BOX)
+    save("eq_collapse_idle", eq_collapse)
+    save("eq_collapse_pressed", press(eq_collapse))
+
+    eq_close = im.crop(EQ_CLOSE_BOX)
+    save("eq_close_idle", eq_close)
+    save("eq_close_pressed", press(eq_close))
+
+    save("eq_thumb", im.crop(EQ_THUMB_BOX))
+
+    print("eq:", eq_on.size, eq_auto.size, eq_presets.size,
+          eq_collapse.size, eq_close.size, im.crop(EQ_THUMB_BOX).size)
     print("window:", win_min.size, win_close.size, win_blank.size)
     print("transport:", {k: im.crop(v).size for k, v in TRANSPORT.items()})
     print("shuffle:", shuffle.size, "repeat:", repeat.size,

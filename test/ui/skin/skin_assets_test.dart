@@ -44,6 +44,38 @@ void main() {
     expect(size.$2, 412);
   });
 
+  test('equalizer_shade_face is 1624x70', () {
+    final bytes =
+        File('assets/skin/graphite/equalizer_shade_face.png').readAsBytesSync();
+    final size = readPngSize(bytes);
+    expect(size.$1, 1624);
+    expect(size.$2, 70);
+  });
+
+  // Equalizer controls (Task 7).
+  const eqControls = {
+    'eq_on_idle': (86, 36),
+    'eq_on_active': (86, 36),
+    'eq_auto_idle': (90, 36),
+    'eq_auto_active': (90, 36),
+    'eq_presets_idle': (226, 34),
+    'eq_presets_pressed': (226, 34),
+    'eq_collapse_idle': (78, 44),
+    'eq_collapse_pressed': (78, 44),
+    'eq_close_idle': (76, 44),
+    'eq_close_pressed': (76, 44),
+    'eq_thumb': (68, 46),
+  };
+  eqControls.forEach((name, dims) {
+    test('$name is ${dims.$1}x${dims.$2}', () {
+      final bytes =
+          File('assets/skin/graphite/controls/$name.png').readAsBytesSync();
+      final size = readPngSize(bytes);
+      expect(size.$1, dims.$1);
+      expect(size.$2, dims.$2);
+    });
+  });
+
   // Transport buttons are logical 69x40, authored at 2x -> 138x80.
   const transportNames = [
     'transport_prev', 'transport_play', 'transport_pause',

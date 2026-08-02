@@ -5,8 +5,14 @@ import 'package:tramp/eq/equalizer_controller.dart';
 import 'package:tramp/platform/settings_store.dart';
 import 'package:tramp/theme/tramp_metrics.dart';
 import 'package:tramp/ui/equalizer/equalizer_panel.dart';
+import 'package:tramp/ui/skin/graphite_skin.dart';
+import 'package:tramp/ui/skin/skin_image.dart';
 
 import '../../support/test_fonts.dart';
+
+Finder skinImage(String asset) => find.byWidgetPredicate(
+      (w) => w is SkinImage && w.asset == asset,
+    );
 
 class MemorySettingsStore implements SettingsStore {
   TrampSettings stored = TrampSettings.defaults;
@@ -64,17 +70,18 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('is branded TRAMP, never Winamp', (tester) async {
+  testWidgets('wears the branded graphite equalizer face', (tester) async {
+    // TRAMP EQUALIZER and the band labels are now baked into the face art, so
+    // they are asserted via the skin image, not as Text widgets.
     await pump(tester);
-    expect(find.text('TRAMP EQUALIZER'), findsOneWidget);
+    expect(skinImage(GraphiteSkin.equalizerFace), findsOneWidget);
     expect(find.textContaining('WINAMP'), findsNothing);
   });
 
-  testWidgets('renders all ten band labels', (tester) async {
+  testWidgets('renders all ten band faders', (tester) async {
     await pump(tester);
-    for (final label in ['60', '170', '310', '600', '1K', '3K', '6K', '12K',
-      '14K', '16K']) {
-      expect(find.text(label), findsOneWidget, reason: label);
+    for (var i = 0; i < 10; i++) {
+      expect(find.byKey(Key('eq-band-$i')), findsOneWidget, reason: 'band $i');
     }
   });
 
@@ -122,14 +129,16 @@ void main() {
     expect(closes, 1);
   });
 
-  testWidgets('collapsed shows only the title bar', (tester) async {
+  testWidgets('collapsed shows only the shade title strip', (tester) async {
     await pump(tester, collapsed: true);
     expect(
       tester.getSize(find.byType(EqualizerPanel)).height,
       TrampMetrics.titleBar,
     );
     expect(find.byKey(const Key('eq-band-0')), findsNothing);
-    expect(find.text('TRAMP EQUALIZER'), findsOneWidget);
+    // The windowshade uses the dedicated shade face, not the full panel face.
+    expect(skinImage(GraphiteSkin.equalizerShadeFace), findsOneWidget);
+    expect(skinImage(GraphiteSkin.equalizerFace), findsNothing);
   });
 
   testWidgets('presets menu lists the built-in curves and applies one',
