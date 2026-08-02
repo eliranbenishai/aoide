@@ -1,103 +1,178 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 import '../../theme/tramp_colors.dart';
+import '../../theme/tramp_text.dart';
+import 'metal_panel.dart';
+import 'transport_icons.dart';
 
+/// A raised graphite button.
+///
+/// Three shapes cover every control in the chrome: an icon button (transport,
+/// shuffle, window controls), a label button (OPEN, ON, AUTO, EQ, PL), and a
+/// dropdown (ZOOM, PRESETS).
 class ChromeButton extends StatefulWidget {
-  const ChromeButton({
+  const ChromeButton._({
     super.key,
-    required this.child,
-    this.onPressed,
-    this.primary = false,
+    required this.onPressed,
+    required this.semanticLabel,
+    required this.active,
+    required this.size,
+    this.icon,
+    this.text,
+    this.leading,
+    this.chevron = false,
   });
 
-  final Widget child;
+  factory ChromeButton.icon({
+    Key? key,
+    required Widget icon,
+    required VoidCallback? onPressed,
+    required String semanticLabel,
+    Size size = const Size(26, 26),
+    bool active = false,
+  }) {
+    return ChromeButton._(
+      key: key,
+      onPressed: onPressed,
+      semanticLabel: semanticLabel,
+      active: active,
+      size: size,
+      icon: icon,
+    );
+  }
+
+  factory ChromeButton.label({
+    Key? key,
+    required String text,
+    required VoidCallback? onPressed,
+    Widget? leading,
+    Size? size,
+    bool active = false,
+    String? semanticLabel,
+  }) {
+    return ChromeButton._(
+      key: key,
+      onPressed: onPressed,
+      semanticLabel: semanticLabel ?? text,
+      active: active,
+      size: size,
+      text: text,
+      leading: leading,
+    );
+  }
+
+  factory ChromeButton.dropdown({
+    Key? key,
+    required String text,
+    required VoidCallback? onPressed,
+    Size? size,
+    String? semanticLabel,
+  }) {
+    return ChromeButton._(
+      key: key,
+      onPressed: onPressed,
+      semanticLabel: semanticLabel ?? text,
+      active: false,
+      size: size,
+      text: text,
+      chevron: true,
+    );
+  }
+
+  static const chevronKey = Key('chrome-button-chevron');
+
   final VoidCallback? onPressed;
-  final bool primary;
+  final String semanticLabel;
+  final bool active;
+  final Size? size;
+  final Widget? icon;
+  final String? text;
+  final Widget? leading;
+  final bool chevron;
+
+  bool get isEnabled => onPressed != null;
 
   @override
   State<ChromeButton> createState() => _ChromeButtonState();
 }
 
 class _ChromeButtonState extends State<ChromeButton> {
-  bool _pressed = false;
+  bool _down = false;
 
-  bool get _enabled => widget.onPressed != null;
+  void _setDown(bool value) {
+    if (!widget.isEnabled || _down == value) return;
+    setState(() => _down = value);
+  }
+
+  Color get _contentColour {
+    if (!widget.isEnabled) return TrampColors.labelDim;
+    return widget.active ? TrampColors.phosphor : TrampColors.label;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final raised = _enabled && !_pressed;
-    final face = widget.primary ? TrampColors.metalFace : TrampColors.metalMid;
+    final colour = _contentColour;
+
+    final Widget content;
+    if (widget.icon != null) {
+      content = Center(child: widget.icon);
+    } else {
+      final row = Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (widget.leading != null) ...[
+            widget.leading!,
+            const SizedBox(width: 4),
+          ],
+          Text(widget.text!, style: TrampText.chromeLabel.copyWith(color: colour)),
+          if (widget.chevron) ...[
+            const SizedBox(width: 5),
+            SizedBox(
+              key: ChromeButton.chevronKey,
+              width: 7,
+              height: 5,
+              child: CustomPaint(painter: ChevronPainter(colour: colour)),
+            ),
+          ],
+        ],
+      );
+      content = widget.size != null
+          ? FittedBox(fit: BoxFit.scaleDown, child: row)
+          : row;
+    }
+
+    Widget button = MetalPanel(
+      surface: _down ? TrampSurface.pressedButton : TrampSurface.raisedButton,
+      padding: widget.icon != null
+          ? null
+          : const EdgeInsets.symmetric(horizontal: 7),
+      child: content,
+    );
+
+    if (widget.size != null) {
+      button = SizedBox(
+        width: widget.size!.width,
+        height: widget.size!.height,
+        child: button,
+      );
+    }
 
     return Semantics(
       button: true,
-      enabled: _enabled,
-      child: GestureDetector(
-        onTap: widget.onPressed,
-        onTapDown: _enabled ? (_) => setState(() => _pressed = true) : null,
-        onTapUp: _enabled ? (_) => setState(() => _pressed = false) : null,
-        onTapCancel: _enabled ? () => setState(() => _pressed = false) : null,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: raised
-                    ? [
-                        TrampColors.metalHi,
-                        face,
-                        TrampColors.metalShadow,
-                      ]
-                    : [
-                        TrampColors.metalShadow,
-                        face,
-                        TrampColors.metalHi,
-                      ],
-              ),
-              border: Border(
-                top: BorderSide(
-                  color: raised ? TrampColors.metalHi : TrampColors.metalDeep,
-                  width: TrampColors.borderWidth,
-                ),
-                left: BorderSide(
-                  color: raised ? TrampColors.metalHi : TrampColors.metalDeep,
-                  width: TrampColors.borderWidth,
-                ),
-                right: BorderSide(
-                  color: raised ? TrampColors.metalDeep : TrampColors.metalHi,
-                  width: TrampColors.borderWidth,
-                ),
-                bottom: BorderSide(
-                  color: raised ? TrampColors.metalDeep : TrampColors.metalHi,
-                  width: TrampColors.borderWidth,
-                ),
-              ),
-            ),
-            child: Center(
-              child: Opacity(
-                opacity: _enabled ? 1.0 : 0.4,
-                child: IconTheme(
-                  data: IconThemeData(
-                    color: _enabled
-                        ? TrampColors.metalDeep
-                        : TrampColors.metalShadow,
-                    size: 16,
-                  ),
-                  child: DefaultTextStyle(
-                    style: TextStyle(
-                      color: _enabled
-                          ? TrampColors.metalDeep
-                          : TrampColors.metalShadow,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    child: widget.child,
-                  ),
-                ),
-              ),
-            ),
-          ),
+      enabled: widget.isEnabled,
+      label: widget.semanticLabel,
+      child: MouseRegion(
+        cursor: widget.isEnabled
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (_) => _setDown(true),
+          onTapUp: (_) => _setDown(false),
+          onTapCancel: () => _setDown(false),
+          onTap: widget.onPressed,
+          child: button,
         ),
       ),
     );
