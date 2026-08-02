@@ -33,7 +33,8 @@ void main() {
     expect(find.text('TRAMP EQUALIZER'), findsOneWidget);
   });
 
-  testWidgets('rails paint in the rail accent', (tester) async {
+  testWidgets('rails paint in the rail accent at mockup offsets',
+      (tester) async {
     await tester.pumpWidget(host(const TrampTitleBar(title: 'TRAMP')));
     final painters = tester
         .widgetList<CustomPaint>(find.byType(CustomPaint))
@@ -41,7 +42,31 @@ void main() {
         .whereType<RailPainter>()
         .toList();
     expect(painters, hasLength(2), reason: 'one rail either side of the title');
-    expect(painters.first.colour, TrampColors.railAccent);
+    for (final painter in painters) {
+      expect(painter.colour, TrampColors.railAccent);
+      expect(painter.firstY, 17);
+      expect(painter.secondY, 22);
+    }
+  });
+
+  testWidgets('oversized slot content cannot escape the title bar',
+      (tester) async {
+    await tester.pumpWidget(host(
+      TrampTitleBar(
+        title: 'TRAMP',
+        leading: const SizedBox(key: Key('tall'), width: 27, height: 90),
+      ),
+    ));
+    expect(
+      tester.getSize(find.byType(TrampTitleBar)).height,
+      TrampMetrics.titleBar,
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('tall'))).height,
+      lessThanOrEqualTo(TrampMetrics.titleBar),
+    );
+    expect(find.byType(ClipRect), findsWidgets);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('leading and trailing slots are placed', (tester) async {

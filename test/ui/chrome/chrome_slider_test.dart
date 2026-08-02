@@ -95,4 +95,27 @@ void main() {
     ));
     expect(find.bySemanticsLabel('Volume'), findsOneWidget);
   });
+
+  testWidgets('drag end without a prior update commits nothing',
+      (tester) async {
+    var changeEndCalls = 0;
+    var reported = 0.42;
+    await tester.pumpWidget(host(
+      ChromeSlider(
+        value: 0.42,
+        axis: Axis.horizontal,
+        onChanged: (v) => reported = v,
+        onChangeEnd: (_) => changeEndCalls++,
+      ),
+    ));
+
+    final detector = tester.widget<GestureDetector>(
+      find.byType(GestureDetector),
+    );
+    detector.onHorizontalDragEnd!(DragEndDetails());
+    await tester.pump();
+
+    expect(changeEndCalls, 0);
+    expect(reported, 0.42);
+  });
 }

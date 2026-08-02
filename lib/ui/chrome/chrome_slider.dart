@@ -71,6 +71,19 @@ class _ChromeSliderState extends State<ChromeSlider> {
     }
   }
 
+  /// Commits the last recorded drag position, or no-ops when none exists.
+  ///
+  /// Drag-end events carry no local position. Falling back to [Offset.zero]
+  /// would jump a horizontal slider to 0 and a vertical one to 1.
+  void _endDrag(Size size) {
+    final local = _lastLocal;
+    if (local == null) {
+      setState(() => _preview = null);
+      return;
+    }
+    _update(local, size, end: true);
+  }
+
   @override
   Widget build(BuildContext context) {
     final bevel = ZoomScope.hairlineFor(context);
@@ -102,21 +115,13 @@ class _ChromeSliderState extends State<ChromeSlider> {
               ? (d) => _update(d.localPosition, size, end: false)
               : null,
           onVerticalDragEnd: widget.axis == Axis.vertical
-              ? (_) => _update(
-                    _lastLocal ?? Offset.zero,
-                    size,
-                    end: true,
-                  )
+              ? (_) => _endDrag(size)
               : null,
           onHorizontalDragUpdate: widget.axis == Axis.horizontal
               ? (d) => _update(d.localPosition, size, end: false)
               : null,
           onHorizontalDragEnd: widget.axis == Axis.horizontal
-              ? (_) => _update(
-                    _lastLocal ?? Offset.zero,
-                    size,
-                    end: true,
-                  )
+              ? (_) => _endDrag(size)
               : null,
           onHorizontalDragCancel: () => setState(() => _preview = null),
           onVerticalDragCancel: () => setState(() => _preview = null),
