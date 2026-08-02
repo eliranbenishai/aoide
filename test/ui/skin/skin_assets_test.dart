@@ -130,6 +130,30 @@ void main() {
     }
   }
 
+  // Playlist 9-slice regions (Task 8), authored at 2x (logical = px / 2). The
+  // 24 px corners match the PlaylistSlices border of 12 logical; edges tile
+  // along their long axis and the well tiles both.
+  const playlistSlices = {
+    'nw': (24, 24),
+    'n': (64, 24),
+    'ne': (24, 24),
+    'w': (24, 64),
+    'e': (24, 64),
+    'sw': (24, 24),
+    's': (64, 24),
+    'se': (24, 24),
+    'well': (96, 96),
+  };
+  playlistSlices.forEach((name, dims) {
+    test('playlist $name is ${dims.$1}x${dims.$2}', () {
+      final bytes =
+          File('assets/skin/graphite/playlist/$name.png').readAsBytesSync();
+      final size = readPngSize(bytes);
+      expect(size.$1, dims.$1);
+      expect(size.$2, dims.$2);
+    });
+  });
+
   test('slider_thumb is a non-empty crop', () {
     final bytes =
         File('assets/skin/graphite/controls/slider_thumb.png').readAsBytesSync();

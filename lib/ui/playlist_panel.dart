@@ -1,5 +1,3 @@
-import 'dart:ui' show FontFeature;
-
 import 'package:flutter/material.dart';
 
 import '../domain/track.dart';
@@ -8,8 +6,8 @@ import '../playlist/playlist_controller.dart';
 import '../theme/tramp_colors.dart';
 import '../theme/tramp_text.dart';
 import 'chrome/chrome_button.dart';
-import 'chrome/metal_panel.dart';
 import 'chrome/transport_icons.dart';
+import 'skin/nine_slice_skin.dart';
 import 'zoom/zoom_scope.dart';
 
 String formatTrackDuration(Duration? duration) {
@@ -42,8 +40,12 @@ class PlaylistPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MetalPanel(
-      surface: TrampSurface.raisedPanel,
+    // The panel wears the graphite 9-slice chrome: a raised grained bezel
+    // around a recessed well. The bezel corners stay fixed while the well grows
+    // with the freely resized playlist window (Task 5), so the list gets all
+    // the extra room without stretching the grain or the fixed main canvas.
+    return NineSliceSkin(
+      slices: PlaylistSlices.graphite,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -53,43 +55,34 @@ class PlaylistPanel extends StatelessWidget {
             onAddFiles: onAddFiles,
           ),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
-              child: MetalPanel(
-                surface: TrampSurface.lcdGlass,
-                child: ListenableBuilder(
-                  listenable: playlist,
-                  builder: (context, _) {
-                    final tracks = playlist.playlist.tracks;
-                    if (tracks.isEmpty) {
-                      return Center(
-                        child: Text(
-                          'No tracks',
-                          style: TrampText.lcdDim,
-                        ),
-                      );
-                    }
+            child: ListenableBuilder(
+              listenable: playlist,
+              builder: (context, _) {
+                final tracks = playlist.playlist.tracks;
+                if (tracks.isEmpty) {
+                  return Center(
+                    child: Text('No tracks', style: TrampText.lcdDim),
+                  );
+                }
 
-                    return ReorderableListView.builder(
-                      buildDefaultDragHandles: false,
-                      itemCount: tracks.length,
-                      onReorder: playlist.move,
-                      itemBuilder: (context, index) {
-                        final track = tracks[index];
-                        final active = playlist.selectedIndex == index;
-                        return _PlaylistRow(
-                          key: ValueKey(track.path),
-                          index: index,
-                          track: track,
-                          active: active,
-                          onActivate: () => playback.playIndex(index),
-                          onSelect: () => playlist.select(index),
-                        );
-                      },
+                return ReorderableListView.builder(
+                  buildDefaultDragHandles: false,
+                  itemCount: tracks.length,
+                  onReorder: playlist.move,
+                  itemBuilder: (context, index) {
+                    final track = tracks[index];
+                    final active = playlist.selectedIndex == index;
+                    return _PlaylistRow(
+                      key: ValueKey(track.path),
+                      index: index,
+                      track: track,
+                      active: active,
+                      onActivate: () => playback.playIndex(index),
+                      onSelect: () => playlist.select(index),
                     );
                   },
-                ),
-              ),
+                );
+              },
             ),
           ),
         ],

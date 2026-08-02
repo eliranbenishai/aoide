@@ -33,6 +33,7 @@ flutter:
     - lib/ui/chrome/logo.svg
     - assets/skin/graphite/
     - assets/skin/graphite/controls/
+    - assets/skin/graphite/playlist/
   fonts:
     - family: BarlowSemiCondensed
       fonts:

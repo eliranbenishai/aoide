@@ -7,8 +7,8 @@ import 'package:tramp/playback/playback_controller.dart';
 import 'package:tramp/playlist/playlist_controller.dart';
 import 'package:tramp/playlist/playlist_store.dart';
 import 'package:tramp/theme/tramp_colors.dart';
-import 'package:tramp/ui/chrome/metal_panel.dart';
 import 'package:tramp/ui/playlist_panel.dart';
+import 'package:tramp/ui/skin/nine_slice_skin.dart';
 
 import '../support/test_fonts.dart';
 
@@ -57,14 +57,10 @@ void main() {
     expect(find.text('Someone'), findsOneWidget);
   });
 
-  testWidgets('wears the graphite panel and glass surfaces', (tester) async {
+  testWidgets('wears the graphite 9-slice playlist chrome', (tester) async {
     await pump(tester);
-    final surfaces = tester
-        .widgetList<MetalPanel>(find.byType(MetalPanel))
-        .map((p) => p.surface)
-        .toList();
-    expect(surfaces, contains(TrampSurface.raisedPanel));
-    expect(surfaces, contains(TrampSurface.lcdGlass));
+    final skin = tester.widget<NineSliceSkin>(find.byType(NineSliceSkin));
+    expect(skin.slices, PlaylistSlices.graphite);
   });
 
   testWidgets('the selected row title is phosphor, others are label',
@@ -135,7 +131,7 @@ void main() {
     )) {
       final decoration = box.decoration as BoxDecoration;
       final colour = decoration.color;
-      if (colour != null && colour.alpha > 0) {
+      if (colour != null && colour.a > 0) {
         expect(colour.computeLuminance(), lessThan(0.5),
             reason: 'playlist chrome must stay dark');
       }
@@ -152,6 +148,52 @@ void main() {
   testWidgets('never uses Material Icon fonts', (tester) async {
     await pump(tester);
     expect(find.byType(Icon), findsNothing);
+  });
+
+  testWidgets(
+      'a large list scrolls and the 9-slice fills a resized well',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(900, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    playlist.clear();
+    playlist.addTracks([
+      for (var i = 0; i < 2000; i++) Track(path: '$i.mp3', title: 'Track $i'),
+    ]);
+
+    // Grow, then shrink, the hosting well: the skin must track the parent both
+    // ways without overflowing or distorting.
+    for (final size in const [Size(900, 1200), Size(420, 300)]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: size.width,
+                height: size.height,
+                child: PlaylistPanel(playlist: playlist, playback: playback),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(find.byType(NineSliceSkin)), size);
+    }
+
+    // The list virtualises: the first rows are built but the 2000th is not, so
+    // a huge playlist stays cheap to render in the grown well.
+    expect(find.text('Track 0'), findsOneWidget);
+    expect(find.text('Track 1999'), findsNothing);
+
+    // Jumping the scroll position reveals later rows and the chrome still fills
+    // the well exactly (no distortion from the large list or the resize).
+    final position = tester.state<ScrollableState>(find.byType(Scrollable));
+    position.position.jumpTo(1000);
+    await tester.pump();
+    expect(find.text('Track 0'), findsNothing);
+    expect(tester.getSize(find.byType(NineSliceSkin)), const Size(420, 300));
   });
 
   testWidgets('drag handles align across rows with varying content',
