@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/rendering.dart';
 
 import 'tramp_colors.dart';
@@ -125,47 +127,61 @@ class BevelPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final inset = spec.bevel / 2;
-    final rect = Rect.fromLTWH(
-      inset,
-      inset,
-      (size.width - spec.bevel).clamp(0.0, double.infinity),
-      (size.height - spec.bevel).clamp(0.0, double.infinity),
-    );
-    if (rect.isEmpty) return;
+    if (size.isEmpty || spec.bevel <= 0) return;
+    if (size.width <= spec.bevel || size.height <= spec.bevel) return;
 
-    final rrect = RRect.fromRectAndRadius(
-      rect,
+    // Clip to the outer edge, but stroke a path inset by half a bevel, so the
+    // stroke spans exactly [0, bevel] and none of its width is clipped away.
+    // Clipping to the stroked path itself would discard its outer half and
+    // paint the bevel at half the configured width.
+    final outer = RRect.fromRectAndRadius(
+      Offset.zero & size,
       Radius.circular(spec.radius),
+    );
+
+    final inset = spec.bevel / 2;
+    final radius = math.max(0.0, spec.radius - inset);
+    final track = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+        inset,
+        inset,
+        size.width - spec.bevel,
+        size.height - spec.bevel,
+      ),
+      Radius.circular(radius),
     );
 
     final stroke = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = spec.bevel
-      ..strokeCap = StrokeCap.square;
+      ..strokeWidth = spec.bevel;
 
-    // Top-left arc carries the highlight, bottom-right the shadow, so the
-    // surface reads as lit from above.
     canvas.save();
-    canvas.clipRRect(rrect);
-    final path = Path()..addRRect(rrect);
-    canvas.drawPath(path, stroke..color = spec.shadow);
-    canvas.restore();
+    canvas.clipRRect(outer);
 
-    // Redraw only the lit edges on top.
-    final lit = Path()
-      ..moveTo(rect.left, rect.bottom - spec.radius)
-      ..lineTo(rect.left, rect.top + spec.radius)
+    // Full rim in shadow, then the lit edges redrawn over it, so the surface
+    // reads as lit from above.
+    canvas.drawRRect(track, stroke..color = spec.shadow);
+    canvas.drawPath(_litEdges(track, radius), stroke..color = spec.highlight);
+
+    canvas.restore();
+  }
+
+  /// The left and top edges, joined by the top-left corner arc.
+  Path _litEdges(RRect track, double radius) {
+    final path = Path()..moveTo(track.left, track.bottom - radius);
+    if (radius <= 0) {
+      path
+        ..lineTo(track.left, track.top)
+        ..lineTo(track.right, track.top);
+      return path;
+    }
+    return path
+      ..lineTo(track.left, track.top + radius)
       ..arcToPoint(
-        Offset(rect.left + spec.radius, rect.top),
-        radius: Radius.circular(spec.radius),
+        Offset(track.left + radius, track.top),
+        radius: Radius.circular(radius),
       )
-      ..lineTo(rect.right - spec.radius, rect.top);
-
-    canvas.save();
-    canvas.clipRRect(rrect);
-    canvas.drawPath(lit, stroke..color = spec.highlight);
-    canvas.restore();
+      ..lineTo(track.right - radius, track.top);
   }
 
   @override

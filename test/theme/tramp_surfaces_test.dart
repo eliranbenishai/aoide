@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+import 'dart:ui' show PictureRecorder, Canvas;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tramp/theme/tramp_colors.dart';
@@ -20,7 +23,9 @@ void main() {
     // when painted, so the fill must stay border-free.
     expect(TrampSurfaces.raisedPanel().decoration.border, isNull);
     expect(TrampSurfaces.raisedButton().decoration.border, isNull);
+    expect(TrampSurfaces.pressedButton().decoration.border, isNull);
     expect(TrampSurfaces.insetWell().decoration.border, isNull);
+    expect(TrampSurfaces.lcdGlass().decoration.border, isNull);
   });
 
   test('raised surfaces highlight the top-left and shadow the bottom-right',
@@ -101,5 +106,55 @@ void main() {
       raised.shouldRepaint(BevelPainter(spec: TrampSurfaces.raisedButton())),
       isFalse,
     );
+  });
+
+  // Rasterise and read pixels. A no-throw assertion cannot tell a correct
+  // bevel from one painted at half its configured width, or from one lit on
+  // the wrong side — both are silent visual defects.
+  group('painted bevel pixels', () {
+    const size = Size(40, 40);
+    const bevel = 4.0;
+
+    Future<Uint32List> render(SurfaceSpec spec) async {
+      final recorder = PictureRecorder();
+      BevelPainter(spec: spec).paint(Canvas(recorder), size);
+      final image = await recorder
+          .endRecording()
+          .toImage(size.width.toInt(), size.height.toInt());
+      final data = await image.toByteData();
+      return data!.buffer.asUint32List();
+    }
+
+    // toByteData returns RGBA; compare against the same packing.
+    int packed(Color c) =>
+        (c.alpha << 24) | (c.blue << 16) | (c.green << 8) | c.red;
+
+    int at(Uint32List pixels, int x, int y) =>
+        pixels[y * size.width.toInt() + x];
+
+    test('left edge is the highlight for its full configured width', () async {
+      final pixels = await render(TrampSurfaces.raisedPanel(bevel: bevel));
+      const midY = 20;
+      for (var x = 0; x < bevel; x++) {
+        expect(at(pixels, x, midY), packed(TrampColors.bevelHi),
+            reason: 'left edge pixel x=$x should be the highlight');
+      }
+      expect(at(pixels, bevel.toInt() + 1, midY), 0,
+          reason: 'nothing should paint inside the bevel');
+    });
+
+    test('right edge is the shadow', () async {
+      final pixels = await render(TrampSurfaces.raisedPanel(bevel: bevel));
+      expect(at(pixels, size.width.toInt() - 1, 20),
+          packed(TrampColors.bevelLo));
+    });
+
+    test('inset surfaces light the opposite side', () async {
+      final pixels = await render(TrampSurfaces.insetWell(bevel: bevel));
+      expect(at(pixels, 0, 20), packed(TrampColors.bevelLo),
+          reason: 'an inset well is shadowed on the left, not lit');
+      expect(at(pixels, size.width.toInt() - 1, 20),
+          packed(TrampColors.bevelHi));
+    });
   });
 }
