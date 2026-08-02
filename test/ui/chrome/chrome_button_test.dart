@@ -90,6 +90,85 @@ void main() {
     );
   });
 
+  testWidgets('disabled icon button tints its glyph with labelDim',
+      (tester) async {
+    await tester.pumpWidget(host(
+      ChromeButton.icon(
+        icon: const SizedBox(key: Key('glyph'), width: 8, height: 8),
+        onPressed: null,
+        semanticLabel: 'Prev',
+      ),
+    ));
+    final filter = tester.widget<ColorFiltered>(find.byType(ColorFiltered));
+    expect(
+      filter.colorFilter,
+      const ColorFilter.mode(TrampColors.labelDim, BlendMode.srcIn),
+    );
+    expect(
+      find.descendant(
+        of: find.byType(ColorFiltered),
+        matching: find.byKey(const Key('glyph')),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('active icon button tints its glyph with phosphor',
+      (tester) async {
+    await tester.pumpWidget(host(
+      ChromeButton.icon(
+        icon: const SizedBox(key: Key('glyph'), width: 8, height: 8),
+        onPressed: () {},
+        semanticLabel: 'Shuffle',
+        active: true,
+      ),
+    ));
+    final filter = tester.widget<ColorFiltered>(find.byType(ColorFiltered));
+    expect(
+      filter.colorFilter,
+      const ColorFilter.mode(TrampColors.phosphor, BlendMode.srcIn),
+    );
+    expect(
+      find.descendant(
+        of: find.byType(ColorFiltered),
+        matching: find.byKey(const Key('glyph')),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('enabled inactive icon button leaves the glyph untinted',
+      (tester) async {
+    await tester.pumpWidget(host(
+      ChromeButton.icon(
+        icon: const SizedBox(key: Key('glyph'), width: 8, height: 8),
+        onPressed: () {},
+        semanticLabel: 'Next',
+      ),
+    ));
+    expect(find.byType(ColorFiltered), findsNothing);
+    expect(find.byKey(const Key('glyph')), findsOneWidget);
+  });
+
+  testWidgets('disabling mid-press clears the pressed surface on release',
+      (tester) async {
+    await tester.pumpWidget(host(
+      ChromeButton.label(text: 'OPEN', onPressed: () {}),
+    ));
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(ChromeButton)),
+    );
+    await tester.pump();
+    expect(surfaceOf(tester), TrampSurface.pressedButton);
+
+    await tester.pumpWidget(host(
+      ChromeButton.label(text: 'OPEN', onPressed: null),
+    ));
+    await gesture.up();
+    await tester.pump();
+    expect(surfaceOf(tester), TrampSurface.raisedButton);
+  });
+
   testWidgets('dropdown button renders text plus a chevron', (tester) async {
     await tester.pumpWidget(host(
       ChromeButton.dropdown(text: 'ZOOM 150%', onPressed: () {}),

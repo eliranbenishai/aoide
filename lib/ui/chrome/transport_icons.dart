@@ -179,12 +179,18 @@ class ShufflePainter extends CustomPainter {
   bool shouldRepaint(ShufflePainter old) => old.colour != colour;
 }
 
+/// Loop glyph for repeat / repeat-one.
+///
+/// When [one] is true, paints a single vertical stroke inside the loop — the
+/// numeral one reduced to what reads at 16 logical pixels. A literal `1` would
+/// be roughly four pixels tall and unreadable at the glyph's real size.
 class RepeatPainter extends CustomPainter {
   const RepeatPainter({required this.colour, required this.one});
 
   final Color colour;
 
-  /// Draws a `1` inside the loop for repeat-one.
+  /// When true, draws a single vertical stroke inside the loop — the numeral
+  /// one reduced to what reads at 16 logical pixels.
   final bool one;
 
   @override

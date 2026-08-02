@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tramp/theme/tramp_colors.dart';
@@ -7,6 +10,25 @@ Widget host(Widget child) => Directionality(
       textDirection: TextDirection.ltr,
       child: Center(child: SizedBox(width: 40, height: 40, child: child)),
     );
+
+Future<int> markedPixelCount(CustomPainter painter, Size size) async {
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  painter.paint(canvas, size);
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(
+    size.width.ceil(),
+    size.height.ceil(),
+  );
+  final bytes = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+  expect(bytes, isNotNull);
+  var marked = 0;
+  final data = bytes!.buffer.asUint8List();
+  for (var i = 0; i < data.length; i += 4) {
+    if (data[i + 3] != 0) marked++;
+  }
+  return marked;
+}
 
 void main() {
   testWidgets('every glyph paints without error', (tester) async {
@@ -38,20 +60,55 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  test('repeat-one is distinguishable from repeat-all', () {
-    const all = RepeatPainter(colour: TrampColors.label, one: false);
-    const one = RepeatPainter(colour: TrampColors.label, one: true);
-    expect(all.shouldRepaint(one), isTrue);
+  test('repeat-one paints strictly more pixels than plain repeat', () async {
+    const size = Size(16, 13);
+    final all = await markedPixelCount(
+      const RepeatPainter(colour: TrampColors.label, one: false),
+      size,
+    );
+    final one = await markedPixelCount(
+      const RepeatPainter(colour: TrampColors.label, one: true),
+      size,
+    );
+    expect(one, greaterThan(all));
   });
 
-  // Tramp's own mark lives in `TrampLogo` (lib/ui/chrome/logo.dart), rendered
-  // from logo.svg. The glyph set must not carry a brand mark of its own — the
-  // reference mockup's lightning bolt is Winamp's logo, not a generic icon.
-  test('the glyph set contains no brand mark', () {
-    expect(
-      TransportIcons.defaultGlyphColour,
-      TrampColors.label,
-      reason: 'glyphs are neutral chrome, tinted by the caller',
-    );
+  // Tramp's chrome mark lives in `TrampMark` (lib/ui/chrome/tramp_mark.dart).
+  // `TrampLogo` is the full badge for app icon, splash and About. The glyph set
+  // must not carry a brand mark of its own — the reference mockup's lightning
+  // bolt is Winamp's logo, not a generic icon.
+  test('the glyph set is exactly the eight transport factories', () {
+    const expected = {
+      'prev',
+      'play',
+      'pause',
+      'stop',
+      'next',
+      'shuffle',
+      'repeat',
+      'eject',
+    };
+    final factories = <String, Widget Function()>{
+      'prev': TransportIcons.prev,
+      'play': TransportIcons.play,
+      'pause': TransportIcons.pause,
+      'stop': TransportIcons.stop,
+      'next': TransportIcons.next,
+      'shuffle': TransportIcons.shuffle,
+      'repeat': TransportIcons.repeat,
+      'eject': TransportIcons.eject,
+    };
+    expect(factories.keys.toSet(), expected);
+    for (final build in factories.values) {
+      expect(build(), isA<Widget>());
+    }
+
+    final source = File('lib/ui/chrome/transport_icons.dart').readAsStringSync();
+    final staticWidgetFactories = RegExp(r'static Widget ([a-z]\w*)\(')
+        .allMatches(source)
+        .map((m) => m.group(1)!)
+        .toSet();
+    expect(staticWidgetFactories, expected);
+    expect(source.toLowerCase().contains('bolt'), isFalse);
   });
 }

@@ -100,7 +100,10 @@ class _ChromeButtonState extends State<ChromeButton> {
   bool _down = false;
 
   void _setDown(bool value) {
-    if (!widget.isEnabled || _down == value) return;
+    // Clearing pressed state must always work — e.g. when onPressed becomes
+    // null mid-gesture. Only setting pressed is gated on being enabled.
+    if (value && !widget.isEnabled) return;
+    if (_down == value) return;
     setState(() => _down = value);
   }
 
@@ -109,20 +112,33 @@ class _ChromeButtonState extends State<ChromeButton> {
     return widget.active ? TrampColors.phosphor : TrampColors.label;
   }
 
+  /// Forces [colour] onto a caller-supplied glyph when disabled or active.
+  /// When enabled and inactive the glyph is returned untouched so the caller's
+  /// own tint (e.g. play's phosphor default) survives.
+  Widget _maybeTintGlyph(Widget glyph, Color colour) {
+    if (!widget.isEnabled || widget.active) {
+      return ColorFiltered(
+        colorFilter: ColorFilter.mode(colour, BlendMode.srcIn),
+        child: glyph,
+      );
+    }
+    return glyph;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colour = _contentColour;
 
     final Widget content;
     if (widget.icon != null) {
-      content = Center(child: widget.icon);
+      content = Center(child: _maybeTintGlyph(widget.icon!, colour));
     } else {
       content = Row(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
           if (widget.leading != null) ...[
-            widget.leading!,
+            _maybeTintGlyph(widget.leading!, colour),
             const SizedBox(width: 4),
           ],
           Text(widget.text!, style: TrampText.chromeLabel.copyWith(color: colour)),
