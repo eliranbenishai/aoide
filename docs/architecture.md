@@ -20,9 +20,9 @@ Living design map of how Tramp is structured. Agents and humans update this when
 ```mermaid
 flowchart TB
   subgraph ui [UI - Flutter]
-    Chrome[App chrome / window]
-    Player[Player controls]
-    Playlist[Playlist view]
+    Shell[TrampShell zoom host]
+    Main[MainPlayerPanel]
+    Lower[EqualizerPanel / PlaylistPanel]
   end
   subgraph core [Core - Flutter / Dart]
     Playback[Playback - media_kit preferred]
@@ -35,11 +35,11 @@ flowchart TB
     MediaKeys[OS media keys]
     Pack[flutter build packaging]
   end
-  Chrome --> Player
-  Chrome --> Playlist
-  Chrome --> Eq
-  Player --> Playback
-  Playlist --> PlaylistSvc
+  Shell --> Main
+  Shell --> Lower
+  Main --> Playback
+  Lower --> PlaylistSvc
+  Lower --> Eq
   Playback --> Formats
   PlaylistSvc --> FS
   Eq --> FS
@@ -50,12 +50,14 @@ flowchart TB
 
 | Area | Responsibility | Status |
 |------|----------------|--------|
-| App chrome / UI | `TrampShell` (single root `Transform.scale` zoom host + EQ/PL lower-region switch, drop target, shortcuts including Ctrl±/0), `ZoomController` / `ZoomScope`, `MainPlayerPanel` (fixed 812×242 absolute canvas), `PlaylistPanel`, `EqualizerPanel` (fixed 812×206 absolute canvas), `lib/ui/chrome/` (`ChromeButton`, `ChromeSlider`, `MetalPanel`, `TrampTitleBar`, `LcdText`, `SpectrumVisualizer`, `TrampMark`, `TrampLogo`, transport icons); frameless resize/drag via `window_manager` (`configureTrampWindow` / `resizeTrampWindow` follow the zoom step) | Implemented |
+| App chrome / UI | `TrampShell` hosts the single root `Transform.scale` zoom transform and switches the lower region between `EqualizerPanel` and `PlaylistPanel` (drop target, shortcuts including Ctrl±/0). `MainPlayerPanel` and `EqualizerPanel` are fixed logical canvases (812×242 / 812×206). Shared primitives live in `lib/ui/chrome/` (`MetalPanel`, `ChromeButton`, `ChromeSlider`, `TrampTitleBar`, `LcdText`, `SpectrumVisualizer`, `TrampMark`, `TrampLogo`, `TransportIcons`). Frameless resize/drag via `window_manager` (`configureTrampWindow` / `resizeTrampWindow` follow the zoom step) | Implemented |
+| Theme | `lib/theme/` — `TrampColors`, `TrampSurface` / `tramp_surfaces.dart`, `TrampText`, `TrampMetrics`. No widget composes its own gradient or bevel; surfaces are the single material source | Implemented |
+| Zoom | `lib/ui/zoom/` — `ZoomController` (six discrete steps 100–300%, persisted, steps too large for the display disabled) and `ZoomScope` (hairline snap). See [ADR 0002](adr/0002-fixed-canvas-zoom.md) | Implemented |
 | Brand art | Full colour badge is `lib/ui/chrome/logo.svg` via `TrampLogo` (app icon / splash / About). Compact title-bar mark is `TrampMark` (ring + headphones). Chrome widgets other than the logo stay hand-drawn in Dart so they can react to state | Implemented |
-| Playback | `PlayerEngine` seam, `PlaybackController`, `MediaKitPlayerEngine` (local files via media_kit/libmpv); shuffle/repeat/volume/mute/seek; `levelsStream` → `AudioLevels` (media_kit emits `synthetic: true` frames; `SpectrumVisualizer` subscribes directly, not via `notifyListeners`); `formatStream` → `AudioFormatInfo` (bitrate/sample rate/channels as controller state via `notifyListeners`) | Implemented |
+| Playback | `PlayerEngine` seam, `PlaybackController`, `MediaKitPlayerEngine` (local files via media_kit/libmpv); shuffle/repeat/volume/mute/seek. `levelsStream` → `AudioLevels` (media_kit emits synthetic frames; `SpectrumVisualizer` subscribes directly, not via `notifyListeners`). `formatStream` → `AudioFormatInfo` (bitrate / sample rate / channels as controller state). Levels contract: see the design spec’s “Audio levels” section | Implemented |
 | Formats | MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus via media_kit | Implemented |
 | Playlist | Open/save M3U/M3U8, add/remove/reorder, play from selection, restore last playlist (`PlaylistController`, `M3uCodec`, `PlaylistStore`) | Implemented |
-| Equalizer | UI: `EqualizerPanel` (preamp + ten bands, ON/AUTO, presets menu, windowshade collapse). State: `EqualizerSettings`, `EqualizerPresets`, `EqualizerController`; persists via `TrampSettings` / `SettingsStore`; `EqualizerSink` seam has only `NoopEqualizerSink` — gains do not reach the audio path (shipped libmpv disables filters while reporting success) | Chrome UI + state |
+| Equalizer | UI: `EqualizerPanel` (preamp + ten bands, ON/AUTO, presets menu, windowshade collapse). State: `EqualizerSettings`, `EqualizerPresets`, `EqualizerController` in `lib/eq/`; persists via `TrampSettings` / `SettingsStore`. `EqualizerSink` seam has only `NoopEqualizerSink` — gains do not reach the audio path (shipped libmpv disables filter graphs while reporting success) | Chrome UI + state |
 | Platform | `tramp_window` (frameless chrome sized to zoom step); `file_open` (pickers, folder expand, DnD); `launch_args` (argv → playlist/audio); file associations (Windows registry, macOS Info.plist, Linux `.desktop`); `OsMediaControls` (Windows SMTC, macOS MPRemoteCommandCenter; **Linux MPRIS stub — v1 gap**); `SettingsStore` (`settings.json` — zoom %, lower region, equalizer) | Implemented |
 
 ## Playback vs selection
@@ -64,17 +66,30 @@ flowchart TB
 
 ## Known v1 gaps
 
+- **Equalizer is chrome-only** — the panel and persisted curve ship; audible equalization does not, because the shipped libmpv cannot construct filter graphs (it reports success while silently disabling them). A real `EqualizerSink` must be verified by measuring output.
+- **Spectrum levels are synthetic** — `MediaKitPlayerEngine` publishes `AudioLevels` with `synthetic: true` until the spectrogram subsystem lands. The display is honest about that contract.
 - **Linux MPRIS** — session D-Bus player not registered; in-app shortcuts/media keys when focused still work.
 - **Second-instance “Open with”** — argv on cold start only; no IPC to an already-running instance.
 - **macOS/Linux release smoke** — not run on the primary dev host (Windows verified).
+
+## Implementation notes (chrome)
+
+These cost real time and will bite again:
+
+- **No icon fonts or glyph characters in chrome.** `□` / `✕` are absent from Barlow, and `Icons.*` needs an unbundled Material font. Window controls, transport glyphs, and marks are all painted.
+- **Panel stack needs a `Material` ancestor** — without it, Flutter’s debug build underlines every text span.
+- **Tests that assert text must call `loadTrampFonts()`** (`test/support/test_fonts.dart`). The harness fallback face has wildly different metrics from Barlow Semi Condensed.
+- **Flutter goldens are platform-specific.** Images under `test/golden/goldens/` were generated on Windows; CI on another OS needs its own golden set or a tolerance-based comparison.
 
 ## Stack
 
 **Locked:** Flutter for v1 (Windows, Linux, macOS). Preferred defaults: `window_manager` (app chrome), media_kit/libmpv (playback), `flutter_svg` (brand art). Not locked: state management, routing, SDK versions, design-system packages. Not v1: Tauri, Electron, second UI toolkit.
 
 - ADR: [0001-flutter-for-v1.md](adr/0001-flutter-for-v1.md)
+- ADR: [0002-fixed-canvas-zoom.md](adr/0002-fixed-canvas-zoom.md)
 - Research: [`.scratch/tramp-v1-spec/research/v1-stack.md`](../.scratch/tramp-v1-spec/research/v1-stack.md)
 
 ## ADRs
 
 - [0001 — Flutter for Tramp v1](adr/0001-flutter-for-v1.md)
+- [0002 — Fixed logical canvas plus a single transform for zoom](adr/0002-fixed-canvas-zoom.md)

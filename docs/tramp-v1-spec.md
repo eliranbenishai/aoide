@@ -27,21 +27,18 @@ Tramp is a multi-platform desktop music player — a spiritual successor to Wina
 
 ## Window and chrome
 
-- **One window** — transport, now-playing, and playlist in a single surface (no detachable multi-window layout).
+- **One window** — transport, now-playing, and playlist/equalizer in a single surface (no detachable multi-window layout).
 - **App chrome** — no OS title bar or standard window frame; the visible UI is the app surface.
 - **Resize** from edges/corners.
 - **Drag** a designated region to move the window.
-- **Controls:** in-app close and minimize. Maximize/fullscreen not required for v1.
+- **Controls:** in-app minimize, maximize, and close are all implemented.
+- **Zoom:** six discrete steps from 100% to 300%, persisted across sessions; steps larger than the current display’s work area are disabled.
 
 ## UI direction
 
-Classic Winamp 2.x–inspired **vector chrome** (not paper/ink; not bitmap/WSZ skins):
+Dark **graphite chrome** with acid chartreuse phosphor — near-black panels, warm yellow title-bar rails, fixed logical canvases (main player 812×242, equalizer 812×206) with absolute placement and a single root zoom transform. Dense, playlist-centric, control-forward. Not Material/Fluent defaults; not the earlier light brushed-metal / vector-chrome direction.
 
-- **Layout:** scaled main player (fixed classic aspect) on top; playlist fills remaining window space with matching metal/LCD chrome.
-- **Design language:** brushed metal panels, inset LCD greens, embossed transport controls, soft pin-up logo + **TRAMP** wordmark — all vector (`CustomPainter` / decorations), no raster skin assets.
-- Dense, playlist-centric, control-forward. Not Material/Fluent defaults.
-
-Visual target: [`docs/superpowers/specs/2026-08-01-classic-main-player-design.md`](superpowers/specs/2026-08-01-classic-main-player-design.md). Classic Winamp **WSZ skins** remain a non-goal for v1.
+Visual target: [`docs/superpowers/specs/2026-08-02-graphite-chrome-redesign-design.md`](superpowers/specs/2026-08-02-graphite-chrome-redesign-design.md). Reference mockup: [`docs/mockups/graphite-chrome.png`](mockups/graphite-chrome.png). Classic Winamp **WSZ skins** remain a non-goal for v1.
 
 ## Playback
 
@@ -83,11 +80,12 @@ Associate Tramp with v1 audio formats and `.m3u` / `.m3u8` so “Open with Tramp
 
 ## Non-goals (v1)
 
-- Classic Winamp **WSZ** / bitmap skins (vector chrome is the v1 look; skin loading comes later)
+- Classic Winamp **WSZ** / bitmap skins (graphite chrome is the v1 look; skin loading comes later)
 - Media library / scanned catalog
 - Streaming services
 - Plugin ecosystem
-- Equalizer and visualizations as requirements (spectrum pulse in chrome is presentation-only)
+- Equalizer **chrome** ships; audible equalization does not, because the shipped libmpv cannot construct filter graphs
+- L/R VU meters (that chrome is the volume slider)
 - Gapless playback
 - Crossfade
 - Detachable multi-window layout (main / playlist / EQ frames)
@@ -96,7 +94,7 @@ Associate Tramp with v1 audio formats and `.m3u` / `.m3u8` so “Open with Tramp
 
 ## Success criteria
 
-v1 is done when a user can install Tramp on Windows, Linux, and macOS, open local audio and playlists, manage a playlist, control playback with the classic vector chrome above, and use a frameless, resizable UI that matches the locked direction — without depending on a library, WSZ skins, or store distribution.
+v1 is done when a user can install Tramp on Windows, Linux, and macOS, open local audio and playlists, manage a playlist, control playback with the graphite chrome above, and use a frameless, resizable, zoomable UI that matches the locked direction — without depending on a library, WSZ skins, or store distribution.
 
 ## Related artifacts
 
@@ -105,6 +103,8 @@ v1 is done when a user can install Tramp on Windows, Linux, and macOS, open loca
 | [`CONTEXT.md`](../CONTEXT.md) | Domain glossary |
 | [`architecture.md`](architecture.md) | Living structure map |
 | [`adr/0001-flutter-for-v1.md`](adr/0001-flutter-for-v1.md) | Flutter stack ADR |
+| [`adr/0002-fixed-canvas-zoom.md`](adr/0002-fixed-canvas-zoom.md) | Fixed-canvas zoom ADR |
 | [`.scratch/tramp-v1-spec/research/v1-stack.md`](../.scratch/tramp-v1-spec/research/v1-stack.md) | Stack research evidence |
-| [`superpowers/specs/2026-08-01-classic-main-player-design.md`](superpowers/specs/2026-08-01-classic-main-player-design.md) | Classic vector chrome UI direction |
+| [`superpowers/specs/2026-08-02-graphite-chrome-redesign-design.md`](superpowers/specs/2026-08-02-graphite-chrome-redesign-design.md) | Graphite chrome UI direction |
+| [`mockups/graphite-chrome.png`](mockups/graphite-chrome.png) | Style reference mockup |
 | [`.scratch/tramp-v1-spec/map.md`](../.scratch/tramp-v1-spec/map.md) | Wayfinder decision index |
