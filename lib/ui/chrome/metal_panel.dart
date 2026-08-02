@@ -3,8 +3,8 @@ import 'package:flutter/widgets.dart';
 import '../../theme/tramp_surfaces.dart';
 import '../zoom/zoom_scope.dart';
 
-/// Which material a panel wears.
-enum TrampSurface { raisedPanel, raisedButton, pressedButton, insetWell, lcdGlass }
+/// Which button surface a panel wears.
+enum TrampSurface { raisedButton, pressedButton }
 
 /// Applies one of the shared surface recipes.
 ///
@@ -28,11 +28,8 @@ class MetalPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final bevel = ZoomScope.hairlineFor(context);
     final spec = switch (surface) {
-      TrampSurface.raisedPanel => TrampSurfaces.raisedPanel(bevel: bevel),
       TrampSurface.raisedButton => TrampSurfaces.raisedButton(bevel: bevel),
       TrampSurface.pressedButton => TrampSurfaces.pressedButton(bevel: bevel),
-      TrampSurface.insetWell => TrampSurfaces.insetWell(bevel: bevel),
-      TrampSurface.lcdGlass => TrampSurfaces.lcdGlass(bevel: bevel),
     };
 
     final inner =

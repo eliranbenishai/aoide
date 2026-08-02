@@ -41,8 +41,8 @@ From [`docs/tramp-v1-spec.md`](docs/tramp-v1-spec.md). Manual smoke on each targ
 | Install/run on Win/Linux/macOS (build artifacts) | Windows release build verified; macOS/Linux need host build |
 | Open local audio + playlists | Implemented (file picker, DnD, argv, folder expand) |
 | Manage playlist (add/remove/reorder/save/restore) | Implemented (`PlaylistController`, M3U/M3U8) |
-| Transport chrome controls + tags when present | Implemented (`ClassicMainPlayer`, media_kit tags) |
-| Frameless resizable classic vector chrome UI | Implemented (`TrampShell`, `ClassicMainPlayer`, `window_manager`) |
+| Transport chrome controls + tags when present | Implemented (`MainPlayerPanel`, media_kit tags) |
+| Frameless graphite-skin chrome UI (zoom-sized main/EQ, resizable playlist) | Implemented (`TrampShell`, `MainPlayerPanel`, PNG skin per ADR 0004, `window_manager`) |
 | No library/WSZ skins/store dependency | Confirmed (non-goals excluded) |
 
 Automated gate: `flutter test` and `flutter build windows` must pass.

@@ -3,92 +3,30 @@ import 'package:flutter/widgets.dart';
 import '../../theme/tramp_colors.dart';
 import '../../theme/tramp_text.dart';
 import 'metal_panel.dart';
-import 'transport_icons.dart';
 
-/// A raised graphite button.
+/// A raised graphite label button — the one painted control left.
 ///
-/// Three shapes cover every control in the chrome: an icon button (transport,
-/// shuffle, window controls), a label button (OPEN, ON, AUTO, EQ, PL), and a
-/// dropdown (ZOOM, PRESETS).
+/// Every other control wears skin art (see `SkinButton`). The playlist
+/// toolbar's OPEN/SAVE/ADD buttons have no sprites in the delivered skin
+/// pack — the skin design never specced playlist button art — so they keep
+/// the pre-skin raised/pressed surface recipes from `TrampSurfaces`. If
+/// playlist button sprites are ever authored, delete this widget and switch
+/// the toolbar to `SkinButton`.
 class ChromeButton extends StatefulWidget {
-  const ChromeButton._({
+  const ChromeButton({
     super.key,
+    required this.text,
     required this.onPressed,
-    required this.semanticLabel,
-    required this.active,
-    required this.size,
-    this.icon,
-    this.text,
-    this.leading,
-    this.chevron = false,
+    this.size,
   });
 
-  factory ChromeButton.icon({
-    Key? key,
-    required Widget icon,
-    required VoidCallback? onPressed,
-    required String semanticLabel,
-    Size size = const Size(26, 26),
-    bool active = false,
-  }) {
-    return ChromeButton._(
-      key: key,
-      onPressed: onPressed,
-      semanticLabel: semanticLabel,
-      active: active,
-      size: size,
-      icon: icon,
-    );
-  }
-
-  factory ChromeButton.label({
-    Key? key,
-    required String text,
-    required VoidCallback? onPressed,
-    Widget? leading,
-    Size? size,
-    bool active = false,
-    String? semanticLabel,
-  }) {
-    return ChromeButton._(
-      key: key,
-      onPressed: onPressed,
-      semanticLabel: semanticLabel ?? text,
-      active: active,
-      size: size,
-      text: text,
-      leading: leading,
-    );
-  }
-
-  factory ChromeButton.dropdown({
-    Key? key,
-    required String text,
-    required VoidCallback? onPressed,
-    Size? size,
-    String? semanticLabel,
-  }) {
-    return ChromeButton._(
-      key: key,
-      onPressed: onPressed,
-      semanticLabel: semanticLabel ?? text,
-      active: false,
-      size: size,
-      text: text,
-      chevron: true,
-    );
-  }
-
-  static const chevronKey = Key('chrome-button-chevron');
-
+  final String text;
   final VoidCallback? onPressed;
-  final String semanticLabel;
-  final bool active;
+
+  /// When set, this size IS the constraint — no padding is added on top, so
+  /// the label gets the full width (see the pre-skin AUTO button, which
+  /// overflowed once horizontal padding ate into a tight 37px).
   final Size? size;
-  final Widget? icon;
-  final String? text;
-  final Widget? leading;
-  final bool chevron;
 
   bool get isEnabled => onPressed != null;
 
@@ -107,65 +45,22 @@ class _ChromeButtonState extends State<ChromeButton> {
     setState(() => _down = value);
   }
 
-  Color get _contentColour {
-    if (!widget.isEnabled) return TrampColors.labelDim;
-    return widget.active ? TrampColors.phosphor : TrampColors.label;
-  }
-
-  /// Forces [colour] onto a caller-supplied glyph when disabled or active.
-  /// When enabled and inactive the glyph is returned untouched so the caller's
-  /// own tint (e.g. play's phosphor default) survives.
-  Widget _maybeTintGlyph(Widget glyph, Color colour) {
-    if (!widget.isEnabled || widget.active) {
-      return ColorFiltered(
-        colorFilter: ColorFilter.mode(colour, BlendMode.srcIn),
-        child: glyph,
-      );
-    }
-    return glyph;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final colour = _contentColour;
+    final colour =
+        widget.isEnabled ? TrampColors.label : TrampColors.labelDim;
 
-    final Widget content;
-    if (widget.icon != null) {
-      content = Center(child: _maybeTintGlyph(widget.icon!, colour));
-    } else {
-      content = Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (widget.leading != null) ...[
-            _maybeTintGlyph(widget.leading!, colour),
-            const SizedBox(width: 4),
-          ],
-          Text(widget.text!, style: TrampText.chromeLabel.copyWith(color: colour)),
-          if (widget.chevron) ...[
-            const SizedBox(width: 5),
-            SizedBox(
-              key: ChromeButton.chevronKey,
-              width: 7,
-              height: 5,
-              child: CustomPaint(painter: ChevronPainter(colour: colour)),
-            ),
-          ],
-        ],
-      );
-    }
-
-    // Horizontal padding is only for buttons that size themselves to their
-    // label. When an explicit `size` is given, that size IS the constraint —
-    // adding padding on top steals width from the label and overflows tight
-    // buttons. `AUTO` needs 25.87px in Barlow and a 37px button leaves only
-    // 23px once 7px is taken from each side.
     Widget button = MetalPanel(
       surface: _down ? TrampSurface.pressedButton : TrampSurface.raisedButton,
-      padding: (widget.icon != null || widget.size != null)
-          ? null
-          : const EdgeInsets.symmetric(horizontal: 7),
-      child: content,
+      padding: widget.size == null
+          ? const EdgeInsets.symmetric(horizontal: 7)
+          : null,
+      child: Center(
+        child: Text(
+          widget.text,
+          style: TrampText.chromeLabel.copyWith(color: colour),
+        ),
+      ),
     );
 
     if (widget.size != null) {
@@ -179,7 +74,7 @@ class _ChromeButtonState extends State<ChromeButton> {
     return Semantics(
       button: true,
       enabled: widget.isEnabled,
-      label: widget.semanticLabel,
+      label: widget.text,
       child: MouseRegion(
         cursor: widget.isEnabled
             ? SystemMouseCursors.click

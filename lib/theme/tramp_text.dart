@@ -8,32 +8,13 @@ abstract final class TrampText {
   static const _chrome = 'BarlowSemiCondensed';
   static const _mono = 'IBMPlexMono';
 
-  /// Chrome button labels: OPEN, ZOOM, PRESETS, ON, AUTO, EQ, PL.
+  /// Chrome button labels: the playlist toolbar's OPEN, SAVE, ADD.
   static const chromeLabel = TextStyle(
     fontFamily: _chrome,
     fontWeight: FontWeight.w600,
     fontSize: 11,
     height: 1,
     letterSpacing: 0.6,
-    color: TrampColors.label,
-  );
-
-  static const chromeLabelDim = TextStyle(
-    fontFamily: _chrome,
-    fontWeight: FontWeight.w600,
-    fontSize: 11,
-    height: 1,
-    letterSpacing: 0.6,
-    color: TrampColors.labelDim,
-  );
-
-  /// The TRAMP wordmark between the title-bar rails.
-  static const wordmark = TextStyle(
-    fontFamily: _chrome,
-    fontWeight: FontWeight.w700,
-    fontSize: 15,
-    height: 1,
-    letterSpacing: 3.2,
     color: TrampColors.label,
   );
 

@@ -5,8 +5,6 @@ import 'package:tramp/theme/tramp_text.dart';
 void main() {
   const chrome = {
     'chromeLabel': TrampText.chromeLabel,
-    'chromeLabelDim': TrampText.chromeLabelDim,
-    'wordmark': TrampText.wordmark,
     'eqScale': TrampText.eqScale,
   };
 

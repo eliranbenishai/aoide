@@ -104,21 +104,21 @@ class _PlaylistToolbar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
       child: Row(
         children: [
-          ChromeButton.label(
+          ChromeButton(
             key: const Key('playlist-open'),
             text: 'OPEN',
             onPressed: onOpen,
             size: const Size(54, 22),
           ),
           const SizedBox(width: 5),
-          ChromeButton.label(
+          ChromeButton(
             key: const Key('playlist-save'),
             text: 'SAVE',
             onPressed: onSave,
             size: const Size(54, 22),
           ),
           const SizedBox(width: 5),
-          ChromeButton.label(
+          ChromeButton(
             key: const Key('playlist-add'),
             text: 'ADD',
             onPressed: onAddFiles,

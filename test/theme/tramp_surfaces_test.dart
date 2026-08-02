@@ -7,11 +7,12 @@ import 'package:tramp/theme/tramp_colors.dart';
 import 'package:tramp/theme/tramp_surfaces.dart';
 
 void main() {
-  test('raised panel is one smooth two-stop gradient', () {
-    final g = TrampSurfaces.raisedPanel().decoration.gradient! as LinearGradient;
+  test('raised button is one smooth two-stop gradient', () {
+    final g =
+        TrampSurfaces.raisedButton().decoration.gradient! as LinearGradient;
     // Exactly two stops: the mockup's visible mid-gradient stop is a rendering
     // artifact, not a design feature.
-    expect(g.colors, [TrampColors.panelTop, TrampColors.panelBottom]);
+    expect(g.colors, [TrampColors.buttonTop, TrampColors.buttonBottom]);
     expect(g.stops, isNull);
     expect(g.begin, Alignment.topCenter);
     expect(g.end, Alignment.bottomCenter);
@@ -21,26 +22,16 @@ void main() {
       () {
     // A BoxDecoration with both a borderRadius and a non-uniform Border throws
     // when painted, so the fill must stay border-free.
-    expect(TrampSurfaces.raisedPanel().decoration.border, isNull);
     expect(TrampSurfaces.raisedButton().decoration.border, isNull);
     expect(TrampSurfaces.pressedButton().decoration.border, isNull);
-    expect(TrampSurfaces.insetWell().decoration.border, isNull);
-    expect(TrampSurfaces.lcdGlass().decoration.border, isNull);
   });
 
   test('raised surfaces highlight the top-left and shadow the bottom-right',
       () {
-    final spec = TrampSurfaces.raisedPanel();
+    final spec = TrampSurfaces.raisedButton();
     // highlight = top + left; shadow = bottom + right.
     expect(spec.highlight, TrampColors.bevelHi);
     expect(spec.shadow, TrampColors.bevelLo);
-  });
-
-  test('inset surfaces reverse the bevel direction', () {
-    final spec = TrampSurfaces.insetWell();
-    expect(spec.highlight, TrampColors.bevelLo);
-    expect(spec.shadow, TrampColors.bevelHi);
-    expect(spec.decoration.color, TrampColors.wellDeep);
   });
 
   test('pressed button inverts both the gradient and the bevel', () {
@@ -53,30 +44,16 @@ void main() {
     expect(pressed.shadow, raised.highlight);
   });
 
-  test('lcd glass fills with the glass colour and has no gradient', () {
-    final spec = TrampSurfaces.lcdGlass();
-    expect(spec.decoration.color, TrampColors.lcdGlass);
-    expect(spec.decoration.gradient, isNull);
-  });
-
   test('bevel width is configurable for device-pixel snapping', () {
     expect(TrampSurfaces.raisedButton(bevel: 2).bevel, 2);
-  });
-
-  test('panels are more rounded than buttons', () {
-    expect(TrampSurfaces.raisedPanel().radius, 3);
-    expect(TrampSurfaces.raisedButton().radius, 2);
   });
 
   // The unit assertions above cannot catch Flutter refusing to paint a
   // decoration; only pumping one can.
   testWidgets('every surface paints without throwing', (tester) async {
     final specs = <String, SurfaceSpec>{
-      'raisedPanel': TrampSurfaces.raisedPanel(),
       'raisedButton': TrampSurfaces.raisedButton(),
       'pressedButton': TrampSurfaces.pressedButton(),
-      'insetWell': TrampSurfaces.insetWell(),
-      'lcdGlass': TrampSurfaces.lcdGlass(),
     };
 
     for (final entry in specs.entries) {
@@ -126,14 +103,18 @@ void main() {
     }
 
     // toByteData returns RGBA; compare against the same packing.
+    int channel(double v) => (v * 255).round();
     int packed(Color c) =>
-        (c.alpha << 24) | (c.blue << 16) | (c.green << 8) | c.red;
+        (channel(c.a) << 24) |
+        (channel(c.b) << 16) |
+        (channel(c.g) << 8) |
+        channel(c.r);
 
     int at(Uint32List pixels, int x, int y) =>
         pixels[y * size.width.toInt() + x];
 
     test('left edge is the highlight for its full configured width', () async {
-      final pixels = await render(TrampSurfaces.raisedPanel(bevel: bevel));
+      final pixels = await render(TrampSurfaces.raisedButton(bevel: bevel));
       const midY = 20;
       for (var x = 0; x < bevel; x++) {
         expect(at(pixels, x, midY), packed(TrampColors.bevelHi),
@@ -144,15 +125,15 @@ void main() {
     });
 
     test('right edge is the shadow', () async {
-      final pixels = await render(TrampSurfaces.raisedPanel(bevel: bevel));
+      final pixels = await render(TrampSurfaces.raisedButton(bevel: bevel));
       expect(at(pixels, size.width.toInt() - 1, 20),
           packed(TrampColors.bevelLo));
     });
 
-    test('inset surfaces light the opposite side', () async {
-      final pixels = await render(TrampSurfaces.insetWell(bevel: bevel));
+    test('pressed surfaces light the opposite side', () async {
+      final pixels = await render(TrampSurfaces.pressedButton(bevel: bevel));
       expect(at(pixels, 0, 20), packed(TrampColors.bevelLo),
-          reason: 'an inset well is shadowed on the left, not lit');
+          reason: 'a pressed button is shadowed on the left, not lit');
       expect(at(pixels, size.width.toInt() - 1, 20),
           packed(TrampColors.bevelHi));
     });

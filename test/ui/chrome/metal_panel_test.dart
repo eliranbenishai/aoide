@@ -16,25 +16,15 @@ BevelPainter bevelOf(WidgetTester tester) {
 }
 
 void main() {
-  testWidgets('raised panel uses the panel gradient', (tester) async {
+  testWidgets('raised button uses the button gradient', (tester) async {
     await tester.pumpWidget(
       const MetalPanel(
-        surface: TrampSurface.raisedPanel,
+        surface: TrampSurface.raisedButton,
         child: SizedBox(width: 10, height: 10),
       ),
     );
     final gradient = decorationOf(tester).gradient! as LinearGradient;
-    expect(gradient.colors.first, TrampColors.panelTop);
-  });
-
-  testWidgets('lcd glass surface fills with the glass colour', (tester) async {
-    await tester.pumpWidget(
-      const MetalPanel(
-        surface: TrampSurface.lcdGlass,
-        child: SizedBox(width: 10, height: 10),
-      ),
-    );
-    expect(decorationOf(tester).color, TrampColors.lcdGlass);
+    expect(gradient.colors.first, TrampColors.buttonTop);
   });
 
   testWidgets('bevel width is snapped from the ambient zoom', (tester) async {
@@ -43,7 +33,7 @@ void main() {
         factor: 1.5,
         devicePixelRatio: 1,
         child: MetalPanel(
-          surface: TrampSurface.raisedPanel,
+          surface: TrampSurface.raisedButton,
           child: SizedBox(width: 10, height: 10),
         ),
       ),
@@ -70,7 +60,7 @@ void main() {
     await tester.pumpWidget(
       const Center(
         child: MetalPanel(
-          surface: TrampSurface.raisedPanel,
+          surface: TrampSurface.raisedButton,
           child: SizedBox(width: 10, height: 10),
         ),
       ),
@@ -83,7 +73,7 @@ void main() {
   testWidgets('padding wraps the child when supplied', (tester) async {
     await tester.pumpWidget(
       const MetalPanel(
-        surface: TrampSurface.raisedPanel,
+        surface: TrampSurface.raisedButton,
         padding: EdgeInsets.all(4),
         child: SizedBox(width: 10, height: 10),
       ),

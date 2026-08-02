@@ -33,18 +33,6 @@ Future<int> markedPixelCount(CustomPainter painter, Size size) async {
 void main() {
   testWidgets('every glyph paints without error', (tester) async {
     final glyphs = <String, Widget>{
-      'prev': TransportIcons.prev(),
-      'play': TransportIcons.play(),
-      'pause': TransportIcons.pause(),
-      'stop': TransportIcons.stop(),
-      'next': TransportIcons.next(),
-      'shuffle': TransportIcons.shuffle(),
-      'repeat': TransportIcons.repeat(),
-      'repeatOne': TransportIcons.repeat(one: true),
-      'eject': TransportIcons.eject(),
-      'minimize': TransportIcons.minimize(),
-      'maximize': TransportIcons.maximize(),
-      'close': TransportIcons.close(),
       'speaker': TransportIcons.speaker(),
       'speakerMuted': TransportIcons.speaker(muted: true),
       'dragHandle': TransportIcons.dragHandle(),
@@ -55,28 +43,6 @@ void main() {
       expect(tester.takeException(), isNull, reason: entry.key);
       expect(find.byType(CustomPaint), findsWidgets, reason: entry.key);
     }
-  });
-
-  testWidgets('play defaults to phosphor and honours an override',
-      (tester) async {
-    await tester.pumpWidget(host(TransportIcons.play()));
-    expect(tester.takeException(), isNull);
-
-    await tester.pumpWidget(host(TransportIcons.play(colour: TrampColors.label)));
-    expect(tester.takeException(), isNull);
-  });
-
-  test('repeat-one paints strictly more pixels than plain repeat', () async {
-    const size = Size(16, 13);
-    final all = await markedPixelCount(
-      const RepeatPainter(colour: TrampColors.label, one: false),
-      size,
-    );
-    final one = await markedPixelCount(
-      const RepeatPainter(colour: TrampColors.label, one: true),
-      size,
-    );
-    expect(one, greaterThan(all));
   });
 
   test('muted speaker paints a different number of pixels than unmuted',
@@ -97,34 +63,9 @@ void main() {
   // `TrampLogo` is the full badge for app icon, splash and About. The glyph set
   // must not carry a brand mark of its own — the reference mockup's lightning
   // bolt is Winamp's logo, not a generic icon.
-  test('the glyph set is the transport and chrome window factories', () {
-    const expected = {
-      'prev',
-      'play',
-      'pause',
-      'stop',
-      'next',
-      'shuffle',
-      'repeat',
-      'eject',
-      'minimize',
-      'maximize',
-      'close',
-      'speaker',
-      'dragHandle',
-    };
+  test('the glyph set is the code-drawn overlay factories', () {
+    const expected = {'speaker', 'dragHandle'};
     final factories = <String, Widget Function()>{
-      'prev': TransportIcons.prev,
-      'play': TransportIcons.play,
-      'pause': TransportIcons.pause,
-      'stop': TransportIcons.stop,
-      'next': TransportIcons.next,
-      'shuffle': TransportIcons.shuffle,
-      'repeat': TransportIcons.repeat,
-      'eject': TransportIcons.eject,
-      'minimize': TransportIcons.minimize,
-      'maximize': TransportIcons.maximize,
-      'close': TransportIcons.close,
       'speaker': TransportIcons.speaker,
       'dragHandle': TransportIcons.dragHandle,
     };

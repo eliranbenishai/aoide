@@ -45,30 +45,15 @@ class SurfaceSpec {
       Object.hash(decoration, highlight, shadow, radius, bevel);
 }
 
-/// The complete set of chrome materials.
+/// The button surface recipes.
 ///
-/// Every panel, button, groove and display in the app draws from here. Widgets
-/// must not compose their own gradients or bevels — drift between the
-/// equalizer, the transport buttons and the playlist is exactly what this
-/// single definition prevents.
+/// Panel faces, wells and control art are skin PNGs (see `lib/ui/skin/`); the
+/// only widgets still drawing from here are the playlist toolbar's painted
+/// label buttons (`ChromeButton`). Widgets must not compose their own
+/// gradients or bevels — drift between buttons is exactly what this single
+/// definition prevents.
 abstract final class TrampSurfaces {
-  static const double panelRadius = 3;
   static const double buttonRadius = 2;
-
-  static SurfaceSpec raisedPanel({double bevel = 1}) => SurfaceSpec(
-        decoration: const BoxDecoration(
-          borderRadius: BorderRadius.all(Radius.circular(panelRadius)),
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [TrampColors.panelTop, TrampColors.panelBottom],
-          ),
-        ),
-        highlight: TrampColors.bevelHi,
-        shadow: TrampColors.bevelLo,
-        radius: panelRadius,
-        bevel: bevel,
-      );
 
   static SurfaceSpec raisedButton({double bevel = 1}) => SurfaceSpec(
         decoration: const BoxDecoration(
@@ -100,21 +85,6 @@ abstract final class TrampSurfaces {
         bevel: bevel,
       );
 
-  static SurfaceSpec insetWell({double bevel = 1}) => SurfaceSpec(
-        decoration: const BoxDecoration(color: TrampColors.wellDeep),
-        highlight: TrampColors.bevelLo,
-        shadow: TrampColors.bevelHi,
-        radius: 0,
-        bevel: bevel,
-      );
-
-  static SurfaceSpec lcdGlass({double bevel = 1}) => SurfaceSpec(
-        decoration: const BoxDecoration(color: TrampColors.lcdGlass),
-        highlight: TrampColors.bevelLo,
-        shadow: TrampColors.bevelHi,
-        radius: 0,
-        bevel: bevel,
-      );
 }
 
 /// Paints a surface's two-tone bevel over its fill.

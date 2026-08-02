@@ -6,7 +6,6 @@ abstract final class TrampColors {
   /// Outer border and the gutter between stacked panels.
   static const frame = Color(0xFF000000);
 
-  static const panelTop = Color(0xFF2C3039);
   static const panelBottom = Color(0xFF1D2128);
   static const bevelHi = Color(0xFF555B65);
   static const bevelLo = Color(0xFF0B0E12);
@@ -27,11 +26,9 @@ abstract final class TrampColors {
 
   static const label = Color(0xFFC9CED3);
   static const labelDim = Color(0xFF979DA6);
-  static const thumbHi = Color(0xFFBFC8D1);
 
   static const all = <Color>[
     frame,
-    panelTop,
     panelBottom,
     bevelHi,
     bevelLo,
@@ -44,6 +41,5 @@ abstract final class TrampColors {
     railAccent,
     label,
     labelDim,
-    thumbHi,
   ];
 }
