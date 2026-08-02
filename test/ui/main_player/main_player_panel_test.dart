@@ -107,6 +107,21 @@ void main() {
     expect(playback.playingIndex, 1);
   });
 
+  testWidgets('LCD shows a now-playing glyph only while playing',
+      (tester) async {
+    playlist.addTracks([const Track(path: 'a.mp3')]);
+    await pump(tester);
+    expect(find.byKey(const Key('lcd-now-playing')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('transport-play')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('lcd-now-playing')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('transport-pause')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('lcd-now-playing')), findsNothing);
+  });
+
   testWidgets('shuffle and repeat toggle the controller', (tester) async {
     await pump(tester);
     await tester.tap(find.byKey(const Key('player-shuffle')));

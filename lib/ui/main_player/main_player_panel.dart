@@ -139,26 +139,43 @@ class _MainPlayerPanelState extends State<MainPlayerPanel> {
         top: 150,
         width: 200,
         height: 5,
-        child: SkinSlider(
-          key: const Key('transport-seek'),
-          axis: Axis.horizontal,
-          value: seek,
-          trackSize: const Size(200, 5),
-          thumbAsset: GraphiteSkin.seekThumb,
-          thumbSize: const Size(9, 6),
-          semanticLabel: 'Seek',
-          onChangeEnd: durationMs > 0
-              ? (v) => unawaited(playback.seek(
-                    Duration(milliseconds: (v * durationMs).round()),
-                  ))
-              : null,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Mockup seek reads as a thin phosphor fill under the spectrum.
+            CustomPaint(
+              painter: _SeekFillPainter(seek),
+            ),
+            SkinSlider(
+              key: const Key('transport-seek'),
+              axis: Axis.horizontal,
+              value: seek,
+              trackSize: const Size(200, 5),
+              thumbAsset: GraphiteSkin.seekThumb,
+              thumbSize: const Size(9, 6),
+              semanticLabel: 'Seek',
+              onChangeEnd: durationMs > 0
+                  ? (v) => unawaited(playback.seek(
+                        Duration(milliseconds: (v * durationMs).round()),
+                      ))
+                  : null,
+            ),
+          ],
         ),
       ),
       Positioned(
         left: 258,
         top: 45,
         width: 296,
-        child: LcdText(title, lit: track != null),
+        child: Row(
+          children: [
+            if (playback.playing) ...[
+              const _NowPlayingGlyph(key: Key('lcd-now-playing')),
+              const SizedBox(width: 6),
+            ],
+            Expanded(child: LcdText(title, lit: track != null)),
+          ],
+        ),
       ),
       Positioned(
         left: 258,
@@ -724,4 +741,65 @@ class _SignPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_SignPainter old) => old.plus != plus;
+}
+
+/// Phosphor play triangle that prefixes the LCD title while playing — matches
+/// the mockup's now-playing glyph beside the track line.
+class _NowPlayingGlyph extends StatelessWidget {
+  const _NowPlayingGlyph({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 10,
+      height: 12,
+      child: CustomPaint(painter: _PlayTrianglePainter()),
+    );
+  }
+}
+
+class _PlayTrianglePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, size.height / 2)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(path, Paint()..color = TrampColors.phosphor);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Thin phosphor fill under the spectrum — the mockup's seek progress bar.
+class _SeekFillPainter extends CustomPainter {
+  const _SeekFillPainter(this.fraction);
+
+  final double fraction;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final track = Paint()..color = TrampColors.phosphor.withValues(alpha: 0.18);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, 1, size.width, size.height - 2),
+        const Radius.circular(1),
+      ),
+      track,
+    );
+    final fillW = (size.width * fraction.clamp(0.0, 1.0)).clamp(0.0, size.width);
+    if (fillW <= 0) return;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, 1, fillW, size.height - 2),
+        const Radius.circular(1),
+      ),
+      Paint()..color = TrampColors.phosphor,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_SeekFillPainter old) => old.fraction != fraction;
 }
