@@ -117,7 +117,7 @@ class _ChromeButtonState extends State<ChromeButton> {
     if (widget.icon != null) {
       content = Center(child: widget.icon);
     } else {
-      final row = Row(
+      content = Row(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -137,9 +137,6 @@ class _ChromeButtonState extends State<ChromeButton> {
           ],
         ],
       );
-      content = widget.size != null
-          ? FittedBox(fit: BoxFit.scaleDown, child: row)
-          : row;
     }
 
     Widget button = MetalPanel(

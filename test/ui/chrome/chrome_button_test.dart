@@ -4,6 +4,8 @@ import 'package:tramp/theme/tramp_colors.dart';
 import 'package:tramp/ui/chrome/chrome_button.dart';
 import 'package:tramp/ui/chrome/metal_panel.dart';
 
+import '../../support/test_fonts.dart';
+
 Widget host(Widget child) => Directionality(
       textDirection: TextDirection.ltr,
       child: Center(child: child),
@@ -13,6 +15,8 @@ TrampSurface surfaceOf(WidgetTester tester) =>
     tester.widget<MetalPanel>(find.byType(MetalPanel)).surface;
 
 void main() {
+  setUpAll(loadTrampFonts);
+
   testWidgets('label button reports its text and fires onPressed',
       (tester) async {
     var taps = 0;
@@ -103,5 +107,6 @@ void main() {
       ),
     ));
     expect(tester.getSize(find.byType(ChromeButton)), const Size(54, 26));
+    expect(tester.takeException(), isNull);
   });
 }
