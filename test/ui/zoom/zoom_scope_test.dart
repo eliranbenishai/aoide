@@ -55,7 +55,8 @@ void main() {
       devicePixelRatio: 2,
       child: SizedBox(),
     );
-    // 1 * 1.25 * 2 = 2.5 device px -> rounds to 3 -> 3 / 2.5 logical.
+    // 1 * 1.25 * 2 = 2.5 device px. Dart rounds half away from zero, so that
+    // is 3 device px, or 3 / 2.5 logical.
     expect(scope.snap(1), closeTo(3 / 2.5, 1e-9));
   });
 
@@ -90,27 +91,20 @@ void main() {
     expect(seen, closeTo(2 / 1.5, 1e-9));
   });
 
-  testWidgets('updateShouldNotify fires only when the factor changes',
-      (tester) async {
-    var builds = 0;
-    Widget wrap(double factor) => ZoomScope(
-          factor: factor,
-          devicePixelRatio: 1,
-          child: Builder(
-            builder: (context) {
-              ZoomScope.of(context);
-              builds++;
-              return const SizedBox();
-            },
-          ),
-        );
+  // Tested directly rather than by counting rebuilds: a widget test that
+  // re-pumps a fresh child rebuilds it on widget identity alone, so it cannot
+  // isolate the inherited dependency.
+  test('updateShouldNotify fires only when the factor or ratio changes', () {
+    const base = ZoomScope(factor: 1, devicePixelRatio: 1, child: SizedBox());
+    const sameValues =
+        ZoomScope(factor: 1, devicePixelRatio: 1, child: SizedBox());
+    const otherFactor =
+        ZoomScope(factor: 2, devicePixelRatio: 1, child: SizedBox());
+    const otherRatio =
+        ZoomScope(factor: 1, devicePixelRatio: 2, child: SizedBox());
 
-    final unchanged = wrap(1);
-    await tester.pumpWidget(unchanged);
-    expect(builds, 1);
-    await tester.pumpWidget(unchanged);
-    expect(builds, 1, reason: 'same factor must not rebuild dependents');
-    await tester.pumpWidget(wrap(2));
-    expect(builds, 2);
+    expect(base.updateShouldNotify(sameValues), isFalse);
+    expect(otherFactor.updateShouldNotify(base), isTrue);
+    expect(otherRatio.updateShouldNotify(base), isTrue);
   });
 }
