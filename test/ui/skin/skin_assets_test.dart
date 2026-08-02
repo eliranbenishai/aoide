@@ -82,6 +82,22 @@ void main() {
     }
   });
 
+  // Title-bar window bezels: minimize / close (baked glyphs) and the blank
+  // bezel shared by zoom-/zoom+ and mute, in idle + pressed. All 90x50.
+  const windowBezels = ['win_minimize', 'win_close', 'win_blank'];
+  for (final base in windowBezels) {
+    for (final state in const ['idle', 'pressed']) {
+      final name = '${base}_$state';
+      test('$name is 90x50', () {
+        final bytes =
+            File('assets/skin/graphite/controls/$name.png').readAsBytesSync();
+        final size = readPngSize(bytes);
+        expect(size.$1, 90);
+        expect(size.$2, 50);
+      });
+    }
+  }
+
   test('slider_thumb is a non-empty crop', () {
     final bytes =
         File('assets/skin/graphite/controls/slider_thumb.png').readAsBytesSync();

@@ -62,6 +62,22 @@ REPEAT_GLYPH = (14, 14, 118, 48)
 EQ_GLYPH = (14, 6, 100, 34)
 PL_GLYPH = (18, 6, 104, 34)
 
+# Title-bar window button bezels (mockup min / max / close). slice_mockup.py
+# blanks these three painted buttons on the FACE so code controls sit on clean
+# metal; here we crop the *pristine* mockup so the button's metal bezel itself
+# is real PNG art (not a code-painted bevel). Tramp's title order is
+# min / zoom- / zoom+ / close: minimize and close keep their mockup glyphs, and
+# the two zoom buttons reuse the minimize bezel with its bar cloned out (a clean
+# blank bezel) onto which the widget stamps a code +/- (the mockup has no zoom
+# art, and the maximize square is not a Tramp control). 90 x 50 each.
+WIN_MIN_BOX = (1360, 27, 1450, 77)
+WIN_CLOSE_BOX = (1545, 27, 1635, 77)
+# Minimize bar to clone out for the blank (zoom) bezel, and a clean metal patch
+# from immediately below it — both relative to WIN_MIN_BOX. A single-paste copy
+# from adjacent rows keeps the grain and bevel without tiling streaks.
+WIN_MIN_BAR = (24, 24, 66, 34)
+WIN_MIN_PATCH = (24, 35, 66, 45)
+
 # Equalizer band metal fader grip (Task 3).
 THUMB_BOX = (377, 728, 409, 773)  # 32 x 45
 
@@ -86,6 +102,22 @@ def press(idle):
         for x in range(w):
             sp[x, y] = (0, 0, 0, a)
     return Image.alpha_composite(pressed, shadow)
+
+
+def blank_glyph(crop, glyph_box, patch_box):
+    """Clone a clean metal `patch_box` over `glyph_box` (removes the glyph).
+
+    Keeps the button's own grain and bevel — only the painted glyph is covered,
+    exactly as slice_mockup.py blanks the face buttons.
+    """
+    out = crop.copy()
+    patch = out.crop(patch_box)
+    pw, ph = patch.size
+    l, t, r, b = glyph_box
+    for y in range(t, b, ph):
+        for x in range(l, r, pw):
+            out.paste(patch, (x, y))
+    return out
 
 
 def recolour(crop, glyph_box, target):
@@ -139,8 +171,21 @@ def main():
     save("pl_idle", pl)
     save("pl_active", recolour(pl, PL_GLYPH, PHOSPHOR))
 
+    win_min = im.crop(WIN_MIN_BOX)
+    save("win_minimize_idle", win_min)
+    save("win_minimize_pressed", press(win_min))
+
+    win_close = im.crop(WIN_CLOSE_BOX)
+    save("win_close_idle", win_close)
+    save("win_close_pressed", press(win_close))
+
+    win_blank = blank_glyph(win_min, WIN_MIN_BAR, WIN_MIN_PATCH)
+    save("win_blank_idle", win_blank)
+    save("win_blank_pressed", press(win_blank))
+
     save("slider_thumb", im.crop(THUMB_BOX))
 
+    print("window:", win_min.size, win_close.size, win_blank.size)
     print("transport:", {k: im.crop(v).size for k, v in TRANSPORT.items()})
     print("shuffle:", shuffle.size, "repeat:", repeat.size,
           "eq:", eq.size, "pl:", pl.size)

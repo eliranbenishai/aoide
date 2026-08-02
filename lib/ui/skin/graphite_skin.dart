@@ -41,6 +41,19 @@ abstract final class GraphiteSkin {
   static const transportPlayIdle = '$_controls/transport_play_idle.png';
   static const transportPlayPressed = '$_controls/transport_play_pressed.png';
 
+  // Title-bar window buttons, cropped from the pristine mockup so the metal
+  // bezel is real PNG art (slice_mockup.py blanks these on the face). 90x50.
+  // minimize / close keep their mockup glyphs; the two zoom buttons use the
+  // blank bezel (minimize with its bar cloned out) and the widget stamps a
+  // code +/- on top, since the mockup has no zoom art. The mute button reuses
+  // the same blank bezel with a speaker glyph stamped over it.
+  static const winMinimizeIdle = '$_controls/win_minimize_idle.png';
+  static const winMinimizePressed = '$_controls/win_minimize_pressed.png';
+  static const winCloseIdle = '$_controls/win_close_idle.png';
+  static const winClosePressed = '$_controls/win_close_pressed.png';
+  static const winBlankIdle = '$_controls/win_blank_idle.png';
+  static const winBlankPressed = '$_controls/win_blank_pressed.png';
+
   static const shuffleIdle = '$_controls/shuffle_idle.png';
   static const shuffleActive = '$_controls/shuffle_active.png';
   static const repeatIdle = '$_controls/repeat_idle.png';

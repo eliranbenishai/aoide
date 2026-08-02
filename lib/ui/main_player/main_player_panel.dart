@@ -9,7 +9,6 @@ import '../../playback/playback_controller.dart';
 import '../../theme/tramp_colors.dart';
 import '../../theme/tramp_metrics.dart';
 import '../../theme/tramp_text.dart';
-import '../chrome/chrome_button.dart';
 import '../chrome/lcd_text.dart';
 import '../chrome/spectrum_visualizer.dart';
 import '../chrome/tramp_mark.dart';
@@ -244,7 +243,8 @@ class _MainPlayerPanelState extends State<MainPlayerPanel> {
             top: 7,
             child: _WindowButton(
               buttonKey: const Key('window-minimize'),
-              glyph: TransportIcons.minimize(),
+              idleAsset: GraphiteSkin.winMinimizeIdle,
+              pressedAsset: GraphiteSkin.winMinimizePressed,
               semanticLabel: 'Minimize',
               onPressed: () => unawaited(windowManager.minimize()),
             ),
@@ -254,6 +254,8 @@ class _MainPlayerPanelState extends State<MainPlayerPanel> {
             top: 7,
             child: _WindowButton(
               buttonKey: const Key('window-zoom-out'),
+              idleAsset: GraphiteSkin.winBlankIdle,
+              pressedAsset: GraphiteSkin.winBlankPressed,
               glyph: const _SignGlyph(plus: false),
               semanticLabel: 'Zoom out',
               onPressed: widget.zoom.stepDown,
@@ -264,6 +266,8 @@ class _MainPlayerPanelState extends State<MainPlayerPanel> {
             top: 7,
             child: _WindowButton(
               buttonKey: const Key('window-zoom-in'),
+              idleAsset: GraphiteSkin.winBlankIdle,
+              pressedAsset: GraphiteSkin.winBlankPressed,
               glyph: const _SignGlyph(plus: true),
               semanticLabel: 'Zoom in',
               onPressed: widget.zoom.stepUp,
@@ -274,7 +278,8 @@ class _MainPlayerPanelState extends State<MainPlayerPanel> {
             top: 7,
             child: _WindowButton(
               buttonKey: const Key('window-close'),
-              glyph: TransportIcons.close(),
+              idleAsset: GraphiteSkin.winCloseIdle,
+              pressedAsset: GraphiteSkin.winClosePressed,
               semanticLabel: 'Close',
               onPressed: () => unawaited(windowManager.close()),
             ),
@@ -379,8 +384,8 @@ class _MainPlayerPanelState extends State<MainPlayerPanel> {
         ),
       ),
       Positioned(
-        left: 726,
-        top: 101,
+        left: 724,
+        top: 102,
         child: _MuteButton(playback: playback),
       ),
 
@@ -490,37 +495,47 @@ class _MarkButton extends StatelessWidget {
   }
 }
 
-/// A title-bar window control: a raised bevel with a code-drawn glyph.
+/// A title-bar window control: a PNG metal bezel with an optional glyph.
 ///
-/// The mockup only paints minimize / maximize / close, and Tramp replaces
-/// maximize with zoom- and zoom+; keeping all four on the shared [ChromeButton]
-/// bevel gives a consistent set where the two zoom glyphs have no source art.
+/// The bezel is real mockup art ([SkinButton] over a cropped sprite), never a
+/// code-painted bevel. Minimize and close carry their mockup glyphs baked into
+/// the sprite; zoom- / zoom+ ride the blank bezel and stamp a code [_SignGlyph]
+/// on top, since the mockup paints no zoom art (it had a maximize square that
+/// Tramp does not use).
 class _WindowButton extends StatelessWidget {
   const _WindowButton({
     required this.buttonKey,
-    required this.glyph,
+    required this.idleAsset,
+    required this.pressedAsset,
     required this.semanticLabel,
     required this.onPressed,
+    this.glyph,
   });
 
   final Key buttonKey;
-  final Widget glyph;
+  final String idleAsset;
+  final String pressedAsset;
   final String semanticLabel;
   final VoidCallback? onPressed;
+  final Widget? glyph;
 
   @override
   Widget build(BuildContext context) {
-    return ChromeButton.icon(
+    return SkinButton(
       key: buttonKey,
-      icon: glyph,
+      size: const Size(30, 22),
+      idleAsset: idleAsset,
+      pressedAsset: pressedAsset,
+      overlay: glyph,
       onPressed: onPressed,
       semanticLabel: semanticLabel,
-      size: const Size(30, 22),
     );
   }
 }
 
-/// Speaker glyph toggle over the face metal beside the volume meter.
+/// Mute toggle: the blank window bezel (PNG metal) with a speaker glyph stamped
+/// on top. The mockup carries no mute art, so the bezel is borrowed from the
+/// title-bar buttons and only the speaker itself is code-drawn.
 class _MuteButton extends StatelessWidget {
   const _MuteButton({required this.playback});
 
@@ -528,28 +543,17 @@ class _MuteButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: playback.muted ? 'Unmute' : 'Mute',
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          key: const Key('transport-mute'),
-          behavior: HitTestBehavior.opaque,
-          onTap: playback.toggleMute,
-          child: SizedBox(
-            width: 22,
-            height: 22,
-            child: Center(
-              child: TransportIcons.speaker(
-                colour:
-                    playback.muted ? TrampColors.labelDim : TrampColors.label,
-                muted: playback.muted,
-              ),
-            ),
-          ),
-        ),
+    return SkinButton(
+      key: const Key('transport-mute'),
+      size: const Size(26, 20),
+      idleAsset: GraphiteSkin.winBlankIdle,
+      pressedAsset: GraphiteSkin.winBlankPressed,
+      overlay: TransportIcons.speaker(
+        colour: playback.muted ? TrampColors.labelDim : TrampColors.label,
+        muted: playback.muted,
       ),
+      onPressed: playback.toggleMute,
+      semanticLabel: playback.muted ? 'Unmute' : 'Mute',
     );
   }
 }

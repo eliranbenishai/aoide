@@ -18,6 +18,7 @@ class SkinButton extends StatefulWidget {
     this.activeAsset,
     this.active = false,
     this.onPressed,
+    this.overlay,
     required this.semanticLabel,
   });
 
@@ -27,6 +28,10 @@ class SkinButton extends StatefulWidget {
   final String? activeAsset;
   final bool active;
   final VoidCallback? onPressed;
+
+  /// Optional widget painted centred on top of the sprite — for glyphs the
+  /// skin PNG cannot supply (e.g. the zoom +/- and the mute speaker).
+  final Widget? overlay;
   final String semanticLabel;
 
   bool get isEnabled => onPressed != null;
@@ -70,7 +75,15 @@ class _SkinButtonState extends State<SkinButton> {
           onTap: widget.onPressed,
           child: SizedBox.fromSize(
             size: widget.size,
-            child: SkinImage(asset: _asset, logicalSize: widget.size),
+            child: widget.overlay == null
+                ? SkinImage(asset: _asset, logicalSize: widget.size)
+                : Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      SkinImage(asset: _asset, logicalSize: widget.size),
+                      Center(child: widget.overlay!),
+                    ],
+                  ),
           ),
         ),
       ),
