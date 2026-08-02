@@ -13,7 +13,7 @@ Living design map of how Tramp is structured. Agents and humans update this when
 - Playlist-centric (M3U/M3U8); file associations for v1 audio + playlists; no media library in v1
 - Classic Winamp WSZ/bitmap skins, gapless, and crossfade: out of v1
 - Product spec target: `docs/tramp-v1-spec.md`
-- UI direction: scaled classic main player + matching playlist chrome (metal/LCD vector; see `docs/superpowers/specs/2026-08-01-classic-main-player-design.md`)
+- UI direction: graphite chrome redesign — fixed logical canvases (main 812×242, equalizer 812×206) with absolute placement, zoom at the root; see `docs/superpowers/specs/2026-08-02-graphite-chrome-redesign-design.md`
 
 ## System overview
 
@@ -50,8 +50,8 @@ flowchart TB
 
 | Area | Responsibility | Status |
 |------|----------------|--------|
-| App chrome / UI | `TrampShell`, `ClassicMainPlayer`, `PlaylistPanel`, `EqualizerPanel` (fixed 812×206 absolute canvas), `lib/ui/chrome/` (`ChromeButton`, `ChromeSlider`, `MetalPanel`, `SpectrumVisualizer`, `TrampLogo`, transport icons); frameless resize/drag via `window_manager`; keyboard shortcuts | Implemented |
-| Brand art | Master mark is `lib/ui/chrome/logo.svg` (declared as an asset), rendered by `TrampLogo` through `flutter_svg`. Chrome widgets other than the logo stay hand-drawn in Dart so they can react to state | Implemented |
+| App chrome / UI | `TrampShell` (wiring still catching up to redesign), `MainPlayerPanel` (fixed 812×242 absolute canvas), `PlaylistPanel`, `EqualizerPanel` (fixed 812×206 absolute canvas), `lib/ui/chrome/` (`ChromeButton`, `ChromeSlider`, `MetalPanel`, `TrampTitleBar`, `LcdText`, `SpectrumVisualizer`, `TrampMark`, `TrampLogo`, transport icons); frameless resize/drag via `window_manager`; keyboard shortcuts | Implemented (shell/app integration in progress) |
+| Brand art | Full colour badge is `lib/ui/chrome/logo.svg` via `TrampLogo` (app icon / splash / About). Compact title-bar mark is `TrampMark` (ring + headphones). Chrome widgets other than the logo stay hand-drawn in Dart so they can react to state | Implemented |
 | Playback | `PlayerEngine` seam, `PlaybackController`, `MediaKitPlayerEngine` (local files via media_kit/libmpv); shuffle/repeat/volume/mute/seek; `levelsStream` → `AudioLevels` (media_kit emits `synthetic: true` frames; `SpectrumVisualizer` subscribes directly, not via `notifyListeners`); `formatStream` → `AudioFormatInfo` (bitrate/sample rate/channels as controller state via `notifyListeners`) | Implemented |
 | Formats | MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus via media_kit | Implemented |
 | Playlist | Open/save M3U/M3U8, add/remove/reorder, play from selection, restore last playlist (`PlaylistController`, `M3uCodec`, `PlaylistStore`) | Implemented |
