@@ -118,6 +118,11 @@ void main() {
     expect(playback.muted, isTrue);
   });
 
+  testWidgets('panel contains no Icon widgets', (tester) async {
+    await pump(tester);
+    expect(find.byType(Icon), findsNothing);
+  });
+
   testWidgets('EQ and PL buttons request a region change', (tester) async {
     final requested = <LowerRegion>[];
     await pump(tester, onSelectRegion: requested.add);

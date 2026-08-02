@@ -35,6 +35,21 @@ abstract final class TransportIcons {
   static Widget eject({Color colour = defaultGlyphColour}) =>
       _paint(EjectPainter(colour: colour), const Size(13, 12));
 
+  static Widget minimize({Color colour = defaultGlyphColour}) =>
+      _paint(MinimizePainter(colour: colour), const Size(10, 10));
+
+  static Widget maximize({Color colour = defaultGlyphColour}) =>
+      _paint(MaximizePainter(colour: colour), const Size(10, 10));
+
+  static Widget close({Color colour = defaultGlyphColour}) =>
+      _paint(ClosePainter(colour: colour), const Size(10, 10));
+
+  static Widget speaker({
+    Color colour = defaultGlyphColour,
+    bool muted = false,
+  }) =>
+      _paint(SpeakerPainter(colour: colour, muted: muted), const Size(12, 12));
+
   static Widget _paint(CustomPainter painter, Size size) => SizedBox(
         width: size.width,
         height: size.height,
@@ -252,6 +267,128 @@ class EjectPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(EjectPainter old) => old.colour != colour;
+}
+
+/// Horizontal bar for the window minimize control.
+class MinimizePainter extends CustomPainter {
+  const MinimizePainter({required this.colour});
+
+  final Color colour;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = math.max(1.5, size.height * 0.15);
+    final y = size.height * 0.72;
+    canvas.drawLine(
+      Offset(size.width * 0.15, y),
+      Offset(size.width * 0.85, y),
+      _stroke(colour, stroke)..strokeCap = StrokeCap.square,
+    );
+  }
+
+  @override
+  bool shouldRepaint(MinimizePainter old) => old.colour != colour;
+}
+
+/// Square outline for the window maximize control.
+class MaximizePainter extends CustomPainter {
+  const MaximizePainter({required this.colour});
+
+  final Color colour;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = 1.5;
+    final inset = size.width * 0.15;
+    canvas.drawRect(
+      Rect.fromLTWH(
+        inset,
+        inset,
+        size.width - inset * 2,
+        size.height - inset * 2,
+      ),
+      _stroke(colour, stroke)..strokeJoin = StrokeJoin.miter,
+    );
+  }
+
+  @override
+  bool shouldRepaint(MaximizePainter old) => old.colour != colour;
+}
+
+/// Crossing diagonals for the window close control.
+class ClosePainter extends CustomPainter {
+  const ClosePainter({required this.colour});
+
+  final Color colour;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = 1.5;
+    final p = _stroke(colour, stroke)
+      ..strokeCap = StrokeCap.square
+      ..strokeJoin = StrokeJoin.miter;
+    final inset = size.width * 0.18;
+    canvas.drawLine(
+      Offset(inset, inset),
+      Offset(size.width - inset, size.height - inset),
+      p,
+    );
+    canvas.drawLine(
+      Offset(size.width - inset, inset),
+      Offset(inset, size.height - inset),
+      p,
+    );
+  }
+
+  @override
+  bool shouldRepaint(ClosePainter old) => old.colour != colour;
+}
+
+/// Speaker cone; when [muted], a slash crosses the glyph.
+class SpeakerPainter extends CustomPainter {
+  const SpeakerPainter({required this.colour, required this.muted});
+
+  final Color colour;
+  final bool muted;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final body = Path()
+      ..moveTo(size.width * 0.08, size.height * 0.35)
+      ..lineTo(size.width * 0.32, size.height * 0.35)
+      ..lineTo(size.width * 0.58, size.height * 0.12)
+      ..lineTo(size.width * 0.58, size.height * 0.88)
+      ..lineTo(size.width * 0.32, size.height * 0.65)
+      ..lineTo(size.width * 0.08, size.height * 0.65)
+      ..close();
+    canvas.drawPath(body, _fill(colour));
+
+    if (!muted) {
+      final wave = _stroke(colour, 1.4)..strokeCap = StrokeCap.round;
+      canvas.drawArc(
+        Rect.fromCenter(
+          center: Offset(size.width * 0.55, size.height / 2),
+          width: size.width * 0.55,
+          height: size.height * 0.55,
+        ),
+        -math.pi / 3,
+        2 * math.pi / 3,
+        false,
+        wave,
+      );
+    } else {
+      final slash = _stroke(colour, 1.5)..strokeCap = StrokeCap.square;
+      canvas.drawLine(
+        Offset(size.width * 0.12, size.height * 0.88),
+        Offset(size.width * 0.88, size.height * 0.12),
+        slash,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(SpeakerPainter old) =>
+      old.colour != colour || old.muted != muted;
 }
 
 /// Small downward chevron for dropdown buttons.

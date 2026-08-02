@@ -122,23 +122,23 @@ class _MainPlayerPanelState extends State<MainPlayerPanel> {
               size: const Size(27, 27),
             ),
             trailing: [
-              ChromeButton.label(
+              ChromeButton.icon(
                 key: const Key('window-minimize'),
-                text: '—',
+                icon: TransportIcons.minimize(),
                 onPressed: () => unawaited(windowManager.minimize()),
                 semanticLabel: 'Minimize',
                 size: const Size(27, 22),
               ),
-              ChromeButton.label(
+              ChromeButton.icon(
                 key: const Key('window-maximize'),
-                text: '□',
+                icon: TransportIcons.maximize(),
                 onPressed: () => unawaited(_toggleMaximize()),
                 semanticLabel: 'Maximize',
                 size: const Size(27, 22),
               ),
-              ChromeButton.label(
+              ChromeButton.icon(
                 key: const Key('window-close'),
-                text: '✕',
+                icon: TransportIcons.close(),
                 onPressed: () => unawaited(windowManager.close()),
                 semanticLabel: 'Close',
                 size: const Size(27, 22),
@@ -308,12 +308,11 @@ class _MainPlayerPanelState extends State<MainPlayerPanel> {
           top: 104,
           child: ChromeButton.icon(
             key: const Key('transport-mute'),
-            icon: Icon(
-              playback.muted ? Icons.volume_off : Icons.volume_up,
-              size: 14,
-              color: playback.muted
+            icon: TransportIcons.speaker(
+              colour: playback.muted
                   ? TrampColors.labelDim
                   : TrampColors.label,
+              muted: playback.muted,
             ),
             onPressed: playback.toggleMute,
             semanticLabel: playback.muted ? 'Unmute' : 'Mute',

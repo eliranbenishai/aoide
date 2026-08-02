@@ -42,6 +42,11 @@ void main() {
       'repeat': TransportIcons.repeat(),
       'repeatOne': TransportIcons.repeat(one: true),
       'eject': TransportIcons.eject(),
+      'minimize': TransportIcons.minimize(),
+      'maximize': TransportIcons.maximize(),
+      'close': TransportIcons.close(),
+      'speaker': TransportIcons.speaker(),
+      'speakerMuted': TransportIcons.speaker(muted: true),
     };
 
     for (final entry in glyphs.entries) {
@@ -73,11 +78,25 @@ void main() {
     expect(one, greaterThan(all));
   });
 
+  test('muted speaker paints a different number of pixels than unmuted',
+      () async {
+    const size = Size(12, 12);
+    final unmuted = await markedPixelCount(
+      const SpeakerPainter(colour: TrampColors.label, muted: false),
+      size,
+    );
+    final muted = await markedPixelCount(
+      const SpeakerPainter(colour: TrampColors.label, muted: true),
+      size,
+    );
+    expect(muted, isNot(unmuted));
+  });
+
   // Tramp's chrome mark lives in `TrampMark` (lib/ui/chrome/tramp_mark.dart).
   // `TrampLogo` is the full badge for app icon, splash and About. The glyph set
   // must not carry a brand mark of its own — the reference mockup's lightning
   // bolt is Winamp's logo, not a generic icon.
-  test('the glyph set is exactly the eight transport factories', () {
+  test('the glyph set is the transport and chrome window factories', () {
     const expected = {
       'prev',
       'play',
@@ -87,6 +106,10 @@ void main() {
       'shuffle',
       'repeat',
       'eject',
+      'minimize',
+      'maximize',
+      'close',
+      'speaker',
     };
     final factories = <String, Widget Function()>{
       'prev': TransportIcons.prev,
@@ -97,6 +120,10 @@ void main() {
       'shuffle': TransportIcons.shuffle,
       'repeat': TransportIcons.repeat,
       'eject': TransportIcons.eject,
+      'minimize': TransportIcons.minimize,
+      'maximize': TransportIcons.maximize,
+      'close': TransportIcons.close,
+      'speaker': TransportIcons.speaker,
     };
     expect(factories.keys.toSet(), expected);
     for (final build in factories.values) {
