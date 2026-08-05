@@ -63,6 +63,9 @@ class PlaybackController extends ChangeNotifier {
   List<int> _shuffledOrder = [];
   int? _playingIndex;
   String? _playingPath;
+  /// False after [stop]: media_kit unloads the file, so the next play must
+  /// [playIndex] (re-open) rather than call [PlayerEngine.play] alone.
+  bool _mediaOpen = false;
   int _previousTrackCount = 0;
   AudioFormatInfo _formatInfo = AudioFormatInfo.unknown;
 
@@ -100,11 +103,7 @@ class PlaybackController extends ChangeNotifier {
       if (selected != null) {
         await playIndex(selected);
       } else if (_playingIndex != null) {
-        if (_playing) {
-          await _engine.pause();
-        } else {
-          await _engine.play();
-        }
+        await _pauseOrResumeCurrent();
       } else {
         final tracks = _playlist.playlist.tracks;
         if (tracks.isNotEmpty) {
@@ -114,15 +113,14 @@ class PlaybackController extends ChangeNotifier {
       return;
     }
 
-    if (_playing) {
-      await _engine.pause();
-    } else {
-      await _engine.play();
-    }
+    await _pauseOrResumeCurrent();
   }
 
   Future<void> stop() async {
     await _engine.stop();
+    _mediaOpen = false;
+    _position = Duration.zero;
+    notifyListeners();
   }
 
   Future<void> next() async {
@@ -161,8 +159,23 @@ class PlaybackController extends ChangeNotifier {
     _playlist.select(index);
     final track = tracks[index];
     await _engine.open(track);
+    _mediaOpen = true;
     await _engine.play();
     notifyListeners();
+  }
+
+  Future<void> _pauseOrResumeCurrent() async {
+    final index = _playingIndex;
+    if (index == null) return;
+    if (_playing) {
+      await _engine.pause();
+      return;
+    }
+    if (!_mediaOpen) {
+      await playIndex(index);
+      return;
+    }
+    await _engine.play();
   }
 
   Future<void> seek(Duration position) async {
@@ -242,10 +255,12 @@ class PlaybackController extends ChangeNotifier {
           return;
         }
         _playingIndex = null;
+        _mediaOpen = false;
         unawaited(_engine.stop());
       } else {
         _playingIndex = null;
         _playingPath = null;
+        _mediaOpen = false;
         unawaited(_engine.stop());
       }
     }

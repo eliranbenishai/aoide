@@ -121,6 +121,7 @@ void main() {
     playlist.clear();
     await pump(tester);
     expect(find.text('No tracks'), findsOneWidget);
+    expect(find.textContaining('Drop audio'), findsOneWidget);
   });
 
   testWidgets('no light surface survives anywhere in the tree',

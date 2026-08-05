@@ -11,10 +11,16 @@ class FakePlayerEngine implements PlayerEngine {
   final Duration trackDuration;
 
   String? lastOpenedPath;
+  int openCount = 0;
+
+  /// Matches media_kit: [stop] unloads media; [play] is a no-op until [open].
+  bool get hasMedia => _hasMedia;
+  bool get isPlaying => _playing;
 
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
   bool _playing = false;
+  bool _hasMedia = false;
 
   final _positionController = StreamController<Duration>.broadcast();
   final _durationController = StreamController<Duration>.broadcast();
@@ -73,6 +79,8 @@ class FakePlayerEngine implements PlayerEngine {
   @override
   Future<void> open(Track track) async {
     lastOpenedPath = track.path;
+    openCount++;
+    _hasMedia = true;
     _position = Duration.zero;
     _duration = track.duration ?? trackDuration;
     _positionController.add(_position);
@@ -85,6 +93,7 @@ class FakePlayerEngine implements PlayerEngine {
 
   @override
   Future<void> play() async {
+    if (!_hasMedia) return;
     _playing = true;
     _playingController.add(_playing);
   }
@@ -98,9 +107,13 @@ class FakePlayerEngine implements PlayerEngine {
   @override
   Future<void> stop() async {
     _playing = false;
+    _hasMedia = false;
+    lastOpenedPath = null;
     _position = Duration.zero;
+    _duration = Duration.zero;
     _playingController.add(_playing);
     _positionController.add(_position);
+    _durationController.add(_duration);
   }
 
   @override

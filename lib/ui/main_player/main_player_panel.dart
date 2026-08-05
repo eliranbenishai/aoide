@@ -402,6 +402,30 @@ class _MainPlayerPanelState extends State<MainPlayerPanel> {
         ),
       ),
 
+      // VOL caption (code overlay until face art lands — ASSETS_NEEDED #3).
+      // The L/R wells are the volume slider; this label stops them reading as VU.
+      const Positioned(
+        left: 603,
+        top: 80,
+        width: 119,
+        height: 16,
+        child: IgnorePointer(
+          child: Center(
+            child: Text(
+              'VOL',
+              style: TextStyle(
+                fontFamily: 'BarlowSemiCondensed',
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+                height: 1,
+                letterSpacing: 1.2,
+                color: TrampColors.labelDim,
+              ),
+            ),
+          ),
+        ),
+      ),
+
       // The L/R meter chrome is the volume slider: two live segmented phosphor
       // bars fill to the volume (both to 0 when muted), a metal grip rides the
       // gap between them, and a horizontal drag sets the volume.
@@ -455,13 +479,18 @@ class _MainPlayerPanelState extends State<MainPlayerPanel> {
     );
   }
 
-  /// Mute rides the small bezel right of OPEN (the mockup's old bolt slot) as a
-  /// practical control: a speaker glyph over the face's own metal bezel, with a
-  /// slash when muted. Kept off the L/R meters so those read like the mockup.
+  /// Mute uses the face's empty OPEN-adjacent bezel (already in main_face.png).
+  ///
+  /// Do **not** stack a second mute bezel sprite here — misaligned PNG bezels
+  /// painted a black block over OPEN's right edge (see visual QA baseline).
+  /// Designer mute sprites: `docs/design/ASSETS_NEEDED.md` — only swap in when
+  /// they are pixel-aligned to this well; until then the glyph is code-drawn.
   Widget _mute() {
+    // Face mute well is the right cell of the OPEN band (~logical 736–798).
+    // Inset so the glyph isn't glued to the outer frame (visual QA crop).
     return Positioned(
-      left: 734,
-      top: 192,
+      left: 740,
+      top: 193,
       child: Semantics(
         button: true,
         label: playback.muted ? 'Unmute' : 'Mute',
@@ -472,12 +501,14 @@ class _MainPlayerPanelState extends State<MainPlayerPanel> {
             behavior: HitTestBehavior.opaque,
             onTap: playback.toggleMute,
             child: SizedBox(
-              width: 66,
-              height: 26,
+              width: 54,
+              height: 24,
               child: Center(
                 child: TransportIcons.speaker(
-                  colour:
-                      playback.muted ? TrampColors.labelDim : TrampColors.label,
+                  size: const Size(14, 14),
+                  colour: playback.muted
+                      ? TrampColors.labelDim
+                      : TrampColors.label,
                   muted: playback.muted,
                 ),
               ),

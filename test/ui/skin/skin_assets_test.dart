@@ -115,7 +115,7 @@ void main() {
   });
 
   // Title-bar window bezels: minimize / close (baked glyphs) and the blank
-  // bezel shared by zoom-/zoom+ and mute, in idle + pressed. All 90x50.
+  // bezel shared by zoom-/zoom+, in idle + pressed. All 90x50.
   const windowBezels = ['win_minimize', 'win_close', 'win_blank'];
   for (final base in windowBezels) {
     for (final state in const ['idle', 'pressed']) {
@@ -129,6 +129,37 @@ void main() {
       });
     }
   }
+
+  // Mute bezel sprites (OPEN-adjacent well + baked speaker). 130x50.
+  for (final state in const ['idle', 'muted', 'pressed']) {
+    final name = 'mute_$state';
+    test('$name is 130x50', () {
+      final bytes =
+          File('assets/skin/graphite/controls/$name.png').readAsBytesSync();
+      final size = readPngSize(bytes);
+      expect(size.$1, 130);
+      expect(size.$2, 50);
+    });
+  }
+
+  // Playlist toolbar label buttons (placeholders). 2× logical sizes.
+  const playlistToolbar = {
+    'pl_load_idle': (108, 44),
+    'pl_load_pressed': (108, 44),
+    'pl_save_idle': (108, 44),
+    'pl_save_pressed': (108, 44),
+    'pl_add_idle': (96, 44),
+    'pl_add_pressed': (96, 44),
+  };
+  playlistToolbar.forEach((name, dims) {
+    test('$name is ${dims.$1}x${dims.$2}', () {
+      final bytes =
+          File('assets/skin/graphite/controls/$name.png').readAsBytesSync();
+      final size = readPngSize(bytes);
+      expect(size.$1, dims.$1);
+      expect(size.$2, dims.$2);
+    });
+  });
 
   // Playlist 9-slice regions (Task 8), authored at 2x (logical = px / 2). The
   // 24 px corners match the PlaylistSlices border of 12 logical; edges tile

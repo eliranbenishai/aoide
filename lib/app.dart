@@ -19,12 +19,16 @@ import 'playlist/playlist_controller.dart';
 import 'playlist/playlist_store.dart';
 import 'theme/tramp_metrics.dart';
 import 'theme/tramp_theme.dart';
+import 'ui/chrome/about_dialog.dart';
 import 'ui/equalizer/equalizer_panel.dart';
 import 'ui/main_player/main_player_panel.dart';
 import 'ui/playlist_panel.dart';
 import 'ui/tramp_shell.dart';
 import 'ui/window_layout.dart';
 import 'ui/zoom/zoom_controller.dart';
+
+/// Matches `pubspec.yaml` `version` (semver before `+build`).
+const String trampAppVersion = '0.1.0';
 
 class TrampApp extends StatefulWidget {
   const TrampApp({
@@ -331,6 +335,7 @@ class _TrampAppState extends State<TrampApp> with WindowListener {
         PopupMenuItem(value: 'playlist', child: Text('Open playlist…')),
         PopupMenuItem(value: 'save', child: Text('Save playlist…')),
         PopupMenuDivider(),
+        PopupMenuItem(value: 'about', child: Text('About Tramp…')),
         PopupMenuItem(value: 'quit', child: Text('Exit')),
       ],
     ).then((choice) async {
@@ -343,6 +348,10 @@ class _TrampAppState extends State<TrampApp> with WindowListener {
           await _openPlaylist();
         case 'save':
           await _savePlaylist();
+        case 'about':
+          if (context.mounted) {
+            await showTrampAboutDialog(context, version: trampAppVersion);
+          }
         case 'quit':
           await windowManager.close();
       }

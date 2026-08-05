@@ -8,9 +8,10 @@ import '../../theme/tramp_colors.dart';
 ///
 /// The full logo — [TrampLogo] in `logo.dart`, a colour illustration of a pin-up
 /// in headphones inside a ring badge — is the brand's primary asset and belongs
-/// anywhere it has room: app icon, splash, About. It does not work here. At the
-/// 19 logical pixels a title-bar button allows it collapses into a smudge, and
-/// its skin tones read as a photograph pasted onto a metal panel.
+/// anywhere it has room: app icon, splash, and the About dialog opened from this
+/// menu. It does not work here. At the 19 logical pixels a title-bar button
+/// allows it collapses into a smudge, and its skin tones read as a photograph
+/// pasted onto a metal panel.
 ///
 /// So this is a reduction of the same idea to what survives that size: the ring
 /// badge and the headphones, one colour, tinted by the caller like every other

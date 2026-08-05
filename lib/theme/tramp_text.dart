@@ -8,7 +8,7 @@ abstract final class TrampText {
   static const _chrome = 'BarlowSemiCondensed';
   static const _mono = 'IBMPlexMono';
 
-  /// Chrome button labels: the playlist toolbar's OPEN, SAVE, ADD.
+  /// Chrome button labels: the playlist toolbar's LOAD, SAVE, ADD.
   static const chromeLabel = TextStyle(
     fontFamily: _chrome,
     fontWeight: FontWeight.w600,

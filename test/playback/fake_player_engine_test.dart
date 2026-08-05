@@ -15,4 +15,21 @@ void main() {
     await pending;
     await engine.dispose();
   });
+
+  test('play after stop is a no-op until open', () async {
+    final engine = FakePlayerEngine();
+    await engine.open(const Track(path: '/a.mp3', title: 'A'));
+    await engine.play();
+    expect(engine.isPlaying, isTrue);
+    await engine.stop();
+    expect(engine.hasMedia, isFalse);
+
+    await engine.play();
+    expect(engine.isPlaying, isFalse);
+
+    await engine.open(const Track(path: '/a.mp3', title: 'A'));
+    await engine.play();
+    expect(engine.isPlaying, isTrue);
+    await engine.dispose();
+  });
 }

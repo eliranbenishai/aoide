@@ -5,9 +5,11 @@ import '../playback/playback_controller.dart';
 import '../playlist/playlist_controller.dart';
 import '../theme/tramp_colors.dart';
 import '../theme/tramp_text.dart';
-import 'chrome/chrome_button.dart';
+import 'chrome/tramp_mark.dart';
 import 'chrome/transport_icons.dart';
+import 'skin/graphite_skin.dart';
 import 'skin/nine_slice_skin.dart';
+import 'skin/skin_button.dart';
 import 'zoom/zoom_scope.dart';
 
 String formatTrackDuration(Duration? duration) {
@@ -60,9 +62,7 @@ class PlaylistPanel extends StatelessWidget {
               builder: (context, _) {
                 final tracks = playlist.playlist.tracks;
                 if (tracks.isEmpty) {
-                  return Center(
-                    child: Text('No tracks', style: TrampText.lcdDim),
-                  );
+                  return const _EmptyPlaylist();
                 }
 
                 return ReorderableListView.builder(
@@ -101,30 +101,75 @@ class _PlaylistToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
       child: Row(
         children: [
-          ChromeButton(
+          SkinButton(
             key: const Key('playlist-open'),
-            text: 'OPEN',
+            size: const Size(54, 22),
+            idleAsset: GraphiteSkin.plLoadIdle,
+            pressedAsset: GraphiteSkin.plLoadPressed,
             onPressed: onOpen,
-            size: const Size(54, 22),
+            semanticLabel: 'Load playlist',
           ),
-          const SizedBox(width: 5),
-          ChromeButton(
+          const SizedBox(width: 6),
+          SkinButton(
             key: const Key('playlist-save'),
-            text: 'SAVE',
-            onPressed: onSave,
             size: const Size(54, 22),
+            idleAsset: GraphiteSkin.plSaveIdle,
+            pressedAsset: GraphiteSkin.plSavePressed,
+            onPressed: onSave,
+            semanticLabel: 'Save playlist',
           ),
-          const SizedBox(width: 5),
-          ChromeButton(
+          const SizedBox(width: 6),
+          SkinButton(
             key: const Key('playlist-add'),
-            text: 'ADD',
-            onPressed: onAddFiles,
             size: const Size(48, 22),
+            idleAsset: GraphiteSkin.plAddIdle,
+            pressedAsset: GraphiteSkin.plAddPressed,
+            onPressed: onAddFiles,
+            semanticLabel: 'Add files',
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Empty well: brand mark + short cue, not a lonely orphan label.
+class _EmptyPlaylist extends StatelessWidget {
+  const _EmptyPlaylist();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TrampMark(size: 36, colour: TrampColors.labelDim.withValues(alpha: 0.55)),
+            const SizedBox(height: 14),
+            Text(
+              'No tracks',
+              style: TrampText.lcd.copyWith(
+                color: TrampColors.labelDim,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'OPEN files on the main player, or LOAD / ADD here.\n'
+              'Drop audio or an M3U onto the window.',
+              textAlign: TextAlign.center,
+              style: TrampText.lcd.copyWith(
+                color: TrampColors.labelDim.withValues(alpha: 0.7),
+                fontSize: 10,
+                height: 1.35,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

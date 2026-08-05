@@ -4,14 +4,10 @@ import '../../theme/tramp_colors.dart';
 import '../../theme/tramp_text.dart';
 import 'metal_panel.dart';
 
-/// A raised graphite label button — the one painted control left.
+/// A raised graphite label button (painted surface).
 ///
-/// Every other control wears skin art (see `SkinButton`). The playlist
-/// toolbar's OPEN/SAVE/ADD buttons have no sprites in the delivered skin
-/// pack — the skin design never specced playlist button art — so they keep
-/// the pre-skin raised/pressed surface recipes from `TrampSurfaces`. If
-/// playlist button sprites are ever authored, delete this widget and switch
-/// the toolbar to `SkinButton`.
+/// Playlist toolbar LOAD/SAVE/ADD now use [SkinButton] sprites. Keep this for
+/// any remaining coded label controls and for unit tests of the surface recipe.
 class ChromeButton extends StatefulWidget {
   const ChromeButton({
     super.key,

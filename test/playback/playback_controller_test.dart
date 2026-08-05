@@ -85,6 +85,20 @@ void main() {
     expect(engine.lastOpenedPath, '/b.mp3');
   });
 
+  test('playPause re-opens after stop', () async {
+    await playback.playIndex(1);
+    expect(engine.openCount, 1);
+    await playback.stop();
+    expect(playback.playing, isFalse);
+    expect(engine.hasMedia, isFalse);
+
+    await playback.playPause();
+    expect(playback.playing, isTrue);
+    expect(playback.currentTrack?.path, '/b.mp3');
+    expect(engine.lastOpenedPath, '/b.mp3');
+    expect(engine.openCount, 2);
+  });
+
   test('removing playing track advances to next remaining', () async {
     await playback.playIndex(1);
     playlist.removeAt(1);

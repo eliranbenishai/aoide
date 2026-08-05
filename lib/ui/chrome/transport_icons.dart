@@ -16,8 +16,9 @@ abstract final class TransportIcons {
   static Widget speaker({
     Color colour = defaultGlyphColour,
     bool muted = false,
+    Size size = const Size(12, 12),
   }) =>
-      _paint(SpeakerPainter(colour: colour, muted: muted), const Size(12, 12));
+      _paint(SpeakerPainter(colour: colour, muted: muted), size);
 
   static Widget dragHandle({Color colour = defaultGlyphColour}) =>
       _paint(DragHandlePainter(colour: colour), const Size(12, 10));

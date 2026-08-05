@@ -23,8 +23,10 @@ class MediaKitPlayerEngine implements PlayerEngine {
     });
     _levelsTimer = Timer.periodic(const Duration(milliseconds: 33), (_) {
       if (_levels.isClosed) return;
+      // Synthetic bars only while media is loaded and playing — never after
+      // stop (media unloaded) or while paused.
       _levels.add(
-        _isPlaying
+        _isPlaying && _hasMedia
             ? AudioLevels.synthesised(
                 intensity: _currentVolume,
                 seed: _levelsSeed++,
@@ -56,6 +58,7 @@ class MediaKitPlayerEngine implements PlayerEngine {
   Timer? _levelsTimer;
   int _levelsSeed = 0;
   bool _isPlaying = false;
+  bool _hasMedia = false;
   double _currentVolume = 1;
   int? _sampleRateHz;
   int? _channels;
@@ -97,6 +100,7 @@ class MediaKitPlayerEngine implements PlayerEngine {
     _bitrateKbps = null;
     _emitFormat();
     await _player.open(Media(track.path), play: false);
+    _hasMedia = true;
     unawaited(_tryEmitMetadata(track));
   }
 
@@ -107,7 +111,14 @@ class MediaKitPlayerEngine implements PlayerEngine {
   Future<void> pause() => _player.pause();
 
   @override
-  Future<void> stop() => _player.stop();
+  Future<void> stop() async {
+    _hasMedia = false;
+    _isPlaying = false;
+    if (!_levels.isClosed) {
+      _levels.add(AudioLevels.silent);
+    }
+    await _player.stop();
+  }
 
   @override
   Future<void> seek(Duration position) => _player.seek(position);
