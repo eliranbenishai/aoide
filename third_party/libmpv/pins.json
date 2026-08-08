@@ -1,0 +1,22 @@
+{
+  "windows": {
+    "x86_64": {
+      "archive": "mpv-dev-x86_64-20260808-git-dd5d17d328.7z",
+      "url": "https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20260808/mpv-dev-x86_64-20260808-git-dd5d17d328.7z",
+      "archiveSha256": "8D87D569FE4F18D3E490AB6D82FA7B9610C9411A270EABAD107167520891F1B1",
+      "archiveMd5": "47B12D8477E27FC6F1ABC8D2D068A7E8",
+      "dll": "libmpv-2.dll",
+      "dllSha256": "7079EBFBA8459573A45279F2CC23FEB6B228B47C43821CF0620FA5EFF9AE1CA1",
+      "notes": "Full shinchiro winbuild (filters enabled). Not the media_kit slim audio build."
+    }
+  },
+  "macos": {
+    "universal": {
+      "url": "https://github.com/media-kit/libmpv-darwin-build/releases/download/v0.6.0/libmpv-xcframeworks_v0.6.0_macos-universal-audio-full.tar.gz",
+      "notes": "Prefer audio-full over media_kit's audio-default. Verify SHA256 before pin update; replace Frameworks after fetch."
+    }
+  },
+  "linux": {
+    "notes": "Prefer distro full libmpv (filters present). Optional: place libmpv.so* under third_party/libmpv/linux/x86_64 for bundling."
+  }
+}

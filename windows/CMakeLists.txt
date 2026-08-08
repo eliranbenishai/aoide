@@ -57,6 +57,24 @@ add_subdirectory("runner")
 # them to the application.
 include(flutter/generated_plugins.cmake)
 
+# Prefer Tramp's full libmpv over media_kit_libs_windows_audio's slim DLL.
+# Fetch with: powershell -File tool/fetch_full_libmpv.ps1
+set(TRAMP_FULL_LIBMPV
+  "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/libmpv/windows/x86_64/libmpv-2.dll")
+if(NOT EXISTS "${TRAMP_FULL_LIBMPV}")
+  message(FATAL_ERROR
+    "Full libmpv missing at ${TRAMP_FULL_LIBMPV}. "
+    "Run: powershell -ExecutionPolicy Bypass -File tool/fetch_full_libmpv.ps1")
+endif()
+set(_TRAMP_PLUGIN_LIBS "")
+foreach(_lib ${PLUGIN_BUNDLED_LIBRARIES})
+  if(NOT "${_lib}" MATCHES "libmpv-2\\.dll$")
+    list(APPEND _TRAMP_PLUGIN_LIBS "${_lib}")
+  endif()
+endforeach()
+list(APPEND _TRAMP_PLUGIN_LIBS "${TRAMP_FULL_LIBMPV}")
+set(PLUGIN_BUNDLED_LIBRARIES ${_TRAMP_PLUGIN_LIBS})
+message(STATUS "Tramp bundling full libmpv: ${TRAMP_FULL_LIBMPV}")
 
 # === Installation ===
 # Support files are copied into place next to the executable, so that it can

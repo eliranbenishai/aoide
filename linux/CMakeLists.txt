@@ -74,6 +74,19 @@ set_target_properties(${BINARY_NAME}
 # them to the application.
 include(flutter/generated_plugins.cmake)
 
+# Optional: bundle a full libmpv from third_party (see third_party/libmpv/README.md).
+# media_kit_libs_linux normally uses the system libmpv; when staged libs exist,
+# install them into the relocatable bundle so the app does not depend on slim
+# copies if a future plugin starts shipping them.
+set(TRAMP_FULL_LIBMPV_DIR
+  "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/libmpv/linux/x86_64")
+file(GLOB TRAMP_FULL_LIBMPV_LIBS "${TRAMP_FULL_LIBMPV_DIR}/libmpv.so*")
+if(TRAMP_FULL_LIBMPV_LIBS)
+  message(STATUS "Tramp bundling full libmpv from ${TRAMP_FULL_LIBMPV_DIR}")
+else()
+  message(STATUS
+    "Tramp: no third_party libmpv for Linux; using system libmpv (must be full).")
+endif()
 
 # === Installation ===
 # By default, "installing" just makes a relocatable bundle in the build
@@ -105,6 +118,12 @@ foreach(bundled_library ${PLUGIN_BUNDLED_LIBRARIES})
     DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endforeach(bundled_library)
+
+if(TRAMP_FULL_LIBMPV_LIBS)
+  install(FILES ${TRAMP_FULL_LIBMPV_LIBS}
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+endif()
 
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/linux/")
