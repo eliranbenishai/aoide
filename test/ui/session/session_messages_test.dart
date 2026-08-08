@@ -131,9 +131,14 @@ void main() {
       expect(readyDecoded.role, WindowRole.playlist);
     });
 
-    test('EqGain / PlaylistOp / ZoomStep / AlwaysOnTop round-trip', () {
+    test('Eq / shade / PlaylistOp / ZoomStep / AlwaysOnTop round-trip', () {
       final cases = <SessionCommand>[
         const EqGainCommand(band: 3, gain: -4.5),
+        const EqPreampCommand(2.5),
+        const EqEnabledCommand(true),
+        const EqAutoCommand(true),
+        const ApplyPresetCommand('Rock'),
+        const SetShadedCommand(window: WindowId.equalizer, shaded: true),
         const PlaylistOpCommand('playIndex', index: 2),
         const ZoomStepCommand(1),
         const AlwaysOnTopCommand(true),

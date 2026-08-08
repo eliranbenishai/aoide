@@ -316,6 +316,16 @@ sealed class SessionCommand {
         return ToggleWindowCommand.fromPayload(payload);
       case EqGainCommand.typeName:
         return EqGainCommand.fromPayload(payload);
+      case EqPreampCommand.typeName:
+        return EqPreampCommand.fromPayload(payload);
+      case EqEnabledCommand.typeName:
+        return EqEnabledCommand.fromPayload(payload);
+      case EqAutoCommand.typeName:
+        return EqAutoCommand.fromPayload(payload);
+      case ApplyPresetCommand.typeName:
+        return ApplyPresetCommand.fromPayload(payload);
+      case SetShadedCommand.typeName:
+        return SetShadedCommand.fromPayload(payload);
       case PlaylistOpCommand.typeName:
         return PlaylistOpCommand.fromPayload(payload);
       case ZoomStepCommand.typeName:
@@ -456,6 +466,7 @@ final class ToggleWindowCommand extends SessionCommand {
   }
 }
 
+/// SetEqGain — band index `0..9` (see [EqualizerSettings.bandFrequencies]).
 final class EqGainCommand extends SessionCommand {
   const EqGainCommand({required this.band, required this.gain});
 
@@ -477,6 +488,117 @@ final class EqGainCommand extends SessionCommand {
       throw const FormatException('EqGainCommand');
     }
     return EqGainCommand(band: band.toInt(), gain: gain.toDouble());
+  }
+}
+
+/// SetPreamp — ±[EqualizerSettings.gainLimit] dB.
+final class EqPreampCommand extends SessionCommand {
+  const EqPreampCommand(this.preamp);
+
+  static const typeName = 'eq_preamp';
+
+  final double preamp;
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {'preamp': preamp};
+
+  factory EqPreampCommand.fromPayload(Map<String, dynamic> json) {
+    final preamp = json['preamp'];
+    if (preamp is! num) throw const FormatException('EqPreampCommand.preamp');
+    return EqPreampCommand(preamp.toDouble());
+  }
+}
+
+/// SetEqEnabled.
+final class EqEnabledCommand extends SessionCommand {
+  const EqEnabledCommand(this.enabled);
+
+  static const typeName = 'eq_enabled';
+
+  final bool enabled;
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {'enabled': enabled};
+
+  factory EqEnabledCommand.fromPayload(Map<String, dynamic> json) =>
+      EqEnabledCommand(json['enabled'] == true);
+}
+
+/// SetEqAuto.
+final class EqAutoCommand extends SessionCommand {
+  const EqAutoCommand(this.enabled);
+
+  static const typeName = 'eq_auto';
+
+  final bool enabled;
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {'enabled': enabled};
+
+  factory EqAutoCommand.fromPayload(Map<String, dynamic> json) =>
+      EqAutoCommand(json['enabled'] == true);
+}
+
+/// ApplyPreset — name from [EqualizerPresets.builtIn].
+final class ApplyPresetCommand extends SessionCommand {
+  const ApplyPresetCommand(this.name);
+
+  static const typeName = 'apply_preset';
+
+  final String name;
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {'name': name};
+
+  factory ApplyPresetCommand.fromPayload(Map<String, dynamic> json) {
+    final name = json['name'];
+    if (name is! String || name.isEmpty) {
+      throw const FormatException('ApplyPresetCommand.name');
+    }
+    return ApplyPresetCommand(name);
+  }
+}
+
+/// Windowshade collapse / expand for EQ or playlist.
+final class SetShadedCommand extends SessionCommand {
+  const SetShadedCommand({required this.window, required this.shaded});
+
+  static const typeName = 'set_shaded';
+
+  final WindowId window;
+  final bool shaded;
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'window': window.name,
+        'shaded': shaded,
+      };
+
+  factory SetShadedCommand.fromPayload(Map<String, dynamic> json) {
+    final name = json['window'];
+    final window = WindowId.values.asNameMap()[name];
+    if (window == null || window == WindowId.main) {
+      throw FormatException('SetShadedCommand.window: $name');
+    }
+    return SetShadedCommand(
+      window: window,
+      shaded: json['shaded'] == true,
+    );
   }
 }
 

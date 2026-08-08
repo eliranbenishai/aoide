@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../domain/equalizer_settings.dart';
 import '../../domain/tramp_settings.dart';
 import '../../theme/mockup_tokens.dart';
+import '../windows/equalizer_window.dart';
 import 'session_bus.dart';
 import 'session_messages.dart';
 
-/// Secondary-engine shell (EQ / playlist) until Tasks 6–8 mount real chrome.
+/// Secondary-engine shell (EQ / playlist). EQ mounts mockup chrome (Task 8).
 class SessionClientApp extends StatefulWidget {
   const SessionClientApp({
     super.key,
@@ -29,6 +31,10 @@ class _SessionClientAppState extends State<SessionClientApp>
     with WindowListener {
   final _bus = SessionBus();
   String? _lastEventType;
+
+  EqualizerSettings _eqSettings = EqualizerSettings.flat;
+  bool _eqShaded = false;
+  final List<String> _presetNames = EqualizerPresets.builtIn.keys.toList();
 
   @override
   void initState() {
@@ -64,9 +70,7 @@ class _SessionClientAppState extends State<SessionClientApp>
       case SessionBus.eventMethod:
         final envelope = SessionEvent.decodeEnvelope(call.arguments);
         final event = SessionEvent.fromJson(envelope);
-        if (mounted) {
-          setState(() => _lastEventType = event.type);
-        }
+        _onSessionEvent(event);
         return null;
       case 'window_close':
         await _hideInsteadOfClose();
@@ -78,6 +82,23 @@ class _SessionClientAppState extends State<SessionClientApp>
       default:
         throw MissingPluginException('Not implemented: ${call.method}');
     }
+  }
+
+  void _onSessionEvent(SessionEvent event) {
+    if (!mounted) return;
+    setState(() {
+      _lastEventType = event.type;
+      switch (event) {
+        case EqSnapshotEvent(:final settings):
+          _eqSettings = settings;
+        case DockSnapshotEvent(:final equalizer):
+          if (widget.role == WindowRole.equalizer) {
+            _eqShaded = equalizer.shaded;
+          }
+        default:
+          break;
+      }
+    });
   }
 
   Future<void> _applyFrame(Map<String, dynamic> args) async {
@@ -124,6 +145,25 @@ class _SessionClientAppState extends State<SessionClientApp>
     await widget.windowController.hide();
   }
 
+  Future<void> _send(SessionCommand command) async {
+    try {
+      await _bus.sendCommand(command);
+    } catch (_) {
+      // Host may be unavailable during teardown.
+    }
+  }
+
+  void _toggleEqShade() {
+    unawaited(
+      _send(
+        SetShadedCommand(
+          window: WindowId.equalizer,
+          shaded: !_eqShaded,
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     windowManager.removeListener(this);
@@ -133,9 +173,29 @@ class _SessionClientAppState extends State<SessionClientApp>
 
   @override
   Widget build(BuildContext context) {
+    if (widget.role == WindowRole.equalizer) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: ColoredBox(
+          color: MockupTokens.shellDeep,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: EqualizerWindow(
+              settings: _eqSettings,
+              shaded: _eqShaded,
+              presetNames: _presetNames,
+              onSessionCommand: (cmd) => unawaited(_send(cmd)),
+              onCollapse: _toggleEqShade,
+              onClose: () => unawaited(_hideInsteadOfClose()),
+            ),
+          ),
+        ),
+      );
+    }
+
     final label = switch (widget.role) {
-      WindowRole.equalizer => 'Equalizer',
       WindowRole.playlist => 'Playlist',
+      WindowRole.equalizer => 'Equalizer',
       WindowRole.main => 'Main',
     };
     return MaterialApp(

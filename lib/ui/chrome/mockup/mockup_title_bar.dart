@@ -13,6 +13,7 @@ class MockupTitleBar extends StatelessWidget {
     this.showVersion = true,
     this.showZoom = true,
     this.onMinimize,
+    this.onCollapse,
     this.onZoomOut,
     this.onZoomIn,
     this.onClose,
@@ -23,6 +24,9 @@ class MockupTitleBar extends StatelessWidget {
   final bool showVersion;
   final bool showZoom;
   final VoidCallback? onMinimize;
+
+  /// When set (EQ / playlist), shows Collapse (shade) instead of Minimize.
+  final VoidCallback? onCollapse;
   final VoidCallback? onZoomOut;
   final VoidCallback? onZoomIn;
   final VoidCallback? onClose;
@@ -71,6 +75,7 @@ class MockupTitleBar extends StatelessWidget {
                   _WindowButtons(
                     showZoom: showZoom,
                     onMinimize: onMinimize,
+                    onCollapse: onCollapse,
                     onZoomOut: onZoomOut,
                     onZoomIn: onZoomIn,
                     onClose: onClose,
@@ -242,6 +247,7 @@ class _WindowButtons extends StatelessWidget {
   const _WindowButtons({
     required this.showZoom,
     this.onMinimize,
+    this.onCollapse,
     this.onZoomOut,
     this.onZoomIn,
     this.onClose,
@@ -249,18 +255,20 @@ class _WindowButtons extends StatelessWidget {
 
   final bool showZoom;
   final VoidCallback? onMinimize;
+  final VoidCallback? onCollapse;
   final VoidCallback? onZoomOut;
   final VoidCallback? onZoomIn;
   final VoidCallback? onClose;
 
   @override
   Widget build(BuildContext context) {
+    final collapse = onCollapse != null;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         _WinBtn(
-          onPressed: onMinimize,
-          semanticLabel: 'Minimize',
+          onPressed: collapse ? onCollapse : onMinimize,
+          semanticLabel: collapse ? 'Collapse' : 'Minimize',
           child: MockupIcons.minimize(),
         ),
         if (showZoom) ...[

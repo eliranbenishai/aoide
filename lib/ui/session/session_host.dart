@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../domain/tramp_settings.dart';
+import '../../eq/equalizer_controller.dart';
 import '../../platform/file_open.dart';
 import '../../platform/settings_store.dart';
 import '../../playback/media_kit_player_engine.dart';
@@ -47,6 +48,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   late final SessionBus _bus;
   late final PlaylistController _playlist;
   late final PlaybackController _playback;
+  late final EqualizerController _equalizer;
   late DockingCoordinator _docking;
   int _zoomPercent = TrampSettings.defaults.zoomPercent;
   bool _alwaysOnTop = TrampSettings.defaults.alwaysOnTop;
@@ -74,6 +76,11 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       playlist: _playlist,
       engine: widget.engine ?? MediaKitPlayerEngine(),
     );
+    // Audible EQ is Task 11 — sink may still be noop; UI still drives apply.
+    _equalizer = EqualizerController(
+      store: _settingsStore,
+      sink: const NoopEqualizerSink(),
+    );
     _playlist.addListener(_onPlaylistChanged);
     windowManager.addListener(this);
     unawaited(_bootstrap());
@@ -97,6 +104,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     _forceMono = settings.forceMono;
     _docking = DockingCoordinator(DockLayout.fromSettings(settings));
 
+    await _equalizer.load();
     await _playlist.restoreLastPlaylist();
     await _ensureSecondaryWindows();
     await _applyAllFrames();
@@ -127,6 +135,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       case ClientReadyCommand(:final role):
         if (role == WindowRole.equalizer) {
           _eqReady = true;
+          await _pushEqSnapshot(role);
         } else if (role == WindowRole.playlist) {
           _playlistReady = true;
         }
@@ -139,6 +148,11 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         await _applyRoleFrame(_roleFor(window));
         await _broadcastDockSnapshot();
         if (mounted) setState(() {});
+      case SetShadedCommand(:final window, :final shaded):
+        _docking.setShaded(window, shaded);
+        await _persistLayout();
+        await _applyRoleFrame(_roleFor(window));
+        await _broadcastDockSnapshot();
       case AlwaysOnTopCommand(:final enabled):
         _alwaysOnTop = enabled;
         await _applyAlwaysOnTop();
@@ -150,15 +164,49 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         _forceMono = enabled;
         await _persistLayout();
         if (mounted) setState(() {});
+      case EqGainCommand(:final band, :final gain):
+        _equalizer.setGain(band, gain);
+        await _broadcastEqSnapshot();
+      case EqPreampCommand(:final preamp):
+        _equalizer.setPreamp(preamp);
+        await _broadcastEqSnapshot();
+      case EqEnabledCommand(:final enabled):
+        _equalizer.setEnabled(enabled);
+        await _broadcastEqSnapshot();
+      case EqAutoCommand(:final enabled):
+        _equalizer.setAuto(enabled);
+        await _broadcastEqSnapshot();
+      case ApplyPresetCommand(:final name):
+        _equalizer.applyPreset(name);
+        await _broadcastEqSnapshot();
       case TransportCommand():
       case SeekCommand():
       case VolumeCommand():
-      case EqGainCommand():
       case PlaylistOpCommand():
         // Controllers wire in later tasks; accept commands so clients can send.
         break;
     }
   }
+
+  Future<void> _pushEqSnapshot(WindowRole role) async {
+    final controller = switch (role) {
+      WindowRole.equalizer => _equalizerWindow,
+      WindowRole.playlist => _playlistWindow,
+      WindowRole.main => null,
+    };
+    if (controller == null) return;
+    try {
+      await SessionBus.pushEvent(
+        controller,
+        EqSnapshotEvent(_equalizer.settings),
+      );
+    } catch (error, stack) {
+      debugPrint('SessionHost pushEq($role) failed: $error\n$stack');
+    }
+  }
+
+  Future<void> _broadcastEqSnapshot() =>
+      _broadcast(EqSnapshotEvent(_equalizer.settings));
 
   Future<void> _stepZoom(int delta) async {
     final steps = TrampSettings.validZoomPercents;
