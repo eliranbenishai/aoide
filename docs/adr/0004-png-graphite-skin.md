@@ -4,7 +4,7 @@ Date: 2026-08-02
 
 ## Status
 
-Accepted
+Superseded by [ADR 0007](0007-code-constructed-mockup-chrome.md) (2026-08-08)
 
 ## Context
 
@@ -17,3 +17,8 @@ The built-in **graphite skin** delivers the look of the main player, equalizer, 
 ## Consequences
 
 Visual fidelity tracks art direction and slice quality, not painter math. Zoom stays [ADR 0002](0002-fixed-canvas-zoom.md)’s single root scale; odd steps may be slightly softer than integer densities — accepted for v1 over per-step exports. Much of `lib/ui/chrome/`’s painted surfaces become hit-target and overlay machinery over skin art rather than the source of the look.
+
+**Supersession note:** Product chrome is now **code-constructed** from
+`player-mockup-2.html` ([ADR 0007](0007-code-constructed-mockup-chrome.md)).
+PNG graphite faces and the nine-slice pack are retired from the product path;
+this ADR remains historical only.

@@ -4,7 +4,7 @@ Date: 2026-08-02
 
 ## Status
 
-Accepted (amended same day: playlist free resize)
+Superseded by [ADR 0006](0006-multi-window-docking.md) (2026-08-08)
 
 ## Context
 
@@ -12,6 +12,9 @@ Frameless desktop players often keep edge-resize. Tramp’s main player and
 equalizer are fixed logical canvases meant to match a mockup; stretching them
 fights that layout. The playlist, however, must show thousands of rows and needs
 a growing well.
+
+This ADR framed those rules for a **single window** that swapped EQ and playlist
+in a lower region.
 
 ## Decision
 
@@ -31,3 +34,9 @@ Shell enables resize edges only in playlist mode. EQ ↔ PL switches snap or
 restore sizes as above. Playlist chrome must be 9-sliced (or equivalent), not a
 single fixed-height face. See [ADR 0004](0004-png-graphite-skin.md) and
 [`graphite-skin-delivery-design`](../superpowers/specs/2026-08-02-graphite-skin-delivery-design.md).
+
+**Supersession note:** The product model is now three detachable dockable windows
+with global zoom ([ADR 0006](0006-multi-window-docking.md),
+[ADR 0002](0002-fixed-canvas-zoom.md)). Zoom-only main/EQ and free-resize playlist
+*sizing rules* continue in spirit; the single-window EQ/PL mutual-exclusion framing
+and PNG nine-slice consequences do not.

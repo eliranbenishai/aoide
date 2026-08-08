@@ -1,0 +1,42 @@
+# 7. Code-constructed chrome from the HTML mockup
+
+Date: 2026-08-08
+
+## Status
+
+Accepted
+
+Supersedes [ADR 0004](0004-png-graphite-skin.md).
+
+## Context
+
+The PNG-first graphite skin delivered a shippable look but diverged from the
+locked visual authority in [`player-mockup-2.html`](../../player-mockup-2.html)
+(geometry, tokens, materials, three-window layout). Maintaining a crop/slice
+pipeline and bitmap faces fights exact mockup fidelity and blocks an atomic
+chrome cutover.
+
+## Decision
+
+- Deliver built-in chrome as **code-constructed** Flutter UI (layered boxes,
+  `CustomPainter`, shaders as needed) that matches the mockup CSS/markup at
+  100% zoom — geometry, tokens, type, gradients, shadows, radii, spacing, icon
+  paths.
+- The HTML/CSS mockup is the recipe; checked-in token + geometry maps mirror
+  mockup `:root` / rules. Do not invent a parallel theme.
+- **Retire** PNG panel faces, nine-slice graphite pack, and the crop pipeline
+  from the product path (`GraphiteSkin` / `assets/skin/graphite/`).
+- Brand mark remains vector (mockup embedded logo) where needed.
+- Chrome cutover is **atomic** for all three windows — no mixed
+  graphite/mockup UI.
+
+## Consequences
+
+Visual fidelity is verified by side-by-side screenshot diffs against the mockup,
+not by slice art quality. ADR 0004 remains historical only. Agents must not
+follow PNG-graphite delivery docs as the current look. Fixed-canvas zoom
+([ADR 0002](0002-fixed-canvas-zoom.md)) still applies; construction is code, not
+master-density PNGs scaled under the transform.
+
+See design
+[`2026-08-08-mockup-multiwindow-redesign-design.md`](../superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md).
