@@ -59,8 +59,9 @@ One Flutter process; three frameless windows share playback, playlist, EQ, zoom,
 
 | Area | Responsibility | Status |
 |------|----------------|--------|
-| Multi-window host | Three frameless OS windows (main / EQ / playlist). Main close quits; EQ/PL close hides. Main EQ/PL toggles visibility (both may be open). Minimize and clutterbar **A** (always-on-top) apply to the visible docked group. Persist dock graph, positions, visibility, shade, playlist logical size | Target (redesign) |
-| Docking | `DockingCoordinator` + `DockLayout` (`lib/ui/docking/`): edge snap (12px), sticky group drag, undock via >48px break or shift; shade height = `TrampMetrics.titleBar`; reuses domain `WindowId` / `DockEdge` ([ADR 0006](adr/0006-multi-window-docking.md)) | Partial (pure layout landed; OS window apply pending) |
+| Multi-window host | Three frameless OS windows via `desktop_multi_window` + forked `window_manager`. `SessionHostApp` (main engine) owns settings/docking/`SessionBus`; `SessionClientApp` runs EQ/PL engines (placeholder chrome until Tasks 6–8). Main close quits; EQ/PL close hides. Frames applied from `DockingCoordinator.frameFor` | Partial (entry + bus + OS windows; chrome pending) |
+| Session bus | `lib/ui/session/`: JSON `SessionEvent` / `SessionCommand` codec; host registers unidirectional `WindowMethodChannel('tramp/session')`; clients send commands; host pushes events/frames via per-window `WindowController.invokeMethod` | Partial (codec + host/client shells) |
+| Docking | `DockingCoordinator` + `DockLayout` (`lib/ui/docking/`): edge snap (12px), sticky group drag, undock via >48px break or shift; shade height = `TrampMetrics.titleBar`; host applies pixel frames to OS windows ([ADR 0006](adr/0006-multi-window-docking.md)) | Partial (layout + host apply; drag UX pending) |
 | App chrome / UI | Code-constructed shell, title bar, screen wells, buttons, sliders, LEDs, plates/rails from mockup tokens + geometry — no PNG panel faces ([ADR 0007](adr/0007-code-constructed-mockup-chrome.md)). Main clutterbar **O / A / I** only. Chrome primitives shared across windows | Target (redesign); prior `TrampShell` + PNG skin retired for new work |
 | Theme / tokens | `MockupTokens` + `TrampMetrics` (825×348 / 825×348 / 825×696, titleBar 42) mirror mockup `:root` / classic×3 grid; `TrampColors` / `TrampText` facade cyan phosphor + TrampCondensed/TrampMono. Gradients/radii/chrome recipe still pending cutover | Partial (foundation landed; chrome still PNG graphite) |
 | Zoom | Global discrete zoom (six steps 100–300%, persisted, display-fit gating). Main title-bar −/+ (and shortcuts) scale all three windows; pixel size = logical × zoom. Playlist user size stored in logical coordinates ([ADR 0002](adr/0002-fixed-canvas-zoom.md)) | Partial (controller exists; must become global across three windows) |
@@ -80,7 +81,7 @@ One Flutter process; three frameless windows share playback, playlist, EQ, zoom,
 ## Known v1 gaps
 
 - **Full libmpv not yet bundled** — audible EQ and real spectrum depend on replacing slim media_kit libs and passing the measurement / load-path spike ([ADR 0005](adr/0005-full-libmpv.md)).
-- **Multi-window host + docking** — product model is three dockable windows; the tree still uses a single-window EQ/PL swap until the redesign lands ([ADR 0006](adr/0006-multi-window-docking.md)).
+- **Multi-window chrome** — OS windows + session bus are wired; EQ/PL still show placeholders and main is a host shell until mockup chrome tasks land ([ADR 0006](adr/0006-multi-window-docking.md)).
 - **Chrome cutover** — code-constructed mockup chrome replaces PNG graphite atomically for all three windows; mixed graphite/mockup UI must not ship ([ADR 0007](adr/0007-code-constructed-mockup-chrome.md)).
 - **Linux MPRIS** — session D-Bus player not registered; in-app shortcuts/media keys when focused still work.
 - **Second-instance “Open with”** — argv on cold start only; no IPC to an already-running instance.

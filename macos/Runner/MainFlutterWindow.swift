@@ -1,6 +1,7 @@
 import Cocoa
 import FlutterMacOS
 import MediaPlayer
+import desktop_multi_window
 
 class OsMediaControlsHandler: NSObject {
   private var channel: FlutterMethodChannel?
@@ -95,6 +96,10 @@ class MainFlutterWindow: NSWindow {
     self.setFrame(windowFrame, display: true)
 
     RegisterGeneratedPlugins(registry: flutterViewController)
+
+    FlutterMultiWindowPlugin.setOnWindowCreatedCallback { controller in
+      RegisterGeneratedPlugins(registry: controller)
+    }
 
     OsMediaControlsHandler.register(with: flutterViewController.engine.binaryMessenger)
 

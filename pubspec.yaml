@@ -9,7 +9,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  window_manager: ^0.4.3
+  # Fork pin required by desktop_multi_window (plugin README).
+  window_manager:
+    git:
+      url: https://github.com/boyan01/window_manager.git
+      path: packages/window_manager
+      ref: 6fae92d21b4c80ce1b8f71c1190d7970cf722bd4
+  desktop_multi_window: 0.3.0
   media_kit: ^1.1.11
   media_kit_libs_audio: ^1.0.5
   file_picker: ^8.1.2

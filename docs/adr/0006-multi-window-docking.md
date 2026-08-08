@@ -40,3 +40,17 @@ multi-window APIs and persistence grow in complexity; accepted to match
 `player-mockup-2.html` and the redesign design doc. ADR 0003’s zoom-only main/EQ
 and free-resize playlist *sizing intent* continues under this ADR and ADR 0002;
 its single-window framing does not.
+
+## Implementation pins
+
+- `desktop_multi_window` `0.3.0` (MixinNetwork) — one process, three Flutter
+  engines; secondary plugin registration via platform window-created callbacks.
+- `window_manager` git fork required by that plugin’s README:
+
+  ```yaml
+  window_manager:
+    git:
+      url: https://github.com/boyan01/window_manager.git
+      path: packages/window_manager
+      ref: 6fae92d21b4c80ce1b8f71c1190d7970cf722bd4
+  ```

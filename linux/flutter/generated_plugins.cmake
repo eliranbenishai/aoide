@@ -4,6 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   desktop_drop
+  desktop_multi_window
   media_kit_libs_linux
   screen_retriever_linux
   window_manager

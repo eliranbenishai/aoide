@@ -112,7 +112,7 @@ void main() {
       expect(json.containsKey('lowerRegion'), isFalse);
     });
 
-    test('defaults match Task 2 metrics and prior playlist-first visibility', () {
+    test('defaults stack main / EQ / playlist for multi-window', () {
       final d = TrampSettings.defaults;
       expect(d.zoomPercent, 100);
       expect(d.alwaysOnTop, isFalse);
@@ -121,12 +121,12 @@ void main() {
       expect(d.main.shaded, isFalse);
       expect(d.main.left, 0);
       expect(d.main.top, 0);
-      expect(d.equalizer.visible, isFalse);
+      expect(d.equalizer.visible, isTrue);
       expect(d.equalizer.shaded, isFalse);
       expect(d.equalizer.top, TrampMetrics.mainPlayer.height);
       expect(d.playlist.visible, isTrue);
       expect(d.playlist.shaded, isFalse);
-      expect(d.playlist.top, TrampMetrics.mainPlayer.height);
+      expect(d.playlist.top, TrampMetrics.mainPlayer.height * 2);
       expect(d.playlist.width, isNull);
       expect(d.playlist.height, isNull);
       expect(d.dockEdges, isEmpty);

@@ -1,7 +1,10 @@
 import 'equalizer_settings.dart';
 
-/// Default Y for EQ/playlist stacked under main (classic×3 main height = 348).
+/// Default Y for EQ stacked under main (classic×3 main height = 348).
 const double _defaultStackTop = 348;
+
+/// Default Y for playlist stacked under EQ (main + EQ = 696).
+const double _defaultPlaylistTop = _defaultStackTop + 348;
 
 /// Identifies one of the three product windows in dock / settings graphs.
 enum WindowId { main, equalizer, playlist }
@@ -28,7 +31,7 @@ class WindowFrameState {
   );
 
   static const equalizerDefault = WindowFrameState(
-    visible: false,
+    visible: true,
     shaded: false,
     left: 0,
     top: _defaultStackTop,
@@ -38,7 +41,7 @@ class WindowFrameState {
     visible: true,
     shaded: false,
     left: 0,
-    top: _defaultStackTop,
+    top: _defaultPlaylistTop,
   );
 
   final bool visible;
