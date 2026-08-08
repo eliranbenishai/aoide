@@ -13,6 +13,7 @@ import '../chrome/mockup/mockup_icons.dart';
 import '../chrome/mockup/mockup_screen.dart';
 import '../chrome/mockup/mockup_shell.dart';
 import '../session/session_messages.dart';
+import 'mockup_playlist_scrollbar.dart';
 
 /// Mockup-faithful playlist body (grows with window; footer bottom-anchored).
 ///
@@ -131,7 +132,7 @@ class MockupPlaylist extends StatelessWidget {
   }
 }
 
-class _PlaylistWell extends StatelessWidget {
+class _PlaylistWell extends StatefulWidget {
   const _PlaylistWell({
     required this.playlist,
     required this.playingIndex,
@@ -145,76 +146,115 @@ class _PlaylistWell extends StatelessWidget {
   final ValueChanged<int> onActivate;
 
   @override
-  Widget build(BuildContext context) {
-    final tracks = playlist.playlist.tracks;
-    final selected = playlist.selectedIndices;
+  State<_PlaylistWell> createState() => _PlaylistWellState();
+}
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(3),
-      child: Stack(
-        children: [
-          const Positioned.fill(child: CustomPaint(painter: _ListWellPainter())),
-          if (tracks.isEmpty)
-            const Center(
-              child: Text(
-                'DROP FILES TO ENQUEUE',
-                style: TextStyle(
-                  fontFamily: 'TrampCondensed',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  letterSpacing: 13 * 0.18,
-                  color: MockupTokens.inkFaint,
+class _PlaylistWellState extends State<_PlaylistWell> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tracks = widget.playlist.playlist.tracks;
+    final selected = widget.playlist.selectedIndices;
+
+    // List well + 10px gutter + 14px scrollbar (mockup: track outside `.list`).
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: Stack(
+              children: [
+                const Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(painter: _ListWellPainter()),
+                  ),
                 ),
-              ),
-            )
-          else
-            ScrollConfiguration(
-              behavior: ScrollConfiguration.of(context).copyWith(
-                scrollbars: false,
-              ),
-              child: RawScrollbar(
-                thickness: 14,
-                radius: const Radius.circular(999),
-                thumbColor: const Color(0xFF474E5C),
-                trackColor: const Color(0xFF12151C),
-                trackVisibility: true,
-                thumbVisibility: true,
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  itemCount: tracks.length,
-                  itemExtent: 37,
-                  itemBuilder: (context, index) {
-                    final track = tracks[index];
-                    return _PlaylistRow(
-                      key: Key('pl-row-$index'),
-                      index: index,
-                      track: track,
-                      selected: selected.contains(index),
-                      playing: playingIndex == index,
-                      onSelect: () => onSelect(index),
-                      onActivate: () => onActivate(index),
-                    );
-                  },
+                if (tracks.isEmpty)
+                  const Center(
+                    child: Text(
+                      'DROP FILES TO ENQUEUE',
+                      style: TextStyle(
+                        fontFamily: 'TrampCondensed',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        letterSpacing: 13 * 0.18,
+                        color: MockupTokens.inkFaint,
+                      ),
+                    ),
+                  )
+                else
+                  Positioned.fill(
+                    child: ScrollConfiguration(
+                      behavior: ScrollConfiguration.of(context).copyWith(
+                        scrollbars: false,
+                      ),
+                      // Non-interactive transparent shell keeps desktop row
+                      // hit-testing; MockupPlaylistScrollbar draws the track.
+                      child: RawScrollbar(
+                        controller: _scrollController,
+                        interactive: false,
+                        thickness: 14,
+                        radius: const Radius.circular(999),
+                        thumbColor: const Color(0x00000000),
+                        trackColor: const Color(0x00000000),
+                        trackVisibility: true,
+                        thumbVisibility: true,
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          itemCount: tracks.length,
+                          itemExtent: 37,
+                          itemBuilder: (context, index) {
+                            final track = tracks[index];
+                            return _PlaylistRow(
+                              key: Key('pl-row-$index'),
+                              index: index,
+                              track: track,
+                              selected: selected.contains(index),
+                              playing: widget.playingIndex == index,
+                              onSelect: () => widget.onSelect(index),
+                              onActivate: () => widget.onActivate(index),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                const Positioned(
+                  right: 26,
+                  bottom: 8,
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: 0.05,
+                      child: TrampLogo(size: 178),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          const Positioned(
-            right: 14,
-            bottom: 8,
-            child: IgnorePointer(
-              child: Opacity(
-                opacity: 0.05,
-                child: TrampLogo(size: 178),
-              ),
+                const Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(painter: _ListScanlinePainter()),
+                  ),
+                ),
+              ],
             ),
           ),
-          const Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(painter: _ListScanlinePainter()),
-            ),
+        ),
+        if (tracks.isNotEmpty) ...[
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 14,
+            child: MockupPlaylistScrollbar(controller: _scrollController),
           ),
         ],
-      ),
+      ],
     );
   }
 }
