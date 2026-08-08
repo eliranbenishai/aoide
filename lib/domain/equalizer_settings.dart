@@ -1,8 +1,8 @@
 /// Ten-band equalizer state.
 ///
-/// Chrome and state only: these gains are persisted and displayed but do not
-/// reach the audio path. See the design spec's "Equalizer audio path" section —
-/// the shipped libmpv silently disables filter graphs while reporting success.
+/// Persisted and displayed in EQ chrome; when the host wires an mpv equalizer
+/// sink, gains reach audio via `buildEqualizerAf` / lavfi. Audibility is
+/// measurement-gated (`tool/eq_measure.dart`) on full libmpv (ADR 0005).
 class EqualizerSettings {
   const EqualizerSettings({
     required this.enabled,

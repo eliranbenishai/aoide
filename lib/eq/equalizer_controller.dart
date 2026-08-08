@@ -5,12 +5,13 @@ import 'package:flutter/foundation.dart';
 import '../domain/equalizer_settings.dart';
 import '../platform/settings_store.dart';
 
-/// Where equalizer curves would go to become audible.
+/// Where equalizer curves become audible on the playback path.
 ///
-/// Deliberately a seam with only a no-op implementation. Wiring this to mpv is
-/// blocked: the shipped libmpv cannot construct filter graphs, and it reports
-/// success while silently disabling them. Any real implementation must be
-/// verified by measuring output, never by checking a return code.
+/// Production uses `MpvEqualizerSink` (mpv `af` / lavfi equalizer) once the
+/// full-libmpv measurement gate (`tool/eq_measure.dart`) is green.
+/// [NoopEqualizerSink] remains for tests and hosts without a real player.
+/// Never trust set-property return codes alone — slim libmpv historically
+/// reported success while no-oping.
 abstract class EqualizerSink {
   Future<void> apply(EqualizerSettings settings);
 }

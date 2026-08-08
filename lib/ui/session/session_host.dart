@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../domain/tramp_settings.dart';
 import '../../eq/equalizer_controller.dart';
+import '../../eq/mpv_equalizer_sink.dart';
 import '../../platform/file_open.dart';
 import '../../platform/settings_store.dart';
 import '../../playback/media_kit_player_engine.dart';
@@ -74,14 +76,19 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       store: widget.playlistStore ??
           FilePlaylistStore(supportDir: getApplicationSupportDirectory),
     );
+    // Share one media_kit Player so EQ `af` and transport hit the same libmpv.
+    final Player? sharedPlayer =
+        widget.engine == null ? Player() : null;
     _playback = PlaybackController(
       playlist: _playlist,
-      engine: widget.engine ?? MediaKitPlayerEngine(),
+      engine: widget.engine ??
+          MediaKitPlayerEngine(player: sharedPlayer),
     );
-    // Audible EQ is Task 11 — sink may still be noop; UI still drives apply.
     _equalizer = EqualizerController(
       store: _settingsStore,
-      sink: const NoopEqualizerSink(),
+      sink: sharedPlayer != null
+          ? MpvEqualizerSink(sharedPlayer)
+          : const NoopEqualizerSink(),
     );
     _playlist.addListener(_onPlaylistChanged);
     _playback.addListener(_onPlaybackChanged);

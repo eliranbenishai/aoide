@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'eq/equalizer_controller.dart';
+import 'eq/mpv_equalizer_sink.dart';
 import 'platform/file_open.dart';
 import 'platform/launch_args.dart';
 import 'platform/os_media_controls.dart';
@@ -75,10 +77,13 @@ class _TrampAppState extends State<TrampApp> with WindowListener {
 
     _playlist = PlaylistController(store: store);
 
+    final Player? sharedPlayer =
+        widget.engine == null ? Player() : null;
     _playback = PlaybackController(
       playlist: _playlist,
       engine: widget.engine ??
           MediaKitPlayerEngine(
+            player: sharedPlayer,
             onMetadata: (path, update) {
               final tracks = List.of(_playlist.playlist.tracks);
 
@@ -105,7 +110,9 @@ class _TrampAppState extends State<TrampApp> with WindowListener {
     );
     _equalizer = EqualizerController(
       store: _settingsStore,
-      sink: const NoopEqualizerSink(),
+      sink: sharedPlayer != null
+          ? MpvEqualizerSink(sharedPlayer)
+          : const NoopEqualizerSink(),
     );
     windowManager.addListener(this);
     unawaited(_osMediaControls.start(_playback));
