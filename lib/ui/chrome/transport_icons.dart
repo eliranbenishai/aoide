@@ -4,12 +4,11 @@ import 'package:flutter/widgets.dart';
 
 import '../../theme/tramp_colors.dart';
 
-/// The code-drawn overlay glyphs: the mute speaker stamped on the blank
-/// window bezel, and the playlist row drag handle.
+/// Code-drawn overlay glyphs (e.g. mute speaker, playlist drag handle).
 ///
-/// Everything else in the chrome is skin art — transport, toggles and window
-/// controls are PNG sprites (`GraphiteSkin`). Painted rather than drawn from
-/// a font so they stay crisp at every zoom step and need no icon-font asset.
+/// Painted rather than drawn from a font so they stay crisp at every zoom
+/// step and need no icon-font asset. Product chrome otherwise uses mockup
+/// widgets under `lib/ui/chrome/mockup/`.
 abstract final class TransportIcons {
   static const defaultGlyphColour = TrampColors.label;
 

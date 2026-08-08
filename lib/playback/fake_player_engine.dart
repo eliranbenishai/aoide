@@ -12,6 +12,8 @@ class FakePlayerEngine implements PlayerEngine {
 
   String? lastOpenedPath;
   int openCount = 0;
+  bool forceMono = false;
+  final List<String> audioChannelsValues = <String>[];
 
   /// Matches media_kit: [stop] unloads media; [play] is a no-op until [open].
   bool get hasMedia => _hasMedia;
@@ -124,6 +126,12 @@ class FakePlayerEngine implements PlayerEngine {
 
   @override
   Future<void> setVolume(double volume) async {}
+
+  @override
+  Future<void> setForceMono(bool enabled) async {
+    forceMono = enabled;
+    audioChannelsValues.add(enabled ? 'mono' : 'auto');
+  }
 
   @override
   Future<void> dispose() async {

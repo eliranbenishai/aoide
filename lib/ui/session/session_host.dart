@@ -122,6 +122,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
 
     await _equalizer.load();
     await _playlist.restoreLastPlaylist();
+    await _playback.setForceMono(_forceMono);
     await _ensureSecondaryWindows();
     await _applyAllFrames();
     await _applyAlwaysOnTop();
@@ -180,6 +181,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         await _stepZoom(delta);
       case MonoCommand(:final enabled):
         _forceMono = enabled;
+        await _playback.setForceMono(enabled);
         await _persistLayout();
         if (mounted) setState(() {});
       case EqGainCommand(:final band, :final gain):

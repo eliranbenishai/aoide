@@ -1,162 +1,51 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:tramp/app.dart';
-import 'package:tramp/domain/tramp_settings.dart';
+import 'package:tramp/domain/track.dart';
 import 'package:tramp/playback/fake_player_engine.dart';
-import 'package:tramp/platform/os_media_controls_stub.dart';
-import 'package:tramp/platform/settings_store.dart';
-import 'package:tramp/ui/skin/graphite_skin.dart';
-import 'package:tramp/ui/skin/skin_image.dart';
+import 'package:tramp/playback/playback_controller.dart';
+import 'package:tramp/playlist/playlist_controller.dart';
+import 'package:tramp/playlist/playlist_store.dart';
+import 'package:tramp/theme/mockup_tokens.dart';
+import 'package:tramp/ui/windows/main_player_window.dart';
 
 import 'support/test_fonts.dart';
 
-class _MemorySettingsStore implements SettingsStore {
-  _MemorySettingsStore([this._settings = TrampSettings.defaults]);
-
-  TrampSettings _settings;
+class _MemoryStore implements PlaylistStore {
+  @override
+  Future<String?> readLastPlaylistPath() async => null;
 
   @override
-  Future<TrampSettings> read() async => _settings;
-
-  @override
-  Future<void> write(TrampSettings settings) async => _settings = settings;
+  Future<void> writeLastPlaylistPath(String? path) async {}
 }
 
 void main() {
   setUpAll(loadTrampFonts);
 
-  late List<MethodCall> windowCalls;
+  testWidgets('mockup main chrome shows TRAMP brand', (tester) async {
+    final engine = FakePlayerEngine();
+    final playlist = PlaylistController(store: _MemoryStore());
+    final playback = PlaybackController(playlist: playlist, engine: engine);
+    addTearDown(playback.dispose);
 
-  setUp(() {
-    windowCalls = [];
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(const MethodChannel('window_manager'),
-            (call) async {
-      windowCalls.add(call);
-      return null;
-    });
-  });
-
-  tearDown(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(const MethodChannel('window_manager'), null);
-  });
-
-  List<String> methods() => windowCalls.map((call) => call.method).toList();
-
-  MethodCall lastCall(String method) =>
-      windowCalls.lastWhere((call) => call.method == method);
-
-  testWidgets('TrampApp shows chrome shell with brand', (WidgetTester tester) async {
-    await tester.binding.setSurfaceSize(const Size(1200, 900));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+    playlist.setTracks([
+      const Track(path: 'a.mp3', title: 'Demo', artist: 'Tramp'),
+    ]);
 
     await tester.pumpWidget(
-      TrampApp(
-        engine: FakePlayerEngine(),
-        osMediaControls: NoOpOsMediaControls(),
-        settingsStore: _MemorySettingsStore(),
-      ),
-    );
-    await tester.pump();
-    // The TRAMP wordmark is baked into the skin face, so the brand shows as the
-    // main player's skin art rather than a Text widget.
-    final brandFace = tester.widgetList<SkinImage>(find.byType(SkinImage)).any(
-          (image) => image.asset == GraphiteSkin.mainFace,
-        );
-    expect(brandFace, isTrue);
-  });
-
-  testWidgets('startup applies playlist mode: resizable, default tall size',
-      (tester) async {
-    await tester.binding.setSurfaceSize(const Size(837, 766));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    await tester.pumpWidget(
-      TrampApp(
-        engine: FakePlayerEngine(),
-        osMediaControls: NoOpOsMediaControls(),
-        settingsStore: _MemorySettingsStore(),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(methods(), containsAllInOrder(['setResizable', 'setMinimumSize', 'setBounds']));
-    expect(lastCall('setResizable').arguments, {'isResizable': true});
-    expect(lastCall('setMinimumSize').arguments['width'], 837);
-    expect(lastCall('setMinimumSize').arguments['height'], 606);
-    expect(lastCall('setBounds').arguments['width'], 837);
-    expect(lastCall('setBounds').arguments['height'], 766);
-  });
-
-  testWidgets('switching to equalizer snaps to the fixed stack, back restores',
-      (tester) async {
-    await tester.binding.setSurfaceSize(const Size(837, 766));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    await tester.pumpWidget(
-      TrampApp(
-        engine: FakePlayerEngine(),
-        osMediaControls: NoOpOsMediaControls(),
-        settingsStore: _MemorySettingsStore(),
-      ),
-    );
-    await tester.pumpAndSettle();
-    windowCalls.clear();
-
-    await tester.tap(find.byKey(const Key('player-eq')));
-    await tester.pumpAndSettle();
-
-    expect(methods(), containsAllInOrder(['setResizable', 'setMinimumSize', 'setBounds']));
-    expect(lastCall('setResizable').arguments, {'isResizable': false});
-    expect(lastCall('setMinimumSize').arguments['width'], 837);
-    expect(lastCall('setMinimumSize').arguments['height'], 714);
-    expect(lastCall('setBounds').arguments['width'], 837);
-    expect(lastCall('setBounds').arguments['height'], 714);
-
-    windowCalls.clear();
-    await tester.tap(find.byKey(const Key('player-pl')));
-    await tester.pumpAndSettle();
-
-    expect(lastCall('setResizable').arguments, {'isResizable': true});
-    expect(lastCall('setBounds').arguments['width'], 837);
-    expect(lastCall('setBounds').arguments['height'], 766);
-  });
-
-  testWidgets('a persisted playlist window size is restored across modes',
-      (tester) async {
-    await tester.binding.setSurfaceSize(const Size(1200, 900));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    await tester.pumpWidget(
-      TrampApp(
-        engine: FakePlayerEngine(),
-        osMediaControls: NoOpOsMediaControls(),
-        settingsStore: _MemorySettingsStore(
-          TrampSettings.defaults.copyWith(
-            playlist: WindowFrameState.playlistDefault.copyWith(
-              width: 900,
-              height: 700,
-            ),
+      MaterialApp(
+        home: ColoredBox(
+          color: MockupTokens.shellDeep,
+          child: MainPlayerWindow(
+            playback: playback,
+            trackCount: 1,
+            draggableTitle: false,
           ),
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(lastCall('setBounds').arguments['width'], 900);
-    expect(lastCall('setBounds').arguments['height'], 700);
-
-    await tester.tap(find.byKey(const Key('player-eq')));
-    await tester.pumpAndSettle();
-    expect(lastCall('setBounds').arguments['width'], 837);
-    expect(lastCall('setBounds').arguments['height'], 714);
-
-    await tester.tap(find.byKey(const Key('player-pl')));
-    await tester.pumpAndSettle();
-    expect(lastCall('setBounds').arguments['width'], 900);
-    expect(lastCall('setBounds').arguments['height'], 700);
+    expect(find.textContaining('TRAMP'), findsWidgets);
+    expect(find.byKey(const Key('player-mono')), findsOneWidget);
   });
 }

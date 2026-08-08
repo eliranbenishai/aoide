@@ -85,6 +85,8 @@ class PlaybackController extends ChangeNotifier {
   /// rate would rebuild the entire player chrome thirty times a second.
   Stream<AudioLevels> get levelsStream => _engine.levelsStream;
 
+  Future<void> setForceMono(bool enabled) => _engine.setForceMono(enabled);
+
   Track? get currentTrack {
     final index = _playingIndex;
     if (index == null) return null;
@@ -224,6 +226,7 @@ class PlaybackController extends ChangeNotifier {
     notifyListeners();
   }
 
+  @override
   Future<void> dispose() async {
     _playlist.removeListener(_onPlaylistChanged);
     for (final subscription in _subscriptions) {

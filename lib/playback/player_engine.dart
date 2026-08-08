@@ -10,8 +10,8 @@ abstract class PlayerEngine {
 
   /// Analyser frames for the spectrum display.
   ///
-  /// Implementations that cannot measure real audio must emit frames flagged
-  /// `synthetic: true` rather than silently fabricating measured-looking data.
+  /// Normal play must publish measured frames (`synthetic: false`). Fabricated
+  /// shapes may only use `synthetic: true` as a hard-fail / dev signal.
   Stream<AudioLevels> get levelsStream;
 
   /// Stream properties of the open track.
@@ -27,5 +27,9 @@ abstract class PlayerEngine {
   Future<void> stop();
   Future<void> seek(Duration position);
   Future<void> setVolume(double volume);
+
+  /// Force stereo→mono downmix (`audio-channels=mono` / `auto`).
+  Future<void> setForceMono(bool enabled);
+
   Future<void> dispose();
 }

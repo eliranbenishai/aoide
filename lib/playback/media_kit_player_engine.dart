@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:media_kit/media_kit.dart' hide Track;
 
+import '../analysis/spectrum_analyzer.dart';
 import '../domain/track.dart';
 import 'audio_format_info.dart';
 import 'audio_levels.dart';
+import 'mono_controller.dart';
 import 'player_engine.dart';
 
 typedef TrackMetadataCallback = void Function(
@@ -13,35 +15,22 @@ typedef TrackMetadataCallback = void Function(
 );
 
 class MediaKitPlayerEngine implements PlayerEngine {
-  MediaKitPlayerEngine({this.onMetadata, Player? player})
-      : _player = player ?? Player() {
-    // The engine cannot measure real audio, so it publishes a synthesised
-    // spectrum shape driven by playing state and volume. See the design spec:
-    // libmpv ships without the filters any real metering would need.
+  MediaKitPlayerEngine({
+    this.onMetadata,
+    Player? player,
+    SpectrumAnalyzer? spectrumAnalyzer,
+  })  : _player = player ?? Player(),
+        _spectrumAnalyzer = spectrumAnalyzer ?? SpectrumAnalyzer() {
+    _mono = MonoController(setProperty: _setNativeProperty);
     _playingSubscription = _player.stream.playing.listen((playing) {
       _isPlaying = playing;
     });
-    _levelsTimer = Timer.periodic(const Duration(milliseconds: 33), (_) {
-      if (_levels.isClosed) return;
-      // Synthetic bars only while media is loaded and playing — never after
-      // stop (media unloaded) or while paused.
-      _levels.add(
-        _isPlaying && _hasMedia
-            ? AudioLevels.synthesised(
-                intensity: _currentVolume,
-                seed: _levelsSeed++,
-              )
-            : AudioLevels.silent,
-      );
-    });
     _paramsSubscription = _player.stream.audioParams.listen((params) {
       _sampleRateHz = params.sampleRate;
-      // media_kit's AudioParams.channels is a layout String?; channelCount is int?.
       _channels = params.channelCount;
       _emitFormat();
     });
     _bitrateSubscription = _player.stream.audioBitrate.listen((bitrate) {
-      // media_kit reports bits per second; the display wants kbps.
       _bitrateKbps = bitrate == null ? null : (bitrate / 1000).round();
       _emitFormat();
     });
@@ -49,20 +38,22 @@ class MediaKitPlayerEngine implements PlayerEngine {
 
   final Player _player;
   final TrackMetadataCallback? onMetadata;
+  final SpectrumAnalyzer _spectrumAnalyzer;
+  late final MonoController _mono;
 
   final _levels = StreamController<AudioLevels>.broadcast();
   final _format = StreamController<AudioFormatInfo>.broadcast();
   StreamSubscription<bool>? _playingSubscription;
   StreamSubscription<dynamic>? _paramsSubscription;
   StreamSubscription<dynamic>? _bitrateSubscription;
-  Timer? _levelsTimer;
-  int _levelsSeed = 0;
+  StreamSubscription<AudioLevels>? _analyzerSubscription;
   bool _isPlaying = false;
   bool _hasMedia = false;
   double _currentVolume = 1;
   int? _sampleRateHz;
   int? _channels;
   int? _bitrateKbps;
+  bool _forceMono = false;
 
   @override
   Stream<AudioLevels> get levelsStream => _levels.stream;
@@ -77,6 +68,31 @@ class MediaKitPlayerEngine implements PlayerEngine {
       sampleRateHz: _sampleRateHz,
       channels: _channels,
     ));
+  }
+
+  Future<void> _setNativeProperty(String name, String value) async {
+    final platform = _player.platform;
+    if (platform is! NativePlayer) return;
+    await platform.setProperty(name, value);
+  }
+
+  void _attachAnalyzer(String path) {
+    unawaited(_analyzerSubscription?.cancel());
+    _analyzerSubscription = _spectrumAnalyzer
+        .attach(
+          path: path,
+          playing: _player.stream.playing,
+          position: _player.stream.position,
+        )
+        .listen((frame) {
+      if (_levels.isClosed) return;
+      // Product path: never publish synthetic:true during normal play.
+      if (frame.synthetic && _isPlaying && _hasMedia) {
+        _levels.add(AudioLevels.silent);
+        return;
+      }
+      _levels.add(frame);
+    });
   }
 
   @override
@@ -101,6 +117,9 @@ class MediaKitPlayerEngine implements PlayerEngine {
     _emitFormat();
     await _player.open(Media(track.path), play: false);
     _hasMedia = true;
+    _attachAnalyzer(track.path);
+    // Re-apply mono after open so mpv keeps the downmix for the new file.
+    await setForceMono(_forceMono);
     unawaited(_tryEmitMetadata(track));
   }
 
@@ -114,6 +133,8 @@ class MediaKitPlayerEngine implements PlayerEngine {
   Future<void> stop() async {
     _hasMedia = false;
     _isPlaying = false;
+    await _analyzerSubscription?.cancel();
+    _analyzerSubscription = null;
     if (!_levels.isClosed) {
       _levels.add(AudioLevels.silent);
     }
@@ -130,8 +151,14 @@ class MediaKitPlayerEngine implements PlayerEngine {
   }
 
   @override
+  Future<void> setForceMono(bool enabled) async {
+    _forceMono = enabled;
+    await _mono.setForceMono(enabled);
+  }
+
+  @override
   Future<void> dispose() async {
-    _levelsTimer?.cancel();
+    await _analyzerSubscription?.cancel();
     await _playingSubscription?.cancel();
     await _paramsSubscription?.cancel();
     await _bitrateSubscription?.cancel();

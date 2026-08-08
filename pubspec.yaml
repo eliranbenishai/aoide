@@ -24,12 +24,12 @@ dependencies:
   path: ^1.9.0
   smtc_windows: ^1.0.0
   flutter_svg: ^2.3.0
+  ffi: ^2.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
-  ffi: ^2.1.0
 
 dependency_overrides:
   flutter_rust_bridge: 2.11.1
@@ -38,9 +38,6 @@ flutter:
   uses-material-design: true
   assets:
     - lib/ui/chrome/logo.svg
-    - assets/skin/graphite/
-    - assets/skin/graphite/controls/
-    - assets/skin/graphite/playlist/
   fonts:
     - family: TrampCondensed
       fonts:
@@ -50,3 +47,4 @@ flutter:
       fonts:
         - asset: assets/fonts/TrampMono-Medium.ttf
           weight: 500
+

@@ -47,11 +47,9 @@ class SurfaceSpec {
 
 /// The button surface recipes.
 ///
-/// Panel faces, wells and control art are skin PNGs (see `lib/ui/skin/`); the
-/// only widgets still drawing from here are the playlist toolbar's painted
-/// label buttons (`ChromeButton`). Widgets must not compose their own
-/// gradients or bevels — drift between buttons is exactly what this single
-/// definition prevents.
+/// Shared raised-button surface recipes for any remaining painted chrome
+/// helpers. Product windows use mockup tokens (`MockupTokens` /
+/// `lib/ui/chrome/mockup/`). Widgets must not invent ad-hoc gradients here.
 abstract final class TrampSurfaces {
   static const double buttonRadius = 2;
 

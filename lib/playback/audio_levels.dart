@@ -2,9 +2,9 @@ import 'dart:math' as math;
 
 /// One frame of analyser data.
 ///
-/// [synthetic] is part of the contract, not a debug flag: the media_kit engine
-/// cannot measure real levels, so anything derived from playback state must say
-/// so rather than pass itself off as measured audio.
+/// [synthetic] is a hard-fail / dev signal for fabricated shapes only. Normal
+/// product playback publishes measured frames (`synthetic: false`), including
+/// honest silence.
 class AudioLevels {
   AudioLevels({
     required this.bands,
@@ -19,11 +19,12 @@ class AudioLevels {
   /// Number of bars the display shows.
   static const int bandCount = 20;
 
+  /// Measured / no-signal silence. Not a fabricated spectrum shape.
   static final AudioLevels silent = AudioLevels(
     bands: List<double>.filled(bandCount, 0),
     leftRms: 0,
     rightRms: 0,
-    synthetic: true,
+    synthetic: false,
   );
 
   final List<double> bands;

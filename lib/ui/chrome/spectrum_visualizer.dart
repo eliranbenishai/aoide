@@ -4,12 +4,11 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 
 import '../../playback/audio_levels.dart';
-import '../../theme/tramp_colors.dart';
+import '../../theme/mockup_tokens.dart';
 
 /// Spectrum bars driven by the engine's analyser stream.
 ///
-/// The widget owns no animation of its own — it renders what the engine reports,
-/// smoothed so that a coarse source cadence still looks alive.
+/// Cyan→accent gradient + peak caps match `player-mockup-2.html` / mockup main.
 class SpectrumVisualizer extends StatefulWidget {
   const SpectrumVisualizer({super.key, required this.levels});
 
@@ -53,7 +52,6 @@ class _SpectrumVisualizerState extends State<SpectrumVisualizer> {
     setState(() {
       for (var i = 0; i < AudioLevels.bandCount; i++) {
         final incoming = frame.bands[i].clamp(0.0, 1.0);
-        // Fast attack, slow decay: rise instantly, fall smoothly.
         _bars[i] = incoming > _bars[i] ? incoming : _bars[i] * _decay;
         _peaks[i] = math.max(_bars[i], _peaks[i] * _peakDecay);
       }
@@ -83,27 +81,53 @@ class SpectrumPainter extends CustomPainter {
   final List<double> bars;
   final List<double> peaks;
 
+  static const _barWidth = 9.0;
+  static const _gap = 3.0;
+
   @override
   void paint(Canvas canvas, Size size) {
     if (bars.isEmpty) return;
 
-    final slot = size.width / bars.length;
-    final barWidth = math.max(1.0, slot - 1);
-    final lit = Paint()..color = TrampColors.phosphor;
-    final dim = Paint()..color = TrampColors.phosphorDim;
-
     for (var i = 0; i < bars.length; i++) {
-      final left = i * slot;
-      final height = size.height * bars[i];
-      if (height > 0) {
+      final left = i * (_barWidth + _gap);
+      if (left + _barWidth > size.width) break;
+      final h = (size.height * bars[i].clamp(0.0, 1.0)).clamp(0.0, size.height);
+      final peakH =
+          (size.height * peaks[i].clamp(0.0, 1.0)).clamp(0.0, size.height);
+      final barRect = Rect.fromLTWH(left, size.height - h, _barWidth, h);
+      if (h > 0) {
         canvas.drawRect(
-          Rect.fromLTWH(left, size.height - height, barWidth, height),
-          lit,
+          barRect,
+          Paint()
+            ..shader = const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFCBF9FF),
+                MockupTokens.phos,
+                Color(0xFF1B9EC4),
+                MockupTokens.accent,
+              ],
+              stops: [0, 0.26, 0.62, 1],
+            ).createShader(barRect),
+        );
+        canvas.drawRect(
+          barRect,
+          Paint()
+            ..color = const Color(0x663DE7FF)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.5),
         );
       }
-
-      final peakY = size.height - size.height * peaks[i];
-      canvas.drawRect(Rect.fromLTWH(left, peakY, barWidth, 1), dim);
+      if (peakH > 2) {
+        final cap = Rect.fromLTWH(left, size.height - peakH, _barWidth, 2);
+        canvas.drawRect(cap, Paint()..color = const Color(0xFFEAFFFF));
+        canvas.drawRect(
+          cap,
+          Paint()
+            ..color = const Color(0xE63DE7FF)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+        );
+      }
     }
   }
 

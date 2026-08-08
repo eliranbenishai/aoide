@@ -117,4 +117,63 @@ void main() {
       matchesGoldenFile('goldens/main_player_window.png'),
     );
   });
+
+  testWidgets('main display quiet/silent measured frames', (tester) async {
+    // Real analyser silence: synthetic:false zeros — not AudioLevels.synthesised.
+    const quietBars = <double>[
+      0.04, 0.06, 0.05, 0.03, 0.02, 0.04, 0.03, 0.02, 0.01, 0.02,
+      0.015, 0.01, 0.012, 0.008, 0.01, 0.006, 0.008, 0.004, 0.005, 0.003,
+    ];
+
+    playlist.setTracks([
+      const Track(
+        path: 'quiet.mp3',
+        title: 'Quiet Room',
+        artist: 'Tramp',
+        duration: Duration(minutes: 1),
+      ),
+    ]);
+    await playback.playIndex(0);
+    await playback.playPause();
+    engine.emitFormat(
+      const AudioFormatInfo(
+        bitrateKbps: 128,
+        sampleRateHz: 44100,
+        channels: 2,
+      ),
+    );
+
+    const size = Size(825, 348);
+    await tester.binding.setSurfaceSize(size);
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Align(
+          alignment: Alignment.topLeft,
+          child: ColoredBox(
+            color: MockupTokens.shellDeep,
+            child: MainPlayerWindow(
+              playback: playback,
+              trackCount: 1,
+              forceMono: false,
+              alwaysOnTop: false,
+              equalizerVisible: true,
+              playlistVisible: true,
+              draggableTitle: false,
+              spectrumBars: quietBars,
+              spectrumPeaks: quietBars,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(MainPlayerWindow),
+      matchesGoldenFile('goldens/main_player_window_quiet.png'),
+    );
+  });
 }

@@ -6,11 +6,11 @@ void main() {
     expect(AudioLevels.bandCount, 20);
   });
 
-  test('silent has the right shape and is flagged synthetic', () {
+  test('silent has the right shape and is measured (not fabricated)', () {
     expect(AudioLevels.silent.bands, hasLength(AudioLevels.bandCount));
     expect(AudioLevels.silent.bands.every((b) => b == 0), isTrue);
     expect(AudioLevels.silent.leftRms, 0);
-    expect(AudioLevels.silent.synthetic, isTrue);
+    expect(AudioLevels.silent.synthetic, isFalse);
   });
 
   test('synthesised levels stay in range and are flagged', () {
