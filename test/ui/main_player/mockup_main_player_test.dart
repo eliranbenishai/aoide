@@ -1,0 +1,155 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:tramp/domain/track.dart';
+import 'package:tramp/domain/tramp_settings.dart';
+import 'package:tramp/playback/fake_player_engine.dart';
+import 'package:tramp/playback/playback_controller.dart';
+import 'package:tramp/playlist/playlist_controller.dart';
+import 'package:tramp/playlist/playlist_store.dart';
+import 'package:tramp/ui/main_player/mockup_main_player.dart';
+import 'package:tramp/ui/session/session_messages.dart';
+import 'package:tramp/ui/windows/main_player_window.dart';
+
+import '../../support/test_fonts.dart';
+
+class MemoryStore implements PlaylistStore {
+  @override
+  Future<String?> readLastPlaylistPath() async => null;
+
+  @override
+  Future<void> writeLastPlaylistPath(String? path) async {}
+}
+
+void main() {
+  late FakePlayerEngine engine;
+  late PlaylistController playlist;
+  late PlaybackController playback;
+
+  setUpAll(loadTrampFonts);
+
+  setUp(() {
+    engine = FakePlayerEngine();
+    playlist = PlaylistController(store: MemoryStore());
+    playback = PlaybackController(playlist: playlist, engine: engine);
+  });
+
+  tearDown(() async => playback.dispose());
+
+  Future<void> pumpPlayer(
+    WidgetTester tester, {
+    required List<SessionCommand> commands,
+    bool forceMono = false,
+    bool equalizerVisible = true,
+    bool playlistVisible = true,
+    bool alwaysOnTop = false,
+  }) async {
+    await tester.binding.setSurfaceSize(const Size(900, 400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Align(
+          alignment: Alignment.topLeft,
+          child: MainPlayerWindow(
+            playback: playback,
+            trackCount: playlist.playlist.tracks.length,
+            forceMono: forceMono,
+            alwaysOnTop: alwaysOnTop,
+            equalizerVisible: equalizerVisible,
+            playlistVisible: playlistVisible,
+            draggableTitle: false,
+            onSessionCommand: commands.add,
+          ),
+        ),
+      ),
+    );
+  }
+
+  testWidgets('EQ toggle sends ToggleWindow for equalizer', (tester) async {
+    final commands = <SessionCommand>[];
+    await pumpPlayer(tester, commands: commands, equalizerVisible: true);
+
+    await tester.tap(find.byKey(const Key('player-eq')));
+    await tester.pump();
+
+    expect(commands, hasLength(1));
+    final cmd = commands.single as ToggleWindowCommand;
+    expect(cmd.window, WindowId.equalizer);
+    expect(cmd.visible, isFalse);
+  });
+
+  testWidgets('PL toggle sends ToggleWindow for playlist', (tester) async {
+    final commands = <SessionCommand>[];
+    await pumpPlayer(tester, commands: commands, playlistVisible: false);
+
+    await tester.tap(find.byKey(const Key('player-pl')));
+    await tester.pump();
+
+    expect(commands, hasLength(1));
+    final cmd = commands.single as ToggleWindowCommand;
+    expect(cmd.window, WindowId.playlist);
+    expect(cmd.visible, isTrue);
+  });
+
+  testWidgets('Mono sends MonoCommand (SetMono)', (tester) async {
+    final commands = <SessionCommand>[];
+    await pumpPlayer(tester, commands: commands, forceMono: false);
+
+    await tester.tap(find.byKey(const Key('player-mono')));
+    await tester.pump();
+
+    expect(commands, hasLength(1));
+    expect(commands.single, isA<MonoCommand>());
+    expect((commands.single as MonoCommand).enabled, isTrue);
+  });
+
+  testWidgets('clutter A sends AlwaysOnTopCommand', (tester) async {
+    final commands = <SessionCommand>[];
+    await pumpPlayer(tester, commands: commands, alwaysOnTop: false);
+
+    await tester.tap(find.byKey(const Key('clutter-a')));
+    await tester.pump();
+
+    expect(commands.single, isA<AlwaysOnTopCommand>());
+    expect((commands.single as AlwaysOnTopCommand).enabled, isTrue);
+  });
+
+  testWidgets('separate play and pause drive the controller', (tester) async {
+    playlist.addTracks([
+      const Track(path: 'a.mp3'),
+      const Track(path: 'b.mp3'),
+    ]);
+    final commands = <SessionCommand>[];
+    await pumpPlayer(tester, commands: commands);
+
+    await tester.tap(find.byKey(const Key('transport-play')));
+    await tester.pumpAndSettle();
+    expect(playback.playing, isTrue);
+
+    await tester.tap(find.byKey(const Key('transport-pause')));
+    await tester.pumpAndSettle();
+    expect(playback.playing, isFalse);
+  });
+
+  testWidgets('clutterbar shows O A I only', (tester) async {
+    final commands = <SessionCommand>[];
+    await pumpPlayer(tester, commands: commands);
+
+    expect(find.byKey(const Key('clutter-o')), findsOneWidget);
+    expect(find.byKey(const Key('clutter-a')), findsOneWidget);
+    expect(find.byKey(const Key('clutter-i')), findsOneWidget);
+    expect(find.text('D'), findsNothing);
+    expect(find.text('V'), findsNothing);
+
+    final body = tester.getSize(find.byType(MockupMainPlayer));
+    expect(body, MockupMainPlayer.bodySize);
+  });
+
+  testWidgets('window is 825×348', (tester) async {
+    final commands = <SessionCommand>[];
+    await pumpPlayer(tester, commands: commands);
+    expect(
+      tester.getSize(find.byType(MainPlayerWindow)),
+      MainPlayerWindow.logicalSize,
+    );
+  });
+}

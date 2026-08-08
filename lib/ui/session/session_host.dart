@@ -6,10 +6,18 @@ import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../domain/tramp_settings.dart';
+import '../../platform/file_open.dart';
 import '../../platform/settings_store.dart';
+import '../../playback/media_kit_player_engine.dart';
+import '../../playback/playback_controller.dart';
+import '../../playback/player_engine.dart';
+import '../../playlist/playlist_controller.dart';
+import '../../playlist/playlist_store.dart';
 import '../../theme/mockup_tokens.dart';
+import '../chrome/about_dialog.dart';
 import '../docking/dock_layout.dart';
 import '../docking/docking_coordinator.dart';
+import '../windows/main_player_window.dart';
 import 'always_on_top.dart';
 import 'session_bus.dart';
 import 'session_messages.dart';
@@ -20,10 +28,14 @@ class SessionHostApp extends StatefulWidget {
     super.key,
     this.launchArgs = const [],
     this.settingsStore,
+    this.engine,
+    this.playlistStore,
   });
 
   final List<String> launchArgs;
   final SettingsStore? settingsStore;
+  final PlayerEngine? engine;
+  final PlaylistStore? playlistStore;
 
   @override
   State<SessionHostApp> createState() => _SessionHostAppState();
@@ -32,9 +44,12 @@ class SessionHostApp extends StatefulWidget {
 class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   late final SettingsStore _settingsStore;
   late final SessionBus _bus;
+  late final PlaylistController _playlist;
+  late final PlaybackController _playback;
   late DockingCoordinator _docking;
   int _zoomPercent = TrampSettings.defaults.zoomPercent;
   bool _alwaysOnTop = TrampSettings.defaults.alwaysOnTop;
+  bool _forceMono = TrampSettings.defaults.forceMono;
 
   WindowController? _equalizerWindow;
   WindowController? _playlistWindow;
@@ -49,8 +64,21 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         FileSettingsStore(supportDir: getApplicationSupportDirectory);
     _bus = SessionBus();
     _docking = DockingCoordinator(DockLayout.defaults);
+    _playlist = PlaylistController(
+      store: widget.playlistStore ??
+          FilePlaylistStore(supportDir: getApplicationSupportDirectory),
+    );
+    _playback = PlaybackController(
+      playlist: _playlist,
+      engine: widget.engine ?? MediaKitPlayerEngine(),
+    );
+    _playlist.addListener(_onPlaylistChanged);
     windowManager.addListener(this);
     unawaited(_bootstrap());
+  }
+
+  void _onPlaylistChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _bootstrap() async {
@@ -64,8 +92,10 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     final settings = await _settingsStore.read();
     _zoomPercent = settings.zoomPercent;
     _alwaysOnTop = settings.alwaysOnTop;
+    _forceMono = settings.forceMono;
     _docking = DockingCoordinator(DockLayout.fromSettings(settings));
 
+    await _playlist.restoreLastPlaylist();
     await _ensureSecondaryWindows();
     await _applyAllFrames();
     await _applyAlwaysOnTop();
@@ -106,31 +136,39 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         await _persistLayout();
         await _applyRoleFrame(_roleFor(window));
         await _broadcastDockSnapshot();
+        if (mounted) setState(() {});
       case AlwaysOnTopCommand(:final enabled):
         _alwaysOnTop = enabled;
         await _applyAlwaysOnTop();
         await _persistLayout();
+        if (mounted) setState(() {});
       case ZoomStepCommand(:final delta):
-        final steps = TrampSettings.validZoomPercents;
-        final index = steps.indexOf(_zoomPercent);
-        final nextIndex = (index < 0 ? 0 : index) + delta;
-        if (nextIndex < 0 || nextIndex >= steps.length) return;
-        _zoomPercent = steps[nextIndex];
-        await _applyAllFrames();
+        await _stepZoom(delta);
+      case MonoCommand(:final enabled):
+        _forceMono = enabled;
         await _persistLayout();
-        await _broadcast(
-          ZoomChangedEvent(_zoomPercent),
-        );
-        await _broadcastDockSnapshot();
+        if (mounted) setState(() {});
       case TransportCommand():
       case SeekCommand():
       case VolumeCommand():
-      case MonoCommand():
       case EqGainCommand():
       case PlaylistOpCommand():
         // Controllers wire in later tasks; accept commands so clients can send.
         break;
     }
+  }
+
+  Future<void> _stepZoom(int delta) async {
+    final steps = TrampSettings.validZoomPercents;
+    final index = steps.indexOf(_zoomPercent);
+    final nextIndex = (index < 0 ? 0 : index) + delta;
+    if (nextIndex < 0 || nextIndex >= steps.length) return;
+    _zoomPercent = steps[nextIndex];
+    await _applyAllFrames();
+    await _persistLayout();
+    await _broadcast(ZoomChangedEvent(_zoomPercent));
+    await _broadcastDockSnapshot();
+    if (mounted) setState(() {});
   }
 
   WindowRole _roleFor(WindowId id) => switch (id) {
@@ -221,6 +259,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       current.copyWith(
         zoomPercent: _zoomPercent,
         alwaysOnTop: _alwaysOnTop,
+        forceMono: _forceMono,
         main: layout.main,
         equalizer: layout.equalizer,
         playlist: layout.playlist,
@@ -269,6 +308,71 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     }
   }
 
+  Future<void> _handleLocalCommand(SessionCommand command) async {
+    await _onCommand(command);
+  }
+
+  Future<void> _openFiles() async {
+    final paths = await pickAudioFiles();
+    if (paths == null || paths.isEmpty) return;
+    final tracks = tracksFromPaths(paths);
+    if (tracks.isEmpty) return;
+    _playlist.addTracks(tracks);
+    if (_playback.currentTrack == null) {
+      await _playback.playIndex(_playlist.playlist.tracks.length - tracks.length);
+    }
+  }
+
+  Future<void> _showOptions() async {
+    final choice = await showMenu<String>(
+      context: context,
+      position: const RelativeRect.fromLTRB(40, 80, 0, 0),
+      items: [
+        PopupMenuItem(
+          value: 'aot',
+          child: Text(_alwaysOnTop ? 'Always on top ✓' : 'Always on top'),
+        ),
+        const PopupMenuItem(value: 'about', child: Text('About Tramp')),
+        const PopupMenuItem(value: 'quit', child: Text('Quit')),
+      ],
+    );
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'aot':
+        await _handleLocalCommand(AlwaysOnTopCommand(!_alwaysOnTop));
+      case 'about':
+        await showTrampAboutDialog(context, version: '0.1.0');
+      case 'quit':
+        await _quit();
+    }
+  }
+
+  Future<void> _showTrackInfo() async {
+    final track = _playback.currentTrack;
+    final message = track == null
+        ? 'No track loaded.'
+        : [
+            track.displayTitle,
+            if (track.artist != null) 'Artist: ${track.artist}',
+            if (track.album != null) 'Album: ${track.album}',
+            'Path: ${track.path}',
+          ].join('\n');
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: MockupTokens.shellMid,
+        title: const Text('Track info', style: TextStyle(color: MockupTokens.ink)),
+        content: Text(message, style: const TextStyle(color: MockupTokens.inkDim)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void onWindowClose() {
     unawaited(_quit());
@@ -292,42 +396,45 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   @override
   void dispose() {
     windowManager.removeListener(this);
+    _playlist.removeListener(_onPlaylistChanged);
     unawaited(_bus.unbind());
+    unawaited(_playback.dispose());
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final layout = _docking.layout;
     return MaterialApp(
       title: 'Tramp',
       debugShowCheckedModeBanner: false,
       home: ColoredBox(
-        color: MockupTokens.shell,
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Tramp — Main',
-                style: TextStyle(
-                  color: MockupTokens.phos,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
+        color: MockupTokens.shellDeep,
+        child: !_bootstrapped
+            ? const Center(
+                child: Text(
+                  'starting session…',
+                  style: TextStyle(color: MockupTokens.inkDim, fontSize: 12),
+                ),
+              )
+            : Center(
+                child: MainPlayerWindow(
+                  playback: _playback,
+                  trackCount: _playlist.playlist.tracks.length,
+                  forceMono: _forceMono,
+                  alwaysOnTop: _alwaysOnTop,
+                  equalizerVisible: layout.equalizer.visible,
+                  playlistVisible: layout.playlist.visible,
+                  onSessionCommand: (cmd) => unawaited(_handleLocalCommand(cmd)),
+                  onOpenFiles: () => unawaited(_openFiles()),
+                  onOpenOptions: () => unawaited(_showOptions()),
+                  onShowTrackInfo: () => unawaited(_showTrackInfo()),
+                  onMinimize: () => unawaited(windowManager.minimize()),
+                  onZoomOut: () => unawaited(_stepZoom(-1)),
+                  onZoomIn: () => unawaited(_stepZoom(1)),
+                  onClose: () => unawaited(_quit()),
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                _bootstrapped
-                    ? 'session host · zoom $_zoomPercent%'
-                    : 'starting session…',
-                style: const TextStyle(
-                  color: MockupTokens.inkDim,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
