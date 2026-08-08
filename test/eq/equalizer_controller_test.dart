@@ -47,7 +47,7 @@ void main() {
     );
     final c = EqualizerController(
       store: MemorySettingsStore(
-        TrampSettings.defaults.copyWith(equalizer: stored),
+        TrampSettings.defaults.copyWith(equalizerCurve: stored),
       ),
       sink: NoopEqualizerSink(),
     );
@@ -65,7 +65,7 @@ void main() {
     expect(c.settings.gains[2], 6);
     expect(notifications, 1);
     await Future<void>.delayed(Duration.zero);
-    expect(store.stored.equalizer.gains[2], 6);
+    expect(store.stored.equalizerCurve.gains[2], 6);
   });
 
   test('applyPreset sets the curve and records the name', () {

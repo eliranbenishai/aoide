@@ -24,10 +24,20 @@ void main() {
     expect(settings, TrampSettings.defaults);
   });
 
-  test('round-trips zoom and lower region', () async {
-    const written = TrampSettings(
+  test('round-trips multi-window layout flags', () async {
+    final written = TrampSettings.defaults.copyWith(
       zoomPercent: 200,
-      lowerRegion: LowerRegion.equalizer,
+      alwaysOnTop: true,
+      forceMono: true,
+      equalizer: WindowFrameState.equalizerDefault.copyWith(visible: true),
+      playlist: WindowFrameState.playlistDefault.copyWith(visible: false),
+      dockEdges: const [
+        DockEdge(
+          a: WindowId.main,
+          b: WindowId.equalizer,
+          side: DockSide.bottom,
+        ),
+      ],
     );
     await store().write(written);
     expect(await store().read(), written);
@@ -45,7 +55,7 @@ void main() {
     expect(settings.zoomPercent, TrampSettings.defaults.zoomPercent);
   });
 
-  test('type-corrupt equalizer presetName does not crash read', () async {
+  test('migrates legacy lowerRegion equalizer on read', () async {
     await File('${dir.path}/settings.json').writeAsString(
       '{"zoomPercent":150,"lowerRegion":"equalizer",'
       '"equalizer":{"enabled":true,"auto":false,"preamp":0,'
@@ -53,9 +63,10 @@ void main() {
     );
     final settings = await store().read();
     expect(settings.zoomPercent, 150);
-    expect(settings.lowerRegion, LowerRegion.equalizer);
-    expect(settings.equalizer.presetName, isNull);
-    expect(settings.equalizer.enabled, isTrue);
+    expect(settings.equalizer.visible, isTrue);
+    expect(settings.playlist.visible, isFalse);
+    expect(settings.equalizerCurve.presetName, isNull);
+    expect(settings.equalizerCurve.enabled, isTrue);
   });
 
   test('non-map equalizer falls back to flat while other fields load', () async {
@@ -64,15 +75,17 @@ void main() {
     );
     final settings = await store().read();
     expect(settings.zoomPercent, 200);
-    expect(settings.lowerRegion, LowerRegion.playlist);
-    expect(settings.equalizer, EqualizerSettings.flat);
+    expect(settings.playlist.visible, isTrue);
+    expect(settings.equalizer.visible, isFalse);
+    expect(settings.equalizerCurve, EqualizerSettings.flat);
   });
 
-  test('round-trips equalizer state', () async {
-    const written = TrampSettings(
+  test('round-trips equalizer curve state', () async {
+    final written = TrampSettings.defaults.copyWith(
       zoomPercent: 150,
-      lowerRegion: LowerRegion.equalizer,
-      equalizer: EqualizerSettings(
+      equalizer: WindowFrameState.equalizerDefault.copyWith(visible: true),
+      playlist: WindowFrameState.playlistDefault.copyWith(visible: false),
+      equalizerCurve: const EqualizerSettings(
         enabled: true,
         auto: false,
         preamp: 2,
@@ -84,12 +97,12 @@ void main() {
     expect(await store().read(), written);
   });
 
-  test('round-trips playlist window size', () async {
-    const written = TrampSettings(
-      zoomPercent: 100,
-      lowerRegion: LowerRegion.playlist,
-      playlistWindowWidth: 900,
-      playlistWindowHeight: 700,
+  test('round-trips playlist window size on playlist frame', () async {
+    final written = TrampSettings.defaults.copyWith(
+      playlist: WindowFrameState.playlistDefault.copyWith(
+        width: 900,
+        height: 700,
+      ),
     );
     await store().write(written);
     expect(await store().read(), written);

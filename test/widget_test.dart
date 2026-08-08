@@ -135,11 +135,11 @@ void main() {
         engine: FakePlayerEngine(),
         osMediaControls: NoOpOsMediaControls(),
         settingsStore: _MemorySettingsStore(
-          const TrampSettings(
-            zoomPercent: 100,
-            lowerRegion: LowerRegion.playlist,
-            playlistWindowWidth: 900,
-            playlistWindowHeight: 700,
+          TrampSettings.defaults.copyWith(
+            playlist: WindowFrameState.playlistDefault.copyWith(
+              width: 900,
+              height: 700,
+            ),
           ),
         ),
       ),

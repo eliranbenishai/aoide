@@ -40,7 +40,7 @@ class EqualizerController extends ChangeNotifier {
 
   Future<void> load() async {
     final persisted = await _store.read();
-    _settings = persisted.equalizer;
+    _settings = persisted.equalizerCurve;
     notifyListeners();
     unawaited(_sink.apply(_settings));
   }
@@ -77,6 +77,6 @@ class EqualizerController extends ChangeNotifier {
 
   Future<void> _persist() async {
     final current = await _store.read();
-    await _store.write(current.copyWith(equalizer: _settings));
+    await _store.write(current.copyWith(equalizerCurve: _settings));
   }
 }

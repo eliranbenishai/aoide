@@ -5,11 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 
-import '../domain/tramp_settings.dart';
 import '../playback/playback_controller.dart';
 import '../playlist/playlist_controller.dart';
 import '../theme/tramp_colors.dart';
 import '../theme/tramp_metrics.dart';
+import 'lower_region.dart';
 import 'window_layout.dart';
 import 'zoom/zoom_controller.dart';
 import 'zoom/zoom_scope.dart';

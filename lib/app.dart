@@ -5,7 +5,6 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 
-import 'domain/tramp_settings.dart';
 import 'eq/equalizer_controller.dart';
 import 'platform/file_open.dart';
 import 'platform/launch_args.dart';
@@ -21,6 +20,7 @@ import 'theme/tramp_metrics.dart';
 import 'theme/tramp_theme.dart';
 import 'ui/chrome/about_dialog.dart';
 import 'ui/equalizer/equalizer_panel.dart';
+import 'ui/lower_region.dart';
 import 'ui/main_player/main_player_panel.dart';
 import 'ui/playlist_panel.dart';
 import 'ui/tramp_shell.dart';
@@ -140,11 +140,15 @@ class _TrampAppState extends State<TrampApp> with WindowListener {
     await _equalizer.load();
     if (!mounted) return;
     setState(() {
-      _lowerRegion = settings.lowerRegion;
+      // Interim shell: map multi-window visibility → single lower region.
+      _lowerRegion = settings.equalizer.visible && !settings.playlist.visible
+          ? LowerRegion.equalizer
+          : LowerRegion.playlist;
+      _equalizerCollapsed = settings.equalizer.shaded;
       // Assigned before setPercent: a restored zoom step fires
       // _onZoomChanged, which applies the window mode using these values.
-      _playlistWindowWidth = settings.playlistWindowWidth;
-      _playlistWindowHeight = settings.playlistWindowHeight;
+      _playlistWindowWidth = settings.playlist.width;
+      _playlistWindowHeight = settings.playlist.height;
       _zoom.setPercent(settings.zoomPercent);
     });
     // setPercent no-ops when the restored step is already current, so the
@@ -154,10 +158,15 @@ class _TrampAppState extends State<TrampApp> with WindowListener {
 
   Future<void> _persistSettings() async {
     final current = await _settingsStore.read();
+    final showEq = _lowerRegion == LowerRegion.equalizer;
     await _settingsStore.write(
       current.copyWith(
         zoomPercent: _zoom.percent,
-        lowerRegion: _lowerRegion,
+        equalizer: current.equalizer.copyWith(
+          visible: showEq,
+          shaded: _equalizerCollapsed,
+        ),
+        playlist: current.playlist.copyWith(visible: !showEq),
       ),
     );
   }
@@ -205,6 +214,7 @@ class _TrampAppState extends State<TrampApp> with WindowListener {
   /// Toggles the equalizer windowshade and snaps the window to the new height.
   void _toggleEqualizerCollapsed() {
     setState(() => _equalizerCollapsed = !_equalizerCollapsed);
+    unawaited(_persistSettings());
     if (_lowerRegion == LowerRegion.equalizer) {
       unawaited(_applyWindowMode());
     }
@@ -239,8 +249,10 @@ class _TrampAppState extends State<TrampApp> with WindowListener {
     final current = await _settingsStore.read();
     await _settingsStore.write(
       current.copyWith(
-        playlistWindowWidth: logical.width,
-        playlistWindowHeight: logical.height,
+        playlist: current.playlist.copyWith(
+          width: logical.width,
+          height: logical.height,
+        ),
       ),
     );
   }

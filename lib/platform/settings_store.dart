@@ -11,6 +11,9 @@ abstract class SettingsStore {
 }
 
 /// Mirrors `FilePlaylistStore`: a single JSON file in the app support dir.
+///
+/// Legacy shapes (`lowerRegion`, top-level playlist size, curve under
+/// `equalizer`) are migrated inside [TrampSettings.fromJson].
 class FileSettingsStore implements SettingsStore {
   FileSettingsStore({required this.supportDir});
 
@@ -29,8 +32,8 @@ class FileSettingsStore implements SettingsStore {
     // Corrupt settings must never block startup — a bad file is just defaults.
     try {
       final decoded = jsonDecode(await f.readAsString());
-      if (decoded is! Map<String, dynamic>) return TrampSettings.defaults;
-      return TrampSettings.fromJson(decoded);
+      if (decoded is! Map) return TrampSettings.defaults;
+      return TrampSettings.fromJson(Map<String, dynamic>.from(decoded));
     } catch (_) {
       // Deliberate catch-all: on-disk JSON is untrusted input. Any decode or
       // interpretation failure (malformed syntax, wrong types, etc.) yields

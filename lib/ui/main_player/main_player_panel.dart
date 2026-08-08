@@ -4,7 +4,6 @@ import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:window_manager/window_manager.dart';
 
 import '../../domain/repeat_mode.dart';
-import '../../domain/tramp_settings.dart';
 import '../../playback/playback_controller.dart';
 import '../../theme/tramp_colors.dart';
 import '../../theme/tramp_metrics.dart';
@@ -14,6 +13,7 @@ import '../chrome/spectrum_visualizer.dart';
 import '../chrome/tramp_mark.dart';
 import '../chrome/transport_icons.dart';
 import '../format.dart';
+import '../lower_region.dart';
 import '../skin/graphite_skin.dart';
 import '../skin/skin_button.dart';
 import '../skin/skin_image.dart';

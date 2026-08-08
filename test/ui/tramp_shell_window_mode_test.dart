@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tramp/domain/tramp_settings.dart';
 import 'package:tramp/playback/fake_player_engine.dart';
 import 'package:tramp/playback/playback_controller.dart';
 import 'package:tramp/playlist/playlist_controller.dart';
 import 'package:tramp/playlist/playlist_store.dart';
 import 'package:tramp/theme/tramp_metrics.dart';
+import 'package:tramp/ui/lower_region.dart';
 import 'package:tramp/ui/tramp_shell.dart';
 import 'package:tramp/ui/window_layout.dart';
 import 'package:tramp/ui/zoom/zoom_controller.dart';

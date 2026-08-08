@@ -71,7 +71,7 @@ One Flutter process; three frameless windows share playback, playlist, EQ, zoom,
 | Equalizer | Real `EqualizerSink` committing a libmpv EQ graph when On; measurement-gated before UI implies audible processing. Chrome: On / Auto / Presets, live curve plot, preamp + ten bands ±12 dB, windowshade. Auto keeps existing Tramp semantics unless the product spec says otherwise | Target (audible); chrome+state exist under prior shell |
 | Spectrum | `SpectrumAnalyser`: PCM/analyser → STFT → 20 bars. `AudioLevels.synthetic` only as hard-fail/dev signal — not the normal product path | Target (redesign); synthetic path remains until analyser lands |
 | Mono | Force downmix via mpv when Mono is on; distinct from source STEREO/MONO meta tag | Target (redesign) |
-| Platform | Frameless multi-window APIs; file open / DnD / launch args; file associations; OS media controls; settings persistence (zoom, dock layout, EQ, playlist size) | Partial (single-window path today) |
+| Platform | Frameless multi-window APIs; file open / DnD / launch args; file associations; OS media controls; settings persistence (`TrampSettings`: zoom, always-on-top, mono, per-window frames, dock edges, EQ curve — migrates legacy `lowerRegion`) | Partial (settings model landed; single-window shell still maps visibility ↔ lower region) |
 
 ## Playback vs selection
 

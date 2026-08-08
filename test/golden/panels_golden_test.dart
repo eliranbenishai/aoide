@@ -18,6 +18,7 @@ import 'package:tramp/playlist/playlist_controller.dart';
 import 'package:tramp/playlist/playlist_store.dart';
 import 'package:tramp/theme/tramp_metrics.dart';
 import 'package:tramp/ui/equalizer/equalizer_panel.dart';
+import 'package:tramp/ui/lower_region.dart';
 import 'package:tramp/ui/main_player/main_player_panel.dart';
 import 'package:tramp/ui/zoom/zoom_controller.dart';
 import 'package:tramp/ui/zoom/zoom_scope.dart';

@@ -2,8 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/painting.dart';
 
-import '../domain/tramp_settings.dart';
 import '../theme/tramp_metrics.dart';
+import 'lower_region.dart';
 
 /// Pure window- and stack-sizing rules for the two lower-region modes
 /// (ADR 0003): equalizer mode is a fixed stack scaled only by the zoom step;
