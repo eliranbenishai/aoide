@@ -19,6 +19,7 @@ import '../docking/dock_layout.dart';
 import '../docking/docking_coordinator.dart';
 import '../windows/main_player_window.dart';
 import 'always_on_top.dart';
+import 'minimize_group.dart';
 import 'session_bus.dart';
 import 'session_messages.dart';
 
@@ -56,6 +57,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   bool _eqReady = false;
   bool _playlistReady = false;
   bool _bootstrapped = false;
+  final MinimizeGroupCycle _minimizeGroup = MinimizeGroupCycle();
 
   @override
   void initState() {
@@ -233,6 +235,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     final zoom = _zoomPercent / 100.0;
     final rect = _docking.frameFor(id, zoom);
     final visible = _docking.layout.frameOf(id).visible;
+    final show = visible && !_minimizeGroup.shouldSuppressShow(id);
     try {
       await SessionBus.pushFrame(
         controller,
@@ -240,15 +243,67 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         top: rect.top,
         width: rect.width,
         height: rect.height,
-        visible: visible,
+        visible: show,
         alwaysOnTop: effectiveAlwaysOnTop(
           alwaysOnTop: _alwaysOnTop,
-          visible: visible,
+          visible: show,
         ),
       );
     } catch (error, stack) {
       // Client may be restarting; ready handshake will retry.
       debugPrint('SessionHost pushFrame($role) failed: $error\n$stack');
+    }
+  }
+
+  /// Main title-bar minimize → hide visible secondaries, then OS-minimize main.
+  Future<void> _minimizeVisibleGroup() async {
+    await _hideVisibleSecondariesForMinimize();
+    await windowManager.minimize();
+  }
+
+  /// Snapshot + OS-hide currently visible EQ/PL (layout visibility unchanged).
+  Future<void> _hideVisibleSecondariesForMinimize() async {
+    final layout = _docking.layout;
+    final toHide = _minimizeGroup.begin(
+      equalizerVisible: layout.equalizer.visible,
+      playlistVisible: layout.playlist.visible,
+    );
+    await _setSecondariesHidden(toHide, hidden: true);
+  }
+
+  /// Main restore → best-effort show secondaries that were visible at minimize.
+  Future<void> _restoreVisibleGroup() async {
+    final layout = _docking.layout;
+    final toShow = _minimizeGroup.end(
+      equalizerVisible: layout.equalizer.visible,
+      playlistVisible: layout.playlist.visible,
+    );
+    await _setSecondariesHidden(toShow, hidden: false);
+  }
+
+  Future<void> _setSecondariesHidden(
+    Set<WindowId> ids, {
+    required bool hidden,
+  }) async {
+    for (final id in ids) {
+      final controller = switch (id) {
+        WindowId.equalizer => _equalizerWindow,
+        WindowId.playlist => _playlistWindow,
+        WindowId.main => null,
+      };
+      if (controller == null) continue;
+      try {
+        if (hidden) {
+          await controller.hide();
+        } else {
+          await controller.show();
+        }
+      } catch (error, stack) {
+        debugPrint(
+          'SessionHost secondary ${hidden ? 'hide' : 'show'}($id) '
+          'failed: $error\n$stack',
+        );
+      }
     }
   }
 
@@ -374,6 +429,18 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   }
 
   @override
+  void onWindowMinimize() {
+    // Taskbar / OS minimize: hide visible secondaries (main already minimized).
+    if (_minimizeGroup.isActive) return;
+    unawaited(_hideVisibleSecondariesForMinimize());
+  }
+
+  @override
+  void onWindowRestore() {
+    unawaited(_restoreVisibleGroup());
+  }
+
+  @override
   void onWindowClose() {
     unawaited(_quit());
   }
@@ -429,7 +496,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
                   onOpenFiles: () => unawaited(_openFiles()),
                   onOpenOptions: () => unawaited(_showOptions()),
                   onShowTrackInfo: () => unawaited(_showTrackInfo()),
-                  onMinimize: () => unawaited(windowManager.minimize()),
+                  onMinimize: () => unawaited(_minimizeVisibleGroup()),
                   onZoomOut: () => unawaited(_stepZoom(-1)),
                   onZoomIn: () => unawaited(_stepZoom(1)),
                   onClose: () => unawaited(_quit()),
