@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:window_manager/window_manager.dart';
 
 import '../../playlist/playlist_controller.dart';
 import '../../theme/tramp_metrics.dart';
 import '../chrome/mockup/mockup_shell.dart';
 import '../chrome/mockup/mockup_title_bar.dart';
+import '../docking/dock_drag_area.dart';
 import '../playlist/mockup_playlist.dart';
 import '../session/session_messages.dart';
 
@@ -26,6 +26,9 @@ class PlaylistWindow extends StatelessWidget {
     this.onDropPaths,
     this.onCollapse,
     this.onClose,
+    this.zoom = 1.0,
+    this.dockLogicalTopLeft,
+    this.onDockMove,
     this.draggableTitle = true,
   });
 
@@ -43,6 +46,20 @@ class PlaylistWindow extends StatelessWidget {
   final void Function(List<String> paths)? onDropPaths;
   final VoidCallback? onCollapse;
   final VoidCallback? onClose;
+
+  /// Global zoom factor for docking drag → logical conversion.
+  final double zoom;
+
+  /// Logical top-left at drag start (from host dock snapshot / apply_frame).
+  final ValueGetter<Offset>? dockLogicalTopLeft;
+
+  /// Title-bar dock drag (logical coords, Shift undock, pan-end).
+  final void Function(
+    Offset logicalTopLeft, {
+    required bool shiftUndock,
+    required bool ended,
+  })? onDockMove;
+
   final bool draggableTitle;
 
   @override
@@ -55,8 +72,13 @@ class PlaylistWindow extends StatelessWidget {
       onCollapse: onCollapse,
       onClose: onClose,
     );
-    if (draggableTitle) {
-      title = DragToMoveArea(child: title);
+    if (draggableTitle && onDockMove != null && dockLogicalTopLeft != null) {
+      title = DockDragArea(
+        zoom: zoom,
+        logicalTopLeft: dockLogicalTopLeft!,
+        onMove: onDockMove!,
+        child: title,
+      );
     }
 
     final height = shaded ? TrampMetrics.titleBar : size.height;

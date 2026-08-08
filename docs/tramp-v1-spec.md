@@ -76,7 +76,7 @@ Must decode and play: **MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus**.
 
 - Create, open, and save playlists as **M3U / M3U8**.
 - Add, remove, reorder, clear, and select one row (current logic).
-- **Planned** for the playlist Options menu (not shipped yet): sort (title / artist / duration / path / reverse) and bulk selection (select-all / invert).
+- Playlist Options: sort (title / artist / duration / path / reverse) and bulk selection (select-all / invert).
 - Play from selection (e.g. double-click / activate row).
 - Restore the last playlist across sessions (path, logical window size, shade, dock offsets).
 

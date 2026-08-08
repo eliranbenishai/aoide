@@ -57,6 +57,8 @@ class _SessionClientAppState extends State<SessionClientApp>
   bool _playing = false;
   Size _playlistSize = TrampMetrics.playlistDefault;
   int _zoomPercent = 100;
+  double _logicalLeft = 0;
+  double _logicalTop = 0;
   bool _applyingFrame = false;
   Timer? _resizeDebounce;
 
@@ -143,12 +145,20 @@ class _SessionClientAppState extends State<SessionClientApp>
                 .indexWhere((t) => t.path == playingPath);
             _playingIndex = idx >= 0 ? idx : _playingIndex;
           }
-        case DockSnapshotEvent(:final equalizer, :final playlist, :final zoomPercent):
+        case DockSnapshotEvent(
+            :final equalizer,
+            :final playlist,
+            :final zoomPercent,
+          ):
           _zoomPercent = zoomPercent;
           if (widget.role == WindowRole.equalizer) {
             _eqShaded = equalizer.shaded;
+            _logicalLeft = equalizer.left;
+            _logicalTop = equalizer.top;
           } else if (widget.role == WindowRole.playlist) {
             _plShaded = playlist.shaded;
+            _logicalLeft = playlist.left;
+            _logicalTop = playlist.top;
             _playlistSize = Size(
               playlist.width ?? TrampMetrics.playlistDefault.width,
               playlist.height ?? TrampMetrics.playlistDefault.height,
@@ -167,6 +177,10 @@ class _SessionClientAppState extends State<SessionClientApp>
     final height = (args['height'] as num).toDouble();
     final visible = args['visible'] == true;
     final alwaysOnTop = args['alwaysOnTop'] == true;
+
+    final zoom = (_zoomPercent / 100.0).clamp(0.5, 4.0);
+    _logicalLeft = left / zoom;
+    _logicalTop = top / zoom;
 
     _applyingFrame = true;
     try {
@@ -252,6 +266,33 @@ class _SessionClientAppState extends State<SessionClientApp>
     }
   }
 
+  WindowId get _windowId => switch (widget.role) {
+        WindowRole.equalizer => WindowId.equalizer,
+        WindowRole.playlist => WindowId.playlist,
+        WindowRole.main => WindowId.main,
+      };
+
+  void _onDockMove(
+    Offset logicalTopLeft, {
+    required bool shiftUndock,
+    required bool ended,
+  }) {
+    // Optimistic local anchor so the next pan-start (if any) matches host.
+    _logicalLeft = logicalTopLeft.dx;
+    _logicalTop = logicalTopLeft.dy;
+    unawaited(
+      _send(
+        MoveWindowCommand(
+          window: _windowId,
+          left: logicalTopLeft.dx,
+          top: logicalTopLeft.dy,
+          shiftUndock: shiftUndock,
+          ended: ended,
+        ),
+      ),
+    );
+  }
+
   void _toggleEqShade() {
     unawaited(
       _send(
@@ -327,6 +368,9 @@ class _SessionClientAppState extends State<SessionClientApp>
               settings: _eqSettings,
               shaded: _eqShaded,
               presetNames: _presetNames,
+              zoom: _zoomPercent / 100.0,
+              dockLogicalTopLeft: () => Offset(_logicalLeft, _logicalTop),
+              onDockMove: _onDockMove,
               onSessionCommand: (cmd) => unawaited(_send(cmd)),
               onCollapse: _toggleEqShade,
               onClose: () => unawaited(_hideInsteadOfClose()),
@@ -349,6 +393,9 @@ class _SessionClientAppState extends State<SessionClientApp>
               shaded: _plShaded,
               playingIndex: _playingIndex,
               playing: _playing,
+              zoom: _zoomPercent / 100.0,
+              dockLogicalTopLeft: () => Offset(_logicalLeft, _logicalTop),
+              onDockMove: _onDockMove,
               onSessionCommand: (cmd) => unawaited(_send(cmd)),
               onAddFiles: () => unawaited(_addFiles()),
               onLoadPlaylist: () => unawaited(_loadPlaylist()),

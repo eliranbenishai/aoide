@@ -366,6 +366,8 @@ sealed class SessionCommand {
         return PlaylistOpCommand.fromPayload(payload);
       case ResizePlaylistCommand.typeName:
         return ResizePlaylistCommand.fromPayload(payload);
+      case MoveWindowCommand.typeName:
+        return MoveWindowCommand.fromPayload(payload);
       case ZoomStepCommand.typeName:
         return ZoomStepCommand.fromPayload(payload);
       case AlwaysOnTopCommand.typeName:
@@ -718,6 +720,56 @@ final class ResizePlaylistCommand extends SessionCommand {
     return ResizePlaylistCommand(
       width: width.toDouble(),
       height: height.toDouble(),
+    );
+  }
+}
+
+/// Title-bar drag update — logical top-left for [DockingCoordinator.move].
+///
+/// [ended] is true on pan-end so the host can persist layout once per gesture.
+final class MoveWindowCommand extends SessionCommand {
+  const MoveWindowCommand({
+    required this.window,
+    required this.left,
+    required this.top,
+    required this.shiftUndock,
+    this.ended = false,
+  });
+
+  static const typeName = 'move_window';
+
+  final WindowId window;
+  final double left;
+  final double top;
+  final bool shiftUndock;
+  final bool ended;
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'window': window.name,
+        'left': left,
+        'top': top,
+        'shiftUndock': shiftUndock,
+        'ended': ended,
+      };
+
+  factory MoveWindowCommand.fromPayload(Map<String, dynamic> json) {
+    final name = json['window'];
+    final window = WindowId.values.asNameMap()[name];
+    final left = json['left'];
+    final top = json['top'];
+    if (window == null || left is! num || top is! num) {
+      throw FormatException('MoveWindowCommand: $json');
+    }
+    return MoveWindowCommand(
+      window: window,
+      left: left.toDouble(),
+      top: top.toDouble(),
+      shiftUndock: json['shiftUndock'] == true,
+      ended: json['ended'] == true,
     );
   }
 }

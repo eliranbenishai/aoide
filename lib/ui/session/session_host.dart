@@ -209,7 +209,39 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         await _handlePlaylistOp(command);
       case ResizePlaylistCommand(:final width, :final height):
         await _handlePlaylistResize(width, height);
+      case MoveWindowCommand(
+          :final window,
+          :final left,
+          :final top,
+          :final shiftUndock,
+          :final ended,
+        ):
+        await _handleDockMove(
+          window,
+          Offset(left, top),
+          shiftUndock: shiftUndock,
+          ended: ended,
+        );
     }
+  }
+
+  /// Title-bar drag → [DockingCoordinator.move] → apply group frames (± persist).
+  Future<void> _handleDockMove(
+    WindowId id,
+    Offset logicalTopLeft, {
+    required bool shiftUndock,
+    required bool ended,
+  }) async {
+    _docking.move(id, logicalTopLeft, shiftUndock: shiftUndock);
+    final group = _docking.groupOf(id);
+    for (final member in group) {
+      await _applyRoleFrame(_roleFor(member));
+    }
+    if (ended) {
+      await _persistLayout();
+      await _broadcastDockSnapshot();
+    }
+    if (mounted) setState(() {});
   }
 
   Future<void> _handleTransport(String action) async {
@@ -695,6 +727,21 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
                   alwaysOnTop: _alwaysOnTop,
                   equalizerVisible: layout.equalizer.visible,
                   playlistVisible: layout.playlist.visible,
+                  zoom: _zoomPercent / 100.0,
+                  dockLogicalTopLeft: () => Offset(
+                    _docking.layout.main.left,
+                    _docking.layout.main.top,
+                  ),
+                  onDockMove: (topLeft, {required shiftUndock, required ended}) {
+                    unawaited(
+                      _handleDockMove(
+                        WindowId.main,
+                        topLeft,
+                        shiftUndock: shiftUndock,
+                        ended: ended,
+                      ),
+                    );
+                  },
                   onSessionCommand: (cmd) => unawaited(_handleLocalCommand(cmd)),
                   onOpenFiles: () => unawaited(_openFiles()),
                   onOpenOptions: () => unawaited(_showOptions()),

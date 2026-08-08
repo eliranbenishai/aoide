@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:window_manager/window_manager.dart';
 
 import '../../playback/playback_controller.dart';
 import '../../theme/tramp_metrics.dart';
 import '../chrome/mockup/mockup_shell.dart';
 import '../chrome/mockup/mockup_title_bar.dart';
+import '../docking/dock_drag_area.dart';
 import '../main_player/mockup_main_player.dart';
 import '../session/session_messages.dart';
 
@@ -26,6 +26,9 @@ class MainPlayerWindow extends StatelessWidget {
     this.onZoomOut,
     this.onZoomIn,
     this.onClose,
+    this.zoom = 1.0,
+    this.dockLogicalTopLeft,
+    this.onDockMove,
     this.draggableTitle = true,
     this.spectrumBars,
     this.spectrumPeaks,
@@ -47,6 +50,20 @@ class MainPlayerWindow extends StatelessWidget {
   final VoidCallback? onZoomOut;
   final VoidCallback? onZoomIn;
   final VoidCallback? onClose;
+
+  /// Global zoom factor for docking drag → logical conversion.
+  final double zoom;
+
+  /// Logical top-left at drag start (host [DockingCoordinator] frame).
+  final ValueGetter<Offset>? dockLogicalTopLeft;
+
+  /// Title-bar dock drag (logical coords, Shift undock, pan-end).
+  final void Function(
+    Offset logicalTopLeft, {
+    required bool shiftUndock,
+    required bool ended,
+  })? onDockMove;
+
   final bool draggableTitle;
   final List<double>? spectrumBars;
   final List<double>? spectrumPeaks;
@@ -60,8 +77,13 @@ class MainPlayerWindow extends StatelessWidget {
       onZoomIn: onZoomIn,
       onClose: onClose,
     );
-    if (draggableTitle) {
-      title = DragToMoveArea(child: title);
+    if (draggableTitle && onDockMove != null && dockLogicalTopLeft != null) {
+      title = DockDragArea(
+        zoom: zoom,
+        logicalTopLeft: dockLogicalTopLeft!,
+        onMove: onDockMove!,
+        child: title,
+      );
     }
 
     return SizedBox(

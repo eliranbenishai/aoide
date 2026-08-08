@@ -147,6 +147,13 @@ void main() {
         ),
         const PlaylistOpCommand('sort', sortKey: 'title'),
         const ResizePlaylistCommand(width: 900, height: 500),
+        const MoveWindowCommand(
+          window: WindowId.playlist,
+          left: 12.5,
+          top: 348,
+          shiftUndock: true,
+          ended: true,
+        ),
         const ZoomStepCommand(1),
         const AlwaysOnTopCommand(true),
       ];

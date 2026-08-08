@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:window_manager/window_manager.dart';
 
 import '../../domain/equalizer_settings.dart';
 import '../../theme/tramp_metrics.dart';
 import '../chrome/mockup/mockup_shell.dart';
 import '../chrome/mockup/mockup_title_bar.dart';
+import '../docking/dock_drag_area.dart';
 import '../equalizer/mockup_equalizer.dart';
 import '../session/session_messages.dart';
 
@@ -20,6 +20,9 @@ class EqualizerWindow extends StatelessWidget {
     this.presetNames = const [],
     this.onCollapse,
     this.onClose,
+    this.zoom = 1.0,
+    this.dockLogicalTopLeft,
+    this.onDockMove,
     this.draggableTitle = true,
   });
 
@@ -31,6 +34,20 @@ class EqualizerWindow extends StatelessWidget {
   final List<String> presetNames;
   final VoidCallback? onCollapse;
   final VoidCallback? onClose;
+
+  /// Global zoom factor for docking drag → logical conversion.
+  final double zoom;
+
+  /// Logical top-left at drag start (from host dock snapshot / apply_frame).
+  final ValueGetter<Offset>? dockLogicalTopLeft;
+
+  /// Title-bar dock drag (logical coords, Shift undock, pan-end).
+  final void Function(
+    Offset logicalTopLeft, {
+    required bool shiftUndock,
+    required bool ended,
+  })? onDockMove;
+
   final bool draggableTitle;
 
   @override
@@ -41,8 +58,13 @@ class EqualizerWindow extends StatelessWidget {
       onCollapse: onCollapse,
       onClose: onClose,
     );
-    if (draggableTitle) {
-      title = DragToMoveArea(child: title);
+    if (draggableTitle && onDockMove != null && dockLogicalTopLeft != null) {
+      title = DockDragArea(
+        zoom: zoom,
+        logicalTopLeft: dockLogicalTopLeft!,
+        onMove: onDockMove!,
+        child: title,
+      );
     }
 
     final height = shaded ? TrampMetrics.titleBar : logicalSize.height;
