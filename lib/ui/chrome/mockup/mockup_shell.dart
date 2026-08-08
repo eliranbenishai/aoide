@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:flutter/widgets.dart';
 
 import '../../../theme/mockup_tokens.dart';
@@ -14,6 +18,11 @@ class MockupShell extends StatelessWidget {
   final Widget child;
   final double width;
   final double borderRadius;
+
+  /// Prefetch the `.win::before` noise tile (call from golden `setUpAll`).
+  static Future<void> ensureNoiseReady() async {
+    await _NoiseTile.ensure();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,6 +50,10 @@ class MockupShell extends StatelessWidget {
           child: Stack(
             children: [
               const Positioned.fill(child: CustomPaint(painter: _ShellPainter())),
+              // `.win::before` — inset ~1px noise overlay at ~5% / overlay blend.
+              Positioned.fill(
+                child: _MockupWinNoise(borderRadius: borderRadius),
+              ),
               child,
             ],
           ),
@@ -48,6 +61,152 @@ class MockupShell extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Approximates mockup `--noise` (SVG `feTurbulence` fractalNoise 140×140 tile).
+final class _NoiseTile {
+  static const int size = 140;
+
+  static ui.Image? image;
+  static Future<ui.Image>? _pending;
+
+  static Future<ui.Image> ensure() {
+    final existing = image;
+    if (existing != null) return Future<ui.Image>.value(existing);
+    return _pending ??= _generate();
+  }
+
+  static Future<ui.Image> _generate() async {
+    const w = size;
+    const h = size;
+    final pixels = Uint8List(w * h * 4);
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        // baseFrequency≈0.9, numOctaves=3 — fine grain grayscale.
+        final n = _fractalNoise(x, y);
+        final v = (n * 255.0).round().clamp(0, 255);
+        final i = (y * w + x) * 4;
+        pixels[i] = v;
+        pixels[i + 1] = v;
+        pixels[i + 2] = v;
+        pixels[i + 3] = 255;
+      }
+    }
+    final completer = Completer<ui.Image>();
+    ui.decodeImageFromPixels(
+      pixels,
+      w,
+      h,
+      ui.PixelFormat.rgba8888,
+      completer.complete,
+    );
+    final decoded = await completer.future;
+    image = decoded;
+    return decoded;
+  }
+
+  /// Deterministic hash in `0..1`.
+  static double _hash(int x, int y) {
+    var n = (x * 374761393) ^ (y * 668265263) ^ (x * y * 1274126177);
+    n = (n ^ (n >> 13)) * 1274126177;
+    n = (n ^ (n >> 16)) & 0x7fffffff;
+    return n / 0x7fffffff;
+  }
+
+  static double _fractalNoise(int x, int y) {
+    var sum = 0.0;
+    var amp = 1.0;
+    var norm = 0.0;
+    var xo = x;
+    var yo = y;
+    for (var octave = 0; octave < 3; octave++) {
+      sum += amp * _hash(xo, yo);
+      norm += amp;
+      amp *= 0.5;
+      // Next octave: higher frequency scramble (≈×2 baseFrequency).
+      xo = xo * 2 + 17;
+      yo = yo * 2 + 31;
+    }
+    return sum / norm;
+  }
+}
+
+/// `.win::before` noise: inset 1px, radius shell−1, opacity 0.05, overlay blend.
+class _MockupWinNoise extends StatefulWidget {
+  const _MockupWinNoise({required this.borderRadius});
+
+  final double borderRadius;
+
+  @override
+  State<_MockupWinNoise> createState() => _MockupWinNoiseState();
+}
+
+class _MockupWinNoiseState extends State<_MockupWinNoise> {
+  ui.Image? _tile;
+
+  @override
+  void initState() {
+    super.initState();
+    final cached = _NoiseTile.image;
+    if (cached != null) {
+      _tile = cached;
+      return;
+    }
+    _NoiseTile.ensure().then((img) {
+      if (mounted) setState(() => _tile = img);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tile = _tile;
+    if (tile == null) return const SizedBox.shrink();
+    final innerRadius =
+        (widget.borderRadius - 1).clamp(0.0, widget.borderRadius);
+    return Padding(
+      padding: const EdgeInsets.all(1),
+      child: IgnorePointer(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(innerRadius),
+          child: CustomPaint(
+            painter: _NoiseOverlayPainter(tile),
+            child: const SizedBox.expand(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NoiseOverlayPainter extends CustomPainter {
+  const _NoiseOverlayPainter(this.tile);
+
+  final ui.Image tile;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+    final bounds = Offset.zero & size;
+    // Opacity 0.05 + mix-blend-mode: overlay (CSS `.win::before`).
+    canvas.saveLayer(
+      bounds,
+      Paint()
+        ..blendMode = BlendMode.overlay
+        ..color = const Color.fromRGBO(255, 255, 255, 0.05),
+    );
+    final shader = ImageShader(
+      tile,
+      TileMode.repeated,
+      TileMode.repeated,
+      Matrix4.identity().storage,
+    );
+    canvas.drawRect(bounds, Paint()..shader = shader);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _NoiseOverlayPainter oldDelegate) =>
+      oldDelegate.tile != tile;
 }
 
 /// Corner rivet matching mockup `.rivet` (7×7).

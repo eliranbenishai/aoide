@@ -9,7 +9,7 @@ class MockupSlider extends StatelessWidget {
     required this.value,
     this.onChanged,
     this.trackHeight = 14,
-    this.thumbSize = const Size(20, 30),
+    this.thumbSize,
     this.seekStyle = false,
   });
 
@@ -17,20 +17,27 @@ class MockupSlider extends StatelessWidget {
   final double value;
   final ValueChanged<double>? onChanged;
   final double trackHeight;
-  final Size thumbSize;
 
-  /// Seek bar uses a slightly asymmetric fill radius (mockup `.seek-track`).
+  /// Defaults to `20×30` (`.thumb`) or `22×32` when [seekStyle] (`.seek-track`).
+  final Size? thumbSize;
+
+  /// Seek bar uses a slightly asymmetric fill radius (mockup `.seek-track`)
+  /// and thumb `22×32` (default `.thumb` is `20×30`).
   final bool seekStyle;
 
   double get _clamped => value.clamp(0.0, 1.0);
 
+  Size get _thumbSize =>
+      thumbSize ?? (seekStyle ? const Size(22, 32) : const Size(20, 30));
+
   @override
   Widget build(BuildContext context) {
+    final effectiveThumb = _thumbSize;
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final height = thumbSize.height > trackHeight
-            ? thumbSize.height
+        final height = effectiveThumb.height > trackHeight
+            ? effectiveThumb.height
             : trackHeight;
         return SizedBox(
           width: width,
@@ -47,7 +54,7 @@ class MockupSlider extends StatelessWidget {
               painter: _SliderPainter(
                 value: _clamped,
                 trackHeight: trackHeight,
-                thumbSize: thumbSize,
+                thumbSize: effectiveThumb,
                 seekStyle: seekStyle,
               ),
             ),

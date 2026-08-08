@@ -55,7 +55,10 @@ Future<void> _pumpGolden(
 }
 
 void main() {
-  setUpAll(loadTrampFonts);
+  setUpAll(() async {
+    await loadTrampFonts();
+    await MockupShell.ensureNoiseReady();
+  });
 
   testWidgets('title bar strip', (tester) async {
     await _pumpGolden(
