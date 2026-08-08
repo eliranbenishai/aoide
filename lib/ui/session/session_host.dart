@@ -13,8 +13,10 @@ import '../../playback/media_kit_player_engine.dart';
 import '../../playback/playback_controller.dart';
 import '../../playback/player_engine.dart';
 import '../../playlist/playlist_controller.dart';
+import '../../playlist/playlist_sort.dart';
 import '../../playlist/playlist_store.dart';
 import '../../theme/mockup_tokens.dart';
+import '../../theme/tramp_metrics.dart';
 import '../chrome/about_dialog.dart';
 import '../docking/dock_layout.dart';
 import '../docking/docking_coordinator.dart';
@@ -82,12 +84,19 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       sink: const NoopEqualizerSink(),
     );
     _playlist.addListener(_onPlaylistChanged);
+    _playback.addListener(_onPlaybackChanged);
     windowManager.addListener(this);
     unawaited(_bootstrap());
   }
 
   void _onPlaylistChanged() {
+    unawaited(_broadcastPlaylistSnapshot());
     if (mounted) setState(() {});
+  }
+
+  void _onPlaybackChanged() {
+    unawaited(_broadcastPlaylistSnapshot());
+    unawaited(_broadcastPlaybackSnapshot());
   }
 
   Future<void> _bootstrap() async {
@@ -138,6 +147,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
           await _pushEqSnapshot(role);
         } else if (role == WindowRole.playlist) {
           _playlistReady = true;
+          await _pushPlaylistSnapshot(role);
+          await _pushPlaybackSnapshot(role);
         }
         await _applyRoleFrame(role);
         await _pushDockSnapshot(role);
@@ -179,13 +190,89 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       case ApplyPresetCommand(:final name):
         _equalizer.applyPreset(name);
         await _broadcastEqSnapshot();
-      case TransportCommand():
-      case SeekCommand():
-      case VolumeCommand():
+      case TransportCommand(:final action):
+        await _handleTransport(action);
+      case SeekCommand(:final positionMs):
+        await _playback.seek(Duration(milliseconds: positionMs));
+      case VolumeCommand(:final volume):
+        _playback.setVolume(volume);
       case PlaylistOpCommand():
-        // Controllers wire in later tasks; accept commands so clients can send.
-        break;
+        await _handlePlaylistOp(command);
+      case ResizePlaylistCommand(:final width, :final height):
+        await _handlePlaylistResize(width, height);
     }
+  }
+
+  Future<void> _handleTransport(String action) async {
+    switch (action) {
+      case 'playPause':
+        await _playback.playPause();
+      case 'stop':
+        await _playback.stop();
+      case 'next':
+        await _playback.next();
+      case 'previous':
+        await _playback.previous();
+    }
+  }
+
+  Future<void> _handlePlaylistOp(PlaylistOpCommand command) async {
+    switch (command.op) {
+      case 'playIndex':
+        final index = command.index;
+        if (index != null) await _playback.playIndex(index);
+      case 'select':
+        final index = command.index;
+        if (index != null) _playlist.select(index);
+      case 'removeSelected':
+        _playlist.removeSelected();
+      case 'clear':
+        _playlist.clear();
+      case 'selectAll':
+        _playlist.selectAll();
+      case 'invertSelection':
+        _playlist.invertSelection();
+      case 'addPaths':
+        final paths = command.paths;
+        if (paths != null && paths.isNotEmpty) {
+          final tracks = tracksFromPaths(paths);
+          if (tracks.isNotEmpty) {
+            _playlist.addTracks(tracks);
+            if (_playback.currentTrack == null) {
+              await _playback.playIndex(
+                _playlist.playlist.tracks.length - tracks.length,
+              );
+            }
+          }
+        }
+      case 'openPlaylist':
+        final path = command.path;
+        if (path != null && path.isNotEmpty) {
+          await _playlist.openPlaylistFile(path);
+        }
+      case 'savePlaylist':
+        final path = command.path;
+        if (path != null && path.isNotEmpty) {
+          await _playlist.savePlaylistFile(path);
+        }
+      case 'sort':
+        final key = PlaylistSortKey.values.asNameMap()[command.sortKey];
+        if (key != null) _playlist.sortBy(key);
+      case 'reverse':
+        _playlist.reverseTracks();
+    }
+  }
+
+  Future<void> _handlePlaylistResize(double width, double height) async {
+    final w = width.clamp(400.0, 4000.0);
+    final h = height.clamp(200.0, 4000.0);
+    final current = _docking.layout.playlist;
+    final logicalH = current.shaded
+        ? (current.height ?? TrampMetrics.playlistDefault.height)
+        : h;
+    _docking.resizePlaylist(Size(w, logicalH));
+    await _persistLayout();
+    // Do not re-push the playlist frame — the OS window already has this size.
   }
 
   Future<void> _pushEqSnapshot(WindowRole role) async {
@@ -207,6 +294,64 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
 
   Future<void> _broadcastEqSnapshot() =>
       _broadcast(EqSnapshotEvent(_equalizer.settings));
+
+  PlaylistSnapshotEvent _playlistSnapshot() {
+    return PlaylistSnapshotEvent(
+      tracks: List.of(_playlist.playlist.tracks),
+      selectedIndices: _playlist.selectedIndices.toList()..sort(),
+      selectedIndex: _playlist.selectedIndex,
+      sourcePath: _playlist.playlist.sourcePath,
+      playingIndex: _playback.playingIndex,
+      playing: _playback.playing,
+    );
+  }
+
+  Future<void> _pushPlaylistSnapshot(WindowRole role) async {
+    final controller = switch (role) {
+      WindowRole.playlist => _playlistWindow,
+      WindowRole.equalizer => _equalizerWindow,
+      WindowRole.main => null,
+    };
+    if (controller == null) return;
+    try {
+      await SessionBus.pushEvent(controller, _playlistSnapshot());
+    } catch (error, stack) {
+      debugPrint('SessionHost pushPlaylist($role) failed: $error\n$stack');
+    }
+  }
+
+  Future<void> _broadcastPlaylistSnapshot() =>
+      _broadcast(_playlistSnapshot());
+
+  PlaybackSnapshotEvent _playbackSnapshot() {
+    return PlaybackSnapshotEvent(
+      playing: _playback.playing,
+      positionMs: _playback.position.inMilliseconds,
+      durationMs: _playback.duration.inMilliseconds,
+      volume: _playback.volume,
+      muted: _playback.muted,
+      shuffle: _playback.shuffle,
+      repeatMode: _playback.repeatMode.name,
+      playingPath: _playback.currentTrack?.path,
+    );
+  }
+
+  Future<void> _pushPlaybackSnapshot(WindowRole role) async {
+    final controller = switch (role) {
+      WindowRole.playlist => _playlistWindow,
+      WindowRole.equalizer => _equalizerWindow,
+      WindowRole.main => null,
+    };
+    if (controller == null) return;
+    try {
+      await SessionBus.pushEvent(controller, _playbackSnapshot());
+    } catch (error, stack) {
+      debugPrint('SessionHost pushPlayback($role) failed: $error\n$stack');
+    }
+  }
+
+  Future<void> _broadcastPlaybackSnapshot() =>
+      _broadcast(_playbackSnapshot());
 
   Future<void> _stepZoom(int delta) async {
     final steps = TrampSettings.validZoomPercents;
@@ -512,6 +657,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   void dispose() {
     windowManager.removeListener(this);
     _playlist.removeListener(_onPlaylistChanged);
+    _playback.removeListener(_onPlaybackChanged);
     unawaited(_bus.unbind());
     unawaited(_playback.dispose());
     super.dispose();

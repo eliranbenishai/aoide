@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:tramp/domain/track.dart';
 import 'package:tramp/playlist/m3u_codec.dart';
 import 'package:tramp/playlist/playlist_controller.dart';
+import 'package:tramp/playlist/playlist_sort.dart';
 import 'package:tramp/playlist/playlist_store.dart';
 
 class MemoryStore implements PlaylistStore {
@@ -99,6 +100,90 @@ void main() {
 
       final contents = await File(m3uPath).readAsString();
       expect(contents, const M3uCodec().encode(c.playlist.tracks));
+    });
+  });
+
+  group('selection and sort', () {
+    test('selectAll and invertSelection', () {
+      final c = PlaylistController(store: MemoryStore());
+      c.addTracks(const [
+        Track(path: '/a.mp3'),
+        Track(path: '/b.mp3'),
+        Track(path: '/c.mp3'),
+      ]);
+      c.select(1);
+      expect(c.selectedIndices, {1});
+
+      c.selectAll();
+      expect(c.selectedIndices, {0, 1, 2});
+      expect(c.selectedIndex, 0);
+
+      c.invertSelection();
+      expect(c.selectedIndices, isEmpty);
+      expect(c.selectedIndex, isNull);
+
+      c.select(0);
+      c.invertSelection();
+      expect(c.selectedIndices, {1, 2});
+    });
+
+    test('removeSelected removes all highlighted rows', () {
+      final c = PlaylistController(store: MemoryStore());
+      c.addTracks(const [
+        Track(path: '/a.mp3'),
+        Track(path: '/b.mp3'),
+        Track(path: '/c.mp3'),
+      ]);
+      c.selectAll();
+      c.invertSelection(); // empty
+      c.select(0);
+      c.selectAll();
+      c.removeSelected();
+      expect(c.playlist.tracks, isEmpty);
+    });
+
+    test('sortBy title / artist / duration / path and reverse', () {
+      final c = PlaylistController(store: MemoryStore());
+      c.addTracks(const [
+        Track(
+          path: '/z.mp3',
+          title: 'Zoo',
+          artist: 'B',
+          duration: Duration(seconds: 30),
+        ),
+        Track(
+          path: '/a.mp3',
+          title: 'Alpha',
+          artist: 'C',
+          duration: Duration(seconds: 10),
+        ),
+        Track(
+          path: '/m.mp3',
+          title: 'Mid',
+          artist: 'A',
+          duration: Duration(seconds: 20),
+        ),
+      ]);
+      c.select(0); // Zoo
+
+      c.sortBy(PlaylistSortKey.title);
+      expect(c.playlist.tracks.map((t) => t.title), ['Alpha', 'Mid', 'Zoo']);
+      expect(c.selectedIndex, 2);
+
+      c.sortBy(PlaylistSortKey.artist);
+      expect(c.playlist.tracks.map((t) => t.artist), ['A', 'B', 'C']);
+
+      c.sortBy(PlaylistSortKey.duration);
+      expect(
+        c.playlist.tracks.map((t) => t.duration!.inSeconds),
+        [10, 20, 30],
+      );
+
+      c.sortBy(PlaylistSortKey.path);
+      expect(c.playlist.tracks.map((t) => t.path), ['/a.mp3', '/m.mp3', '/z.mp3']);
+
+      c.reverseTracks();
+      expect(c.playlist.tracks.map((t) => t.path), ['/z.mp3', '/m.mp3', '/a.mp3']);
     });
   });
 

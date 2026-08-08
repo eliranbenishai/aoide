@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../domain/equalizer_settings.dart';
+import '../../domain/track.dart';
 import '../../domain/tramp_settings.dart';
 
 /// Which Flutter engine / OS window this entrypoint owns.
@@ -186,32 +187,67 @@ final class EqSnapshotEvent extends SessionEvent {
 
 final class PlaylistSnapshotEvent extends SessionEvent {
   const PlaylistSnapshotEvent({
-    required this.trackCount,
-    required this.selectedIndex,
+    required this.tracks,
+    required this.selectedIndices,
+    this.selectedIndex,
     this.sourcePath,
+    this.playingIndex,
+    this.playing = false,
   });
 
   static const typeName = 'playlist_snapshot';
 
-  final int trackCount;
+  final List<Track> tracks;
+  final List<int> selectedIndices;
   final int? selectedIndex;
   final String? sourcePath;
+  final int? playingIndex;
+  final bool playing;
+
+  int get trackCount => tracks.length;
 
   @override
   String get type => typeName;
 
   @override
   Map<String, dynamic> toJson() => {
-        'trackCount': trackCount,
+        'tracks': [for (final t in tracks) t.toJson()],
+        'trackCount': tracks.length,
+        'selectedIndices': selectedIndices,
         'selectedIndex': selectedIndex,
         'sourcePath': sourcePath,
+        'playingIndex': playingIndex,
+        'playing': playing,
       };
 
   factory PlaylistSnapshotEvent.fromPayload(Map<String, dynamic> json) {
+    final rawTracks = json['tracks'];
+    final tracks = <Track>[];
+    if (rawTracks is List) {
+      for (final item in rawTracks) {
+        if (item is Map) {
+          tracks.add(Track.fromJson(Map<String, dynamic>.from(item)));
+        }
+      }
+    }
+    final rawSelected = json['selectedIndices'];
+    final selectedIndices = <int>[];
+    if (rawSelected is List) {
+      for (final item in rawSelected) {
+        if (item is num) selectedIndices.add(item.toInt());
+      }
+    }
+    final selectedIndex = (json['selectedIndex'] as num?)?.toInt();
+    if (selectedIndices.isEmpty && selectedIndex != null) {
+      selectedIndices.add(selectedIndex);
+    }
     return PlaylistSnapshotEvent(
-      trackCount: (json['trackCount'] as num?)?.toInt() ?? 0,
-      selectedIndex: (json['selectedIndex'] as num?)?.toInt(),
+      tracks: tracks,
+      selectedIndices: selectedIndices,
+      selectedIndex: selectedIndex,
       sourcePath: json['sourcePath'] as String?,
+      playingIndex: (json['playingIndex'] as num?)?.toInt(),
+      playing: json['playing'] == true,
     );
   }
 }
@@ -328,6 +364,8 @@ sealed class SessionCommand {
         return SetShadedCommand.fromPayload(payload);
       case PlaylistOpCommand.typeName:
         return PlaylistOpCommand.fromPayload(payload);
+      case ResizePlaylistCommand.typeName:
+        return ResizePlaylistCommand.fromPayload(payload);
       case ZoomStepCommand.typeName:
         return ZoomStepCommand.fromPayload(payload);
       case AlwaysOnTopCommand.typeName:
@@ -603,13 +641,23 @@ final class SetShadedCommand extends SessionCommand {
 }
 
 final class PlaylistOpCommand extends SessionCommand {
-  const PlaylistOpCommand(this.op, {this.index});
+  const PlaylistOpCommand(
+    this.op, {
+    this.index,
+    this.path,
+    this.paths,
+    this.sortKey,
+  });
 
   static const typeName = 'playlist_op';
 
-  /// One of: playIndex, removeSelected, clear, selectAll, invertSelection.
+  /// Ops: playIndex, select, removeSelected, clear, selectAll, invertSelection,
+  /// addPaths, openPlaylist, savePlaylist, sort, reverse.
   final String op;
   final int? index;
+  final String? path;
+  final List<String>? paths;
+  final String? sortKey;
 
   @override
   String get type => typeName;
@@ -618,6 +666,9 @@ final class PlaylistOpCommand extends SessionCommand {
   Map<String, dynamic> toJson() => {
         'op': op,
         'index': index,
+        'path': path,
+        'paths': paths,
+        'sortKey': sortKey,
       };
 
   factory PlaylistOpCommand.fromPayload(Map<String, dynamic> json) {
@@ -625,9 +676,48 @@ final class PlaylistOpCommand extends SessionCommand {
     if (op is! String || op.isEmpty) {
       throw const FormatException('PlaylistOpCommand.op');
     }
+    final rawPaths = json['paths'];
+    List<String>? paths;
+    if (rawPaths is List) {
+      paths = [
+        for (final p in rawPaths)
+          if (p is String && p.isNotEmpty) p,
+      ];
+    }
     return PlaylistOpCommand(
       op,
       index: (json['index'] as num?)?.toInt(),
+      path: json['path'] as String?,
+      paths: paths,
+      sortKey: json['sortKey'] as String?,
+    );
+  }
+}
+
+/// User resized the playlist OS window — logical size before zoom.
+final class ResizePlaylistCommand extends SessionCommand {
+  const ResizePlaylistCommand({required this.width, required this.height});
+
+  static const typeName = 'resize_playlist';
+
+  final double width;
+  final double height;
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {'width': width, 'height': height};
+
+  factory ResizePlaylistCommand.fromPayload(Map<String, dynamic> json) {
+    final width = json['width'];
+    final height = json['height'];
+    if (width is! num || height is! num) {
+      throw const FormatException('ResizePlaylistCommand');
+    }
+    return ResizePlaylistCommand(
+      width: width.toDouble(),
+      height: height.toDouble(),
     );
   }
 }

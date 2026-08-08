@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tramp/domain/equalizer_settings.dart';
+import 'package:tramp/domain/track.dart';
 import 'package:tramp/domain/tramp_settings.dart';
 import 'package:tramp/ui/session/session_messages.dart';
 
@@ -140,6 +141,12 @@ void main() {
         const ApplyPresetCommand('Rock'),
         const SetShadedCommand(window: WindowId.equalizer, shaded: true),
         const PlaylistOpCommand('playIndex', index: 2),
+        const PlaylistOpCommand(
+          'addPaths',
+          paths: ['/a.mp3', '/b.mp3'],
+        ),
+        const PlaylistOpCommand('sort', sortKey: 'title'),
+        const ResizePlaylistCommand(width: 900, height: 500),
         const ZoomStepCommand(1),
         const AlwaysOnTopCommand(true),
       ];
@@ -149,6 +156,34 @@ void main() {
           command.toEnvelope(),
         );
       }
+    });
+  });
+
+  group('PlaylistSnapshotEvent', () {
+    test('round-trips tracks and selection', () {
+      const event = PlaylistSnapshotEvent(
+        tracks: [
+          Track(
+            path: '/a.mp3',
+            title: 'A',
+            artist: 'X',
+            duration: Duration(seconds: 12),
+          ),
+        ],
+        selectedIndices: [0],
+        selectedIndex: 0,
+        sourcePath: '/list.m3u',
+        playingIndex: 0,
+        playing: true,
+      );
+      final decoded =
+          SessionEvent.fromJson(event.toEnvelope()) as PlaylistSnapshotEvent;
+      expect(decoded.trackCount, 1);
+      expect(decoded.tracks.single.title, 'A');
+      expect(decoded.selectedIndices, [0]);
+      expect(decoded.playingIndex, 0);
+      expect(decoded.playing, isTrue);
+      expect(decoded.sourcePath, '/list.m3u');
     });
   });
 }

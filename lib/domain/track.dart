@@ -34,6 +34,29 @@ class Track {
     );
   }
 
+  Map<String, dynamic> toJson() => {
+        'path': path,
+        'title': title,
+        'artist': artist,
+        'album': album,
+        'durationMs': duration?.inMilliseconds,
+      };
+
+  factory Track.fromJson(Map<String, dynamic> json) {
+    final path = json['path'];
+    if (path is! String || path.isEmpty) {
+      throw const FormatException('Track.path');
+    }
+    final ms = json['durationMs'];
+    return Track(
+      path: path,
+      title: json['title'] as String?,
+      artist: json['artist'] as String?,
+      album: json['album'] as String?,
+      duration: ms is num ? Duration(milliseconds: ms.toInt()) : null,
+    );
+  }
+
   @override
   bool operator ==(Object other) =>
       other is Track &&
