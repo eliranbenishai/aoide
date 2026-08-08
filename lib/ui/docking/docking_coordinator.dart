@@ -54,7 +54,10 @@ class DockingCoordinator extends ChangeNotifier {
       }
     }
 
-    _trySnap(id);
+    // Shift-undock must stay undocked even when still within snap range.
+    if (!shiftUndock) {
+      _trySnap(id);
+    }
     notifyListeners();
   }
 

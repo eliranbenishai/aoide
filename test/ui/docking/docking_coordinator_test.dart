@@ -40,6 +40,23 @@ void main() {
       expect(c.groupOf(WindowId.playlist), equals({WindowId.playlist}));
     });
 
+    test('shiftUndock within 12px of partner does not re-snap', () {
+      final c = DockingCoordinator(DockLayout.defaults);
+      c.move(WindowId.playlist, const Offset(0, 348 - 10), shiftUndock: false);
+      expect(c.layout.dockEdges, isNotEmpty);
+
+      // Still within snapThreshold of main.bottom, but shift must keep undocked.
+      const undockedTop = 348.0 + 8;
+      c.move(WindowId.playlist, const Offset(0, undockedTop), shiftUndock: true);
+
+      expect(c.layout.playlist.left, 0);
+      expect(c.layout.playlist.top, undockedTop);
+      expect(c.layout.dockEdges, isEmpty);
+      expect(c.groupOf(WindowId.playlist), equals({WindowId.playlist}));
+      expect(c.layout.main.left, 0);
+      expect(c.layout.main.top, 0);
+    });
+
     test('separation over 48 undocks without moving partners', () {
       final c = DockingCoordinator(DockLayout.defaults);
       c.move(WindowId.playlist, const Offset(0, 348 - 10), shiftUndock: false);
