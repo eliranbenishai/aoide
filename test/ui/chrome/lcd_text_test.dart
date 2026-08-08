@@ -36,7 +36,7 @@ void main() {
     await tester.pumpWidget(host(const LcdText('128 kbps')));
     expect(
       tester.widget<Text>(find.text('128 kbps')).style!.fontFamily,
-      'IBMPlexMono',
+      'TrampMono',
     );
   });
 

@@ -88,6 +88,8 @@ class EqualizerPanel extends StatelessWidget {
             const SkinImage(
               asset: GraphiteSkin.equalizerShadeFace,
               // logicalSize.width (812) x the title-bar height.
+              // Graphite shade face is still authored at 812×titleBar until
+              // mockup chrome replaces the PNG pack.
               logicalSize: Size(812, TrampMetrics.titleBar),
             ),
             ..._titleControls(),

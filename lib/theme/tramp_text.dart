@@ -5,13 +5,13 @@ import 'tramp_colors.dart';
 /// Bundled type. Both families ship as assets: runtime font fetching breaks
 /// offline rendering and makes golden tests non-deterministic.
 abstract final class TrampText {
-  static const _chrome = 'BarlowSemiCondensed';
-  static const _mono = 'IBMPlexMono';
+  static const _chrome = 'TrampCondensed';
+  static const _mono = 'TrampMono';
 
   /// Chrome button labels: the playlist toolbar's LOAD, SAVE, ADD.
   static const chromeLabel = TextStyle(
     fontFamily: _chrome,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w700,
     fontSize: 11,
     height: 1,
     letterSpacing: 0.6,
@@ -21,7 +21,7 @@ abstract final class TrampText {
   /// Equalizer frequency and dB scale labels.
   static const eqScale = TextStyle(
     fontFamily: _chrome,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w700,
     fontSize: 9,
     height: 1,
     color: TrampColors.label,
@@ -47,7 +47,7 @@ abstract final class TrampText {
   /// The large elapsed-time readout.
   static const lcdLarge = TextStyle(
     fontFamily: _mono,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w500,
     fontSize: 24,
     height: 1,
     color: TrampColors.phosphor,

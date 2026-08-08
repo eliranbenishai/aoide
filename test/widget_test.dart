@@ -71,7 +71,7 @@ void main() {
 
   testWidgets('startup applies playlist mode: resizable, default tall size',
       (tester) async {
-    await tester.binding.setSurfaceSize(const Size(824, 660));
+    await tester.binding.setSurfaceSize(const Size(837, 766));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
@@ -85,15 +85,15 @@ void main() {
 
     expect(methods(), containsAllInOrder(['setResizable', 'setMinimumSize', 'setBounds']));
     expect(lastCall('setResizable').arguments, {'isResizable': true});
-    expect(lastCall('setMinimumSize').arguments['width'], 824);
-    expect(lastCall('setMinimumSize').arguments['height'], 500);
-    expect(lastCall('setBounds').arguments['width'], 824);
-    expect(lastCall('setBounds').arguments['height'], 660);
+    expect(lastCall('setMinimumSize').arguments['width'], 837);
+    expect(lastCall('setMinimumSize').arguments['height'], 606);
+    expect(lastCall('setBounds').arguments['width'], 837);
+    expect(lastCall('setBounds').arguments['height'], 766);
   });
 
   testWidgets('switching to equalizer snaps to the fixed stack, back restores',
       (tester) async {
-    await tester.binding.setSurfaceSize(const Size(824, 660));
+    await tester.binding.setSurfaceSize(const Size(837, 766));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
@@ -111,18 +111,18 @@ void main() {
 
     expect(methods(), containsAllInOrder(['setResizable', 'setMinimumSize', 'setBounds']));
     expect(lastCall('setResizable').arguments, {'isResizable': false});
-    expect(lastCall('setMinimumSize').arguments['width'], 824);
-    expect(lastCall('setMinimumSize').arguments['height'], 466);
-    expect(lastCall('setBounds').arguments['width'], 824);
-    expect(lastCall('setBounds').arguments['height'], 466);
+    expect(lastCall('setMinimumSize').arguments['width'], 837);
+    expect(lastCall('setMinimumSize').arguments['height'], 714);
+    expect(lastCall('setBounds').arguments['width'], 837);
+    expect(lastCall('setBounds').arguments['height'], 714);
 
     windowCalls.clear();
     await tester.tap(find.byKey(const Key('player-pl')));
     await tester.pumpAndSettle();
 
     expect(lastCall('setResizable').arguments, {'isResizable': true});
-    expect(lastCall('setBounds').arguments['width'], 824);
-    expect(lastCall('setBounds').arguments['height'], 660);
+    expect(lastCall('setBounds').arguments['width'], 837);
+    expect(lastCall('setBounds').arguments['height'], 766);
   });
 
   testWidgets('a persisted playlist window size is restored across modes',
@@ -151,8 +151,8 @@ void main() {
 
     await tester.tap(find.byKey(const Key('player-eq')));
     await tester.pumpAndSettle();
-    expect(lastCall('setBounds').arguments['width'], 824);
-    expect(lastCall('setBounds').arguments['height'], 466);
+    expect(lastCall('setBounds').arguments['width'], 837);
+    expect(lastCall('setBounds').arguments['height'], 714);
 
     await tester.tap(find.byKey(const Key('player-pl')));
     await tester.pumpAndSettle();

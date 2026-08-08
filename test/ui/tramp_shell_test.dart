@@ -38,7 +38,7 @@ void main() {
     WidgetTester tester, {
     LowerRegion region = LowerRegion.playlist,
     bool collapsed = false,
-    Size surface = const Size(824, 500),
+    Size surface = const Size(837, 606),
   }) async {
     await tester.binding.setSurfaceSize(surface);
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -51,16 +51,18 @@ void main() {
           equalizerCollapsed: collapsed,
           playback: playback,
           playlistController: playlist,
-          mainPlayer: const SizedBox(
-            key: Key('main-player'),
-            width: 812,
-            height: 242,
+          mainPlayer: SizedBox(
+            key: const Key('main-player'),
+            width: TrampMetrics.mainPlayer.width,
+            height: TrampMetrics.mainPlayer.height,
           ),
           equalizer: SizedBox(
             key: const Key('equalizer'),
-            width: 812,
+            width: TrampMetrics.equalizer.width,
             // Mirror the real panel: collapsed, it is only the title strip.
-            height: collapsed ? TrampMetrics.titleBar : 206,
+            height: collapsed
+                ? TrampMetrics.titleBar
+                : TrampMetrics.equalizer.height,
           ),
           playlist: const SizedBox(key: Key('playlist')),
         ),
@@ -146,9 +148,9 @@ void main() {
     await pump(tester,
         region: LowerRegion.equalizer,
         collapsed: true,
-        surface: const Size(824, 295));
+        surface: const Size(837, 408));
     expect(tester.takeException(), isNull);
-    // main (242) + gutter (6) + title bar (35).
-    expect(tester.getSize(find.byKey(panelStackKey)).height, 283);
+    // main (348) + gutter (6) + title bar (42).
+    expect(tester.getSize(find.byKey(panelStackKey)).height, 396);
   });
 }

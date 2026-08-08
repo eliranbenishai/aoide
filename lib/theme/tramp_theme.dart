@@ -18,7 +18,7 @@ ThemeData buildTrampTheme() {
 
   return base.copyWith(
     textTheme: base.textTheme.apply(
-      fontFamily: 'BarlowSemiCondensed',
+      fontFamily: 'TrampCondensed',
       bodyColor: TrampColors.label,
       displayColor: TrampColors.label,
     ),

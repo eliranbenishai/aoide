@@ -35,15 +35,11 @@ flutter:
     - assets/skin/graphite/controls/
     - assets/skin/graphite/playlist/
   fonts:
-    - family: BarlowSemiCondensed
+    - family: TrampCondensed
       fonts:
-        - asset: assets/fonts/BarlowSemiCondensed-SemiBold.ttf
-          weight: 600
-        - asset: assets/fonts/BarlowSemiCondensed-Bold.ttf
+        - asset: assets/fonts/TrampCondensed-Bold.ttf
           weight: 700
-    - family: IBMPlexMono
+    - family: TrampMono
       fonts:
-        - asset: assets/fonts/IBMPlexMono-Medium.ttf
+        - asset: assets/fonts/TrampMono-Medium.ttf
           weight: 500
-        - asset: assets/fonts/IBMPlexMono-SemiBold.ttf
-          weight: 600

@@ -15,22 +15,22 @@ void main() {
   };
 
   // Weights registered in pubspec.yaml for each family.
-  final chromeWeights = {FontWeight.w600, FontWeight.w700};
-  final monoWeights = {FontWeight.w500, FontWeight.w600};
+  final chromeWeights = {FontWeight.w700};
+  final monoWeights = {FontWeight.w500};
 
-  test('chrome styles use BarlowSemiCondensed', () {
+  test('chrome styles use TrampCondensed', () {
     for (final entry in chrome.entries) {
       expect(
         entry.value.fontFamily,
-        'BarlowSemiCondensed',
+        'TrampCondensed',
         reason: entry.key,
       );
     }
   });
 
-  test('LCD styles use IBMPlexMono', () {
+  test('LCD styles use TrampMono', () {
     for (final entry in lcd.entries) {
-      expect(entry.value.fontFamily, 'IBMPlexMono', reason: entry.key);
+      expect(entry.value.fontFamily, 'TrampMono', reason: entry.key);
     }
   });
 

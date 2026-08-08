@@ -57,17 +57,17 @@ void main() {
 
   test('window size scales the canvas stack by the factor', () {
     final c = build();
-    // 812 panel + 6 frame either side = 824 logical; 6 + 242 + 6 + 240 + 6 = 500.
-    expect(c.windowSizeFor(100), const Size(824, 500));
-    expect(c.windowSizeFor(200), const Size(1648, 1000));
+    // 825 panel + 6 frame either side = 837 logical; 12 + 348 + 6 + 240 = 606.
+    expect(c.windowSizeFor(100), const Size(837, 606));
+    expect(c.windowSizeFor(200), const Size(1674, 1212));
   });
 
   test('minimum window size never clips the player chrome', () {
     final c = build();
     final min100 = c.minimumWindowSizeFor(100);
-    expect(min100.width, 824);
-    // 6 frame + 242 player + 6 gutter + 35 collapsed equalizer title bar + 6 frame.
-    expect(min100.height, 295);
+    expect(min100.width, 837);
+    // 6 frame + 348 player + 6 gutter + 42 collapsed equalizer title bar + 6 frame.
+    expect(min100.height, 408);
   });
 
   test('steps too wide for the work area are disabled', () {
@@ -130,9 +130,9 @@ void main() {
   });
 
   test('stepUp and stepDown skip steps the display cannot host', () {
-    // 200% needs (812 + 12) * 2 = 1648 logical px wide; one pixel less
-    // disables 200–300% while 150% still fits at 1236.
-    const workArea = Size(1647, 4000);
+    // 200% needs (825 + 12) * 2 = 1674 logical px wide; one pixel less
+    // disables 200–300% while 150% still fits at 1255.5.
+    const workArea = Size(1673, 4000);
     final c = build(workArea: workArea, initialPercent: 125);
     expect(c.canUse(150), isTrue);
     expect(c.canUse(200), isFalse);
@@ -151,8 +151,9 @@ void main() {
   });
 
   test('metrics match the locked canvases', () {
-    expect(TrampMetrics.mainPlayer, const Size(812, 242));
-    expect(TrampMetrics.equalizer, const Size(812, 206));
+    expect(TrampMetrics.mainPlayer, const Size(825, 348));
+    expect(TrampMetrics.equalizer, const Size(825, 348));
+    expect(TrampMetrics.playlistDefault, const Size(825, 696));
     expect(TrampMetrics.gutter, 6.0);
   });
 }

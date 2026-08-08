@@ -414,7 +414,7 @@ class _MainPlayerPanelState extends State<MainPlayerPanel> {
             child: Text(
               'VOL',
               style: TextStyle(
-                fontFamily: 'BarlowSemiCondensed',
+                fontFamily: 'TrampCondensed',
                 fontWeight: FontWeight.w700,
                 fontSize: 11,
                 height: 1,
