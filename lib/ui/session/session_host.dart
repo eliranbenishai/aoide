@@ -10,6 +10,7 @@ import '../../platform/settings_store.dart';
 import '../../theme/mockup_tokens.dart';
 import '../docking/dock_layout.dart';
 import '../docking/docking_coordinator.dart';
+import 'always_on_top.dart';
 import 'session_bus.dart';
 import 'session_messages.dart';
 
@@ -67,7 +68,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
 
     await _ensureSecondaryWindows();
     await _applyAllFrames();
-    await windowManager.setAlwaysOnTop(_alwaysOnTop);
+    await _applyAlwaysOnTop();
 
     if (mounted) {
       setState(() => _bootstrapped = true);
@@ -107,7 +108,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         await _broadcastDockSnapshot();
       case AlwaysOnTopCommand(:final enabled):
         _alwaysOnTop = enabled;
-        await windowManager.setAlwaysOnTop(enabled);
+        await _applyAlwaysOnTop();
         await _persistLayout();
       case ZoomStepCommand(:final delta):
         final steps = TrampSettings.validZoomPercents;
@@ -151,12 +152,30 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     await windowManager.setMinimumSize(rect.size);
     await windowManager.setSize(rect.size);
     await windowManager.setPosition(rect.topLeft);
+    await windowManager.setAlwaysOnTop(
+      effectiveAlwaysOnTop(alwaysOnTop: _alwaysOnTop, visible: visible),
+    );
     if (visible) {
       await windowManager.show();
       await windowManager.focus();
     } else {
       await windowManager.hide();
     }
+  }
+
+  /// Pin every currently visible tramp window when the global flag is on.
+  Future<void> _applyAlwaysOnTop() async {
+    final layout = _docking.layout;
+    final targets = alwaysOnTopTargets(
+      alwaysOnTop: _alwaysOnTop,
+      mainVisible: layout.main.visible,
+      equalizerVisible: layout.equalizer.visible,
+      playlistVisible: layout.playlist.visible,
+    );
+    await windowManager.setAlwaysOnTop(targets.contains(WindowId.main));
+    // Secondaries apply AOT via apply_frame (visible ∩ global flag).
+    if (_eqReady) await _applyRoleFrame(WindowRole.equalizer);
+    if (_playlistReady) await _applyRoleFrame(WindowRole.playlist);
   }
 
   Future<void> _applyRoleFrame(WindowRole role) async {
@@ -184,9 +203,14 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         width: rect.width,
         height: rect.height,
         visible: visible,
+        alwaysOnTop: effectiveAlwaysOnTop(
+          alwaysOnTop: _alwaysOnTop,
+          visible: visible,
+        ),
       );
-    } catch (_) {
+    } catch (error, stack) {
       // Client may be restarting; ready handshake will retry.
+      debugPrint('SessionHost pushFrame($role) failed: $error\n$stack');
     }
   }
 
@@ -225,7 +249,9 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     if (controller == null) return;
     try {
       await SessionBus.pushEvent(controller, _dockSnapshot());
-    } catch (_) {}
+    } catch (error, stack) {
+      debugPrint('SessionHost pushEvent($role) failed: $error\n$stack');
+    }
   }
 
   Future<void> _broadcastDockSnapshot() => _broadcast(_dockSnapshot());
@@ -235,7 +261,11 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       if (controller == null) continue;
       try {
         await SessionBus.pushEvent(controller, event);
-      } catch (_) {}
+      } catch (error, stack) {
+        debugPrint(
+          'SessionHost broadcast ${event.type} failed: $error\n$stack',
+        );
+      }
     }
   }
 

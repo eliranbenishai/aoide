@@ -67,6 +67,7 @@ class SessionBus {
     required double width,
     required double height,
     required bool visible,
+    required bool alwaysOnTop,
   }) {
     return controller.invokeMethod(applyFrameMethod, {
       'left': left,
@@ -74,6 +75,7 @@ class SessionBus {
       'width': width,
       'height': height,
       'visible': visible,
+      'alwaysOnTop': alwaysOnTop,
     });
   }
 }

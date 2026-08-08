@@ -87,9 +87,12 @@ class _SessionClientAppState extends State<SessionClientApp>
     final height = (args['height'] as num).toDouble();
     final visible = args['visible'] == true;
 
+    final alwaysOnTop = args['alwaysOnTop'] == true;
+
     await windowManager.setMinimumSize(Size(width, height));
     await windowManager.setSize(Size(width, height));
     await windowManager.setPosition(Offset(left, top));
+    await windowManager.setAlwaysOnTop(alwaysOnTop);
     if (visible) {
       await windowManager.show();
       await widget.windowController.show();
