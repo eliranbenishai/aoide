@@ -613,5 +613,7 @@ class _VTrackPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _VTrackPainter oldDelegate) =>
-      oldDelegate.fraction != fraction || oldDelegate.hover != hover;
+      oldDelegate.fraction != fraction ||
+      oldDelegate.hover != hover ||
+      oldDelegate.materials != materials;
 }

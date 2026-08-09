@@ -3,6 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tramp/domain/equalizer_settings.dart';
 import 'package:tramp/domain/tramp_settings.dart';
 import 'package:tramp/eq/equalizer_controller.dart';
+import 'package:tramp/look/builtin_look.dart';
+import 'package:tramp/look/look_materials.dart';
+import 'package:tramp/look/resolved_look.dart';
 import 'package:tramp/platform/settings_store.dart';
 import 'package:tramp/theme/tramp_metrics.dart';
 import 'package:tramp/ui/equalizer/mockup_equalizer.dart';
@@ -11,6 +14,29 @@ import 'package:tramp/ui/windows/equalizer_window.dart';
 
 import '../../support/test_fonts.dart';
 import '../../support/look_harness.dart';
+
+final _altLook = ResolvedLook(
+  id: 'alt',
+  name: 'Alt',
+  palette: BuiltinLook.resolved.palette,
+  materials: const LookMaterials(
+    bevelLightOpacity: 0.15,
+    bevelSoftOpacity: 0.06,
+    spectrumStops: [
+      Color(0xFFFF0000),
+      Color(0xFFFF0000),
+      Color(0xFFFF0000),
+      Color(0xFFFF0000),
+    ],
+    railStops: [
+      Color(0xFFFF0000),
+      Color(0xFFFF0000),
+      Color(0xFFFF0000),
+    ],
+  ),
+  chromeFamily: 'TrampCondensed',
+  lcdFamily: 'TrampMono',
+);
 
 class MemorySettingsStore implements SettingsStore {
   TrampSettings stored = TrampSettings.defaults;
@@ -57,6 +83,7 @@ void main() {
     required List<SessionCommand> commands,
     EqualizerSettings? settings,
     bool shaded = false,
+    ResolvedLook? look,
     List<VoidCallback>? collapses,
     List<VoidCallback>? closes,
   }) async {
@@ -75,6 +102,7 @@ void main() {
               onCollapse: () => collapses?.add(() {}),
               onClose: () => closes?.add(() {}),
             ),
+            look: look,
           ),
         ),
       ),
@@ -207,6 +235,25 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Collapse'));
     await tester.pump();
     expect(collapsed, 1);
+  });
+
+  testWidgets('band track repaints when look materials change', (tester) async {
+    final commands = <SessionCommand>[];
+    final settings = EqualizerSettings.flat.copyWith(
+      gains: [6.0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    );
+    await pumpEq(tester, commands: commands, settings: settings);
+
+    final trackPaint = find.descendant(
+      of: find.byKey(const Key('eq-band-0')),
+      matching: find.byType(CustomPaint),
+    );
+    final builtinPainter = tester.widget<CustomPaint>(trackPaint).painter!;
+
+    await pumpEq(tester, commands: commands, settings: settings, look: _altLook);
+    final altPainter = tester.widget<CustomPaint>(trackPaint).painter!;
+
+    expect(altPainter.shouldRepaint(builtinPainter), isTrue);
   });
 
   testWidgets('curve caption shows preset name', (tester) async {
