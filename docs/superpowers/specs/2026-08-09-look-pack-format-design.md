@@ -1,8 +1,8 @@
 # Look pack JSON format
 
 Date: 2026-08-09  
-Status: Designed (not implemented)  
-Branch intent: define a shareable pack format for recoloring / retyping mockup chrome
+Status: Implemented  
+Branch intent: shareable pack format for recoloring / retyping mockup chrome (see `lib/look/`, `LookController`)
 
 Related: [`MockupTokens`](../../../lib/theme/mockup_tokens.dart), [ADR 0007](../../adr/0007-code-constructed-mockup-chrome.md), [`architecture.md`](../../architecture.md), [`CONTEXT.md`](../../../CONTEXT.md).
 
@@ -214,7 +214,7 @@ If `<looksDir>/<id>/` already exists when installing:
 
 The embedded `builtin` pack is the current mockup palette and materials (from `player-mockup-2.html` / `MockupTokens`) plus bundled TrampCondensed and TrampMono. It is the root of every `extends` chain.
 
-## Testing (when implemented)
+## Testing
 
 - Parse + validate fixtures (good partial, unknown key, bad id, cycle, missing font file).
 - Merge: partial overlay leaves unspecified colors as builtin; `stops` replace wholly.
@@ -222,6 +222,6 @@ The embedded `builtin` pack is the current mockup palette and materials (from `p
 - Directory change: missing active id → builtin.
 - Goldens / widget tests that assert text continue to load the active look’s faces (or builtin).
 
-## Implementation note
+## Implementation
 
-This document defines the format and product rules only. Loader, settings fields, install UI, and wiring into `MockupTokens` / painters are a follow-on implementation plan after this spec is accepted.
+Implemented in `lib/look/` (parse, merge, catalog, install) and `LookController` on the session host; chrome reads `ResolvedLook` via `LookScope`; `LookSnapshotEvent` syncs secondary windows. Install UI: `LookPackDialog` (clutter **O** → Look packs…).
