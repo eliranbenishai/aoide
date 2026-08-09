@@ -16,6 +16,7 @@ import '../chrome/mockup/mockup_led.dart';
 import '../chrome/mockup/mockup_screen.dart';
 import '../chrome/mockup/mockup_shell.dart';
 import '../chrome/mockup/mockup_slider.dart';
+import '../chrome/transport_icons.dart';
 import '../format.dart';
 import '../session/session_messages.dart';
 
@@ -530,6 +531,11 @@ class _DisplayWell extends StatelessWidget {
                               ),
                             ),
                             const Spacer(),
+                            _RepeatStatusChip(
+                              mode: playback.repeatMode,
+                              onPressed: playback.cycleRepeatMode,
+                            ),
+                            const SizedBox(width: 10),
                             _FormatChip(fmtChip),
                           ],
                         ),
@@ -711,6 +717,64 @@ class _MetaDim extends StatelessWidget {
         shadows: const [
           Shadow(color: Color(0x403DE7FF), blurRadius: 8),
         ],
+      ),
+    );
+  }
+}
+
+class _RepeatStatusChip extends StatelessWidget {
+  const _RepeatStatusChip({
+    required this.mode,
+    required this.onPressed,
+  });
+
+  final RepeatMode mode;
+  final VoidCallback onPressed;
+
+  String get _label => switch (mode) {
+        RepeatMode.off => 'OFF',
+        RepeatMode.all => 'PLAYLIST',
+        RepeatMode.one => 'TRACK',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final lit = mode != RepeatMode.off;
+    final colour = lit
+        ? MockupTokens.phos
+        : MockupTokens.phos.withValues(alpha: 0.5);
+    return GestureDetector(
+      key: const Key('player-display-repeat'),
+      behavior: HitTestBehavior.opaque,
+      onTap: onPressed,
+      child: Semantics(
+        button: true,
+        label: 'Repeat $_label',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TransportIcons.reload(colour: colour),
+            const SizedBox(width: 4),
+            Text(
+              _label,
+              style: TextStyle(
+                fontFamily: 'TrampCondensed',
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                height: 1,
+                letterSpacing: 12 * 0.14,
+                decoration: TextDecoration.none,
+                color: colour,
+                shadows: [
+                  Shadow(
+                    color: Color.fromRGBO(61, 231, 255, lit ? 0.85 : 0.25),
+                    blurRadius: lit ? 8 : 6,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

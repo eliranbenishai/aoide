@@ -36,6 +36,7 @@ void main() {
       'speaker': TransportIcons.speaker(),
       'speakerMuted': TransportIcons.speaker(muted: true),
       'dragHandle': TransportIcons.dragHandle(),
+      'reload': TransportIcons.reload(),
     };
 
     for (final entry in glyphs.entries) {
@@ -64,10 +65,11 @@ void main() {
   // must not carry a brand mark of its own — the reference mockup's lightning
   // bolt is Winamp's logo, not a generic icon.
   test('the glyph set is the code-drawn overlay factories', () {
-    const expected = {'speaker', 'dragHandle'};
+    const expected = {'speaker', 'dragHandle', 'reload'};
     final factories = <String, Widget Function()>{
       'speaker': TransportIcons.speaker,
       'dragHandle': TransportIcons.dragHandle,
+      'reload': TransportIcons.reload,
     };
     expect(factories.keys.toSet(), expected);
     for (final build in factories.values) {

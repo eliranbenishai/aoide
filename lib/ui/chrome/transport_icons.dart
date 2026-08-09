@@ -22,6 +22,13 @@ abstract final class TransportIcons {
   static Widget dragHandle({Color colour = defaultGlyphColour}) =>
       _paint(DragHandlePainter(colour: colour), const Size(12, 10));
 
+  /// Circular reload / repeat arrows for LCD status chips.
+  static Widget reload({
+    Color colour = defaultGlyphColour,
+    Size size = const Size(11, 11),
+  }) =>
+      _paint(ReloadPainter(colour: colour), size);
+
   static Widget _paint(CustomPainter painter, Size size) => SizedBox(
         width: size.width,
         height: size.height,
@@ -105,4 +112,58 @@ class DragHandlePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(DragHandlePainter old) => old.colour != colour;
+}
+
+/// Two opposing circular arrows (reload / repeat).
+class ReloadPainter extends CustomPainter {
+  const ReloadPainter({required this.colour});
+
+  final Color colour;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final width = math.max(1.2, size.shortestSide * 0.14);
+    final stroke = Paint()
+      ..color = colour
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.shortestSide * 0.34;
+
+    void arrow(double start, double sweep, double tipAngle) {
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        start,
+        sweep,
+        false,
+        stroke,
+      );
+      final tip = Offset(
+        center.dx + radius * math.cos(tipAngle),
+        center.dy + radius * math.sin(tipAngle),
+      );
+      final tangent = tipAngle + math.pi / 2;
+      final head = size.shortestSide * 0.22;
+      final wing = size.shortestSide * 0.16;
+      final path = Path()
+        ..moveTo(
+          tip.dx + head * math.cos(tangent),
+          tip.dy + head * math.sin(tangent),
+        )
+        ..lineTo(tip.dx, tip.dy)
+        ..lineTo(
+          tip.dx - wing * math.cos(tipAngle),
+          tip.dy - wing * math.sin(tipAngle),
+        );
+      canvas.drawPath(path, stroke);
+    }
+
+    arrow(-math.pi * 0.85, math.pi * 0.95, math.pi * 0.12);
+    arrow(math.pi * 0.15, math.pi * 0.95, math.pi * 1.12);
+  }
+
+  @override
+  bool shouldRepaint(ReloadPainter old) => old.colour != colour;
 }

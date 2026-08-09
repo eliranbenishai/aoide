@@ -1,8 +1,9 @@
 import 'dart:ui';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tramp/domain/repeat_mode.dart';
 import 'package:tramp/domain/track.dart';
 import 'package:tramp/domain/tramp_settings.dart';
 import 'package:tramp/playback/fake_player_engine.dart';
@@ -215,6 +216,43 @@ void main() {
     expect(
       tester.getSize(find.byType(MainPlayerWindow)),
       MainPlayerWindow.logicalSize,
+    );
+  });
+
+  testWidgets('display repeat chip cycles OFF → PLAYLIST → TRACK', (tester) async {
+    final commands = <SessionCommand>[];
+    await pumpPlayer(tester, commands: commands);
+
+    final chip = find.byKey(const Key('player-display-repeat'));
+    expect(chip, findsOneWidget);
+    expect(
+      find.descendant(of: chip, matching: find.text('OFF')),
+      findsOneWidget,
+    );
+    expect(playback.repeatMode, RepeatMode.off);
+
+    await tester.tap(chip);
+    await tester.pump();
+    expect(playback.repeatMode, RepeatMode.all);
+    expect(
+      find.descendant(of: chip, matching: find.text('PLAYLIST')),
+      findsOneWidget,
+    );
+
+    await tester.tap(chip);
+    await tester.pump();
+    expect(playback.repeatMode, RepeatMode.one);
+    expect(
+      find.descendant(of: chip, matching: find.text('TRACK')),
+      findsOneWidget,
+    );
+
+    await tester.tap(chip);
+    await tester.pump();
+    expect(playback.repeatMode, RepeatMode.off);
+    expect(
+      find.descendant(of: chip, matching: find.text('OFF')),
+      findsOneWidget,
     );
   });
 }
