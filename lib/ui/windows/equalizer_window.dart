@@ -56,22 +56,24 @@ class EqualizerWindow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget title = MockupTitleBar(
+    final draggable =
+        draggableTitle && onDockMove != null && dockLogicalTopLeft != null;
+    final title = MockupTitleBar(
       windowName: 'Equalizer',
       showBrand: false,
       showZoom: false,
       onCollapse: onCollapse,
       onClose: onClose,
+      wrapDragRegion: draggable
+          ? (region) => DockDragArea(
+                zoom: zoom,
+                logicalTopLeft: dockLogicalTopLeft!,
+                onMove: onDockMove!,
+                onNativeDragStarted: onNativeDragStarted,
+                child: region,
+              )
+          : null,
     );
-    if (draggableTitle && onDockMove != null && dockLogicalTopLeft != null) {
-      title = DockDragArea(
-        zoom: zoom,
-        logicalTopLeft: dockLogicalTopLeft!,
-        onMove: onDockMove!,
-        onNativeDragStarted: onNativeDragStarted,
-        child: title,
-      );
-    }
 
     final height = shaded ? TrampMetrics.titleBar : logicalSize.height;
 

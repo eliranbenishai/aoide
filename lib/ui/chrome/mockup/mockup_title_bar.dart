@@ -18,6 +18,7 @@ class MockupTitleBar extends StatelessWidget {
     this.onZoomOut,
     this.onZoomIn,
     this.onClose,
+    this.wrapDragRegion,
   });
 
   final String windowName;
@@ -34,6 +35,10 @@ class MockupTitleBar extends StatelessWidget {
   final VoidCallback? onZoomOut;
   final VoidCallback? onZoomIn;
   final VoidCallback? onClose;
+
+  /// Wraps the draggable strip (brand / grips / title) only — never the
+  /// window buttons, so dock drag cannot steal minimize / zoom / close taps.
+  final Widget Function(Widget dragRegion)? wrapDragRegion;
 
   static const height = 42.0;
 
@@ -69,20 +74,31 @@ class MockupTitleBar extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  if (showBrand) ...[
-                    const _TitleLogo(),
-                    const SizedBox(width: 12),
-                    _Wordmark(size: wordmarkSize, showVersion: showVersion),
-                    const SizedBox(width: 12),
-                  ],
-                  const Expanded(child: _Grip()),
-                  const SizedBox(width: 12),
-                  Text(
-                    windowName.toUpperCase(),
-                    style: _windowNameStyle,
+                  Expanded(
+                    child: _wrapDrag(
+                      Row(
+                        children: [
+                          if (showBrand) ...[
+                            const _TitleLogo(),
+                            const SizedBox(width: 12),
+                            _Wordmark(
+                              size: wordmarkSize,
+                              showVersion: showVersion,
+                            ),
+                            const SizedBox(width: 12),
+                          ],
+                          const Expanded(child: _Grip()),
+                          const SizedBox(width: 12),
+                          Text(
+                            windowName.toUpperCase(),
+                            style: _windowNameStyle,
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(child: _Grip()),
+                        ],
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 12),
-                  const Expanded(child: _Grip()),
                   const SizedBox(width: 12),
                   _WindowButtons(
                     showZoom: showZoom,
@@ -99,6 +115,12 @@ class MockupTitleBar extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _wrapDrag(Widget region) {
+    final wrap = wrapDragRegion;
+    if (wrap == null) return region;
+    return wrap(region);
   }
 }
 

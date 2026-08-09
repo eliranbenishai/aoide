@@ -74,24 +74,25 @@ class MainPlayerWindow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget title = MockupTitleBar(
+    final draggable = draggableTitle &&
+        onDockMove != null &&
+        dockLogicalTopLeft != null;
+    final title = MockupTitleBar(
       windowName: 'Main Player',
       onMinimize: onMinimize,
       onZoomOut: onZoomOut,
       onZoomIn: onZoomIn,
       onClose: onClose,
+      wrapDragRegion: draggable
+          ? (region) => DockDragArea(
+                zoom: zoom,
+                logicalTopLeft: dockLogicalTopLeft!,
+                onMove: onDockMove!,
+                onNativeDragStarted: onNativeDragStarted,
+                child: region,
+              )
+          : null,
     );
-    if (draggableTitle &&
-        onDockMove != null &&
-        dockLogicalTopLeft != null) {
-      title = DockDragArea(
-        zoom: zoom,
-        logicalTopLeft: dockLogicalTopLeft!,
-        onMove: onDockMove!,
-        onNativeDragStarted: onNativeDragStarted,
-        child: title,
-      );
-    }
 
     return SizedBox(
       width: logicalSize.width,
