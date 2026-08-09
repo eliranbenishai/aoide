@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "id": "neon-cyan",
+  "name": "Neon Cyan",
+  "author": "Example",
+  "extends": "builtin",
+  "colors": {
+    "phosphor": {
+      "default": "#3de7ff",
+      "hot": "#b8f6ff"
+    },
+    "accent": {
+      "default": "#ff3d9a"
+    }
+  },
+  "materials": {
+    "spectrum": {
+      "stops": ["#cbf9ff", "#3de7ff", "#1b9ec4", "#ff3d9a"]
+    }
+  },
+  "fonts": {
+    "lcd": { "file": "fonts/lcd.ttf", "weight": 500 }
+  }
+}
