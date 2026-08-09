@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../theme/mockup_tokens.dart';
+import '../../../look/look_palette.dart';
+import '../../../theme/look_scope.dart';
 
 /// Phosphor/magenta status LED matching mockup `.led` / `.led--lit`.
 class MockupLed extends StatelessWidget {
@@ -17,15 +18,22 @@ class MockupLed extends StatelessWidget {
   Widget build(BuildContext context) {
     return CustomPaint(
       size: Size.square(size),
-      painter: _LedPainter(lit: lit),
+      painter: _LedPainter(
+        lit: lit,
+        palette: LookScope.of(context).palette,
+      ),
     );
   }
 }
 
 class _LedPainter extends CustomPainter {
-  const _LedPainter({required this.lit});
+  const _LedPainter({
+    required this.lit,
+    required this.palette,
+  });
 
   final bool lit;
+  final LookPalette palette;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -54,10 +62,10 @@ class _LedPainter extends CustomPainter {
         Paint()
           ..shader = RadialGradient(
             center: const Alignment(-0.2, -0.3),
-            colors: const [
-              Color(0xFFFFD6EA),
-              MockupTokens.accent,
-              Color(0xFF8A2258),
+            colors: [
+              const Color(0xFFFFD6EA),
+              palette.accentDefault,
+              const Color(0xFF8A2258),
             ],
             stops: const [0, 0.45, 1],
           ).createShader(glow),
@@ -103,5 +111,5 @@ class _LedPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _LedPainter oldDelegate) =>
-      lit != oldDelegate.lit;
+      lit != oldDelegate.lit || palette != oldDelegate.palette;
 }

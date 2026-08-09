@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/look_scope.dart';
 import '../../theme/tramp_colors.dart';
 import '../../theme/tramp_text.dart';
 import 'logo.dart';
@@ -12,8 +13,10 @@ Future<void> showTrampAboutDialog(
   return showDialog<void>(
     context: context,
     builder: (context) {
+      final look = LookScope.of(context);
+      final colors = TrampColors.of(look);
       return AlertDialog(
-        backgroundColor: TrampColors.panelBottom,
+        backgroundColor: colors.panelBottom,
         surfaceTintColor: Colors.transparent,
         titlePadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
         contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
@@ -28,16 +31,16 @@ Future<void> showTrampAboutDialog(
                 children: [
                   Text(
                     'TRAMP',
-                    style: TrampText.chromeLabel.copyWith(
+                    style: TrampText.chromeLabel(look).copyWith(
                       fontSize: 22,
                       letterSpacing: 4,
-                      color: TrampColors.railAccent,
+                      color: colors.railAccent,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Version $version',
-                    style: TrampText.lcd.copyWith(color: TrampColors.labelDim),
+                    style: TrampText.lcd(look).copyWith(color: colors.labelDim),
                   ),
                 ],
               ),
@@ -47,7 +50,7 @@ Future<void> showTrampAboutDialog(
         content: Text(
           'A desktop music player — dense, playlist-centric, '
           'with distinctive chrome.',
-          style: TrampText.lcd.copyWith(color: TrampColors.label, height: 1.35),
+          style: TrampText.lcd(look).copyWith(color: colors.label, height: 1.35),
         ),
         actions: [
           TextButton(
@@ -55,7 +58,7 @@ Future<void> showTrampAboutDialog(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(
               'Close',
-              style: TrampText.chromeLabel.copyWith(color: TrampColors.phosphor),
+              style: TrampText.chromeLabel(look).copyWith(color: colors.phosphor),
             ),
           ),
         ],

@@ -9,6 +9,7 @@ import 'package:tramp/theme/mockup_tokens.dart';
 import 'package:tramp/ui/windows/main_player_window.dart';
 
 import 'support/test_fonts.dart';
+import 'support/look_harness.dart';
 
 class _MemoryStore implements PlaylistStore {
   @override
@@ -33,6 +34,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        builder: (context, child) => wrapWithLook(child ?? const SizedBox.shrink()),
         home: ColoredBox(
           color: MockupTokens.shellDeep,
           child: MainPlayerWindow(

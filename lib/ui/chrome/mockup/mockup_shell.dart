@@ -4,7 +4,9 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 
-import '../../../theme/mockup_tokens.dart';
+import '../../../look/look_materials.dart';
+import '../../../look/look_palette.dart';
+import '../../../theme/look_scope.dart';
 
 /// Window chassis matching mockup `.win`, plus `.rivet` / `.plate` / `.rail`.
 class MockupShell extends StatelessWidget {
@@ -49,7 +51,14 @@ class MockupShell extends StatelessWidget {
           borderRadius: BorderRadius.circular(borderRadius),
           child: Stack(
             children: [
-              const Positioned.fill(child: CustomPaint(painter: _ShellPainter())),
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _ShellPainter(
+                    palette: LookScope.of(context).palette,
+                    materials: LookScope.of(context).materials,
+                  ),
+                ),
+              ),
               // `.win::before` — inset ~1px noise overlay at ~5% / overlay blend.
               Positioned.fill(
                 child: _MockupWinNoise(borderRadius: borderRadius),
@@ -309,7 +318,10 @@ class MockupRail extends StatelessWidget {
 }
 
 class _ShellPainter extends CustomPainter {
-  const _ShellPainter();
+  const _ShellPainter({required this.palette, required this.materials});
+
+  final LookPalette palette;
+  final LookMaterials materials;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -318,32 +330,38 @@ class _ShellPainter extends CustomPainter {
     canvas.drawRRect(
       rrect,
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            MockupTokens.shellHi,
-            MockupTokens.shell,
-            MockupTokens.shellMid,
-            MockupTokens.shellLo,
-            MockupTokens.shellDeep,
+            palette.shellHighlight,
+            palette.shellBase,
+            palette.shellMid,
+            palette.shellLow,
+            palette.shellDeep,
           ],
-          stops: [0, 0.03, 0.46, 0.92, 1],
+          stops: const [0, 0.03, 0.46, 0.92, 1],
         ).createShader(rect),
     );
 
-    // Inset bevels from mockup box-shadow stack.
+    // Inset bevels from mockup box-shadow stack (--bevel-light / --bevel-soft).
+    // Pack alpha as 8-bit to match prior Color(0x26E2ECFF) / Color(0x0FE2ECFF).
+    Color bevelInk(double opacity) {
+      final a = (opacity * 255.0).round().clamp(0, 255);
+      return Color((a << 24) | 0x00E2ECFF);
+    }
+
     canvas.drawRRect(
       rrect,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
-        ..color = const Color(0x26E2ECFF),
+        ..color = bevelInk(materials.bevelLightOpacity),
     );
     canvas.drawLine(
       const Offset(1, 1),
       Offset(1, size.height - 1),
-      Paint()..color = const Color(0x0FE2ECFF),
+      Paint()..color = bevelInk(materials.bevelSoftOpacity),
     );
     canvas.drawLine(
       Offset(size.width - 1, 1),
@@ -358,7 +376,8 @@ class _ShellPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _ShellPainter oldDelegate) =>
+      palette != oldDelegate.palette || materials != oldDelegate.materials;
 }
 
 class _RivetPainter extends CustomPainter {

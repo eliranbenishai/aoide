@@ -10,6 +10,7 @@ import 'package:tramp/ui/chrome/mockup/mockup_shell.dart';
 import 'package:tramp/ui/windows/equalizer_window.dart';
 
 import '../../support/test_fonts.dart';
+import '../../support/look_harness.dart';
 
 /// Gains approximating mockup EQ thumb positions in `player-mockup-2.html`.
 EqualizerSettings get _mockupCurve => EqualizerSettings(
@@ -38,9 +39,11 @@ void main() {
           alignment: Alignment.topLeft,
           child: ColoredBox(
             color: MockupTokens.shellDeep,
-            child: EqualizerWindow(
-              settings: _mockupCurve,
-              draggableTitle: false,
+            child: wrapWithLook(
+              EqualizerWindow(
+                settings: _mockupCurve,
+                draggableTitle: false,
+              ),
             ),
           ),
         ),
@@ -66,10 +69,12 @@ void main() {
           alignment: Alignment.topLeft,
           child: ColoredBox(
             color: MockupTokens.shellDeep,
-            child: EqualizerWindow(
-              settings: _mockupCurve,
-              shaded: true,
-              draggableTitle: false,
+            child: wrapWithLook(
+              EqualizerWindow(
+                settings: _mockupCurve,
+                shaded: true,
+                draggableTitle: false,
+              ),
             ),
           ),
         ),

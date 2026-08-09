@@ -2,11 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tramp/theme/tramp_colors.dart';
 import 'package:tramp/ui/chrome/lcd_text.dart';
+import '../../support/look_harness.dart';
 
-Widget host(Widget child) => Directionality(
-      textDirection: TextDirection.ltr,
-      child: Center(child: child),
-    );
+Widget host(Widget child) => lookHost(child);
 
 void main() {
   testWidgets('lit text uses phosphor, unlit uses the dim tone',

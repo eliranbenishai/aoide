@@ -17,6 +17,7 @@ import 'package:tramp/ui/chrome/mockup/mockup_slider.dart';
 import 'package:tramp/ui/chrome/mockup/mockup_title_bar.dart';
 
 import '../../../support/test_fonts.dart';
+import '../../../support/look_harness.dart';
 
 Widget _frame(Widget child, Size size) {
   return MaterialApp(
@@ -30,7 +31,7 @@ Widget _frame(Widget child, Size size) {
           color: MockupTokens.shellDeep,
           child: Material(
             color: Colors.transparent,
-            child: child,
+            child: wrapWithLook(child),
           ),
         ),
       ),

@@ -5,7 +5,6 @@ import 'package:path/path.dart' as p;
 import '../../domain/track.dart';
 import '../../playlist/playlist_controller.dart';
 import '../../playlist/playlist_sort.dart';
-import '../../theme/mockup_tokens.dart';
 import '../../ui/format.dart';
 import '../chrome/logo.dart';
 import '../chrome/mockup/mockup_button.dart';
@@ -14,6 +13,7 @@ import '../chrome/mockup/mockup_screen.dart';
 import '../chrome/mockup/mockup_shell.dart';
 import '../session/session_messages.dart';
 import 'mockup_playlist_scrollbar.dart';
+import '../../theme/look_scope.dart';
 
 /// Mockup-faithful playlist body (grows with window; footer bottom-anchored).
 ///
@@ -178,15 +178,15 @@ class _PlaylistWellState extends State<_PlaylistWell> {
                   ),
                 ),
                 if (tracks.isEmpty)
-                  const Center(
+                  Center(
                     child: Text(
                       'DROP FILES TO ENQUEUE',
                       style: TextStyle(
-                        fontFamily: 'TrampCondensed',
+                        fontFamily: LookScope.of(context).chromeFamily,
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
                         letterSpacing: 13 * 0.18,
-                        color: MockupTokens.inkFaint,
+                        color: LookScope.of(context).palette.inkFaint,
                       ),
                     ),
                   )
@@ -289,7 +289,7 @@ class _PlaylistRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final Color color;
     if (playing) {
-      color = MockupTokens.phosHot;
+      color = LookScope.of(context).palette.phosphorHot;
     } else if (selected) {
       color = const Color(0xE0D6F4FF);
     } else {
@@ -310,7 +310,7 @@ class _PlaylistRow extends StatelessWidget {
           child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: selected
-                    ? const LinearGradient(
+                    ? LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
@@ -324,24 +324,24 @@ class _PlaylistRow extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   if (playing)
-                    const Positioned(
+                    Positioned(
                       left: 0,
                       top: 6,
                       bottom: 6,
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          color: MockupTokens.accent,
-                          borderRadius: BorderRadius.horizontal(
+                          color: LookScope.of(context).palette.accentDefault,
+                          borderRadius: const BorderRadius.horizontal(
                             right: Radius.circular(2),
                           ),
-                          boxShadow: [
+                          boxShadow: const [
                             BoxShadow(
                               color: Color(0xE6FF3D9A),
                               blurRadius: 12,
                             ),
                           ],
                         ),
-                        child: SizedBox(width: 3),
+                        child: const SizedBox(width: 3),
                       ),
                     ),
                   Padding(
@@ -354,11 +354,11 @@ class _PlaylistRow extends StatelessWidget {
                             '${index + 1}.',
                             textAlign: TextAlign.right,
                             style: TextStyle(
-                              fontFamily: 'TrampMono',
+                              fontFamily: LookScope.of(context).lcdFamily,
                               fontWeight: FontWeight.w500,
                               fontSize: 15,
                               color: playing
-                                  ? MockupTokens.phos
+                                  ? LookScope.of(context).palette.phosphorDefault
                                   : color.withValues(alpha: 0.7),
                               shadows: playing
                                   ? const [
@@ -378,7 +378,7 @@ class _PlaylistRow extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontFamily: 'TrampMono',
+                              fontFamily: LookScope.of(context).lcdFamily,
                               fontWeight: FontWeight.w500,
                               fontSize: 15,
                               letterSpacing: 0.15,
@@ -399,7 +399,7 @@ class _PlaylistRow extends StatelessWidget {
                               ? ''
                               : formatDuration(track.duration!),
                           style: TextStyle(
-                            fontFamily: 'TrampMono',
+                            fontFamily: LookScope.of(context).lcdFamily,
                             fontWeight: FontWeight.w500,
                             fontSize: 15,
                             color: color.withValues(alpha: 0.8),
@@ -469,7 +469,7 @@ class _PlaylistFooter extends StatelessWidget {
         origin.dx + box.size.width,
         origin.dy,
       ),
-      color: MockupTokens.shellMid,
+      color: LookScope.of(context).palette.shellMid,
       items: const [
         PopupMenuItem(value: 'title', child: _MenuLabel('Title')),
         PopupMenuItem(value: 'artist', child: _MenuLabel('Artist')),
@@ -493,7 +493,7 @@ class _PlaylistFooter extends StatelessWidget {
         origin.dx + box.size.width,
         origin.dy,
       ),
-      color: MockupTokens.shellMid,
+      color: LookScope.of(context).palette.shellMid,
       items: const [
         PopupMenuItem(value: 'load', child: _MenuLabel('Load playlist…')),
         PopupMenuItem(value: 'save', child: _MenuLabel('Save playlist…')),
@@ -616,25 +616,25 @@ class _PlaylistFooter extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
                           children: [
-                            const Text(
+                            Text(
                               'TOTAL',
                               style: TextStyle(
-                                fontFamily: 'TrampCondensed',
+                                fontFamily: LookScope.of(context).chromeFamily,
                                 fontWeight: FontWeight.w700,
                                 fontSize: 11,
                                 letterSpacing: 11 * 0.2,
-                                color: MockupTokens.phosDim,
+                                color: LookScope.of(context).palette.phosphorDim,
                               ),
                             ),
                             const SizedBox(width: 12),
                             Text(
                               formatDuration(_total),
-                              style: const TextStyle(
-                                fontFamily: 'TrampMono',
+                              style: TextStyle(
+                                fontFamily: LookScope.of(context).lcdFamily,
                                 fontWeight: FontWeight.w500,
                                 fontSize: 18,
                                 decoration: TextDecoration.none,
-                                color: MockupTokens.phos,
+                                color: LookScope.of(context).palette.phosphorDefault,
                                 shadows: [
                                   // `.glow` — keep tight vs Skia bloom
                                   Shadow(
@@ -666,26 +666,26 @@ class _PlaylistFooter extends StatelessWidget {
                       _statusName.toUpperCase(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: _statusStyle,
+                      style: _statusStyle(context),
                     ),
                   ),
                   const _StatusDot(),
                   Text(
                     '$count TRACK${count == 1 ? '' : 'S'}',
-                    style: _statusStyle,
+                    style: _statusStyle(context),
                   ),
                   const _StatusDot(),
                   Text(
                     statusPlaying == null
                         ? 'STOPPED'
                         : 'PLAYING ${statusPlaying + 1}',
-                    style: _statusStyle,
+                    style: _statusStyle(context),
                   ),
                   const _StatusDot(),
                   const Spacer(),
-                  const Text(
+                  Text(
                     'DROP FILES HERE TO ENQUEUE',
-                    style: _statusStyle,
+                    style: _statusStyle(context),
                   ),
                 ],
               ),
@@ -706,9 +706,9 @@ class _MenuLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
-        color: MockupTokens.ink,
-        fontFamily: 'TrampCondensed',
+      style: TextStyle(
+        color: LookScope.of(context).palette.inkDefault,
+        fontFamily: LookScope.of(context).chromeFamily,
         fontWeight: FontWeight.w700,
         fontSize: 13,
         letterSpacing: 13 * 0.12,
@@ -725,7 +725,7 @@ class _FooterSep extends StatelessWidget {
     return Container(
       width: 1,
       height: 40,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -745,14 +745,14 @@ class _StatusDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 18),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18),
       child: SizedBox(
         width: 5,
         height: 5,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: MockupTokens.inkFaint,
+            color: LookScope.of(context).palette.inkFaint,
             shape: BoxShape.circle,
           ),
         ),
@@ -761,13 +761,13 @@ class _StatusDot extends StatelessWidget {
   }
 }
 
-const _statusStyle = TextStyle(
-  fontFamily: 'TrampCondensed',
-  fontWeight: FontWeight.w700,
-  fontSize: 12,
-  letterSpacing: 12 * 0.18,
-  color: MockupTokens.inkFaint,
-);
+TextStyle _statusStyle(BuildContext context) => TextStyle(
+      fontFamily: LookScope.of(context).chromeFamily,
+      fontWeight: FontWeight.w700,
+      fontSize: 12,
+      letterSpacing: 12 * 0.18,
+      color: LookScope.of(context).palette.inkFaint,
+    );
 
 class _ListWellPainter extends CustomPainter {
   const _ListWellPainter();

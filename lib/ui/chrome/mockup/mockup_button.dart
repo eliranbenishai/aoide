@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../../theme/look_scope.dart';
 import 'mockup_hover.dart';
 
 /// Raised control matching mockup `.btn` / `.btn--on` / `.btn--label`.
@@ -62,11 +63,12 @@ class _MockupButtonState extends State<MockupButton> {
         builder: (context, hover) {
           // `.btn--on` ink is deep teal (`#04222b`) for labels and SVG fills.
           const onInk = Color(0xFF04222B);
+          final look = LookScope.of(context);
           Widget content = widget.child ??
               Text(
                 widget.label!.toUpperCase(),
                 style: TextStyle(
-                  fontFamily: 'TrampCondensed',
+                  fontFamily: look.chromeFamily,
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
                   height: 1,

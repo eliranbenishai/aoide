@@ -5,11 +5,9 @@ import 'package:tramp/ui/chrome/mockup/mockup_button.dart';
 import 'package:tramp/ui/chrome/mockup/mockup_hover.dart';
 
 import '../../../support/test_fonts.dart';
+import '../../../support/look_harness.dart';
 
-Widget host(Widget child) => Directionality(
-      textDirection: TextDirection.ltr,
-      child: Center(child: child),
-    );
+Widget host(Widget child) => lookHost(child);
 
 Opacity disabledOpacityOf(WidgetTester tester) {
   return tester.widget<Opacity>(

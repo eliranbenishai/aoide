@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../theme/look_scope.dart';
 import '../../theme/tramp_colors.dart';
 import '../../theme/tramp_text.dart';
 import 'metal_panel.dart';
@@ -43,8 +44,9 @@ class _ChromeButtonState extends State<ChromeButton> {
 
   @override
   Widget build(BuildContext context) {
-    final colour =
-        widget.isEnabled ? TrampColors.label : TrampColors.labelDim;
+    final look = LookScope.of(context);
+    final colors = TrampColors.of(look);
+    final colour = widget.isEnabled ? colors.label : colors.labelDim;
 
     Widget button = MetalPanel(
       surface: _down ? TrampSurface.pressedButton : TrampSurface.raisedButton,
@@ -54,7 +56,7 @@ class _ChromeButtonState extends State<ChromeButton> {
       child: Center(
         child: Text(
           widget.text,
-          style: TrampText.chromeLabel.copyWith(color: colour),
+          style: TrampText.chromeLabel(look).copyWith(color: colour),
         ),
       ),
     );

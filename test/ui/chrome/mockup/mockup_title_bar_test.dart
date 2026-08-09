@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tramp/ui/chrome/mockup/mockup_title_bar.dart';
 import 'package:tramp/ui/docking/dock_drag_area.dart';
+import '../../../support/look_harness.dart';
 
 void main() {
   testWidgets('window buttons fire when a drag region wraps the title strip',
@@ -14,6 +15,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        builder: (context, child) => wrapWithLook(child ?? const SizedBox.shrink()),
         home: Scaffold(
           body: MockupTitleBar(
             windowName: 'Main Player',

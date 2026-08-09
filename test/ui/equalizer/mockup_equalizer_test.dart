@@ -10,6 +10,7 @@ import 'package:tramp/ui/session/session_messages.dart';
 import 'package:tramp/ui/windows/equalizer_window.dart';
 
 import '../../support/test_fonts.dart';
+import '../../support/look_harness.dart';
 
 class MemorySettingsStore implements SettingsStore {
   TrampSettings stored = TrampSettings.defaults;
@@ -65,13 +66,15 @@ void main() {
       MaterialApp(
         home: Align(
           alignment: Alignment.topLeft,
-          child: EqualizerWindow(
-            settings: settings ?? controller.settings,
-            shaded: shaded,
-            draggableTitle: false,
-            onSessionCommand: commands.add,
-            onCollapse: () => collapses?.add(() {}),
-            onClose: () => closes?.add(() {}),
+          child: wrapWithLook(
+            EqualizerWindow(
+              settings: settings ?? controller.settings,
+              shaded: shaded,
+              draggableTitle: false,
+              onSessionCommand: commands.add,
+              onCollapse: () => collapses?.add(() {}),
+              onClose: () => closes?.add(() {}),
+            ),
           ),
         ),
       ),

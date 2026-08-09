@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/equalizer_settings.dart';
-import '../../theme/mockup_tokens.dart';
 import '../../theme/tramp_metrics.dart';
 import '../chrome/logo.dart';
 import '../chrome/mockup/mockup_button.dart';
@@ -10,6 +9,8 @@ import '../chrome/mockup/mockup_screen.dart';
 import '../chrome/mockup/mockup_shell.dart';
 import '../session/session_messages.dart';
 import 'eq_curve_painter.dart';
+import '../../look/look_materials.dart';
+import '../../theme/look_scope.dart';
 
 /// Mockup-faithful equalizer body (825×306).
 ///
@@ -175,13 +176,13 @@ class _EqHead extends StatelessWidget {
         const SizedBox(width: 14),
         Text(
           curveCaption.toUpperCase(),
-          style: const TextStyle(
-            fontFamily: 'TrampCondensed',
+          style: TextStyle(
+            fontFamily: LookScope.of(context).chromeFamily,
             fontWeight: FontWeight.w700,
             fontSize: 11,
             height: 1,
             letterSpacing: 11 * 0.2,
-            color: MockupTokens.inkFaint,
+            color: LookScope.of(context).palette.inkFaint,
             shadows: [
               Shadow(offset: Offset(0, 1), color: Color(0xB3000000)),
             ],
@@ -214,16 +215,16 @@ class _PresetsButton extends StatelessWidget {
         origin.dx + size.width,
         origin.dy,
       ),
-      color: MockupTokens.shellMid,
+      color: LookScope.of(context).palette.shellMid,
       items: [
         for (final name in presetNames)
           PopupMenuItem<String>(
             value: name,
             child: Text(
               name,
-              style: const TextStyle(
-                color: MockupTokens.ink,
-                fontFamily: 'TrampCondensed',
+              style: TextStyle(
+                color: LookScope.of(context).palette.inkDefault,
+                fontFamily: LookScope.of(context).chromeFamily,
                 fontWeight: FontWeight.w700,
                 fontSize: 13,
                 letterSpacing: 13 * 0.12,
@@ -322,12 +323,12 @@ class _ScaleLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
-        fontFamily: 'TrampMono',
+      style: TextStyle(
+        fontFamily: LookScope.of(context).lcdFamily,
         fontWeight: FontWeight.w500,
         fontSize: 11,
         height: 1,
-        color: MockupTokens.inkFaint,
+        color: LookScope.of(context).palette.inkFaint,
       ),
     );
   }
@@ -374,14 +375,14 @@ class _BandColumn extends StatelessWidget {
                 label,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontFamily: 'TrampCondensed',
+                  fontFamily: LookScope.of(context).chromeFamily,
                   fontWeight: FontWeight.w700,
                   fontSize: 11,
                   height: 1,
                   letterSpacing: 11 * (preampStyle ? 0.18 : 0.1),
                   color: preampStyle
                       ? const Color(0x8C3DE7FF)
-                      : MockupTokens.inkFaint,
+                      : LookScope.of(context).palette.inkFaint,
                 ),
               ),
             ),
@@ -439,6 +440,7 @@ class _VerticalBandSlider extends StatelessWidget {
                     height: height,
                     child: CustomPaint(
                       painter: _VTrackPainter(
+                        materials: LookScope.of(context).materials,
                         fraction: _toFraction(gain),
                         hover: hover,
                       ),
@@ -455,8 +457,13 @@ class _VerticalBandSlider extends StatelessWidget {
 }
 
 class _VTrackPainter extends CustomPainter {
-  const _VTrackPainter({required this.fraction, required this.hover});
+  const _VTrackPainter({
+    required this.materials,
+    required this.fraction,
+    required this.hover,
+  });
 
+  final LookMaterials materials;
   final double fraction;
   final double hover;
 
@@ -512,16 +519,13 @@ class _VTrackPainter extends CustomPainter {
       canvas.drawRect(
         track.outerRect,
         Paint()
-          ..shader = const LinearGradient(
+          ..shader = LinearGradient(
             begin: Alignment.bottomCenter,
             end: Alignment.topCenter,
-            colors: [
-              Color(0xFFCBF9FF),
-              MockupTokens.phos,
-              Color(0xFF1B9EC4),
-              MockupTokens.accent,
-            ],
-            stops: [0, 0.26, 0.62, 1],
+            colors: materials.spectrumStops,
+            stops: materials.spectrumStops.length == 4
+                ? const [0, 0.26, 0.62, 1]
+                : null,
           ).createShader(track.outerRect),
       );
       canvas.restore();
@@ -588,8 +592,15 @@ class _VTrackPainter extends CustomPainter {
     canvas.drawRRect(
       line,
       Paint()
-        ..shader = const LinearGradient(
-          colors: [Color(0xFFCBF9FF), MockupTokens.phos],
+        ..shader = LinearGradient(
+          colors: [
+            materials.spectrumStops.isNotEmpty
+                ? materials.spectrumStops.first
+                : const Color(0xFFCBF9FF),
+            materials.spectrumStops.length > 1
+                ? materials.spectrumStops[1]
+                : const Color(0xFF3DE7FF),
+          ],
         ).createShader(line.outerRect),
     );
     canvas.drawRRect(

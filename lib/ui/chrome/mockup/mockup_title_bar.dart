@@ -1,9 +1,10 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../theme/mockup_tokens.dart';
 import '../logo.dart';
 import 'mockup_hover.dart';
 import 'mockup_icons.dart';
+import '../../../look/look_materials.dart';
+import '../../../theme/look_scope.dart';
 
 /// Title strip matching mockup `.tbar` (42px).
 class MockupTitleBar extends StatelessWidget {
@@ -43,21 +44,21 @@ class MockupTitleBar extends StatelessWidget {
 
   static const height = 42.0;
 
-  static const _windowNameStyle = TextStyle(
-    fontFamily: 'TrampCondensed',
-    fontWeight: FontWeight.w700,
-    fontSize: 13,
-    height: 1,
-    letterSpacing: 13 * 0.26,
-    decoration: TextDecoration.none,
-    color: Color(0x8CC8D6EB),
-    shadows: [
-      Shadow(
-        offset: Offset(0, 1),
-        color: Color(0xB3000000),
-      ),
-    ],
-  );
+  static TextStyle _windowNameStyle(BuildContext context) => TextStyle(
+        fontFamily: LookScope.of(context).chromeFamily,
+        fontWeight: FontWeight.w700,
+        fontSize: 13,
+        height: 1,
+        letterSpacing: 13 * 0.26,
+        decoration: TextDecoration.none,
+        color: const Color(0x8CC8D6EB),
+        shadows: const [
+          Shadow(
+            offset: Offset(0, 1),
+            color: Color(0xB3000000),
+          ),
+        ],
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +94,7 @@ class MockupTitleBar extends StatelessWidget {
                             const SizedBox(width: 12),
                             Text(
                               windowName.toUpperCase(),
-                              style: _windowNameStyle,
+                              style: _windowNameStyle(context),
                             ),
                             const SizedBox(width: 12),
                             const Expanded(child: _Grip()),
@@ -202,7 +203,7 @@ class _TitleLogoInsetPainter extends CustomPainter {
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.width, size.height * 0.55),
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [Color(0x80FFFFFF), Color(0x00FFFFFF)],
@@ -251,7 +252,7 @@ class _Wordmark extends StatelessWidget {
         Text(
           'TRAMP',
           style: TextStyle(
-            fontFamily: 'TrampCondensed',
+            fontFamily: LookScope.of(context).chromeFamily,
             fontWeight: FontWeight.w700,
             fontSize: size,
             height: 1,
@@ -272,13 +273,13 @@ class _Wordmark extends StatelessWidget {
             child: Text(
               '1.0',
               style: TextStyle(
-                fontFamily: 'TrampCondensed',
+                fontFamily: LookScope.of(context).chromeFamily,
                 fontWeight: FontWeight.w700,
                 fontSize: 11,
                 height: 1,
                 letterSpacing: 11 * 0.06,
                 decoration: TextDecoration.none,
-                color: MockupTokens.phos.withValues(alpha: 0.85),
+                color: LookScope.of(context).palette.phosphorDefault.withValues(alpha: 0.85),
                 shadows: const [
                   Shadow(color: Color(0x803DE7FF), blurRadius: 8),
                 ],
@@ -295,16 +296,20 @@ class _Grip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
+    return SizedBox(
       height: 8,
       width: double.infinity,
-      child: CustomPaint(painter: _GripPainter()),
+      child: CustomPaint(
+        painter: _GripPainter(materials: LookScope.of(context).materials),
+      ),
     );
   }
 }
 
 class _GripPainter extends CustomPainter {
-  const _GripPainter();
+  const _GripPainter({required this.materials});
+
+  final LookMaterials materials;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -327,15 +332,21 @@ class _GripPainter extends CustomPainter {
     canvas.drawRect(
       rail,
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           colors: [
-            Color(0x00000000),
-            MockupTokens.phosDim,
-            MockupTokens.accentDim,
-            MockupTokens.phosDim,
-            Color(0x00000000),
+            const Color(0x00000000),
+            if (materials.railStops.length >= 3) ...[
+              materials.railStops[0],
+              materials.railStops[1],
+              materials.railStops[2],
+            ] else ...[
+              const Color(0xFF1A7A88),
+              const Color(0xFF8A2258),
+              const Color(0xFF1A7A88),
+            ],
+            const Color(0x00000000),
           ],
-          stops: [0, 0.12, 0.5, 0.88, 1],
+          stops: const [0, 0.12, 0.5, 0.88, 1],
         ).createShader(rail),
     );
     final under = Rect.fromLTWH(0, 6, size.width, 1);
@@ -353,7 +364,8 @@ class _GripPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _GripPainter oldDelegate) =>
+      materials != oldDelegate.materials;
 }
 
 class _WindowButtons extends StatelessWidget {

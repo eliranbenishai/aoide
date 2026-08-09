@@ -4,15 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tramp/playback/audio_levels.dart';
 import 'package:tramp/ui/chrome/spectrum_visualizer.dart';
+import '../../support/look_harness.dart';
 
-Widget host(Stream<AudioLevels> levels) => Directionality(
-      textDirection: TextDirection.ltr,
-      child: Center(
-        child: SizedBox(
-          width: 228,
-          height: 96,
-          child: SpectrumVisualizer(levels: levels),
-        ),
+Widget host(Stream<AudioLevels> levels) => lookHost(
+      SizedBox(
+        width: 228,
+        height: 96,
+        child: SpectrumVisualizer(levels: levels),
       ),
     );
 

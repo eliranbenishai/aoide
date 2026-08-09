@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../theme/look_scope.dart';
 import '../../theme/tramp_colors.dart';
 import '../../theme/tramp_text.dart';
 
@@ -22,14 +23,17 @@ class LcdText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = size == LcdSize.large ? TrampText.lcdLarge : TrampText.lcd;
+    final look = LookScope.of(context);
+    final colors = TrampColors.of(look);
+    final base =
+        size == LcdSize.large ? TrampText.lcdLarge(look) : TrampText.lcd(look);
     return Text(
       text,
       textAlign: textAlign,
       maxLines: 1,
       overflow: TextOverflow.clip,
       style: base.copyWith(
-        color: lit ? TrampColors.phosphor : TrampColors.phosphorDim,
+        color: lit ? colors.phosphor : colors.phosphorDim,
       ),
     );
   }
@@ -53,13 +57,14 @@ class LcdIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = TrampColors.of(LookScope.of(context));
     final text = LcdText(label, lit: lit);
 
     final boxed = Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
         border: Border.all(
-          color: lit ? TrampColors.phosphor : TrampColors.phosphorDim,
+          color: lit ? colors.phosphor : colors.phosphorDim,
         ),
       ),
       child: text,

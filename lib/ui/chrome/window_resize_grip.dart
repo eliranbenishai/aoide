@@ -3,7 +3,8 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:window_manager/window_manager.dart';
 
-import '../../theme/mockup_tokens.dart';
+import '../../look/look_palette.dart';
+import '../../theme/look_scope.dart';
 
 /// Bottom-right size grip for frameless windows (`windowManager.startResizing`).
 ///
@@ -26,6 +27,7 @@ class WindowResizeGrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!enabled) return const SizedBox.shrink();
+    final palette = LookScope.of(context).palette;
     return Semantics(
       label: 'Resize window',
       button: true,
@@ -39,7 +41,7 @@ class WindowResizeGrip extends StatelessWidget {
           },
           child: CustomPaint(
             size: Size.square(size),
-            painter: const _ResizeGripPainter(),
+            painter: _ResizeGripPainter(palette: palette),
           ),
         ),
       ),
@@ -48,12 +50,14 @@ class WindowResizeGrip extends StatelessWidget {
 }
 
 class _ResizeGripPainter extends CustomPainter {
-  const _ResizeGripPainter();
+  const _ResizeGripPainter({required this.palette});
+
+  final LookPalette palette;
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = MockupTokens.inkDim.withValues(alpha: 0.85)
+      ..color = palette.inkDim.withValues(alpha: 0.85)
       ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round;
     final dim = size.shortestSide;
@@ -68,5 +72,6 @@ class _ResizeGripPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _ResizeGripPainter oldDelegate) =>
+      palette != oldDelegate.palette;
 }

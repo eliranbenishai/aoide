@@ -3,8 +3,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
+import '../../look/look_materials.dart';
 import '../../playback/audio_levels.dart';
-import '../../theme/mockup_tokens.dart';
+import '../../theme/look_scope.dart';
 
 /// Spectrum bars driven by the engine's analyser stream.
 ///
@@ -70,16 +71,22 @@ class _SpectrumVisualizerState extends State<SpectrumVisualizer> {
       painter: SpectrumPainter(
         bars: List<double>.unmodifiable(_bars),
         peaks: List<double>.unmodifiable(_peaks),
+        materials: LookScope.of(context).materials,
       ),
     );
   }
 }
 
 class SpectrumPainter extends CustomPainter {
-  const SpectrumPainter({required this.bars, required this.peaks});
+  const SpectrumPainter({
+    required this.bars,
+    required this.peaks,
+    required this.materials,
+  });
 
   final List<double> bars;
   final List<double> peaks;
+  final LookMaterials materials;
 
   static const _barWidth = 9.0;
   static const _gap = 3.0;
@@ -87,6 +94,8 @@ class SpectrumPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (bars.isEmpty) return;
+    final stops = materials.spectrumStops;
+    if (stops.isEmpty) return;
 
     for (var i = 0; i < bars.length; i++) {
       final left = i * (_barWidth + _gap);
@@ -99,16 +108,13 @@ class SpectrumPainter extends CustomPainter {
         canvas.drawRect(
           barRect,
           Paint()
-            ..shader = const LinearGradient(
+            ..shader = LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFFCBF9FF),
-                MockupTokens.phos,
-                Color(0xFF1B9EC4),
-                MockupTokens.accent,
-              ],
-              stops: [0, 0.26, 0.62, 1],
+              colors: stops,
+              stops: stops.length == 4
+                  ? const [0, 0.26, 0.62, 1]
+                  : null,
             ).createShader(barRect),
         );
         canvas.drawRect(
@@ -133,7 +139,9 @@ class SpectrumPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(SpectrumPainter old) =>
-      !_same(old.bars, bars) || !_same(old.peaks, peaks);
+      !_same(old.bars, bars) ||
+      !_same(old.peaks, peaks) ||
+      old.materials != materials;
 
   static bool _same(List<double> a, List<double> b) {
     if (a.length != b.length) return false;

@@ -16,6 +16,7 @@ import 'package:tramp/ui/session/session_messages.dart';
 import 'package:tramp/ui/windows/main_player_window.dart';
 
 import '../../support/test_fonts.dart';
+import '../../support/look_harness.dart';
 
 class MemoryStore implements PlaylistStore {
   @override
@@ -54,15 +55,17 @@ void main() {
       MaterialApp(
         home: Align(
           alignment: Alignment.topLeft,
-          child: MainPlayerWindow(
-            playback: playback,
-            trackCount: playlist.playlist.tracks.length,
-            forceMono: forceMono,
-            alwaysOnTop: alwaysOnTop,
-            equalizerVisible: equalizerVisible,
-            playlistVisible: playlistVisible,
-            draggableTitle: false,
-            onSessionCommand: commands.add,
+          child: wrapWithLook(
+            MainPlayerWindow(
+              playback: playback,
+              trackCount: playlist.playlist.tracks.length,
+              forceMono: forceMono,
+              alwaysOnTop: alwaysOnTop,
+              equalizerVisible: equalizerVisible,
+              playlistVisible: playlistVisible,
+              draggableTitle: false,
+              onSessionCommand: commands.add,
+            ),
           ),
         ),
       ),

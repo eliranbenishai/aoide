@@ -10,7 +10,6 @@ import '../../domain/tramp_settings.dart';
 import '../../platform/file_open.dart';
 import '../../playlist/playlist_controller.dart';
 import '../../playlist/playlist_store.dart';
-import '../../theme/mockup_tokens.dart';
 import '../../theme/tramp_metrics.dart';
 import '../docking/dock_move_coalescer.dart';
 import '../docking/native_drag_tracker.dart';
@@ -19,6 +18,8 @@ import '../windows/playlist_window.dart';
 import '../zoom/zoomed_canvas.dart';
 import 'session_bus.dart';
 import 'session_messages.dart';
+import '../../look/builtin_look.dart';
+import '../../theme/look_scope.dart';
 
 /// Secondary-engine shell (EQ / playlist). Mockup chrome for both roles.
 class SessionClientApp extends StatefulWidget {
@@ -462,6 +463,10 @@ class _SessionClientAppState extends State<SessionClientApp>
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         color: const Color(0x00000000),
+        builder: (context, child) => LookScope(
+          look: BuiltinLook.resolved,
+          child: child ?? const SizedBox.shrink(),
+        ),
         home: ColoredBox(
           color: const Color(0x00000000),
           child: ZoomedCanvas(
@@ -488,6 +493,10 @@ class _SessionClientAppState extends State<SessionClientApp>
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         color: const Color(0x00000000),
+        builder: (context, child) => LookScope(
+          look: BuiltinLook.resolved,
+          child: child ?? const SizedBox.shrink(),
+        ),
         home: ColoredBox(
           color: const Color(0x00000000),
           // Derive logical size from live window constraints every frame so
@@ -527,17 +536,22 @@ class _SessionClientAppState extends State<SessionClientApp>
     }
 
     // Main role should not use SessionClientApp.
+    final palette = BuiltinLook.resolved.palette;
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       color: const Color(0x00000000),
+      builder: (context, child) => LookScope(
+        look: BuiltinLook.resolved,
+        child: child ?? const SizedBox.shrink(),
+      ),
       home: ColoredBox(
-        color: MockupTokens.shellMid,
+        color: palette.shellMid,
         child: Center(
           child: Text(
             _lastEventType == null
                 ? 'unexpected main role on client'
                 : 'last event: $_lastEventType',
-            style: const TextStyle(color: MockupTokens.inkDim, fontSize: 12),
+            style: TextStyle(color: palette.inkDim, fontSize: 12),
           ),
         ),
       ),

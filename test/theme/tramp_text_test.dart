@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tramp/look/builtin_look.dart';
 import 'package:tramp/theme/tramp_text.dart';
 
 void main() {
-  const chrome = {
-    'chromeLabel': TrampText.chromeLabel,
-    'eqScale': TrampText.eqScale,
+  final look = BuiltinLook.resolved;
+
+  final chrome = {
+    'chromeLabel': TrampText.chromeLabel(look),
+    'eqScale': TrampText.eqScale(look),
   };
 
-  const lcd = {
-    'lcd': TrampText.lcd,
-    'lcdDim': TrampText.lcdDim,
-    'lcdLarge': TrampText.lcdLarge,
+  final lcd = {
+    'lcd': TrampText.lcd(look),
+    'lcdDim': TrampText.lcdDim(look),
+    'lcdLarge': TrampText.lcdLarge(look),
   };
 
   // Weights registered in pubspec.yaml for each family.
@@ -52,8 +55,8 @@ void main() {
 
   test('lcdLarge is larger than lcd', () {
     expect(
-      TrampText.lcdLarge.fontSize!,
-      greaterThan(TrampText.lcd.fontSize!),
+      TrampText.lcdLarge(look).fontSize!,
+      greaterThan(TrampText.lcd(look).fontSize!),
     );
   });
 }

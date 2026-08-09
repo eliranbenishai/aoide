@@ -20,7 +20,6 @@ import '../../playlist/playlist_controller.dart';
 import '../../playlist/playlist_sort.dart';
 import '../../playlist/playlist_store.dart';
 import '../../playlist/track_metadata_probe.dart';
-import '../../theme/mockup_tokens.dart';
 import '../../theme/tramp_metrics.dart';
 import '../chrome/about_dialog.dart';
 import '../docking/dock_layout.dart';
@@ -33,6 +32,8 @@ import 'always_on_top.dart';
 import 'minimize_group.dart';
 import 'session_bus.dart';
 import 'session_messages.dart';
+import '../../look/builtin_look.dart';
+import '../../theme/look_scope.dart';
 
 /// Main-engine session owner: controllers/settings, docking frames, EQ/PL windows.
 class SessionHostApp extends StatefulWidget {
@@ -787,17 +788,26 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
           ].join('\n');
     await showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: MockupTokens.shellMid,
-        title: const Text('Track info', style: TextStyle(color: MockupTokens.ink)),
-        content: Text(message, style: const TextStyle(color: MockupTokens.inkDim)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+      builder: (context) {
+        final palette = LookScope.of(context).palette;
+        return AlertDialog(
+          backgroundColor: palette.shellMid,
+          title: Text(
+            'Track info',
+            style: TextStyle(color: palette.inkDefault),
           ),
-        ],
-      ),
+          content: Text(
+            message,
+            style: TextStyle(color: palette.inkDim),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -920,13 +930,20 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       title: 'Tramp',
       debugShowCheckedModeBanner: false,
       color: const Color(0x00000000),
+      builder: (context, child) => LookScope(
+        look: BuiltinLook.resolved,
+        child: child ?? const SizedBox.shrink(),
+      ),
       home: ColoredBox(
         color: const Color(0x00000000),
         child: !_bootstrapped
-            ? const Center(
+            ? Center(
                 child: Text(
                   'starting session…',
-                  style: TextStyle(color: MockupTokens.inkDim, fontSize: 12),
+                  style: TextStyle(
+                    color: BuiltinLook.resolved.palette.inkDim,
+                    fontSize: 12,
+                  ),
                 ),
               )
             : ZoomedCanvas(

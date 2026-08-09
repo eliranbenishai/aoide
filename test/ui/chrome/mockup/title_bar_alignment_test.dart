@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tramp/ui/chrome/mockup/mockup_title_bar.dart';
 
 import '../../../support/test_fonts.dart';
+import '../../../support/look_harness.dart';
 
 Rect _localRect(WidgetTester tester, Finder finder, Finder ancestor) {
   final target = tester.renderObject<RenderBox>(finder);
@@ -21,6 +22,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         debugShowCheckedModeBanner: false,
+        builder: (context, child) => wrapWithLook(child ?? const SizedBox.shrink()),
         home: Align(
           alignment: Alignment.topLeft,
           child: SizedBox(

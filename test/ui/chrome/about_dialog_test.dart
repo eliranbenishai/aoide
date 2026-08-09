@@ -4,6 +4,7 @@ import 'package:tramp/ui/chrome/about_dialog.dart';
 import 'package:tramp/ui/chrome/logo.dart';
 
 import '../../support/test_fonts.dart';
+import '../../support/look_harness.dart';
 
 void main() {
   setUpAll(loadTrampFonts);
@@ -11,6 +12,7 @@ void main() {
   testWidgets('About dialog shows logo and version', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
+        builder: (context, child) => wrapWithLook(child ?? const SizedBox.shrink()),
         home: Builder(
           builder: (context) {
             return TextButton(

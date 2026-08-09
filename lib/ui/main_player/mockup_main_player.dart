@@ -8,7 +8,6 @@ import '../../domain/repeat_mode.dart';
 import '../../domain/tramp_settings.dart';
 import '../../playback/audio_levels.dart';
 import '../../playback/playback_controller.dart';
-import '../../theme/mockup_tokens.dart';
 import '../../theme/tramp_metrics.dart';
 import '../chrome/mockup/mockup_button.dart';
 import '../chrome/mockup/mockup_icons.dart';
@@ -19,6 +18,8 @@ import '../chrome/mockup/mockup_slider.dart';
 import '../chrome/transport_icons.dart';
 import '../format.dart';
 import '../session/session_messages.dart';
+import '../../look/look_materials.dart';
+import '../../theme/look_scope.dart';
 
 /// Mockup-faithful main player body (825×306) + optional full window chrome.
 ///
@@ -220,7 +221,7 @@ class _Clutterbar extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(3),
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
@@ -305,14 +306,14 @@ class _ClutterGlyph extends StatelessWidget {
             child: Text(
               letter,
               style: TextStyle(
-                fontFamily: 'TrampCondensed',
+                fontFamily: LookScope.of(context).chromeFamily,
                 fontWeight: FontWeight.w700,
                 fontSize: 12,
                 height: 1,
                 decoration: TextDecoration.none,
                 color: lit
-                    ? MockupTokens.phos
-                    : MockupTokens.phos.withValues(alpha: 0.4),
+                    ? LookScope.of(context).palette.phosphorDefault
+                    : LookScope.of(context).palette.phosphorDefault.withValues(alpha: 0.4),
                 shadows: [
                   Shadow(
                     color: Color.fromRGBO(61, 231, 255, lit ? 0.7 : 0.25),
@@ -373,7 +374,6 @@ class _DisplayWell extends StatelessWidget {
     final subParts = <String>[
       if (track?.album != null && track!.album!.trim().isNotEmpty)
         track.album!.trim(),
-      if (track?.year != null) '${track!.year}',
       if (index != null && trackCount > 0) 'track ${index + 1} of $trackCount',
     ];
 
@@ -417,14 +417,14 @@ class _DisplayWell extends StatelessWidget {
                             children: [
                               Text(
                                 formatDuration(time),
-                                style: const TextStyle(
-                                  fontFamily: 'TrampMono',
+                                style: TextStyle(
+                                  fontFamily: LookScope.of(context).lcdFamily,
                                   fontWeight: FontWeight.w500,
                                   fontSize: 46,
                                   height: 0.9,
                                   letterSpacing: 46 * 0.02,
                                   decoration: TextDecoration.none,
-                                  color: MockupTokens.phos,
+                                  color: LookScope.of(context).palette.phosphorDefault,
                                   shadows: [
                                     // `.glow` — 0 0 1px / 0 0 12px phosphor
                                     Shadow(
@@ -442,13 +442,13 @@ class _DisplayWell extends StatelessWidget {
                               Text(
                                 showElapsed ? 'ELAPSED' : 'REMAIN',
                                 style: TextStyle(
-                                  fontFamily: 'TrampCondensed',
+                                  fontFamily: LookScope.of(context).chromeFamily,
                                   fontWeight: FontWeight.w700,
                                   fontSize: 12,
                                   height: 1,
                                   letterSpacing: 12 * 0.22,
                                   decoration: TextDecoration.none,
-                                  color: MockupTokens.phos.withValues(alpha: 0.5),
+                                  color: LookScope.of(context).palette.phosphorDefault.withValues(alpha: 0.5),
                                   shadows: const [
                                     Shadow(
                                       color: Color(0x403DE7FF),
@@ -485,13 +485,13 @@ class _DisplayWell extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontFamily: 'TrampCondensed',
+                              fontFamily: LookScope.of(context).chromeFamily,
                               fontWeight: FontWeight.w700,
                               fontSize: 14,
                               height: 1.15,
                               letterSpacing: 14 * 0.14,
                               decoration: TextDecoration.none,
-                              color: MockupTokens.phos.withValues(alpha: 0.5),
+                              color: LookScope.of(context).palette.phosphorDefault.withValues(alpha: 0.5),
                               shadows: const [
                                 Shadow(
                                   color: Color(0x403DE7FF),
@@ -517,14 +517,14 @@ class _DisplayWell extends StatelessWidget {
                                     const SizedBox(width: 22),
                                     Text(
                                       channel,
-                                      style: const TextStyle(
-                                        fontFamily: 'TrampCondensed',
+                                      style: TextStyle(
+                                        fontFamily: LookScope.of(context).chromeFamily,
                                         fontWeight: FontWeight.w700,
                                         fontSize: 12,
                                         height: 1,
                                         letterSpacing: 12 * 0.2,
                                         decoration: TextDecoration.none,
-                                        color: MockupTokens.phos,
+                                        color: LookScope.of(context).palette.phosphorDefault,
                                         shadows: [
                                           Shadow(
                                             color: Color(0xD93DE7FF),
@@ -574,19 +574,19 @@ class _MarqueeTitle extends StatefulWidget {
 
 class _MarqueeTitleState extends State<_MarqueeTitle>
     with TickerProviderStateMixin {
-  static const _style = TextStyle(
-    fontFamily: 'TrampCondensed',
-    fontWeight: FontWeight.w700,
-    fontSize: 24,
-    height: 1.15,
-    letterSpacing: 24 * 0.03,
-    decoration: TextDecoration.none,
-    color: MockupTokens.phosHot,
-    shadows: [
-      Shadow(color: Color(0xE63DE7FF), blurRadius: 1.5),
-      Shadow(color: Color(0x803DE7FF), blurRadius: 10),
-    ],
-  );
+  TextStyle _style(BuildContext context) => TextStyle(
+        fontFamily: LookScope.of(context).chromeFamily,
+        fontWeight: FontWeight.w700,
+        fontSize: 24,
+        height: 1.15,
+        letterSpacing: 24 * 0.03,
+        decoration: TextDecoration.none,
+        color: LookScope.of(context).palette.phosphorHot,
+        shadows: const [
+          Shadow(color: Color(0xE63DE7FF), blurRadius: 1.5),
+          Shadow(color: Color(0x803DE7FF), blurRadius: 10),
+        ],
+      );
 
   /// Pixels per second for the LTR marquee crawl.
   static const _speedPxPerSec = 36.0;
@@ -635,7 +635,7 @@ class _MarqueeTitleState extends State<_MarqueeTitle>
 
   void _measureText() {
     final painter = TextPainter(
-      text: TextSpan(text: widget.text, style: _style),
+      text: TextSpan(text: widget.text, style: _style(context)),
       textDirection: TextDirection.ltr,
       maxLines: 1,
     )..layout();
@@ -676,7 +676,7 @@ class _MarqueeTitleState extends State<_MarqueeTitle>
       maxLines: 1,
       softWrap: false,
       overflow: TextOverflow.visible,
-      style: _style,
+      style: _style(context),
     );
   }
 
@@ -700,7 +700,7 @@ class _MarqueeTitleState extends State<_MarqueeTitle>
               maxLines: 1,
               softWrap: false,
               overflow: TextOverflow.ellipsis,
-              style: _style,
+              style: _style(context),
             ),
           );
         }
@@ -728,7 +728,7 @@ class _MarqueeTitleState extends State<_MarqueeTitle>
           child: ClipRect(
             child: ShaderMask(
               blendMode: BlendMode.dstIn,
-              shaderCallback: (bounds) => const LinearGradient(
+              shaderCallback: (bounds) => LinearGradient(
                 colors: [
                   Color(0xFF000000),
                   Color(0xFF000000),
@@ -755,13 +755,13 @@ class _MetaDim extends StatelessWidget {
     return Text(
       text,
       style: TextStyle(
-        fontFamily: 'TrampMono',
+        fontFamily: LookScope.of(context).lcdFamily,
         fontWeight: FontWeight.w500,
         fontSize: 13,
         height: 1,
         letterSpacing: 13 * 0.04,
         decoration: TextDecoration.none,
-        color: MockupTokens.phos.withValues(alpha: 0.5),
+        color: LookScope.of(context).palette.phosphorDefault.withValues(alpha: 0.5),
         shadows: const [
           Shadow(color: Color(0x403DE7FF), blurRadius: 8),
         ],
@@ -789,8 +789,8 @@ class _RepeatStatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final lit = mode != RepeatMode.off;
     final colour = lit
-        ? MockupTokens.phos
-        : MockupTokens.phos.withValues(alpha: 0.5);
+        ? LookScope.of(context).palette.phosphorDefault
+        : LookScope.of(context).palette.phosphorDefault.withValues(alpha: 0.5);
     return GestureDetector(
       key: const Key('player-display-repeat'),
       behavior: HitTestBehavior.opaque,
@@ -806,7 +806,7 @@ class _RepeatStatusChip extends StatelessWidget {
             Text(
               _label,
               style: TextStyle(
-                fontFamily: 'TrampCondensed',
+                fontFamily: LookScope.of(context).chromeFamily,
                 fontWeight: FontWeight.w700,
                 fontSize: 12,
                 height: 1,
@@ -839,12 +839,12 @@ class _FormatChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(2),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
             Color(0xFFFFB3D4),
-            MockupTokens.accent,
+            LookScope.of(context).palette.accentDefault,
             Color(0xFFB8226A),
           ],
           stops: [0, 0.55, 1],
@@ -860,8 +860,8 @@ class _FormatChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          fontFamily: 'TrampCondensed',
+        style: TextStyle(
+          fontFamily: LookScope.of(context).chromeFamily,
           fontWeight: FontWeight.w700,
           fontSize: 12,
           height: 1,
@@ -950,15 +950,24 @@ class _MockupSpectrumState extends State<_MockupSpectrum> {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _MockupSpectrumPainter(bars: _bars, peaks: _peaks),
+      painter: _MockupSpectrumPainter(
+        materials: LookScope.of(context).materials,
+        bars: _bars,
+        peaks: _peaks,
+      ),
       child: const SizedBox.expand(),
     );
   }
 }
 
 class _MockupSpectrumPainter extends CustomPainter {
-  const _MockupSpectrumPainter({required this.bars, required this.peaks});
+  const _MockupSpectrumPainter({
+    required this.materials,
+    required this.bars,
+    required this.peaks,
+  });
 
+  final LookMaterials materials;
   final List<double> bars;
   final List<double> peaks;
 
@@ -984,16 +993,13 @@ class _MockupSpectrumPainter extends CustomPainter {
         canvas.drawRect(
           barRect,
           Paint()
-            ..shader = const LinearGradient(
+            ..shader = LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFFCBF9FF),
-                MockupTokens.phos,
-                Color(0xFF1B9EC4),
-                MockupTokens.accent,
-              ],
-              stops: [0, 0.26, 0.62, 1],
+              colors: materials.spectrumStops,
+              stops: materials.spectrumStops.length == 4
+                  ? const [0, 0.26, 0.62, 1]
+                  : null,
             ).createShader(barRect),
         );
         canvas.drawRect(
@@ -1019,7 +1025,9 @@ class _MockupSpectrumPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _MockupSpectrumPainter oldDelegate) =>
-      !identical(bars, oldDelegate.bars) || !identical(peaks, oldDelegate.peaks);
+      !identical(bars, oldDelegate.bars) ||
+      !identical(peaks, oldDelegate.peaks) ||
+      materials != oldDelegate.materials;
 }
 
 // ---------------------------------------------------------------------------
@@ -1063,17 +1071,17 @@ class _VolumeRow extends StatelessWidget {
         Expanded(
           child: Row(
             children: [
-              const Text(
+              Text(
                 'VOL',
                 style: TextStyle(
-                  fontFamily: 'TrampCondensed',
+                  fontFamily: LookScope.of(context).chromeFamily,
                   fontWeight: FontWeight.w700,
                   fontSize: 11,
                   height: 1,
                   letterSpacing: 11 * 0.2,
                   decoration: TextDecoration.none,
-                  color: MockupTokens.inkFaint,
-                  shadows: [
+                  color: LookScope.of(context).palette.inkFaint,
+                  shadows: const [
                     Shadow(offset: Offset(0, 1), color: Color(0xB3000000)),
                   ],
                 ),
@@ -1168,13 +1176,13 @@ class _Stamp extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
-        fontFamily: 'TrampMono',
+      style: TextStyle(
+        fontFamily: LookScope.of(context).lcdFamily,
         fontWeight: FontWeight.w500,
         fontSize: 14,
         height: 1,
         decoration: TextDecoration.none,
-        color: MockupTokens.inkDim,
+        color: LookScope.of(context).palette.inkDim,
       ),
     );
   }
@@ -1326,8 +1334,8 @@ class _ToggleBtn extends StatelessWidget {
           const SizedBox(width: 9),
           Text(
             label.toUpperCase(),
-            style: const TextStyle(
-              fontFamily: 'TrampCondensed',
+            style: TextStyle(
+              fontFamily: LookScope.of(context).chromeFamily,
               fontWeight: FontWeight.w700,
               fontSize: 13,
               height: 1,

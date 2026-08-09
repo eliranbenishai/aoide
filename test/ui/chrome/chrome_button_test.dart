@@ -5,11 +5,9 @@ import 'package:tramp/ui/chrome/chrome_button.dart';
 import 'package:tramp/ui/chrome/metal_panel.dart';
 
 import '../../support/test_fonts.dart';
+import '../../support/look_harness.dart';
 
-Widget host(Widget child) => Directionality(
-      textDirection: TextDirection.ltr,
-      child: Center(child: child),
-    );
+Widget host(Widget child) => lookHost(child);
 
 TrampSurface surfaceOf(WidgetTester tester) =>
     tester.widget<MetalPanel>(find.byType(MetalPanel)).surface;

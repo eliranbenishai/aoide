@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/widgets.dart';
 
-import '../../../theme/mockup_tokens.dart';
+import '../../../theme/look_scope.dart';
 
 /// Shared desktop hover timing / intensity for mockup chrome controls.
 abstract final class MockupHoverTokens {
@@ -52,8 +52,8 @@ class MockupGlyphGlow extends StatelessWidget {
                 sigmaY: MockupHoverTokens.glyphBlurSigma,
               ),
               child: ColorFiltered(
-                colorFilter: const ColorFilter.mode(
-                  MockupTokens.phos,
+                colorFilter: ColorFilter.mode(
+                  LookScope.of(context).palette.phosphorDefault,
                   BlendMode.srcATop,
                 ),
                 child: child,

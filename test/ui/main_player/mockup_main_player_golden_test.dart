@@ -15,6 +15,7 @@ import 'package:tramp/ui/chrome/mockup/mockup_shell.dart';
 import 'package:tramp/ui/windows/main_player_window.dart';
 
 import '../../support/test_fonts.dart';
+import '../../support/look_harness.dart';
 
 class MemoryStore implements PlaylistStore {
   @override
@@ -95,16 +96,18 @@ void main() {
           alignment: Alignment.topLeft,
           child: ColoredBox(
             color: MockupTokens.shellDeep,
-            child: MainPlayerWindow(
-              playback: playback,
-              trackCount: tracks.length,
-              forceMono: false,
-              alwaysOnTop: false,
-              equalizerVisible: true,
-              playlistVisible: true,
-              draggableTitle: false,
-              spectrumBars: _mockupBars,
-              spectrumPeaks: _mockupPeaks,
+            child: wrapWithLook(
+              MainPlayerWindow(
+                playback: playback,
+                trackCount: tracks.length,
+                forceMono: false,
+                alwaysOnTop: false,
+                equalizerVisible: true,
+                playlistVisible: true,
+                draggableTitle: false,
+                spectrumBars: _mockupBars,
+                spectrumPeaks: _mockupPeaks,
+              ),
             ),
           ),
         ),
@@ -155,16 +158,18 @@ void main() {
           alignment: Alignment.topLeft,
           child: ColoredBox(
             color: MockupTokens.shellDeep,
-            child: MainPlayerWindow(
-              playback: playback,
-              trackCount: 1,
-              forceMono: false,
-              alwaysOnTop: false,
-              equalizerVisible: true,
-              playlistVisible: true,
-              draggableTitle: false,
-              spectrumBars: quietBars,
-              spectrumPeaks: quietBars,
+            child: wrapWithLook(
+              MainPlayerWindow(
+                playback: playback,
+                trackCount: 1,
+                forceMono: false,
+                alwaysOnTop: false,
+                equalizerVisible: true,
+                playlistVisible: true,
+                draggableTitle: false,
+                spectrumBars: quietBars,
+                spectrumPeaks: quietBars,
+              ),
             ),
           ),
         ),

@@ -12,6 +12,7 @@ import 'package:tramp/ui/chrome/mockup/mockup_shell.dart';
 import 'package:tramp/ui/windows/playlist_window.dart';
 
 import '../../support/test_fonts.dart';
+import '../../support/look_harness.dart';
 
 class MemoryStore implements PlaylistStore {
   @override
@@ -128,11 +129,13 @@ void main() {
           alignment: Alignment.topLeft,
           child: ColoredBox(
             color: MockupTokens.shellDeep,
-            child: PlaylistWindow(
-              playlist: _mockupPlaylist(),
-              playingIndex: 2,
-              playing: true,
-              draggableTitle: false,
+            child: wrapWithLook(
+              PlaylistWindow(
+                playlist: _mockupPlaylist(),
+                playingIndex: 2,
+                playing: true,
+                draggableTitle: false,
+              ),
             ),
           ),
         ),
@@ -158,10 +161,12 @@ void main() {
           alignment: Alignment.topLeft,
           child: ColoredBox(
             color: MockupTokens.shellDeep,
-            child: PlaylistWindow(
-              playlist: _mockupPlaylist(),
-              shaded: true,
-              draggableTitle: false,
+            child: wrapWithLook(
+              PlaylistWindow(
+                playlist: _mockupPlaylist(),
+                shaded: true,
+                draggableTitle: false,
+              ),
             ),
           ),
         ),
