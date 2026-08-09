@@ -345,14 +345,6 @@ class _SessionClientAppState extends State<SessionClientApp>
     _nativeDrag.started();
   }
 
-  void _onNativeDragEnded() {
-    if (!_nativeDragging && !_nativeDrag.isActive) return;
-    _nativeDrag.endedConfirmed();
-    unawaited(
-      _nativeSyncCoalescer.flush(() => _reportNativeDrag(ended: true)),
-    );
-  }
-
   Future<void> _reportNativeDrag({
     required bool ended,
     bool softEnd = false,
@@ -372,28 +364,29 @@ class _SessionClientAppState extends State<SessionClientApp>
         left: logical.dx,
         top: logical.dy,
         shiftUndock: HardwareKeyboard.instance.isShiftPressed,
-        // Soft quiet-end: keep following on resume; host must not snap yet.
+        // Soft quiet-end: do not snap yet — drag may resume.
         ended: ended && !softEnd,
       ),
     );
-    if (ended && !softEnd) {
+    if (ended) {
       _nativeDragging = false;
     }
   }
 
   @override
   void onWindowMove() {
-    if (!_nativeDrag.onMoveEvent()) {
-      if (!_nativeDragging) return;
-    }
+    if (!_nativeDrag.onMoveEvent()) return;
     _nativeDragging = true;
     _nativeSyncCoalescer.schedule(() => _reportNativeDrag(ended: false));
   }
 
   @override
   void onWindowMoved() {
-    if (!_nativeDragging && !_nativeDrag.isActive) return;
+    if (!_nativeDragging && !_nativeDrag.isActive && !_nativeDrag.softEnded) {
+      return;
+    }
     _nativeDrag.endedConfirmed();
+    _nativeDragging = true;
     unawaited(
       _nativeSyncCoalescer.flush(() => _reportNativeDrag(ended: true)),
     );
@@ -482,7 +475,6 @@ class _SessionClientAppState extends State<SessionClientApp>
               dockLogicalTopLeft: () => Offset(_logicalLeft, _logicalTop),
               onDockMove: _onDockMove,
               onNativeDragStarted: _onNativeDragStarted,
-              onNativeDragEnded: _onNativeDragEnded,
               onSessionCommand: (cmd) => unawaited(_send(cmd)),
               onCollapse: _toggleEqShade,
               onClose: () => unawaited(_hideInsteadOfClose()),
@@ -519,7 +511,6 @@ class _SessionClientAppState extends State<SessionClientApp>
                   dockLogicalTopLeft: () => Offset(_logicalLeft, _logicalTop),
                   onDockMove: _onDockMove,
                   onNativeDragStarted: _onNativeDragStarted,
-                  onNativeDragEnded: _onNativeDragEnded,
                   onSessionCommand: (cmd) => unawaited(_send(cmd)),
                   onAddFiles: () => unawaited(_addFiles()),
                   onLoadPlaylist: () => unawaited(_loadPlaylist()),

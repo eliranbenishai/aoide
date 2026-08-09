@@ -30,7 +30,6 @@ class MainPlayerWindow extends StatelessWidget {
     this.dockLogicalTopLeft,
     this.onDockMove,
     this.onNativeDragStarted,
-    this.onNativeDragEnded,
     this.draggableTitle = true,
     this.spectrumBars,
     this.spectrumPeaks,
@@ -69,9 +68,6 @@ class MainPlayerWindow extends StatelessWidget {
   /// Native OS title-bar drag began (sibling sync via onWindowMove).
   final VoidCallback? onNativeDragStarted;
 
-  /// Native OS title-bar drag ended (pointer up).
-  final VoidCallback? onNativeDragEnded;
-
   final bool draggableTitle;
   final List<double>? spectrumBars;
   final List<double>? spectrumPeaks;
@@ -93,7 +89,6 @@ class MainPlayerWindow extends StatelessWidget {
         logicalTopLeft: dockLogicalTopLeft!,
         onMove: onDockMove!,
         onNativeDragStarted: onNativeDragStarted,
-        onNativeDragEnded: onNativeDragEnded,
         child: title,
       );
     }

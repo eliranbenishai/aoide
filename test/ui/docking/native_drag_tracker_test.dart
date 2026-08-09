@@ -7,7 +7,7 @@ void main() {
     fakeAsync((async) {
       var quietEnds = 0;
       final tracker = NativeDragTracker(
-        quietFinalizeDelay: const Duration(milliseconds: 1500),
+        quietFinalizeDelay: const Duration(milliseconds: 750),
         onQuietFinalize: () => quietEnds++,
       );
 

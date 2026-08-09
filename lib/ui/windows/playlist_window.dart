@@ -32,7 +32,6 @@ class PlaylistWindow extends StatelessWidget {
     this.dockLogicalTopLeft,
     this.onDockMove,
     this.onNativeDragStarted,
-    this.onNativeDragEnded,
     this.draggableTitle = true,
     this.showResizeGrip = true,
     this.startResizing,
@@ -69,9 +68,6 @@ class PlaylistWindow extends StatelessWidget {
   /// Native OS title-bar drag began (sibling sync via onWindowMove).
   final VoidCallback? onNativeDragStarted;
 
-  /// Native OS title-bar drag ended (pointer up).
-  final VoidCallback? onNativeDragEnded;
-
   final bool draggableTitle;
 
   /// Bottom-right size grip (hidden when shaded / in goldens that opt out).
@@ -95,7 +91,6 @@ class PlaylistWindow extends StatelessWidget {
         logicalTopLeft: dockLogicalTopLeft!,
         onMove: onDockMove!,
         onNativeDragStarted: onNativeDragStarted,
-        onNativeDragEnded: onNativeDragEnded,
         child: title,
       );
     }

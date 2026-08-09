@@ -1,23 +1,18 @@
 import 'dart:async';
 
-/// End detection for OS [windowManager.startDragging] gestures.
+/// End detection for OS `startDragging` gestures.
 ///
-/// Move events can pause briefly while the mouse is still down. A short
-/// "quiet → finalize" timer treats that as release and detaches the dock
-/// cohort mid-drag. This tracker:
-/// - uses a long last-resort quiet delay (WM_EXITSIZEMOVE is sometimes lost)
-/// - remembers a soft quiet-end so the next move can **resume** the drag
-/// - prefers confirmed ends (pointer-up / onWindowMoved) via [endedConfirmed]
+/// Prefer [endedConfirmed] from `onWindowMoved`. A quiet timeout is only a
+/// last resort when WM_EXITSIZEMOVE is dropped — and must be long enough that
+/// brief pauses do not detach the dock cohort. If move events resume after a
+/// quiet finalize, [onMoveEvent] reports a resume so the host can reattach.
 class NativeDragTracker {
   NativeDragTracker({
-    this.quietFinalizeDelay = const Duration(milliseconds: 1500),
+    this.quietFinalizeDelay = const Duration(milliseconds: 750),
     required this.onQuietFinalize,
   });
 
-  /// Last-resort finalize when neither pan-up nor onWindowMoved arrives.
   final Duration quietFinalizeDelay;
-
-  /// Invoked after a quiet timeout (soft end — drag may still resume).
   final void Function() onQuietFinalize;
 
   bool _active = false;
@@ -25,8 +20,6 @@ class NativeDragTracker {
   Timer? _quiet;
 
   bool get isActive => _active;
-
-  /// True after a quiet finalize until the next move resumes or a hard end.
   bool get softEnded => _softEnded;
 
   void started() {
@@ -35,7 +28,7 @@ class NativeDragTracker {
     _cancelQuiet();
   }
 
-  /// Returns whether this move belongs to an active (or resumed) drag.
+  /// Returns true when this move is part of an active drag (or a resume).
   bool onMoveEvent() {
     if (!_active && _softEnded) {
       _active = true;
@@ -46,7 +39,6 @@ class NativeDragTracker {
     return true;
   }
 
-  /// Confirmed end (pointer up / onWindowMoved).
   void endedConfirmed() {
     _cancelQuiet();
     _active = false;

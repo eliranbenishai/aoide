@@ -277,25 +277,22 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       id,
       logicalTopLeft,
       shiftUndock: shiftUndock,
-      // Soft quiet-end must not snap EQ/PL; confirmed ends still do.
+      // Quiet soft-end must not snap; confirmed onWindowMoved still does.
       snap: ended && !softEnd,
     );
     _dockDragWindow = id;
 
     if (ended) {
       await _dockMoveCoalescer.flush(() async {
-        // Soft end: skip the OS-owned HWND so a false quiet finalize cannot
-        // fight startDragging; confirmed ends apply the full cohort.
+        // Soft end: never setPosition the OS-owned HWND (drag may resume).
         await _applyDockGroupFrames(
           id,
           positionOnly: softEnd,
           skip: softEnd ? id : null,
         );
       });
-      if (!softEnd) {
-        _dockDragWindow = null;
-        _nativeDragging = false;
-      }
+      _dockDragWindow = null;
+      _nativeDragging = false;
       await _persistLayout();
       await _broadcastDockSnapshot();
       if (mounted) setState(() {});
@@ -332,15 +329,6 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     if (id == WindowId.main) {
       _mainNativeDrag.started();
     }
-  }
-
-  void _onNativeDragEnded(WindowId id) {
-    if (id != WindowId.main) return;
-    if (!_nativeDragging && !_mainNativeDrag.isActive) return;
-    _mainNativeDrag.endedConfirmed();
-    unawaited(
-      _nativeSyncCoalescer.flush(() => _syncNativeMainDrag(ended: true)),
-    );
   }
 
   Future<void> _syncNativeMainDrag({
@@ -864,12 +852,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
 
   @override
   void onWindowMove() {
-    // Resume after a soft quiet-end if the OS is still dragging.
-    final tracked = _mainNativeDrag.onMoveEvent();
-    if (!tracked &&
-        (!_nativeDragging || _dockDragWindow != WindowId.main)) {
-      return;
-    }
+    // Tracker gates + arms quiet end; also resumes after a soft quiet finalize.
+    if (!_mainNativeDrag.onMoveEvent()) return;
     _nativeDragging = true;
     _dockDragWindow = WindowId.main;
     _nativeSyncCoalescer.schedule(() => _syncNativeMainDrag(ended: false));
@@ -877,8 +861,12 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
 
   @override
   void onWindowMoved() {
-    if (!_nativeDragging && !_mainNativeDrag.isActive) return;
+    if (!_nativeDragging && !_mainNativeDrag.isActive && !_mainNativeDrag.softEnded) {
+      return;
+    }
     _mainNativeDrag.endedConfirmed();
+    _nativeDragging = true;
+    _dockDragWindow = WindowId.main;
     unawaited(
       _nativeSyncCoalescer.flush(() => _syncNativeMainDrag(ended: true)),
     );
@@ -964,7 +952,6 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
                   },
                   onNativeDragStarted: () =>
                       _onNativeDragStarted(WindowId.main),
-                  onNativeDragEnded: () => _onNativeDragEnded(WindowId.main),
                   onSessionCommand: (cmd) => unawaited(_handleLocalCommand(cmd)),
                   onOpenFiles: () => unawaited(_openFiles()),
                   onOpenOptions: () => unawaited(_showOptions()),
