@@ -10,6 +10,12 @@ spectrum, and force-mono are real.
 and the painted/PNG graphite lineage. Those docs remain historical; they must
 not steer new work.
 
+**Revised 2026-08-09:** docking move/snap ownership, compact EQ/PL titles, EQ
+band fill, `.wbtn` bevel fidelity, and Windows taskbar (main only) are pinned in
+[`2026-08-09-ui-polish-docking-taskbar-design.md`](2026-08-09-ui-polish-docking-taskbar-design.md).
+Where that polish doc conflicts with docking/title details below, **prefer the
+polish doc**.
+
 Product/architecture/CONTEXT/ADRs that conflict with this document are
 **rewritten or explicitly superseded in the same delivery** — legacy decisions
 must not clutter the path forward.
@@ -121,11 +127,14 @@ EQ and PL may both be open. Main **EQ** / **PL** toggles show/hide those windows
 ### Docking
 
 - Snap when a window edge approaches another’s edge/corner (threshold pinned in
-  the implementation plan; feel must be classic Winamp).
-- Docked windows form a **group**: dragging one moves the group, preserving
-  relative offsets.
-- Undock via break-threshold drag and/or modifier (pinned in plan).
+  the coordinator / polish design; feel must be classic Winamp).
+- **Main** title drag moves every **visible** EQ/playlist window (snap state
+  irrelevant). **EQ/playlist** title drag moves only that window; snap only on
+  EQ/PL finalize (EQ any side; playlist top/bottom + optional orthogonal flush).
+  See [`2026-08-09-ui-polish-docking-taskbar-design.md`](2026-08-09-ui-polish-docking-taskbar-design.md).
+- Undock via peel-on-EQ/PL-drag, break-threshold, and/or modifier.
 - Persist dock graph, positions, visibility, shade, and playlist logical size.
+- **Windows taskbar:** only the main window appears (`skipTaskbar` on secondaries).
 
 ### Windowshade
 
@@ -135,12 +144,14 @@ EQ and PL may both be open. Main **EQ** / **PL** toggles show/hide those windows
 
 ### Minimize / always-on-top
 
-- Main **minimize** minimizes the **visible docked group**; restore restores the group.
-- Clutterbar **A** (always-on-top) applies to the **whole visible group**.
+- Main **minimize** hides visible secondaries then minimizes main; restore shows
+  them again.
+- Clutterbar **A** (always-on-top) applies to **visible** tramp windows.
 
 ### Drag
 
-- Title-bar / grip regions move that window or its dock group. No OS title bar.
+- Main title-bar moves all visible windows; EQ/PL title-bar / grips move that
+  window only. No OS title bar.
 
 ---
 
@@ -153,8 +164,9 @@ needed). No PNG panel faces, no nine-slice graphite pack, no crop pipeline.
 
 - Window shell: 6px radius, multi-stop vertical gradient, inset bevels, outer
   shadow, ~5% noise overlay (overlay blend)
-- Title bar: 42px; cyan→magenta grip rails; logo disc; wordmark; panel name;
-  `wbtn` / `wbtn--close`
+- Title bar: 42px; cyan→magenta grip rails; main: logo disc + wordmark + panel
+  name; EQ/PL: **role title only** (product override); `wbtn` / `wbtn--close`
+  with inset bevel chrome
 - `.screen` wells: radial glass, scanlines, cyan hairline inset
 - `.btn` / `.btn--on` / `.btn--label` / `.btn--menu` caret / `.led` / `.led--lit`
 - Slider `.track` / `.fill` / `.thumb` (seek thumb **22 × 32**)

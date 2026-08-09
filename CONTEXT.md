@@ -13,7 +13,7 @@ A Winamp-compatible skin that replaces the built-in chrome with the skin's own l
 _Avoid_: theme (when meaning a classic Winamp skin), skin pack (unless referring to a collection)
 
 **App chrome**:
-Tramp's own window decoration — no OS title bar or standard window frame; the visible UI is the app surface. Three detachable windows (main, equalizer, playlist) with Winamp-style docking. Main player and equalizer never stretch; on-screen size follows the global zoom step only. The playlist window may be freely resized.
+Tramp's own window decoration — no OS title bar or standard window frame; the visible UI is the app surface. Three detachable windows (main, equalizer, playlist) with Winamp-style docking. Main player and equalizer never stretch; on-screen size follows the global zoom step only. The playlist window may be freely resized. Main title bar carries logo + wordmark; EQ/playlist title bars show role title only. EQ band faders use a spectrum-gradient value fill.
 _Avoid_: borderless (alone), frameless window (implementation jargon in product talk), Scalable UI (retired as a whole-chrome free-resize mode), stretching the main or EQ canvas, single-window EQ/PL swap (retired product model)
 
 **Mockup chrome** / **code-constructed chrome**:
@@ -29,8 +29,8 @@ The single Flutter process that owns shared controllers (playback, playlist, EQ,
 _Avoid_: multi-process, separate apps per window
 
 **Docking** / **dock group**:
-Winamp-style edge snap between windows and sticky group drag that preserves relative offsets; undock via break-threshold drag and/or modifier. Minimize and always-on-top apply to the visible docked group.
-_Avoid_: tiling WM, snap layouts (OS), tabs
+Winamp-style edge snap between windows. Dragging the **main** title bar moves every **visible** EQ/playlist window (snap state irrelevant). Dragging EQ or playlist moves only that window and peels its dock edges; snap runs only on EQ/PL drag end. EQ may snap to any side; playlist snaps top/bottom only (plus optional left/right flush when already within threshold). Undock via peel, break-threshold, and/or Shift. Main minimize hides/restores visible secondaries; always-on-top applies to visible tramp windows. On Windows, only main appears in the taskbar.
+_Avoid_: tiling WM, snap layouts (OS), tabs; assuming dock edges gate main’s group move
 
 **Playlist**:
 An ordered list of playable tracks the user can manage (add, remove, reorder, play from).

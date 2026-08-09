@@ -1,6 +1,7 @@
 # 6. Multi-window host with Winamp-style docking
 
-Date: 2026-08-08
+Date: 2026-08-08  
+Revised: 2026-08-09 (move/snap ownership, playlist snap sides, taskbar)
 
 ## Status
 
@@ -16,30 +17,45 @@ that snap and drag as a group. Tramp’s prior v1 model used one frameless windo
 and swapped EQ vs playlist in a lower region — simpler to ship, but not the
 mockup direction and not the Winamp-shaped product users expect.
 
+The 2026-08-09 polish pass tightened move/snap ownership and Windows taskbar
+behavior; see
+[`2026-08-09-ui-polish-docking-taskbar-design.md`](../superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md).
+
 ## Decision
 
 - One Flutter process hosts **three** frameless OS windows: Main Player
   (825×348), Equalizer (825×348), Playlist Editor (default 825×696).
 - EQ and playlist may **both** be open. Main EQ/PL toggles show/hide those
   windows.
-- **Docking:** snap when edges/corners approach (thresholds in the
-  implementation plan); docked windows form a group — dragging one moves the
-  group; undock via break-threshold drag and/or modifier.
+- **Move ownership:** dragging the **main** title bar translates every
+  **visible** EQ/playlist window by the same delta (snap state irrelevant).
+  Dragging an EQ or playlist title bar moves **only** that window (peel dock
+  edges on drag). Hidden windows never follow.
+- **Snap:** only when finishing an EQ or playlist drag. EQ may snap to any
+  side of any other visible window. Playlist may snap only **top/bottom**; on
+  that snap, also flush left or right if that edge is already within the snap
+  threshold. Main never initiates snap. Thresholds live in the coordinator /
+  polish design.
+- Undock via peel-on-EQ/PL-drag, break-threshold separation, and/or Shift.
 - **Zoom-only** sizing for main and EQ; **free resize** for playlist (logical
   size persisted, scaled by global zoom) — see [ADR 0002](0002-fixed-canvas-zoom.md).
-- Main close quits the app; EQ/PL close hides. Main minimize and clutterbar
-  always-on-top apply to the **visible docked group**. Windowshade on EQ/PL
-  collapses to title bar; docking uses shaded height.
+- Main close quits the app; EQ/PL close hides. Main minimize hides/restores
+  visible secondaries; clutterbar always-on-top applies to visible tramp
+  windows. Windowshade on EQ/PL collapses to title bar; docking uses shaded
+  height.
+- **Taskbar (Windows):** only the main window appears in the taskbar
+  (`skipTaskbar` on secondaries; Windows-only style fallback if the plugin
+  ignores it). Target platform remains **windows-x64**.
 - Persist dock graph, positions, visibility, shade, and playlist logical size.
 
 ## Consequences
 
-`DockingCoordinator` (or equivalent) becomes a core session seam. The single
-`TrampShell` lower-region EQ/PL swap is removed as the product model. Platform
-multi-window APIs and persistence grow in complexity; accepted to match
-`player-mockup-2.html` and the redesign design doc. ADR 0003’s zoom-only main/EQ
-and free-resize playlist *sizing intent* continues under this ADR and ADR 0002;
-its single-window framing does not.
+`DockingCoordinator` remains the pure layout seam; session host/client apply
+frames. Sticky dock edges record snap contact for persistence and peel, but
+**do not** gate whether main moves visible satellites — visibility does. The
+single `TrampShell` lower-region EQ/PL swap stays removed. ADR 0003’s zoom-only
+main/EQ and free-resize playlist *sizing intent* continues under this ADR and
+ADR 0002; its single-window framing does not.
 
 ## Implementation pins
 

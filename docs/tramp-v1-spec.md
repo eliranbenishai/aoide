@@ -2,7 +2,7 @@
 
 Product requirements for the first shippable Tramp desktop player. Domain vocabulary: [`CONTEXT.md`](../CONTEXT.md). Architecture map: [`architecture.md`](architecture.md). Stack decision: [`adr/0001-flutter-for-v1.md`](adr/0001-flutter-for-v1.md).
 
-**UI authority:** [`player-mockup-2.html`](../player-mockup-2.html) (visual + geometry) and the redesign design doc [`superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md`](superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md). Earlier PNG-graphite / single-window docs are historical and must not steer new work.
+**UI authority:** [`player-mockup-2.html`](../player-mockup-2.html) (visual + geometry), the redesign design doc [`superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md`](superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md), and polish rules in [`superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md`](superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md) (product overrides such as compact EQ/PL titles and EQ band fill). Earlier PNG-graphite / single-window docs are historical and must not steer new work.
 
 Wayfinding decisions that produced the prior single-window graphite direction live under [`.scratch/tramp-v1-spec/`](../.scratch/tramp-v1-spec/).
 
@@ -29,14 +29,16 @@ Tramp is a multi-platform desktop music player — a spiritual successor to Wina
 
 ## Window and chrome
 
-- **Three detachable windows** — Main Player, Equalizer, and Playlist Editor — with **Winamp-style docking** (edge snap + sticky group drag). EQ and playlist may both be open; main EQ/PL toggles show/hide those windows ([ADR 0006](adr/0006-multi-window-docking.md)).
-- **App chrome** — no OS title bar or standard window frame; the visible UI is the app surface.
+- **Three detachable windows** — Main Player, Equalizer, and Playlist Editor — with **Winamp-style docking**. EQ and playlist may both be open; main EQ/PL toggles show/hide those windows ([ADR 0006](adr/0006-multi-window-docking.md)).
+- **Move / snap ownership** — main title-bar drag moves every **visible** EQ/playlist window (whether snapped or not). EQ/playlist title-bar drag moves only that window. Snap only from EQ/playlist: EQ any side of any window; playlist **top/bottom only**, with left/right flush when already within threshold. Details: [`2026-08-09-ui-polish-docking-taskbar-design.md`](superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md).
+- **App chrome** — no OS title bar or standard window frame; the visible UI is the app surface. Title-bar window buttons match mockup `.wbtn` bevel chrome. Main title bar shows logo + TRAMP wordmark; EQ/playlist title bars show **role title only**.
 - **Main / equalizer never stretch** — permanent. On-screen size follows the global zoom step only (logical canvases: main **825×348**, EQ **825×348**). Playlist is freely resizable (default logical **825×696**); user size is stored in logical coordinates and scaled by zoom ([ADR 0002](adr/0002-fixed-canvas-zoom.md), [ADR 0006](adr/0006-multi-window-docking.md)).
-- **Drag** title-bar / grip regions to move that window or its dock group.
-- **Controls:** in-app minimize (main minimizes the visible docked group), zoom-in / zoom-out on the main title bar (global), and close (main quits; EQ/PL hide). No maximize-as-size-control.
+- **Controls:** in-app minimize (main hides/restores visible secondaries then minimizes), zoom-in / zoom-out on the main title bar (global), and close (main quits; EQ/PL hide). No maximize-as-size-control.
+- **Taskbar (Windows):** only the main player appears in the taskbar while EQ/playlist windows are open.
 - **Zoom:** six discrete steps from 100% to 300%, persisted across sessions; steps larger than the current display’s work area are disabled. Main title-bar zoom-in / zoom-out (and matching menu/shortcuts) change the step for **all three** windows.
 - **Windowshade:** EQ and playlist title-bar collapse → title bar only; docking uses shaded height.
-- **Clutterbar** on main: product letters **O / A / I** only (Options, always-on-top for the visible docked group, track info). No D, no V, no ghost glyphs.
+- **EQ band faders:** bottom→thumb fill using the spectrum cyan→magenta gradient (product enhancement vs mockup HTML bands).
+- **Clutterbar** on main: product letters **O / A / I** only (Options, always-on-top for visible tramp windows, track info). No D, no V, no ghost glyphs.
 
 ## UI direction
 
@@ -120,7 +122,8 @@ v1 is done when a user can install Tramp on Windows, Linux, and macOS, open loca
 | [`CONTEXT.md`](../CONTEXT.md) | Domain glossary |
 | [`architecture.md`](architecture.md) | Living structure map |
 | [`player-mockup-2.html`](../player-mockup-2.html) | Visual + geometric authority |
-| [`superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md`](superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md) | Redesign design (current direction) |
+| [`superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md`](superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md) | Redesign design (multi-window cutover) |
+| [`superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md`](superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md) | Docking / title / EQ fill / taskbar polish |
 | [`adr/0001-flutter-for-v1.md`](adr/0001-flutter-for-v1.md) | Flutter stack ADR |
 | [`adr/0002-fixed-canvas-zoom.md`](adr/0002-fixed-canvas-zoom.md) | Fixed-canvas zoom ADR (revised) |
 | [`adr/0005-full-libmpv.md`](adr/0005-full-libmpv.md) | Full libmpv bundling ADR |
