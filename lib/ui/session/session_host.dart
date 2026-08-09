@@ -22,6 +22,7 @@ import '../../playlist/playlist_store.dart';
 import '../../playlist/track_metadata_probe.dart';
 import '../../theme/tramp_metrics.dart';
 import '../chrome/about_dialog.dart';
+import '../chrome/look_pack_dialog.dart';
 import '../docking/dock_layout.dart';
 import '../docking/dock_move_coalescer.dart';
 import '../docking/docking_coordinator.dart';
@@ -797,6 +798,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
           value: 'aot',
           child: Text(_alwaysOnTop ? 'Always on top ✓' : 'Always on top'),
         ),
+        const PopupMenuItem(value: 'looks', child: Text('Look packs…')),
         const PopupMenuItem(value: 'about', child: Text('About Tramp')),
         const PopupMenuItem(value: 'quit', child: Text('Quit')),
       ],
@@ -805,6 +807,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     switch (choice) {
       case 'aot':
         await _handleLocalCommand(AlwaysOnTopCommand(!_alwaysOnTop));
+      case 'looks':
+        await showLookPackDialog(context, controller: _lookController);
       case 'about':
         await showTrampAboutDialog(context, version: '0.1.0');
       case 'quit':
