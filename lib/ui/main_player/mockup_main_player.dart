@@ -594,6 +594,9 @@ class _MarqueeTitleState extends State<_MarqueeTitle>
   /// Hold at the end of the crawl before snapping back to the start.
   static const _endPause = Duration(seconds: 1);
 
+  /// Matches the ShaderMask stop where the trailing fade begins.
+  static const _fadeStart = 0.84;
+
   AnimationController? _controller;
   Timer? _endPauseTimer;
   double _textWidth = 0;
@@ -601,6 +604,12 @@ class _MarqueeTitleState extends State<_MarqueeTitle>
 
   bool get _overflows =>
       _viewportWidth > 0 && _textWidth > _viewportWidth + 0.5;
+
+  /// Extra travel so the last glyphs clear the fade before the end pause.
+  double get _endPad => _viewportWidth * (1.0 - _fadeStart);
+
+  double get _travel =>
+      (_textWidth - _viewportWidth + _endPad).clamp(0.0, double.infinity);
 
   @override
   void initState() {
@@ -643,8 +652,7 @@ class _MarqueeTitleState extends State<_MarqueeTitle>
       if (mounted) setState(() {});
       return;
     }
-    final travel = _textWidth - _viewportWidth;
-    final seconds = (travel / _speedPxPerSec).clamp(1.5, 20.0);
+    final seconds = (_travel / _speedPxPerSec).clamp(1.5, 20.0);
     _controller = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: (seconds * 1000).round()),
@@ -697,7 +705,7 @@ class _MarqueeTitleState extends State<_MarqueeTitle>
           );
         }
 
-        final travel = _textWidth - _viewportWidth;
+        final travel = _travel;
         final animation = _controller;
         Widget content = _titleText();
         if (animation != null) {
@@ -726,7 +734,7 @@ class _MarqueeTitleState extends State<_MarqueeTitle>
                   Color(0xFF000000),
                   Color(0x00000000),
                 ],
-                stops: [0, 0.84, 1],
+                stops: [0, _fadeStart, 1],
               ).createShader(bounds),
               child: content,
             ),
