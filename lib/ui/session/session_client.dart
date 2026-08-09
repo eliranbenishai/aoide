@@ -15,6 +15,7 @@ import '../../theme/tramp_metrics.dart';
 import '../docking/dock_move_coalescer.dart';
 import '../windows/equalizer_window.dart';
 import '../windows/playlist_window.dart';
+import '../zoom/zoomed_canvas.dart';
 import 'session_bus.dart';
 import 'session_messages.dart';
 
@@ -89,9 +90,12 @@ class _SessionClientAppState extends State<SessionClientApp>
     };
     // waitUntilReadyToShow CoCreateInstances ITaskbarList; setSkipTaskbar
     // null-derefs without it (native crash → "Lost connection to device").
-    await windowManager.waitUntilReadyToShow();
+    await windowManager.waitUntilReadyToShow(
+      const WindowOptions(backgroundColor: Color(0x00000000)),
+    );
     await windowManager.setTitle(title);
     await windowManager.setAsFrameless();
+    await windowManager.setBackgroundColor(const Color(0x00000000));
     // Secondaries must not appear as separate Windows taskbar buttons.
     await windowManager.setSkipTaskbar(true);
     // Edge resize only on the playlist window.
@@ -107,6 +111,12 @@ class _SessionClientAppState extends State<SessionClientApp>
       case SessionBus.applyFrameMethod:
         final args = Map<String, dynamic>.from(call.arguments as Map);
         await _applyFrame(args);
+        return null;
+      case SessionBus.raiseMethod:
+        await windowManager.setSkipTaskbar(true);
+        await windowManager.show();
+        await widget.windowController.show();
+        await windowManager.focus();
         return null;
       case SessionBus.eventMethod:
         final envelope = SessionEvent.decodeEnvelope(call.arguments);
@@ -430,18 +440,20 @@ class _SessionClientAppState extends State<SessionClientApp>
 
   @override
   Widget build(BuildContext context) {
+    final zoom = _zoomPercent / 100.0;
     if (widget.role == WindowRole.equalizer) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
+        color: const Color(0x00000000),
         home: ColoredBox(
-          color: MockupTokens.shellDeep,
-          child: Align(
-            alignment: Alignment.topLeft,
+          color: const Color(0x00000000),
+          child: ZoomedCanvas(
+            factor: zoom,
             child: EqualizerWindow(
               settings: _eqSettings,
               shaded: _eqShaded,
               presetNames: _presetNames,
-              zoom: _zoomPercent / 100.0,
+              zoom: zoom,
               dockLogicalTopLeft: () => Offset(_logicalLeft, _logicalTop),
               onDockMove: _onDockMove,
               onNativeDragStarted: _onNativeDragStarted,
@@ -457,17 +469,18 @@ class _SessionClientAppState extends State<SessionClientApp>
     if (widget.role == WindowRole.playlist) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
+        color: const Color(0x00000000),
         home: ColoredBox(
-          color: MockupTokens.shellDeep,
-          child: Align(
-            alignment: Alignment.topLeft,
+          color: const Color(0x00000000),
+          child: ZoomedCanvas(
+            factor: zoom,
             child: PlaylistWindow(
               playlist: _playlist,
               size: _playlistSize,
               shaded: _plShaded,
               playingIndex: _playingIndex,
               playing: _playing,
-              zoom: _zoomPercent / 100.0,
+              zoom: zoom,
               dockLogicalTopLeft: () => Offset(_logicalLeft, _logicalTop),
               onDockMove: _onDockMove,
               onNativeDragStarted: _onNativeDragStarted,
@@ -487,6 +500,7 @@ class _SessionClientAppState extends State<SessionClientApp>
     // Main role should not use SessionClientApp.
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      color: const Color(0x00000000),
       home: ColoredBox(
         color: MockupTokens.shellMid,
         child: Center(

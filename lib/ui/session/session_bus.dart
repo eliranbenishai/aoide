@@ -23,6 +23,7 @@ class SessionBus {
   static const commandMethod = 'session_command';
   static const eventMethod = 'session_event';
   static const applyFrameMethod = 'apply_frame';
+  static const raiseMethod = 'raise_window';
 
   final WindowMethodChannel _channel;
 
@@ -82,5 +83,12 @@ class SessionBus {
       'alwaysOnTop': alwaysOnTop,
       'positionOnly': positionOnly,
     });
+  }
+
+  /// Bring a secondary HWND above peers without changing its frame.
+  ///
+  /// Used when the main player regains focus so EQ/PL rise with the group.
+  static Future<void> pushRaise(WindowController controller) {
+    return controller.invokeMethod(raiseMethod, const <String, dynamic>{});
   }
 }

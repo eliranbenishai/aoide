@@ -25,6 +25,7 @@ import '../docking/dock_layout.dart';
 import '../docking/dock_move_coalescer.dart';
 import '../docking/docking_coordinator.dart';
 import '../windows/main_player_window.dart';
+import '../zoom/zoomed_canvas.dart';
 import 'always_on_top.dart';
 import 'minimize_group.dart';
 import 'session_bus.dart';
@@ -71,6 +72,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   WindowId? _dockDragWindow;
   bool _nativeDragging = false;
   Timer? _nativeDragEndFallback;
+  /// Guards [onWindowFocus] → raise → main [focus] from re-entering.
+  bool _raisingFocusGroup = false;
 
   @override
   void initState() {
@@ -118,6 +121,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     // Main close quits the process after tearing down secondary engines.
     await windowManager.setPreventClose(true);
     await windowManager.setAsFrameless();
+    // Let MockupShell rounded corners punch through to the desktop.
+    await windowManager.setBackgroundColor(const Color(0x00000000));
     await windowManager.setResizable(false);
     await windowManager.setTitle('Tramp — Main');
 
@@ -759,6 +764,48 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   }
 
   @override
+  void onWindowFocus() {
+    // Taskbar / Alt-Tab / click: raise visible EQ/PL with the main player.
+    unawaited(_raiseVisibleGroupWithMain());
+  }
+
+  /// Show+focus visible secondaries, then keep main as the focused HWND.
+  Future<void> _raiseVisibleGroupWithMain() async {
+    if (_raisingFocusGroup || !_bootstrapped || _nativeDragging) return;
+    if (_minimizeGroup.isActive) return;
+    _raisingFocusGroup = true;
+    try {
+      final layout = _docking.layout;
+      if (layout.equalizer.visible &&
+          _eqReady &&
+          _equalizerWindow != null &&
+          !_minimizeGroup.shouldSuppressShow(WindowId.equalizer)) {
+        try {
+          await SessionBus.pushRaise(_equalizerWindow!);
+        } catch (error, stack) {
+          debugPrint('SessionHost raise(eq) failed: $error\n$stack');
+        }
+      }
+      if (layout.playlist.visible &&
+          _playlistReady &&
+          _playlistWindow != null &&
+          !_minimizeGroup.shouldSuppressShow(WindowId.playlist)) {
+        try {
+          await SessionBus.pushRaise(_playlistWindow!);
+        } catch (error, stack) {
+          debugPrint('SessionHost raise(pl) failed: $error\n$stack');
+        }
+      }
+      await windowManager.focus();
+    } finally {
+      // Defer clear so the focus() echo does not re-enter immediately.
+      Future<void>.delayed(const Duration(milliseconds: 100), () {
+        _raisingFocusGroup = false;
+      });
+    }
+  }
+
+  @override
   void onWindowMove() {
     if (!_nativeDragging || _dockDragWindow != WindowId.main) return;
     _nativeSyncCoalescer.schedule(() => _syncNativeMainDrag(ended: false));
@@ -808,11 +855,13 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   @override
   Widget build(BuildContext context) {
     final layout = _docking.layout;
+    final zoom = _zoomPercent / 100.0;
     return MaterialApp(
       title: 'Tramp',
       debugShowCheckedModeBanner: false,
+      color: const Color(0x00000000),
       home: ColoredBox(
-        color: MockupTokens.shellDeep,
+        color: const Color(0x00000000),
         child: !_bootstrapped
             ? const Center(
                 child: Text(
@@ -820,7 +869,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
                   style: TextStyle(color: MockupTokens.inkDim, fontSize: 12),
                 ),
               )
-            : Center(
+            : ZoomedCanvas(
+                factor: zoom,
                 child: MainPlayerWindow(
                   playback: _playback,
                   trackCount: _playlist.playlist.tracks.length,
@@ -828,7 +878,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
                   alwaysOnTop: _alwaysOnTop,
                   equalizerVisible: layout.equalizer.visible,
                   playlistVisible: layout.playlist.visible,
-                  zoom: _zoomPercent / 100.0,
+                  zoom: zoom,
                   dockLogicalTopLeft: () => Offset(
                     _docking.layout.main.left,
                     _docking.layout.main.top,

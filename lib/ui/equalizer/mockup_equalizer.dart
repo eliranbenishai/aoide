@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/equalizer_settings.dart';
 import '../../theme/mockup_tokens.dart';
 import '../../theme/tramp_metrics.dart';
+import '../chrome/logo.dart';
 import '../chrome/mockup/mockup_button.dart';
 import '../chrome/mockup/mockup_screen.dart';
 import '../chrome/mockup/mockup_shell.dart';
@@ -103,6 +104,17 @@ class MockupEqualizer extends StatelessWidget {
               onPreamp: (gain) => _emit(EqPreampCommand(gain)),
               onBand: (band, gain) =>
                   _emit(EqGainCommand(band: band, gain: gain)),
+            ),
+          ),
+          // Empty band-row gap (~159px) right of the last slider.
+          const Positioned(
+            right: 36,
+            top: 120,
+            child: IgnorePointer(
+              child: Opacity(
+                opacity: 0.14,
+                child: TrampLogo(size: 120),
+              ),
             ),
           ),
         ],
