@@ -513,8 +513,9 @@ class _PlaylistFooter extends StatelessWidget {
     final count = playlist.playlist.tracks.length;
     final statusPlaying = playingIndex;
 
+    // Strip 74 + gap 10 + status 26 — no spare band under the status row.
     return SizedBox(
-      height: 132,
+      height: 110,
       child: Column(
         children: [
           SizedBox(
@@ -628,11 +629,13 @@ class _PlaylistFooter extends StatelessWidget {
                                 fontFamily: 'TrampMono',
                                 fontWeight: FontWeight.w500,
                                 fontSize: 18,
+                                decoration: TextDecoration.none,
                                 color: MockupTokens.phos,
                                 shadows: [
+                                  // `.glow` — keep tight vs Skia bloom
                                   Shadow(
-                                    color: Color(0x993DE7FF),
-                                    blurRadius: 8,
+                                    color: Color(0x733DE7FF),
+                                    blurRadius: 4,
                                   ),
                                 ],
                               ),
@@ -650,7 +653,8 @@ class _PlaylistFooter extends StatelessWidget {
           SizedBox(
             height: 26,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
+              // Trailing inset clears the window resize grip (bottom-right).
+              padding: const EdgeInsets.fromLTRB(6, 0, 22, 0),
               child: Row(
                 children: [
                   Flexible(

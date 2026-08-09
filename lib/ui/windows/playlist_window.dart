@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../../playlist/playlist_controller.dart';
 import '../../theme/tramp_metrics.dart';
 import '../chrome/mockup/mockup_shell.dart';
 import '../chrome/mockup/mockup_title_bar.dart';
+import '../chrome/window_resize_grip.dart';
 import '../docking/dock_drag_area.dart';
 import '../playlist/mockup_playlist.dart';
 import '../session/session_messages.dart';
@@ -31,6 +33,8 @@ class PlaylistWindow extends StatelessWidget {
     this.onDockMove,
     this.onNativeDragStarted,
     this.draggableTitle = true,
+    this.showResizeGrip = true,
+    this.startResizing,
   });
 
   static const logicalDefault = TrampMetrics.playlistDefault;
@@ -66,6 +70,12 @@ class PlaylistWindow extends StatelessWidget {
 
   final bool draggableTitle;
 
+  /// Bottom-right size grip (hidden when shaded / in goldens that opt out).
+  final bool showResizeGrip;
+
+  /// Override for tests; defaults to [windowManager.startResizing].
+  final Future<void> Function(ResizeEdge edge)? startResizing;
+
   @override
   Widget build(BuildContext context) {
     Widget title = MockupTitleBar(
@@ -86,30 +96,59 @@ class PlaylistWindow extends StatelessWidget {
     }
 
     final height = shaded ? TrampMetrics.titleBar : size.height;
+    final resizable = !shaded;
+
+    Widget shell = MockupShell(
+      width: size.width,
+      child: Column(
+        children: [
+          title,
+          if (!shaded)
+            Expanded(
+              child: MockupPlaylist(
+                playlist: playlist,
+                playingIndex: playingIndex,
+                playing: playing,
+                onSessionCommand: onSessionCommand,
+                onAddFiles: onAddFiles,
+                onLoadPlaylist: onLoadPlaylist,
+                onSavePlaylist: onSavePlaylist,
+                onDropPaths: onDropPaths,
+              ),
+            ),
+        ],
+      ),
+    );
+
+    if (resizable) {
+      // Edges except top* — top strip stays free for title-bar dock drag.
+      shell = DragToResizeArea(
+        resizeEdgeSize: 6,
+        enableResizeEdges: const [
+          ResizeEdge.left,
+          ResizeEdge.right,
+          ResizeEdge.bottom,
+          ResizeEdge.bottomLeft,
+          ResizeEdge.bottomRight,
+        ],
+        child: shell,
+      );
+    }
 
     return SizedBox(
       width: size.width,
       height: height,
-      child: MockupShell(
-        width: size.width,
-        child: Column(
-          children: [
-            title,
-            if (!shaded)
-              Expanded(
-                child: MockupPlaylist(
-                  playlist: playlist,
-                  playingIndex: playingIndex,
-                  playing: playing,
-                  onSessionCommand: onSessionCommand,
-                  onAddFiles: onAddFiles,
-                  onLoadPlaylist: onLoadPlaylist,
-                  onSavePlaylist: onSavePlaylist,
-                  onDropPaths: onDropPaths,
-                ),
-              ),
-          ],
-        ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(child: shell),
+          if (resizable && showResizeGrip)
+            Positioned(
+              right: 6,
+              bottom: 6,
+              child: WindowResizeGrip(startResizing: startResizing),
+            ),
+        ],
       ),
     );
   }
