@@ -1,4 +1,5 @@
 import 'equalizer_settings.dart';
+import '../look/look_id.dart';
 
 /// Default Y for EQ stacked under main (classic×3 main height = 348).
 const double _defaultStackTop = 348;
@@ -170,6 +171,8 @@ class TrampSettings {
     required this.playlist,
     required this.dockEdges,
     this.equalizerCurve = EqualizerSettings.flat,
+    this.activeLookId = 'builtin',
+    this.looksDirectory,
   });
 
   static const defaults = TrampSettings(
@@ -201,6 +204,8 @@ class TrampSettings {
   final WindowFrameState playlist;
   final List<DockEdge> dockEdges;
   final EqualizerSettings equalizerCurve;
+  final String activeLookId;
+  final String? looksDirectory;
 
   TrampSettings copyWith({
     int? zoomPercent,
@@ -211,6 +216,9 @@ class TrampSettings {
     WindowFrameState? playlist,
     List<DockEdge>? dockEdges,
     EqualizerSettings? equalizerCurve,
+    String? activeLookId,
+    String? looksDirectory,
+    bool clearLooksDirectory = false,
   }) {
     return TrampSettings(
       zoomPercent: zoomPercent ?? this.zoomPercent,
@@ -221,6 +229,9 @@ class TrampSettings {
       playlist: playlist ?? this.playlist,
       dockEdges: dockEdges ?? this.dockEdges,
       equalizerCurve: equalizerCurve ?? this.equalizerCurve,
+      activeLookId: activeLookId ?? this.activeLookId,
+      looksDirectory:
+          clearLooksDirectory ? null : (looksDirectory ?? this.looksDirectory),
     );
   }
 
@@ -233,6 +244,8 @@ class TrampSettings {
         'playlist': playlist.toJson(),
         'dockEdges': dockEdges.map((e) => e.toJson()).toList(),
         'equalizerCurve': equalizerCurve.toJson(),
+        'activeLookId': activeLookId,
+        if (looksDirectory != null) 'looksDirectory': looksDirectory,
       };
 
   factory TrampSettings.fromJson(Map<String, dynamic> json) {
@@ -293,7 +306,20 @@ class TrampSettings {
       playlist: playlist,
       dockEdges: _parseDockEdges(json['dockEdges']),
       equalizerCurve: curve,
+      activeLookId: _parseActiveLookId(json['activeLookId']),
+      looksDirectory: _parseLooksDirectory(json['looksDirectory']),
     );
+  }
+
+  static String _parseActiveLookId(Object? raw) {
+    if (raw is! String || raw.isEmpty) return defaults.activeLookId;
+    if (raw == 'builtin' || isValidLookId(raw)) return raw;
+    return defaults.activeLookId;
+  }
+
+  static String? _parseLooksDirectory(Object? raw) {
+    if (raw is! String || raw.isEmpty) return null;
+    return raw;
   }
 
   static EqualizerSettings _parseEqualizerCurve(Map<String, dynamic> json) {
@@ -344,7 +370,9 @@ class TrampSettings {
       other.equalizer == equalizer &&
       other.playlist == playlist &&
       _listEquals(other.dockEdges, dockEdges) &&
-      other.equalizerCurve == equalizerCurve;
+      other.equalizerCurve == equalizerCurve &&
+      other.activeLookId == activeLookId &&
+      other.looksDirectory == looksDirectory;
 
   @override
   int get hashCode => Object.hash(
@@ -356,6 +384,8 @@ class TrampSettings {
         playlist,
         Object.hashAll(dockEdges),
         equalizerCurve,
+        activeLookId,
+        looksDirectory,
       );
 
   @override
@@ -363,7 +393,8 @@ class TrampSettings {
       'TrampSettings(zoomPercent: $zoomPercent, alwaysOnTop: $alwaysOnTop, '
       'forceMono: $forceMono, main: $main, equalizer: $equalizer, '
       'playlist: $playlist, dockEdges: $dockEdges, '
-      'equalizerCurve: $equalizerCurve)';
+      'equalizerCurve: $equalizerCurve, activeLookId: $activeLookId, '
+      'looksDirectory: $looksDirectory)';
 }
 
 WindowId? _windowId(Object? value) {

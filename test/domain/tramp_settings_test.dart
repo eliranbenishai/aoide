@@ -221,6 +221,50 @@ void main() {
     });
   });
 
+  group('TrampSettings look fields', () {
+    test('activeLookId and looksDirectory round-trip', () {
+      final settings = TrampSettings.defaults.copyWith(
+        activeLookId: 'neon-cyan',
+        looksDirectory: '/path/to/looks',
+      );
+      final again = TrampSettings.fromJson(settings.toJson());
+      expect(again.activeLookId, 'neon-cyan');
+      expect(again.looksDirectory, '/path/to/looks');
+    });
+
+    test('defaults use builtin and null looksDirectory', () {
+      expect(TrampSettings.defaults.activeLookId, 'builtin');
+      expect(TrampSettings.defaults.looksDirectory, isNull);
+    });
+
+    test('missing activeLookId defaults to builtin', () {
+      final settings = TrampSettings.fromJson({'zoomPercent': 100});
+      expect(settings.activeLookId, 'builtin');
+    });
+
+    test('invalid activeLookId defaults to builtin', () {
+      final settings = TrampSettings.fromJson({
+        'zoomPercent': 100,
+        'activeLookId': 'com.example.bad',
+      });
+      expect(settings.activeLookId, 'builtin');
+    });
+
+    test('empty looksDirectory becomes null', () {
+      final settings = TrampSettings.fromJson({
+        'zoomPercent': 100,
+        'looksDirectory': '',
+      });
+      expect(settings.looksDirectory, isNull);
+    });
+
+    test('defaults include activeLookId and omit looksDirectory in JSON', () {
+      final json = TrampSettings.defaults.toJson();
+      expect(json['activeLookId'], 'builtin');
+      expect(json.containsKey('looksDirectory'), isFalse);
+    });
+  });
+
   group('TrampSettings value semantics', () {
     test('copyWith updates layout and flags', () {
       final updated = TrampSettings.defaults.copyWith(
