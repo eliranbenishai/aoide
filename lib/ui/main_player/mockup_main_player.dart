@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart' hide RepeatMode;
 import 'package:path/path.dart' as p;
@@ -1101,8 +1100,7 @@ class _TransportRow extends StatelessWidget {
           semanticLabel: 'Play',
           width: 78,
           onPressed: canTransport ? onPlay : null,
-          // `.btn--play` — phosphor-hot glyph + CSS drop-shadow glow.
-          child: _PlayGlyph(),
+          child: MockupIcons.play(),
         ),
         const SizedBox(width: 6),
         _TransportBtn(
@@ -1222,40 +1220,6 @@ class _ToggleBtn extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// Play triangle with mockup `.btn--play` drop-shadow glow.
-class _PlayGlyph extends StatelessWidget {
-  const _PlayGlyph();
-
-  @override
-  Widget build(BuildContext context) {
-    final icon = MockupIcons.play(
-      color: const Color(0xFFB8F6FF),
-      size: 22,
-    );
-    return Stack(
-      alignment: Alignment.center,
-      clipBehavior: Clip.none,
-      children: [
-        // CSS: filter: drop-shadow(0 0 8px rgba(61, 231, 255, 0.7))
-        ImageFiltered(
-          imageFilter: ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3),
-          child: Opacity(
-            opacity: 0.55,
-            child: ColorFiltered(
-              colorFilter: const ColorFilter.mode(
-                Color(0xFF3DE7FF),
-                BlendMode.srcATop,
-              ),
-              child: icon,
-            ),
-          ),
-        ),
-        icon,
-      ],
     );
   }
 }

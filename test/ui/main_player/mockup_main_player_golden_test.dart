@@ -110,7 +110,8 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(); // layout + post-frame marquee measure
+    await tester.pump(); // marquee controller starts (never settles — looping)
 
     await expectLater(
       find.byType(MainPlayerWindow),
@@ -169,7 +170,8 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump();
 
     await expectLater(
       find.byType(MainPlayerWindow),

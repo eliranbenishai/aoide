@@ -1,4 +1,7 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tramp/domain/track.dart';
 import 'package:tramp/domain/tramp_settings.dart';
@@ -128,6 +131,41 @@ void main() {
     await tester.tap(find.byKey(const Key('transport-pause')));
     await tester.pumpAndSettle();
     expect(playback.playing, isFalse);
+  });
+
+  testWidgets('transport looks disabled with an empty playlist', (tester) async {
+    final commands = <SessionCommand>[];
+    await pumpPlayer(tester, commands: commands);
+
+    for (final key in const [
+      Key('transport-prev'),
+      Key('transport-play'),
+      Key('transport-pause'),
+      Key('transport-stop'),
+      Key('transport-next'),
+    ]) {
+      final semantics = tester.getSemantics(find.byKey(key));
+      expect(semantics.hasFlag(SemanticsFlag.isEnabled), isFalse, reason: '$key');
+      expect(
+        find.descendant(
+          of: find.byKey(key),
+          matching: find.byWidgetPredicate(
+            (w) => w is Opacity && w.opacity < 1.0,
+          ),
+        ),
+        findsOneWidget,
+        reason: '$key should be visually dimmed',
+      );
+    }
+
+    // Play must not keep a permanent hot glow when there is nothing to play.
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('transport-play')),
+        matching: find.byType(ImageFiltered),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('clutterbar shows O A I only', (tester) async {

@@ -430,33 +430,57 @@ class _WinBtn extends StatefulWidget {
 class _WinBtnState extends State<_WinBtn> {
   bool _down = false;
 
+  bool get _enabled => widget.onPressed != null;
+
+  void _setDown(bool value) {
+    if (value && !_enabled) return;
+    if (_down == value) return;
+    setState(() => _down = value);
+  }
+
+  @override
+  void didUpdateWidget(covariant _WinBtn oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_enabled && _down) {
+      _down = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
+      enabled: _enabled,
       label: widget.semanticLabel,
       child: MockupHover(
-        enabled: widget.onPressed != null,
+        enabled: _enabled,
         builder: (context, hover) {
-          return GestureDetector(
-            onTapDown: (_) => setState(() => _down = true),
-            onTapUp: (_) => setState(() => _down = false),
-            onTapCancel: () => setState(() => _down = false),
-            onTap: widget.onPressed,
-            child: CustomPaint(
-              painter: _WinBtnPainter(
-                close: widget.close,
-                pressed: _down,
-                hover: hover,
-              ),
-              child: SizedBox(
-                width: 26,
-                height: 22,
-                child: Center(
-                  child: MockupGlyphGlow(amount: hover, child: widget.child),
-                ),
+          Widget face = CustomPaint(
+            painter: _WinBtnPainter(
+              close: widget.close,
+              pressed: _down,
+              hover: hover,
+            ),
+            child: SizedBox(
+              width: 26,
+              height: 22,
+              child: Center(
+                child: MockupGlyphGlow(amount: hover, child: widget.child),
               ),
             ),
+          );
+          if (!_enabled) {
+            face = Opacity(
+              opacity: MockupHoverTokens.disabledOpacity,
+              child: face,
+            );
+          }
+          return GestureDetector(
+            onTapDown: (_) => _setDown(true),
+            onTapUp: (_) => _setDown(false),
+            onTapCancel: () => _setDown(false),
+            onTap: widget.onPressed,
+            child: face,
           );
         },
       ),

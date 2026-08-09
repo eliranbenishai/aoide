@@ -37,9 +37,18 @@ class _MockupButtonState extends State<MockupButton> {
   bool _down = false;
 
   void _setDown(bool value) {
+    // Clearing pressed must always work (e.g. disable mid-gesture).
     if (value && !widget.isEnabled) return;
     if (_down == value) return;
     setState(() => _down = value);
+  }
+
+  @override
+  void didUpdateWidget(covariant MockupButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.isEnabled && _down) {
+      _down = false;
+    }
   }
 
   @override
@@ -117,6 +126,13 @@ class _MockupButtonState extends State<MockupButton> {
             button = SizedBox(
               width: widget.width,
               height: widget.height,
+              child: button,
+            );
+          }
+
+          if (!widget.isEnabled) {
+            button = Opacity(
+              opacity: MockupHoverTokens.disabledOpacity,
               child: button,
             );
           }

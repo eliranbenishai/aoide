@@ -69,7 +69,7 @@ void main() {
     );
   });
 
-  testWidgets('button off and on', (tester) async {
+  testWidgets('button off on and disabled', (tester) async {
     await _pumpGolden(
       tester,
       Row(
@@ -84,9 +84,16 @@ void main() {
             height: 38,
             onPressed: () {},
           ),
+          const SizedBox(width: 12),
+          const MockupButton(
+            label: 'EQ',
+            width: 74,
+            height: 38,
+            onPressed: null,
+          ),
         ],
       ),
-      const Size(200, 56),
+      const Size(300, 56),
       'button_off_on',
     );
   });
@@ -214,7 +221,7 @@ void main() {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             MockupIcons.previous(),
-            MockupIcons.play(color: MockupTokens.phosHot),
+            MockupIcons.play(),
             MockupIcons.pause(),
             MockupIcons.stop(),
             MockupIcons.next(),

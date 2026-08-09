@@ -14,6 +14,9 @@ abstract final class MockupHoverTokens {
   /// Soft phosphor bloom behind glyphs (icons / labels).
   static const glyphGlowOpacity = 0.55;
   static const glyphBlurSigma = 2.2;
+
+  /// Face / glyph dim when `onPressed == null` (disabled).
+  static const disabledOpacity = 0.45;
 }
 
 /// Lighten [color] toward steel-white by [hover] × faceLift.
