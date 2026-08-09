@@ -32,7 +32,7 @@ import 'always_on_top.dart';
 import 'minimize_group.dart';
 import 'session_bus.dart';
 import 'session_messages.dart';
-import '../../look/builtin_look.dart';
+import '../../look/look_controller.dart';
 import '../../theme/look_scope.dart';
 
 /// Main-engine session owner: controllers/settings, docking frames, EQ/PL windows.
@@ -56,6 +56,7 @@ class SessionHostApp extends StatefulWidget {
 
 class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   late final SettingsStore _settingsStore;
+  late final LookController _lookController;
   late final SessionBus _bus;
   late final PlaylistController _playlist;
   late final PlaybackController _playback;
@@ -95,6 +96,11 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     );
     _settingsStore = widget.settingsStore ??
         FileSettingsStore(supportDir: getApplicationSupportDirectory);
+    _lookController = LookController(
+      settingsStore: _settingsStore,
+      supportDir: getApplicationSupportDirectory,
+    );
+    _lookController.addListener(_onLookChanged);
     _bus = SessionBus();
     _docking = DockingCoordinator(DockLayout.defaults);
     _playlist = PlaylistController(
@@ -139,6 +145,10 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     unawaited(_broadcastPlaybackSnapshot());
   }
 
+  void _onLookChanged() {
+    unawaited(_broadcastLookSnapshot());
+  }
+
   Future<void> _bootstrap() async {
     await _bus.bindHost(_onCommand);
     // Main close quits the process after tearing down secondary engines.
@@ -155,6 +165,10 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     _forceMono = settings.forceMono;
     _docking = DockingCoordinator(DockLayout.fromSettings(settings));
 
+    await _lookController.bootstrap(
+      settings: settings,
+      supportDir: getApplicationSupportDirectory,
+    );
     await _equalizer.load();
     await _playlist.restoreLastPlaylist();
     unawaited(_enrichMissingTrackMetadata());
@@ -194,6 +208,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
           await _pushPlaylistSnapshot(role);
           await _pushPlaybackSnapshot(role);
         }
+        await _pushLookSnapshot(role);
         await _applyRoleFrame(role);
         await _pushDockSnapshot(role);
       case ToggleWindowCommand(:final window, :final visible):
@@ -707,6 +722,27 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
 
   Future<void> _broadcastDockSnapshot() => _broadcast(_dockSnapshot());
 
+  LookSnapshotEvent _lookSnapshot() => LookSnapshotEvent.fromResolved(
+        _lookController.resolved,
+        fontFiles: _lookController.fontFiles,
+      );
+
+  Future<void> _pushLookSnapshot(WindowRole role) async {
+    final controller = switch (role) {
+      WindowRole.equalizer => _equalizerWindow,
+      WindowRole.playlist => _playlistWindow,
+      WindowRole.main => null,
+    };
+    if (controller == null) return;
+    try {
+      await SessionBus.pushEvent(controller, _lookSnapshot());
+    } catch (error, stack) {
+      debugPrint('SessionHost pushLook($role) failed: $error\n$stack');
+    }
+  }
+
+  Future<void> _broadcastLookSnapshot() => _broadcast(_lookSnapshot());
+
   Future<void> _broadcast(SessionEvent event) async {
     for (final controller in [_equalizerWindow, _playlistWindow]) {
       if (controller == null) continue;
@@ -911,6 +947,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   void dispose() {
     _mainNativeDrag.dispose();
     windowManager.removeListener(this);
+    _lookController.removeListener(_onLookChanged);
+    _lookController.dispose();
     _playlist.removeListener(_onPlaylistChanged);
     _playback.removeListener(_onPlaybackChanged);
     final probe = _trackProbe;
@@ -930,19 +968,25 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       title: 'Tramp',
       debugShowCheckedModeBanner: false,
       color: const Color(0x00000000),
-      builder: (context, child) => LookScope(
-        look: BuiltinLook.resolved,
-        child: child ?? const SizedBox.shrink(),
+      builder: (context, child) => ListenableBuilder(
+        listenable: _lookController,
+        builder: (context, _) => LookScope(
+          look: _lookController.resolved,
+          child: child ?? const SizedBox.shrink(),
+        ),
       ),
       home: ColoredBox(
         color: const Color(0x00000000),
         child: !_bootstrapped
-            ? Center(
-                child: Text(
-                  'starting session…',
-                  style: TextStyle(
-                    color: BuiltinLook.resolved.palette.inkDim,
-                    fontSize: 12,
+            ? ListenableBuilder(
+                listenable: _lookController,
+                builder: (context, _) => Center(
+                  child: Text(
+                    'starting session…',
+                    style: TextStyle(
+                      color: _lookController.resolved.palette.inkDim,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               )

@@ -34,10 +34,13 @@ class LookController extends ChangeNotifier {
   String _activeLookId = 'builtin';
   Directory? _looksDirectory;
   Map<String, LookManifest> _installed = const {};
+  Map<String, String> _fontFiles = const {};
   String? _lastError;
   TrampSettings _settings = TrampSettings.defaults;
 
   ResolvedLook get resolved => _resolved;
+  /// Absolute font paths for overridden roles (`chrome` / `lcd`).
+  Map<String, String> get fontFiles => _fontFiles;
   String get activeLookId => _activeLookId;
   Directory get looksDirectory =>
       _looksDirectory ?? Directory(p.join('looks'));
@@ -116,8 +119,9 @@ class LookController extends ChangeNotifier {
 
   Future<void> _activateInternal(String id) async {
     try {
-      final next = await _resolveWithFonts(id);
+      final (next, fontFiles) = await _resolveWithFonts(id);
       _resolved = next;
+      _fontFiles = fontFiles;
       _activeLookId = id;
       _lastError = null;
       _settings = _settings.copyWith(activeLookId: id);
@@ -129,11 +133,14 @@ class LookController extends ChangeNotifier {
     }
   }
 
-  Future<ResolvedLook> _resolveWithFonts(String id) async {
+  Future<(ResolvedLook, Map<String, String>)> _resolveWithFonts(
+    String id,
+  ) async {
     final base = LookMerger.resolve(activeId: id, installed: _installed);
     final chain = _collectChain(id);
     var chromeFamily = base.chromeFamily;
     var lcdFamily = base.lcdFamily;
+    final fontFiles = <String, String>{};
 
     for (final role in const ['chrome', 'lcd']) {
       final nearest = _nearestFont(chain, role);
@@ -153,6 +160,7 @@ class LookController extends ChangeNotifier {
         file: file,
         weight: weight,
       );
+      fontFiles[role] = file.absolute.path;
       if (role == 'chrome') {
         chromeFamily = family;
       } else {
@@ -160,14 +168,17 @@ class LookController extends ChangeNotifier {
       }
     }
 
-    return ResolvedLook(
-      id: base.id,
-      name: base.name,
-      author: base.author,
-      palette: base.palette,
-      materials: base.materials,
-      chromeFamily: chromeFamily,
-      lcdFamily: lcdFamily,
+    return (
+      ResolvedLook(
+        id: base.id,
+        name: base.name,
+        author: base.author,
+        palette: base.palette,
+        materials: base.materials,
+        chromeFamily: chromeFamily,
+        lcdFamily: lcdFamily,
+      ),
+      Map<String, String>.unmodifiable(fontFiles),
     );
   }
 

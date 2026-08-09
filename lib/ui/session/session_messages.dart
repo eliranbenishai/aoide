@@ -3,6 +3,9 @@ import 'dart:convert';
 import '../../domain/equalizer_settings.dart';
 import '../../domain/track.dart';
 import '../../domain/tramp_settings.dart';
+import '../../look/look_materials.dart';
+import '../../look/look_palette.dart';
+import '../../look/resolved_look.dart';
 
 /// Which Flutter engine / OS window this entrypoint owns.
 enum WindowRole { main, equalizer, playlist }
@@ -63,6 +66,8 @@ sealed class SessionEvent {
         return PlaylistSnapshotEvent.fromPayload(payload);
       case DockSnapshotEvent.typeName:
         return DockSnapshotEvent.fromPayload(payload);
+      case LookSnapshotEvent.typeName:
+        return LookSnapshotEvent.fromPayload(payload);
       case LevelsFrameEvent.typeName:
         return LevelsFrameEvent.fromPayload(payload);
       default:
@@ -300,6 +305,123 @@ final class DockSnapshotEvent extends SessionEvent {
           DockEdge.fromJson(Map<String, dynamic>.from(edge as Map)),
       ],
       zoomPercent: (json['zoomPercent'] as num?)?.toInt() ?? 100,
+    );
+  }
+}
+
+final class LookSnapshotEvent extends SessionEvent {
+  const LookSnapshotEvent({
+    required this.id,
+    required this.name,
+    required this.palette,
+    required this.materials,
+    required this.chromeFamily,
+    required this.lcdFamily,
+    this.author,
+    this.fontFiles,
+  });
+
+  static const typeName = 'look_snapshot';
+
+  final String id;
+  final String name;
+  final String? author;
+  final LookPalette palette;
+  final LookMaterials materials;
+  final String chromeFamily;
+  final String lcdFamily;
+  final Map<String, String>? fontFiles;
+
+  @override
+  String get type => typeName;
+
+  factory LookSnapshotEvent.fromResolved(
+    ResolvedLook look, {
+    Map<String, String>? fontFiles,
+  }) {
+    final files = fontFiles == null || fontFiles.isEmpty
+        ? null
+        : Map<String, String>.from(fontFiles);
+    return LookSnapshotEvent(
+      id: look.id,
+      name: look.name,
+      author: look.author,
+      palette: look.palette,
+      materials: look.materials,
+      chromeFamily: look.chromeFamily,
+      lcdFamily: look.lcdFamily,
+      fontFiles: files,
+    );
+  }
+
+  ResolvedLook toResolved() => ResolvedLook(
+        id: id,
+        name: name,
+        author: author,
+        palette: palette,
+        materials: materials,
+        chromeFamily: chromeFamily,
+        lcdFamily: lcdFamily,
+      );
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        if (author != null) 'author': author,
+        'palette': palette.toJson(),
+        'materials': materials.toJson(),
+        'chromeFamily': chromeFamily,
+        'lcdFamily': lcdFamily,
+        if (fontFiles != null && fontFiles!.isNotEmpty) 'fontFiles': fontFiles,
+      };
+
+  factory LookSnapshotEvent.fromPayload(Map<String, dynamic> json) {
+    final id = json['id'];
+    final name = json['name'];
+    if (id is! String || id.isEmpty) {
+      throw const FormatException('LookSnapshotEvent.id');
+    }
+    if (name is! String || name.isEmpty) {
+      throw const FormatException('LookSnapshotEvent.name');
+    }
+    final chromeFamily = json['chromeFamily'];
+    final lcdFamily = json['lcdFamily'];
+    if (chromeFamily is! String || chromeFamily.isEmpty) {
+      throw const FormatException('LookSnapshotEvent.chromeFamily');
+    }
+    if (lcdFamily is! String || lcdFamily.isEmpty) {
+      throw const FormatException('LookSnapshotEvent.lcdFamily');
+    }
+    final paletteRaw = json['palette'];
+    final materialsRaw = json['materials'];
+    if (paletteRaw is! Map) {
+      throw const FormatException('LookSnapshotEvent.palette');
+    }
+    if (materialsRaw is! Map) {
+      throw const FormatException('LookSnapshotEvent.materials');
+    }
+    Map<String, String>? fontFiles;
+    final fontFilesRaw = json['fontFiles'];
+    if (fontFilesRaw is Map && fontFilesRaw.isNotEmpty) {
+      fontFiles = {
+        for (final entry in fontFilesRaw.entries)
+          if (entry.key is String && entry.value is String)
+            entry.key as String: entry.value as String,
+      };
+      if (fontFiles.isEmpty) fontFiles = null;
+    }
+    final author = json['author'];
+    return LookSnapshotEvent(
+      id: id,
+      name: name,
+      author: author is String && author.isNotEmpty ? author : null,
+      palette: LookPalette.fromJson(Map<String, dynamic>.from(paletteRaw)),
+      materials:
+          LookMaterials.fromJson(Map<String, dynamic>.from(materialsRaw)),
+      chromeFamily: chromeFamily,
+      lcdFamily: lcdFamily,
+      fontFiles: fontFiles,
     );
   }
 }

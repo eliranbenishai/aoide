@@ -1,9 +1,14 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/painting.dart';
 import 'package:tramp/domain/equalizer_settings.dart';
 import 'package:tramp/domain/track.dart';
 import 'package:tramp/domain/tramp_settings.dart';
+import 'package:tramp/look/builtin_look.dart';
+import 'package:tramp/look/look_materials.dart';
+import 'package:tramp/look/look_palette.dart';
+import 'package:tramp/look/resolved_look.dart';
 import 'package:tramp/ui/session/session_messages.dart';
 
 void main() {
@@ -92,6 +97,65 @@ void main() {
           SessionEvent.fromJson(SessionEvent.decodeEnvelope(raw))
               as LevelsFrameEvent;
       expect(decoded.bands, [0.1, 0.5, 0.9]);
+    });
+
+    test('LookSnapshot round-trip', () {
+      final look = ResolvedLook(
+        id: 'neon',
+        name: 'Neon',
+        author: 'Ada',
+        palette: BuiltinLook.resolved.palette,
+        materials: const LookMaterials(
+          bevelLightOpacity: 0.2,
+          bevelSoftOpacity: 0.08,
+          spectrumStops: [
+            Color(0xFFCBF9FF),
+            Color(0xFF3DE7FF),
+          ],
+          railStops: [
+            Color(0xFF1A7A88),
+            Color(0xFF8A2258),
+          ],
+        ),
+        chromeFamily: 'Look.neon.chrome',
+        lcdFamily: 'Look.neon.lcd',
+      );
+      final event = LookSnapshotEvent.fromResolved(
+        look,
+        fontFiles: const {
+          'chrome': r'D:\looks\neon\chrome.ttf',
+          'lcd': r'D:\looks\neon\lcd.ttf',
+        },
+      );
+      final decoded =
+          SessionEvent.fromJson(event.toEnvelope()) as LookSnapshotEvent;
+      expect(decoded.id, 'neon');
+      expect(decoded.name, 'Neon');
+      expect(decoded.author, 'Ada');
+      expect(decoded.chromeFamily, 'Look.neon.chrome');
+      expect(decoded.lcdFamily, 'Look.neon.lcd');
+      expect(decoded.fontFiles, {
+        'chrome': r'D:\looks\neon\chrome.ttf',
+        'lcd': r'D:\looks\neon\lcd.ttf',
+      });
+      expect(decoded.palette.toJson(), look.palette.toJson());
+      expect(decoded.materials.toJson(), look.materials.toJson());
+      final resolved = decoded.toResolved();
+      expect(resolved.id, look.id);
+      expect(resolved.chromeFamily, look.chromeFamily);
+      expect(resolved.materials.bevelLightOpacity, 0.2);
+    });
+
+    test('LookSnapshot omits empty fontFiles and author', () {
+      final event = LookSnapshotEvent.fromResolved(BuiltinLook.resolved);
+      final json = event.toJson();
+      expect(json.containsKey('fontFiles'), isFalse);
+      expect(json.containsKey('author'), isFalse);
+      final decoded =
+          SessionEvent.fromJson(event.toEnvelope()) as LookSnapshotEvent;
+      expect(decoded.fontFiles, isNull);
+      expect(decoded.author, isNull);
+      expect(decoded.palette, isA<LookPalette>());
     });
 
     test('unknown event type throws', () {

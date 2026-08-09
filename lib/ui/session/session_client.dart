@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
@@ -7,9 +8,13 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../domain/equalizer_settings.dart';
 import '../../domain/tramp_settings.dart';
+import '../../look/builtin_look.dart';
+import '../../look/look_font_loader.dart';
+import '../../look/resolved_look.dart';
 import '../../platform/file_open.dart';
 import '../../playlist/playlist_controller.dart';
 import '../../playlist/playlist_store.dart';
+import '../../theme/look_scope.dart';
 import '../../theme/tramp_metrics.dart';
 import '../docking/dock_move_coalescer.dart';
 import '../docking/native_drag_tracker.dart';
@@ -18,8 +23,6 @@ import '../windows/playlist_window.dart';
 import '../zoom/zoomed_canvas.dart';
 import 'session_bus.dart';
 import 'session_messages.dart';
-import '../../look/builtin_look.dart';
-import '../../theme/look_scope.dart';
 
 /// Secondary-engine shell (EQ / playlist). Mockup chrome for both roles.
 class SessionClientApp extends StatefulWidget {
@@ -49,6 +52,7 @@ class _MemoryPlaylistStore implements PlaylistStore {
 class _SessionClientAppState extends State<SessionClientApp>
     with WindowListener {
   final _bus = SessionBus();
+  final _fontLoader = LookFontLoader();
   String? _lastEventType;
 
   EqualizerSettings _eqSettings = EqualizerSettings.flat;
@@ -56,6 +60,7 @@ class _SessionClientAppState extends State<SessionClientApp>
   final List<String> _presetNames = EqualizerPresets.builtIn.keys.toList();
 
   late final PlaylistController _playlist;
+  ResolvedLook _look = BuiltinLook.resolved;
   bool _plShaded = false;
   int? _playingIndex;
   bool _playing = false;
@@ -151,6 +156,10 @@ class _SessionClientAppState extends State<SessionClientApp>
 
   void _onSessionEvent(SessionEvent event) {
     if (!mounted) return;
+    if (event is LookSnapshotEvent) {
+      unawaited(_applyLookSnapshot(event));
+      return;
+    }
     setState(() {
       _lastEventType = event.type;
       switch (event) {
@@ -200,6 +209,33 @@ class _SessionClientAppState extends State<SessionClientApp>
         default:
           break;
       }
+    });
+  }
+
+  Future<void> _applyLookSnapshot(LookSnapshotEvent event) async {
+    final files = event.fontFiles;
+    if (files != null && files.isNotEmpty && event.id != 'builtin') {
+      for (final entry in files.entries) {
+        final file = File(entry.value);
+        if (!await file.exists()) continue;
+        try {
+          await _fontLoader.ensureFamily(
+            packId: event.id,
+            role: entry.key,
+            file: file,
+            weight: 400,
+          );
+        } catch (error, stack) {
+          debugPrint(
+            'SessionClient look font ${entry.key} failed: $error\n$stack',
+          );
+        }
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _lastEventType = event.type;
+      _look = event.toResolved();
     });
   }
 
@@ -464,7 +500,7 @@ class _SessionClientAppState extends State<SessionClientApp>
         debugShowCheckedModeBanner: false,
         color: const Color(0x00000000),
         builder: (context, child) => LookScope(
-          look: BuiltinLook.resolved,
+          look: _look,
           child: child ?? const SizedBox.shrink(),
         ),
         home: ColoredBox(
@@ -494,7 +530,7 @@ class _SessionClientAppState extends State<SessionClientApp>
         debugShowCheckedModeBanner: false,
         color: const Color(0x00000000),
         builder: (context, child) => LookScope(
-          look: BuiltinLook.resolved,
+          look: _look,
           child: child ?? const SizedBox.shrink(),
         ),
         home: ColoredBox(
@@ -536,12 +572,12 @@ class _SessionClientAppState extends State<SessionClientApp>
     }
 
     // Main role should not use SessionClientApp.
-    final palette = BuiltinLook.resolved.palette;
+    final palette = _look.palette;
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       color: const Color(0x00000000),
       builder: (context, child) => LookScope(
-        look: BuiltinLook.resolved,
+        look: _look,
         child: child ?? const SizedBox.shrink(),
       ),
       home: ColoredBox(

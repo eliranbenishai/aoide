@@ -42,4 +42,20 @@ class LookMaterials {
       railStops: stops('rail'),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'bevel': {
+          'lightOpacity': bevelLightOpacity,
+          'softOpacity': bevelSoftOpacity,
+        },
+        'spectrum': {
+          'stops': [for (final c in spectrumStops) lookColorToHex(c)],
+        },
+        'rail': {
+          'stops': [for (final c in railStops) lookColorToHex(c)],
+        },
+      };
+
+  factory LookMaterials.fromJson(Map<String, dynamic> json) =>
+      LookMaterials.fromMergedMaterials(json);
 }
