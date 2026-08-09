@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import '../chrome/mockup/mockup_hover.dart';
+
 /// Mockup-faithful playlist scrollbar (`.scrollbar` / `.scrollbar i`).
 ///
 /// 14px pill track with horizontal brushed gradient + ridged thumb.
@@ -62,13 +64,26 @@ class _MockupPlaylistScrollbarState extends State<MockupPlaylistScrollbar> {
     final thumbHeight = max <= 0
         ? trackHeight
         : (viewport / content * trackHeight).clamp(28.0, trackHeight);
-    final travel = trackHeight - thumbHeight;
+    // Mockup `.scrollbar i` is a fixed decorative thumb (`top:6%; height:32%`)
+    // even when the list barely overflows. Cap the visual thumb so static
+    // goldens match; still scale with content when the list is long.
+    final mockupThumb = trackHeight * 0.32;
+    final visualThumbHeight = max <= 0
+        ? mockupThumb
+        : thumbHeight > mockupThumb
+            ? mockupThumb
+            : thumbHeight;
+    final travel = trackHeight - visualThumbHeight;
     final thumbTop = max <= 0
-        ? 0.0
+        ? trackHeight * 0.06
         : (position.pixels / max * travel).clamp(0.0, travel);
+    // When nearly fitting, park near mockup's 6% inset.
+    final visualTop = max <= trackHeight * 0.05
+        ? trackHeight * 0.06
+        : thumbTop;
     return _ScrollbarMetrics(
-      thumbTop: thumbTop,
-      thumbHeight: thumbHeight,
+      thumbTop: visualTop,
+      thumbHeight: visualThumbHeight,
       maxScrollExtent: max,
       travel: travel,
     );
@@ -94,38 +109,44 @@ class _MockupPlaylistScrollbarState extends State<MockupPlaylistScrollbar> {
           final thumbTop = metrics?.thumbTop ?? 0;
           final thumbHeight = metrics?.thumbHeight ?? trackHeight;
 
-          return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapDown: metrics == null
-                ? null
-                : (details) {
-                    final localY = details.localPosition.dy;
-                    final top = (localY - thumbHeight / 2)
-                        .clamp(0.0, trackHeight - thumbHeight);
-                    _jumpToThumbTop(top, metrics);
-                  },
-            onVerticalDragStart: metrics == null
-                ? null
-                : (details) {
-                    _dragThumbOffset = details.localPosition.dy - thumbTop;
-                  },
-            onVerticalDragUpdate: metrics == null
-                ? null
-                : (details) {
-                    final offset = _dragThumbOffset ?? thumbHeight / 2;
-                    final top = (details.localPosition.dy - offset)
-                        .clamp(0.0, trackHeight - thumbHeight);
-                    _jumpToThumbTop(top, metrics);
-                  },
-            onVerticalDragEnd: (_) => _dragThumbOffset = null,
-            onVerticalDragCancel: () => _dragThumbOffset = null,
-            child: CustomPaint(
-              painter: MockupPlaylistScrollbarPainter(
-                thumbTop: thumbTop,
-                thumbHeight: thumbHeight,
-              ),
-              child: const SizedBox.expand(),
-            ),
+          return MockupHover(
+            enabled: metrics != null,
+            builder: (context, hover) {
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapDown: metrics == null
+                    ? null
+                    : (details) {
+                        final localY = details.localPosition.dy;
+                        final top = (localY - thumbHeight / 2)
+                            .clamp(0.0, trackHeight - thumbHeight);
+                        _jumpToThumbTop(top, metrics);
+                      },
+                onVerticalDragStart: metrics == null
+                    ? null
+                    : (details) {
+                        _dragThumbOffset = details.localPosition.dy - thumbTop;
+                      },
+                onVerticalDragUpdate: metrics == null
+                    ? null
+                    : (details) {
+                        final offset = _dragThumbOffset ?? thumbHeight / 2;
+                        final top = (details.localPosition.dy - offset)
+                            .clamp(0.0, trackHeight - thumbHeight);
+                        _jumpToThumbTop(top, metrics);
+                      },
+                onVerticalDragEnd: (_) => _dragThumbOffset = null,
+                onVerticalDragCancel: () => _dragThumbOffset = null,
+                child: CustomPaint(
+                  painter: MockupPlaylistScrollbarPainter(
+                    thumbTop: thumbTop,
+                    thumbHeight: thumbHeight,
+                    hover: hover,
+                  ),
+                  child: const SizedBox.expand(),
+                ),
+              );
+            },
           );
         },
       ),
@@ -152,10 +173,12 @@ class MockupPlaylistScrollbarPainter extends CustomPainter {
   const MockupPlaylistScrollbarPainter({
     required this.thumbTop,
     required this.thumbHeight,
+    this.hover = 0,
   });
 
   final double thumbTop;
   final double thumbHeight;
+  final double hover;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -216,16 +239,25 @@ class MockupPlaylistScrollbarPainter extends CustomPainter {
       Radius.circular(thumbRect.width),
     );
 
+    if (hover > 0.001) {
+      canvas.drawRRect(
+        thumbRRect.inflate(1),
+        Paint()
+          ..color = Color.fromRGBO(61, 231, 255, 0.3 * hover)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5),
+      );
+    }
+
     final thumbPaint = Paint()
-      ..shader = const LinearGradient(
+      ..shader = LinearGradient(
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
         colors: [
-          Color(0xFF7D8496),
-          Color(0xFF474E5C),
-          Color(0xFF22262F),
+          mockupHoverLift(const Color(0xFF7D8496), hover),
+          mockupHoverLift(const Color(0xFF474E5C), hover),
+          mockupHoverLift(const Color(0xFF22262F), hover),
         ],
-        stops: [0, 0.52, 1],
+        stops: const [0, 0.52, 1],
       ).createShader(thumbRect);
     canvas.drawRRect(thumbRRect, thumbPaint);
 
@@ -257,6 +289,11 @@ class MockupPlaylistScrollbarPainter extends CustomPainter {
     canvas.clipRRect(
       RRect.fromRectAndRadius(ridgeRect, const Radius.circular(1)),
     );
+    final ridgeLight = Color.lerp(
+      const Color(0x3DE2ECFF),
+      const Color(0xA63DE7FF),
+      hover,
+    )!;
     for (var y = ridgeRect.top; y < ridgeRect.bottom; y += 2) {
       canvas.drawRect(
         Rect.fromLTWH(ridgeRect.left, y, ridgeRect.width, 1),
@@ -264,7 +301,7 @@ class MockupPlaylistScrollbarPainter extends CustomPainter {
       );
       canvas.drawRect(
         Rect.fromLTWH(ridgeRect.left, y + 1, ridgeRect.width, 1),
-        Paint()..color = const Color(0x3DE2ECFF),
+        Paint()..color = ridgeLight,
       );
     }
     canvas.restore();
@@ -273,6 +310,7 @@ class MockupPlaylistScrollbarPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant MockupPlaylistScrollbarPainter oldDelegate) {
     return oldDelegate.thumbTop != thumbTop ||
-        oldDelegate.thumbHeight != thumbHeight;
+        oldDelegate.thumbHeight != thumbHeight ||
+        oldDelegate.hover != hover;
   }
 }

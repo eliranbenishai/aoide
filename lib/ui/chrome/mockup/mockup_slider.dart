@@ -1,9 +1,10 @@
 import 'package:flutter/widgets.dart';
 
 import '../../../theme/mockup_tokens.dart';
+import 'mockup_hover.dart';
 
 /// Horizontal slider matching mockup `.track` / `.fill` / `.thumb`.
-class MockupSlider extends StatelessWidget {
+class MockupSlider extends StatefulWidget {
   const MockupSlider({
     super.key,
     required this.value,
@@ -25,48 +26,64 @@ class MockupSlider extends StatelessWidget {
   /// and thumb `22×32` (default `.thumb` is `20×30`).
   final bool seekStyle;
 
-  double get _clamped => value.clamp(0.0, 1.0);
+  @override
+  State<MockupSlider> createState() => _MockupSliderState();
+}
+
+class _MockupSliderState extends State<MockupSlider> {
+  double get _clamped => widget.value.clamp(0.0, 1.0);
 
   Size get _thumbSize =>
-      thumbSize ?? (seekStyle ? const Size(22, 32) : const Size(20, 30));
+      widget.thumbSize ??
+      (widget.seekStyle ? const Size(22, 32) : const Size(20, 30));
+
+  void _emit(double dx, double width) {
+    if (widget.onChanged == null || width <= 0) return;
+    widget.onChanged!((dx / width).clamp(0.0, 1.0));
+  }
 
   @override
   Widget build(BuildContext context) {
     final effectiveThumb = _thumbSize;
+    final enabled = widget.onChanged != null;
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final height = effectiveThumb.height > trackHeight
+        final height = effectiveThumb.height > widget.trackHeight
             ? effectiveThumb.height
-            : trackHeight;
+            : widget.trackHeight;
         return SizedBox(
           width: width,
           height: height,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapDown: onChanged == null
-                ? null
-                : (details) => _emit(details.localPosition.dx, width),
-            onHorizontalDragUpdate: onChanged == null
-                ? null
-                : (details) => _emit(details.localPosition.dx, width),
-            child: CustomPaint(
-              painter: _SliderPainter(
-                value: _clamped,
-                trackHeight: trackHeight,
-                thumbSize: effectiveThumb,
-                seekStyle: seekStyle,
-              ),
-            ),
+          child: MockupHover(
+            enabled: enabled,
+            cursor: enabled
+                ? SystemMouseCursors.click
+                : SystemMouseCursors.basic,
+            builder: (context, hover) {
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapDown: enabled
+                    ? (details) => _emit(details.localPosition.dx, width)
+                    : null,
+                onHorizontalDragUpdate: enabled
+                    ? (details) => _emit(details.localPosition.dx, width)
+                    : null,
+                child: CustomPaint(
+                  painter: _SliderPainter(
+                    value: _clamped,
+                    trackHeight: widget.trackHeight,
+                    thumbSize: effectiveThumb,
+                    seekStyle: widget.seekStyle,
+                    hover: hover,
+                  ),
+                ),
+              );
+            },
           ),
         );
       },
     );
-  }
-
-  void _emit(double dx, double width) {
-    if (onChanged == null || width <= 0) return;
-    onChanged!((dx / width).clamp(0.0, 1.0));
   }
 }
 
@@ -76,12 +93,14 @@ class _SliderPainter extends CustomPainter {
     required this.trackHeight,
     required this.thumbSize,
     required this.seekStyle,
+    required this.hover,
   });
 
   final double value;
   final double trackHeight;
   final Size thumbSize;
   final bool seekStyle;
+  final double hover;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -135,8 +154,8 @@ class _SliderPainter extends CustomPainter {
       canvas.drawRRect(
         fill,
         Paint()
-          ..color = const Color(0x8C3DE7FF)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+          ..color = const Color(0x663DE7FF)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
       );
       canvas.drawRRect(
         fill,
@@ -177,18 +196,30 @@ class _SliderPainter extends CustomPainter {
         ..color = const Color(0xB3000000)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
     );
+
+    // Soft phosphor bloom on the thumb face (not the whole track).
+    if (hover > 0.001) {
+      canvas.drawRRect(
+        thumb.inflate(1.5),
+        Paint()
+          ..color = Color.fromRGBO(61, 231, 255, 0.35 * hover)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+      );
+    }
+
+    final thumbColors = [
+      mockupHoverLift(const Color(0xFF6F7688), hover),
+      mockupHoverLift(const Color(0xFF3D4350), hover),
+      mockupHoverLift(const Color(0xFF22262F), hover),
+    ];
     canvas.drawRRect(
       thumb,
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF6F7688),
-            Color(0xFF3D4350),
-            Color(0xFF22262F),
-          ],
-          stops: [0, 0.4, 1],
+          colors: thumbColors,
+          stops: const [0, 0.4, 1],
         ).createShader(thumbRect),
     );
     canvas.drawRRect(
@@ -196,10 +227,14 @@ class _SliderPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
-        ..color = const Color(0x80ECF4FF),
+        ..color = Color.lerp(
+          const Color(0x80ECF4FF),
+          const Color(0xCC3DE7FF),
+          hover,
+        )!,
     );
 
-    // Grip ridges (::after inset 8px 5px).
+    // Grip ridges (::after inset 8px 5px) — brighten toward phosphor on hover.
     final grip = Rect.fromLTRB(
       thumbRect.left + 5,
       thumbRect.top + 8,
@@ -208,7 +243,12 @@ class _SliderPainter extends CustomPainter {
     );
     var y = grip.top;
     final dark = Paint()..color = const Color(0x8C000000);
-    final light = Paint()..color = const Color(0x38E2ECFF);
+    final light = Paint()
+      ..color = Color.lerp(
+        const Color(0x38E2ECFF),
+        const Color(0xA63DE7FF),
+        hover,
+      )!;
     while (y < grip.bottom - 1) {
       canvas.drawRect(Rect.fromLTWH(grip.left, y, grip.width, 1), dark);
       canvas.drawRect(Rect.fromLTWH(grip.left, y + 1, grip.width, 1), light);
@@ -221,5 +261,6 @@ class _SliderPainter extends CustomPainter {
       value != oldDelegate.value ||
       trackHeight != oldDelegate.trackHeight ||
       thumbSize != oldDelegate.thumbSize ||
-      seekStyle != oldDelegate.seekStyle;
+      seekStyle != oldDelegate.seekStyle ||
+      hover != oldDelegate.hover;
 }

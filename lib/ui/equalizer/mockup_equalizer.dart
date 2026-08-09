@@ -5,6 +5,7 @@ import '../../theme/mockup_tokens.dart';
 import '../../theme/tramp_metrics.dart';
 import '../chrome/logo.dart';
 import '../chrome/mockup/mockup_button.dart';
+import '../chrome/mockup/mockup_hover.dart';
 import '../chrome/mockup/mockup_screen.dart';
 import '../chrome/mockup/mockup_shell.dart';
 import '../session/session_messages.dart';
@@ -426,19 +427,26 @@ class _VerticalBandSlider extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final height = constraints.maxHeight;
-          return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapDown: (d) => _emit(d.localPosition.dy, height),
-            onVerticalDragUpdate: (d) => _emit(d.localPosition.dy, height),
-            child: Center(
-              child: SizedBox(
-                width: 34,
-                height: height,
-                child: CustomPaint(
-                  painter: _VTrackPainter(fraction: _toFraction(gain)),
+          return MockupHover(
+            builder: (context, hover) {
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapDown: (d) => _emit(d.localPosition.dy, height),
+                onVerticalDragUpdate: (d) => _emit(d.localPosition.dy, height),
+                child: Center(
+                  child: SizedBox(
+                    width: 34,
+                    height: height,
+                    child: CustomPaint(
+                      painter: _VTrackPainter(
+                        fraction: _toFraction(gain),
+                        hover: hover,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
           );
         },
       ),
@@ -447,9 +455,10 @@ class _VerticalBandSlider extends StatelessWidget {
 }
 
 class _VTrackPainter extends CustomPainter {
-  const _VTrackPainter({required this.fraction});
+  const _VTrackPainter({required this.fraction, required this.hover});
 
   final double fraction;
+  final double hover;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -534,18 +543,26 @@ class _VTrackPainter extends CustomPainter {
       ),
       const Radius.circular(3),
     );
+    if (hover > 0.001) {
+      canvas.drawRRect(
+        thumb.inflate(1.5),
+        Paint()
+          ..color = Color.fromRGBO(61, 231, 255, 0.35 * hover)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+      );
+    }
     canvas.drawRRect(
       thumb,
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Color(0xFF757C8F),
-            Color(0xFF3D4350),
-            Color(0xFF1E222C),
+            mockupHoverLift(const Color(0xFF757C8F), hover),
+            mockupHoverLift(const Color(0xFF3D4350), hover),
+            mockupHoverLift(const Color(0xFF1E222C), hover),
           ],
-          stops: [0, 0.42, 1],
+          stops: const [0, 0.42, 1],
         ).createShader(thumb.outerRect),
     );
     canvas.drawRRect(
@@ -553,7 +570,11 @@ class _VTrackPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
-        ..color = const Color(0x59ECF4FF),
+        ..color = Color.lerp(
+          const Color(0x59ECF4FF),
+          const Color(0xCC3DE7FF),
+          hover,
+        )!,
     );
 
     final line = RRect.fromRectAndRadius(
@@ -574,12 +595,12 @@ class _VTrackPainter extends CustomPainter {
     canvas.drawRRect(
       line,
       Paint()
-        ..color = const Color(0xBF3DE7FF)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+        ..color = Color.fromRGBO(61, 231, 255, 0.75 + 0.25 * hover)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 4 + 2 * hover),
     );
   }
 
   @override
   bool shouldRepaint(covariant _VTrackPainter oldDelegate) =>
-      oldDelegate.fraction != fraction;
+      oldDelegate.fraction != fraction || oldDelegate.hover != hover;
 }

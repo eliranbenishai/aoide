@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../../theme/mockup_tokens.dart';
 import '../logo.dart';
+import 'mockup_hover.dart';
 import 'mockup_icons.dart';
 
 /// Title strip matching mockup `.tbar` (42px).
@@ -433,19 +434,30 @@ class _WinBtnState extends State<_WinBtn> {
     return Semantics(
       button: true,
       label: widget.semanticLabel,
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _down = true),
-        onTapUp: (_) => setState(() => _down = false),
-        onTapCancel: () => setState(() => _down = false),
-        onTap: widget.onPressed,
-        child: CustomPaint(
-          painter: _WinBtnPainter(close: widget.close, pressed: _down),
-          child: SizedBox(
-            width: 26,
-            height: 22,
-            child: Center(child: widget.child),
-          ),
-        ),
+      child: MockupHover(
+        enabled: widget.onPressed != null,
+        builder: (context, hover) {
+          return GestureDetector(
+            onTapDown: (_) => setState(() => _down = true),
+            onTapUp: (_) => setState(() => _down = false),
+            onTapCancel: () => setState(() => _down = false),
+            onTap: widget.onPressed,
+            child: CustomPaint(
+              painter: _WinBtnPainter(
+                close: widget.close,
+                pressed: _down,
+                hover: hover,
+              ),
+              child: SizedBox(
+                width: 26,
+                height: 22,
+                child: Center(
+                  child: MockupGlyphGlow(amount: hover, child: widget.child),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -501,22 +513,30 @@ class _TitleBarPainter extends CustomPainter {
 }
 
 class _WinBtnPainter extends CustomPainter {
-  const _WinBtnPainter({required this.close, required this.pressed});
+  const _WinBtnPainter({
+    required this.close,
+    required this.pressed,
+    required this.hover,
+  });
 
   final bool close;
   final bool pressed;
+  final double hover;
 
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(3));
-    final colors = close
+    final base = close
         ? (pressed
             ? const [Color(0xFF79204A), Color(0xFF4A1129), Color(0xFF2E0A1A)]
             : const [Color(0xFF9C2A60), Color(0xFF79204A), Color(0xFF4A1129)])
         : (pressed
             ? const [Color(0xFF2F3543), Color(0xFF20242E), Color(0xFF161920)]
             : const [Color(0xFF454D60), Color(0xFF2F3543), Color(0xFF20242E)]);
+    final colors = pressed
+        ? base
+        : base.map((c) => mockupHoverLift(c, hover)).toList(growable: false);
 
     // Outer drop: mockup `0 1px 2px rgba(0, 0, 0, 0.55)`.
     canvas.drawRRect(
@@ -542,7 +562,14 @@ class _WinBtnPainter extends CustomPainter {
     // Inset top lip: `inset 0 1px 0 rgba(232, 240, 255, 0.3)`.
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.width, 1),
-      Paint()..color = pressed ? const Color(0x26E8F0FF) : const Color(0x4DE8F0FF),
+      Paint()
+        ..color = pressed
+            ? const Color(0x26E8F0FF)
+            : Color.lerp(
+                const Color(0x4DE8F0FF),
+                const Color(0x80E8F0FF),
+                hover,
+              )!,
     );
     // Inset bottom lip: `inset 0 -1px 0 rgba(0, 0, 0, 0.6)`.
     canvas.drawRect(
@@ -554,5 +581,7 @@ class _WinBtnPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _WinBtnPainter oldDelegate) =>
-      close != oldDelegate.close || pressed != oldDelegate.pressed;
+      close != oldDelegate.close ||
+      pressed != oldDelegate.pressed ||
+      hover != oldDelegate.hover;
 }
