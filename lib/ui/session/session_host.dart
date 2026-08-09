@@ -26,6 +26,7 @@ import '../chrome/about_dialog.dart';
 import '../docking/dock_layout.dart';
 import '../docking/dock_move_coalescer.dart';
 import '../docking/docking_coordinator.dart';
+import '../docking/native_drag_tracker.dart';
 import '../windows/main_player_window.dart';
 import '../zoom/zoomed_canvas.dart';
 import 'always_on_top.dart';
@@ -74,13 +75,23 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   final DockMoveCoalescer _nativeSyncCoalescer = DockMoveCoalescer();
   WindowId? _dockDragWindow;
   bool _nativeDragging = false;
-  Timer? _nativeDragEndFallback;
+  late final NativeDragTracker _mainNativeDrag;
   /// Guards [onWindowFocus] → raise → main [focus] from re-entering.
   bool _raisingFocusGroup = false;
 
   @override
   void initState() {
     super.initState();
+    _mainNativeDrag = NativeDragTracker(
+      onQuietFinalize: () {
+        // Soft end: siblings only — do not fight the OS HWND if drag resumes.
+        unawaited(
+          _nativeSyncCoalescer.flush(
+            () => _syncNativeMainDrag(ended: true, softEnd: true),
+          ),
+        );
+      },
+    );
     _settingsStore = widget.settingsStore ??
         FileSettingsStore(supportDir: getApplicationSupportDirectory);
     _bus = SessionBus();
@@ -260,21 +271,31 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     Offset logicalTopLeft, {
     required bool shiftUndock,
     required bool ended,
+    bool softEnd = false,
   }) async {
     _docking.move(
       id,
       logicalTopLeft,
       shiftUndock: shiftUndock,
-      snap: ended,
+      // Soft quiet-end must not snap EQ/PL; confirmed ends still do.
+      snap: ended && !softEnd,
     );
     _dockDragWindow = id;
 
     if (ended) {
       await _dockMoveCoalescer.flush(() async {
-        await _applyDockGroupFrames(id, positionOnly: false);
+        // Soft end: skip the OS-owned HWND so a false quiet finalize cannot
+        // fight startDragging; confirmed ends apply the full cohort.
+        await _applyDockGroupFrames(
+          id,
+          positionOnly: softEnd,
+          skip: softEnd ? id : null,
+        );
       });
-      _dockDragWindow = null;
-      _nativeDragging = false;
+      if (!softEnd) {
+        _dockDragWindow = null;
+        _nativeDragging = false;
+      }
       await _persistLayout();
       await _broadcastDockSnapshot();
       if (mounted) setState(() {});
@@ -308,24 +329,28 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   void _onNativeDragStarted(WindowId id) {
     _nativeDragging = true;
     _dockDragWindow = id;
-    _nativeDragEndFallback?.cancel();
+    if (id == WindowId.main) {
+      _mainNativeDrag.started();
+    }
   }
 
-  void _armNativeDragEndFallback() {
-    // WM_EXITSIZEMOVE / "moved" is not always delivered after startDragging.
-    // If move events go quiet, finalize snap as if the gesture ended.
-    _nativeDragEndFallback?.cancel();
-    _nativeDragEndFallback = Timer(const Duration(milliseconds: 180), () {
-      if (!_nativeDragging || _dockDragWindow != WindowId.main) return;
-      unawaited(
-        _nativeSyncCoalescer.flush(() => _syncNativeMainDrag(ended: true)),
-      );
-    });
+  void _onNativeDragEnded(WindowId id) {
+    if (id != WindowId.main) return;
+    if (!_nativeDragging && !_mainNativeDrag.isActive) return;
+    _mainNativeDrag.endedConfirmed();
+    unawaited(
+      _nativeSyncCoalescer.flush(() => _syncNativeMainDrag(ended: true)),
+    );
   }
 
-  Future<void> _syncNativeMainDrag({required bool ended}) async {
+  Future<void> _syncNativeMainDrag({
+    required bool ended,
+    bool softEnd = false,
+  }) async {
     if (!_nativeDragging && !ended) return;
-    if (ended) _nativeDragEndFallback?.cancel();
+    if (ended && !softEnd) {
+      _mainNativeDrag.endedConfirmed();
+    }
     final zoom = (_zoomPercent / 100.0).clamp(0.5, 4.0);
     final pos = await windowManager.getPosition();
     final logical = Offset(pos.dx / zoom, pos.dy / zoom);
@@ -334,6 +359,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       logical,
       shiftUndock: HardwareKeyboard.instance.isShiftPressed,
       ended: ended,
+      softEnd: softEnd,
     );
   }
 
@@ -838,15 +864,21 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
 
   @override
   void onWindowMove() {
-    if (!_nativeDragging || _dockDragWindow != WindowId.main) return;
+    // Resume after a soft quiet-end if the OS is still dragging.
+    final tracked = _mainNativeDrag.onMoveEvent();
+    if (!tracked &&
+        (!_nativeDragging || _dockDragWindow != WindowId.main)) {
+      return;
+    }
+    _nativeDragging = true;
+    _dockDragWindow = WindowId.main;
     _nativeSyncCoalescer.schedule(() => _syncNativeMainDrag(ended: false));
-    _armNativeDragEndFallback();
   }
 
   @override
   void onWindowMoved() {
-    if (!_nativeDragging || _dockDragWindow != WindowId.main) return;
-    _nativeDragEndFallback?.cancel();
+    if (!_nativeDragging && !_mainNativeDrag.isActive) return;
+    _mainNativeDrag.endedConfirmed();
     unawaited(
       _nativeSyncCoalescer.flush(() => _syncNativeMainDrag(ended: true)),
     );
@@ -874,7 +906,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
 
   @override
   void dispose() {
-    _nativeDragEndFallback?.cancel();
+    _mainNativeDrag.dispose();
     windowManager.removeListener(this);
     _playlist.removeListener(_onPlaylistChanged);
     _playback.removeListener(_onPlaybackChanged);
@@ -932,6 +964,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
                   },
                   onNativeDragStarted: () =>
                       _onNativeDragStarted(WindowId.main),
+                  onNativeDragEnded: () => _onNativeDragEnded(WindowId.main),
                   onSessionCommand: (cmd) => unawaited(_handleLocalCommand(cmd)),
                   onOpenFiles: () => unawaited(_openFiles()),
                   onOpenOptions: () => unawaited(_showOptions()),

@@ -144,6 +144,7 @@ void main() {
         (tester) async {
       var started = 0;
       var nativeStarts = 0;
+      var nativeEnds = 0;
 
       await tester.pumpWidget(
         MaterialApp(
@@ -153,6 +154,7 @@ void main() {
               logicalTopLeft: () => Offset.zero,
               onMove: (topLeft, {required shiftUndock, required ended}) {},
               onNativeDragStarted: () => nativeStarts++,
+              onNativeDragEnded: () => nativeEnds++,
               startDragging: () async {
                 started++;
               },
@@ -174,6 +176,7 @@ void main() {
 
       expect(nativeStarts, 1);
       expect(started, 1);
+      expect(nativeEnds, 1);
     });
   });
 }

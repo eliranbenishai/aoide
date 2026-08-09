@@ -24,6 +24,7 @@ class DockDragArea extends StatefulWidget {
     required this.child,
     this.nativeDragging = true,
     this.onNativeDragStarted,
+    this.onNativeDragEnded,
     this.startDragging,
   });
 
@@ -45,6 +46,12 @@ class DockDragArea extends StatefulWidget {
   /// Invoked when a native OS drag begins so the host/client can enter
   /// sibling-sync mode.
   final VoidCallback? onNativeDragStarted;
+
+  /// Invoked when the pointer is released/cancelled after a native drag.
+  ///
+  /// Prefer this (and `onWindowMoved`) over short quiet-period timers —
+  /// move events pause while the button is still down.
+  final VoidCallback? onNativeDragEnded;
 
   /// Override for tests; defaults to [windowManager.startDragging].
   final Future<void> Function()? startDragging;
@@ -99,11 +106,17 @@ class _DockDragAreaState extends State<DockDragArea> {
         _emit(details.globalPosition, ended: false);
       },
       onPanEnd: (details) {
-        if (widget.nativeDragging) return;
+        if (widget.nativeDragging) {
+          widget.onNativeDragEnded?.call();
+          return;
+        }
         _emit(details.globalPosition, ended: true);
         _session = null;
       },
       onPanCancel: () {
+        if (widget.nativeDragging) {
+          widget.onNativeDragEnded?.call();
+        }
         _session = null;
       },
       child: widget.child,

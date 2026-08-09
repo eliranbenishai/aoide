@@ -13,6 +13,7 @@ import '../../playlist/playlist_store.dart';
 import '../../theme/mockup_tokens.dart';
 import '../../theme/tramp_metrics.dart';
 import '../docking/dock_move_coalescer.dart';
+import '../docking/native_drag_tracker.dart';
 import '../windows/equalizer_window.dart';
 import '../windows/playlist_window.dart';
 import '../zoom/zoomed_canvas.dart';
@@ -65,11 +66,20 @@ class _SessionClientAppState extends State<SessionClientApp>
   bool _nativeDragging = false;
   final DockMoveCoalescer _nativeSyncCoalescer = DockMoveCoalescer();
   Timer? _resizeDebounce;
-  Timer? _nativeDragEndFallback;
+  late final NativeDragTracker _nativeDrag;
 
   @override
   void initState() {
     super.initState();
+    _nativeDrag = NativeDragTracker(
+      onQuietFinalize: () {
+        unawaited(
+          _nativeSyncCoalescer.flush(
+            () => _reportNativeDrag(ended: true, softEnd: true),
+          ),
+        );
+      },
+    );
     _playlist = PlaylistController(store: _MemoryPlaylistStore());
     windowManager.addListener(this);
     unawaited(_bootstrap());
@@ -332,22 +342,25 @@ class _SessionClientAppState extends State<SessionClientApp>
 
   void _onNativeDragStarted() {
     _nativeDragging = true;
-    _nativeDragEndFallback?.cancel();
+    _nativeDrag.started();
   }
 
-  void _armNativeDragEndFallback() {
-    _nativeDragEndFallback?.cancel();
-    _nativeDragEndFallback = Timer(const Duration(milliseconds: 180), () {
-      if (!_nativeDragging) return;
-      unawaited(
-        _nativeSyncCoalescer.flush(() => _reportNativeDrag(ended: true)),
-      );
-    });
+  void _onNativeDragEnded() {
+    if (!_nativeDragging && !_nativeDrag.isActive) return;
+    _nativeDrag.endedConfirmed();
+    unawaited(
+      _nativeSyncCoalescer.flush(() => _reportNativeDrag(ended: true)),
+    );
   }
 
-  Future<void> _reportNativeDrag({required bool ended}) async {
+  Future<void> _reportNativeDrag({
+    required bool ended,
+    bool softEnd = false,
+  }) async {
     if (!_nativeDragging && !ended) return;
-    if (ended) _nativeDragEndFallback?.cancel();
+    if (ended && !softEnd) {
+      _nativeDrag.endedConfirmed();
+    }
     final zoom = (_zoomPercent / 100.0).clamp(0.5, 4.0);
     final pos = await windowManager.getPosition();
     final logical = Offset(pos.dx / zoom, pos.dy / zoom);
@@ -359,23 +372,28 @@ class _SessionClientAppState extends State<SessionClientApp>
         left: logical.dx,
         top: logical.dy,
         shiftUndock: HardwareKeyboard.instance.isShiftPressed,
-        ended: ended,
+        // Soft quiet-end: keep following on resume; host must not snap yet.
+        ended: ended && !softEnd,
       ),
     );
-    if (ended) _nativeDragging = false;
+    if (ended && !softEnd) {
+      _nativeDragging = false;
+    }
   }
 
   @override
   void onWindowMove() {
-    if (!_nativeDragging) return;
+    if (!_nativeDrag.onMoveEvent()) {
+      if (!_nativeDragging) return;
+    }
+    _nativeDragging = true;
     _nativeSyncCoalescer.schedule(() => _reportNativeDrag(ended: false));
-    _armNativeDragEndFallback();
   }
 
   @override
   void onWindowMoved() {
-    if (!_nativeDragging) return;
-    _nativeDragEndFallback?.cancel();
+    if (!_nativeDragging && !_nativeDrag.isActive) return;
+    _nativeDrag.endedConfirmed();
     unawaited(
       _nativeSyncCoalescer.flush(() => _reportNativeDrag(ended: true)),
     );
@@ -437,7 +455,7 @@ class _SessionClientAppState extends State<SessionClientApp>
   @override
   void dispose() {
     _resizeDebounce?.cancel();
-    _nativeDragEndFallback?.cancel();
+    _nativeDrag.dispose();
     windowManager.removeListener(this);
     unawaited(widget.windowController.setWindowMethodHandler(null));
     _playlist.dispose();
@@ -464,6 +482,7 @@ class _SessionClientAppState extends State<SessionClientApp>
               dockLogicalTopLeft: () => Offset(_logicalLeft, _logicalTop),
               onDockMove: _onDockMove,
               onNativeDragStarted: _onNativeDragStarted,
+              onNativeDragEnded: _onNativeDragEnded,
               onSessionCommand: (cmd) => unawaited(_send(cmd)),
               onCollapse: _toggleEqShade,
               onClose: () => unawaited(_hideInsteadOfClose()),
@@ -500,6 +519,7 @@ class _SessionClientAppState extends State<SessionClientApp>
                   dockLogicalTopLeft: () => Offset(_logicalLeft, _logicalTop),
                   onDockMove: _onDockMove,
                   onNativeDragStarted: _onNativeDragStarted,
+                  onNativeDragEnded: _onNativeDragEnded,
                   onSessionCommand: (cmd) => unawaited(_send(cmd)),
                   onAddFiles: () => unawaited(_addFiles()),
                   onLoadPlaylist: () => unawaited(_loadPlaylist()),
