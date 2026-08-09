@@ -103,6 +103,33 @@ void main() {
     });
   });
 
+  group('updateTrackByPath', () {
+    test('patches duration used by TOTAL without reshuffling selection', () {
+      final c = PlaylistController(store: MemoryStore());
+      c.addTracks(const [
+        Track(path: '/a.mp3'),
+        Track(path: '/b.mp3'),
+      ]);
+      c.select(1);
+
+      expect(
+        c.updateTrackByPath(
+          '/a.mp3',
+          (t) => t.copyWith(duration: const Duration(seconds: 65)),
+        ),
+        isTrue,
+      );
+      expect(c.playlist.tracks[0].duration, const Duration(seconds: 65));
+      expect(c.selectedIndex, 1);
+      expect(c.selectedIndices, {1});
+
+      expect(
+        c.updateTrackByPath('/missing.mp3', (t) => t),
+        isFalse,
+      );
+    });
+  });
+
   group('selection and sort', () {
     test('selectAll and invertSelection', () {
       final c = PlaylistController(store: MemoryStore());

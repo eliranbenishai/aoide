@@ -22,9 +22,9 @@ the playlist window free resize in logical coordinates.
 - Each fixed panel is authored once against a fixed logical canvas — main player
   **825×348**, equalizer **825×348** — and zoom is applied by scaling that
   logical size (root transform / equivalent per window).
-- **One global** discrete zoom step (six steps 100–300% unless the product spec
-  re-pins the ladder). Main title-bar −/+ (and shortcuts) change the step for
-  **all three** windows. Pixel size = logical size × zoom.
+- **One global** discrete zoom step (eight steps 50–300%; default **75%** unless
+  the product spec re-pins the ladder). Main title-bar −/+ (and shortcuts) change
+  the step for **all three** windows. Pixel size = logical size × zoom.
 - The **playlist** window is freely resizable in width and height. User size is
   stored in **logical** coordinates and scaled by the current zoom step. Default
   logical size **825×696**.

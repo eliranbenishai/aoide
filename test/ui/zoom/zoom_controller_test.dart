@@ -19,8 +19,8 @@ void main() {
         onPercentChanged: onPercentChanged,
       );
 
-  test('steps are the six documented levels', () {
-    expect(ZoomController.steps, [100, 125, 150, 200, 250, 300]);
+  test('steps are the eight documented levels', () {
+    expect(ZoomController.steps, [50, 75, 100, 125, 150, 200, 250, 300]);
   });
 
   test('factor is percent over one hundred', () {
@@ -29,20 +29,20 @@ void main() {
   });
 
   test('stepUp and stepDown move one step and clamp at the ends', () {
-    final c = build(initialPercent: 100);
+    final c = build(initialPercent: 50);
     c.stepDown();
-    expect(c.percent, 100, reason: 'already at the smallest step');
+    expect(c.percent, 50, reason: 'already at the smallest step');
     c.stepUp();
-    expect(c.percent, 125);
+    expect(c.percent, 75);
     c.setPercent(300);
     c.stepUp();
     expect(c.percent, 300, reason: 'already at the largest step');
   });
 
-  test('reset returns to 100 percent', () {
+  test('reset returns to the default 75 percent', () {
     final c = build(initialPercent: 250);
     c.reset();
-    expect(c.percent, 100);
+    expect(c.percent, 75);
   });
 
   test('notifies listeners when the step changes but not when it repeats', () {
@@ -76,7 +76,7 @@ void main() {
     expect(c.canUse(100), isTrue);
     expect(c.canUse(150), isTrue);
     expect(c.canUse(300), isFalse);
-    expect(c.enabledSteps, [100, 125, 150]);
+    expect(c.enabledSteps, [50, 75, 100, 125, 150]);
   });
 
   test('setPercent refuses a step that does not fit', () {
@@ -102,7 +102,7 @@ void main() {
 
     c.workArea = const Size(1600, 1200);
     expect(c.percent, 100, reason: '100% still fits on a 1600×1200 display');
-    expect(c.enabledSteps, [100, 125, 150]);
+    expect(c.enabledSteps, [50, 75, 100, 125, 150]);
     expect(listenerCalls, 1, reason: 'enabledSteps changed; UI must rebuild');
     expect(percentChangedCalls, 0,
         reason: 'step did not change; must not resize the window');
@@ -136,7 +136,7 @@ void main() {
     final c = build(workArea: workArea, initialPercent: 125);
     expect(c.canUse(150), isTrue);
     expect(c.canUse(200), isFalse);
-    expect(c.enabledSteps, [100, 125, 150]);
+    expect(c.enabledSteps, [50, 75, 100, 125, 150]);
 
     c.stepUp();
     expect(c.percent, 150, reason: 'must land on 150%, not unusable 200%');
@@ -145,9 +145,10 @@ void main() {
     expect(c.percent, 125, reason: 'must land on 125%, not stop above 150%');
   });
 
-  test('bestInitialPercent picks the largest fitting step capped at 150', () {
-    expect(ZoomController.bestInitialPercent(const Size(6000, 4000)), 150);
-    expect(ZoomController.bestInitialPercent(const Size(1000, 700)), 100);
+  test('bestInitialPercent prefers the 75% product default', () {
+    expect(ZoomController.bestInitialPercent(const Size(6000, 4000)), 75);
+    // Tiny work area: fall back to the largest step ≤ 75% that still fits.
+    expect(ZoomController.bestInitialPercent(const Size(500, 300)), 50);
   });
 
   test('metrics match the locked canvases', () {

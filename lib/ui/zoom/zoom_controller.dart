@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
+import '../../domain/tramp_settings.dart';
 import '../../theme/tramp_metrics.dart';
 
 /// Owns the discrete zoom step.
@@ -11,18 +12,18 @@ import '../../theme/tramp_metrics.dart';
 class ZoomController extends ChangeNotifier {
   ZoomController({
     required Size workArea,
-    int initialPercent = 100,
+    int initialPercent = defaultPercent,
     this.onPercentChanged,
   })  : _workArea = workArea,
-        _percent = 100 {
+        _percent = defaultPercent {
     _percent = _largestFitting(initialPercent);
   }
 
-  static const List<int> steps = [100, 125, 150, 200, 250, 300];
+  /// Kept identical to [TrampSettings.validZoomPercents].
+  static const List<int> steps = TrampSettings.validZoomPercents;
 
-  /// Never auto-select a step larger than this on first run — a fresh install
-  /// on a 4K display should not open enormous.
-  static const int _initialCap = 150;
+  /// Product default zoom step (also [TrampSettings.defaults.zoomPercent]).
+  static const int defaultPercent = 75;
 
   /// Called after a successful step change so the host can resize the window
   /// and persist the choice.
@@ -85,7 +86,7 @@ class ZoomController extends ChangeNotifier {
     }
   }
 
-  void reset() => setPercent(100);
+  void reset() => setPercent(defaultPercent);
 
   /// Comfortable default window: player, gutter, and a usable lower region.
   Size windowSizeFor(int percent) {
@@ -110,11 +111,14 @@ class ZoomController extends ChangeNotifier {
     return Size(width * f, height * f);
   }
 
+  /// Fresh-install default: [defaultPercent] when it fits, else the largest
+  /// step that still fits (never above [defaultPercent]).
   static int bestInitialPercent(Size workArea) {
     final probe = ZoomController(workArea: workArea);
+    if (probe.canUse(defaultPercent)) return defaultPercent;
     var best = steps.first;
     for (final step in steps) {
-      if (step > _initialCap) break;
+      if (step > defaultPercent) break;
       if (probe.canUse(step)) best = step;
     }
     return best;

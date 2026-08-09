@@ -3,10 +3,11 @@ import 'dart:async';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:media_kit/media_kit.dart';
+import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../domain/track.dart';
 import '../../domain/tramp_settings.dart';
 import '../../eq/equalizer_controller.dart';
 import '../../eq/mpv_equalizer_sink.dart';
@@ -18,6 +19,7 @@ import '../../playback/player_engine.dart';
 import '../../playlist/playlist_controller.dart';
 import '../../playlist/playlist_sort.dart';
 import '../../playlist/playlist_store.dart';
+import '../../playlist/track_metadata_probe.dart';
 import '../../theme/mockup_tokens.dart';
 import '../../theme/tramp_metrics.dart';
 import '../chrome/about_dialog.dart';
@@ -56,6 +58,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   late final PlaylistController _playlist;
   late final PlaybackController _playback;
   late final EqualizerController _equalizer;
+  late final TrackMetadataProbe _trackProbe;
   late DockingCoordinator _docking;
   int _zoomPercent = TrampSettings.defaults.zoomPercent;
   bool _alwaysOnTop = TrampSettings.defaults.alwaysOnTop;
@@ -92,7 +95,10 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     _playback = PlaybackController(
       playlist: _playlist,
       engine: widget.engine ??
-          MediaKitPlayerEngine(player: sharedPlayer),
+          MediaKitPlayerEngine(
+            player: sharedPlayer,
+            onMetadata: _onPlayingTrackMetadata,
+          ),
     );
     _equalizer = EqualizerController(
       store: _settingsStore,
@@ -100,10 +106,15 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
           ? MpvEqualizerSink(sharedPlayer)
           : const NoopEqualizerSink(),
     );
+    _trackProbe = MediaKitTrackMetadataProbe();
     _playlist.addListener(_onPlaylistChanged);
     _playback.addListener(_onPlaybackChanged);
     windowManager.addListener(this);
     unawaited(_bootstrap());
+  }
+
+  void _onPlayingTrackMetadata(String path, Track Function(Track) update) {
+    _playlist.updateTrackByPath(path, update);
   }
 
   void _onPlaylistChanged() {
@@ -134,6 +145,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
 
     await _equalizer.load();
     await _playlist.restoreLastPlaylist();
+    unawaited(_enrichMissingTrackMetadata());
     await _playback.setForceMono(_forceMono);
     await _ensureSecondaryWindows();
     await _applyAllFrames();
@@ -360,6 +372,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
           final tracks = tracksFromPaths(paths);
           if (tracks.isNotEmpty) {
             _playlist.addTracks(tracks);
+            unawaited(_enrichMissingTrackMetadata());
             if (_playback.currentTrack == null) {
               await _playback.playIndex(
                 _playlist.playlist.tracks.length - tracks.length,
@@ -371,6 +384,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         final path = command.path;
         if (path != null && path.isNotEmpty) {
           await _playlist.openPlaylistFile(path);
+          unawaited(_enrichMissingTrackMetadata());
         }
       case 'savePlaylist':
         final path = command.path;
@@ -696,8 +710,25 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     final tracks = tracksFromPaths(paths);
     if (tracks.isEmpty) return;
     _playlist.addTracks(tracks);
+    unawaited(_enrichMissingTrackMetadata());
     if (_playback.currentTrack == null) {
       await _playback.playIndex(_playlist.playlist.tracks.length - tracks.length);
+    }
+  }
+
+  /// Background-fill durations (and tags) so PL TOTAL / row times are real.
+  Future<void> _enrichMissingTrackMetadata() async {
+    final pending = _playlist.playlist.tracks
+        .where((t) => t.duration == null || t.duration! <= Duration.zero)
+        .toList();
+    for (final track in pending) {
+      // Track may have been removed while earlier probes ran.
+      if (!_playlist.playlist.tracks.any((t) => t.path == track.path)) {
+        continue;
+      }
+      final enriched = await _trackProbe.enrich(track);
+      if (enriched == track) continue;
+      _playlist.updateTrackByPath(track.path, (_) => enriched);
     }
   }
 
@@ -847,6 +878,10 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     windowManager.removeListener(this);
     _playlist.removeListener(_onPlaylistChanged);
     _playback.removeListener(_onPlaybackChanged);
+    final probe = _trackProbe;
+    if (probe is MediaKitTrackMetadataProbe) {
+      unawaited(probe.dispose());
+    }
     unawaited(_bus.unbind());
     unawaited(_playback.dispose());
     super.dispose();

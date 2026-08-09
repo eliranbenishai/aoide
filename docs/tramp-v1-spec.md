@@ -35,7 +35,7 @@ Tramp is a multi-platform desktop music player — a spiritual successor to Wina
 - **Main / equalizer never stretch** — permanent. On-screen size follows the global zoom step only (logical canvases: main **825×348**, EQ **825×348**). Playlist is freely resizable (default logical **825×696**); user size is stored in logical coordinates and scaled by zoom ([ADR 0002](adr/0002-fixed-canvas-zoom.md), [ADR 0006](adr/0006-multi-window-docking.md)).
 - **Controls:** in-app minimize (main hides/restores visible secondaries then minimizes), zoom-in / zoom-out on the main title bar (global), and close (main quits; EQ/PL hide). No maximize-as-size-control.
 - **Taskbar (Windows):** only the main player appears in the taskbar while EQ/playlist windows are open.
-- **Zoom:** six discrete steps from 100% to 300%, persisted across sessions; steps larger than the current display’s work area are disabled. Main title-bar zoom-in / zoom-out (and matching menu/shortcuts) change the step for **all three** windows.
+- **Zoom:** eight discrete steps from 50% to 300% (default **75%**), persisted across sessions; steps larger than the current display’s work area are disabled. Main title-bar zoom-in / zoom-out (and matching menu/shortcuts) change the step for **all three** windows.
 - **Windowshade:** EQ and playlist title-bar collapse → title bar only; docking uses shaded height.
 - **EQ band faders:** bottom→thumb fill using the spectrum cyan→magenta gradient (product enhancement vs mockup HTML bands).
 - **Clutterbar** on main: product letters **O / A / I** only (Options, always-on-top for visible tramp windows, track info). No D, no V, no ghost glyphs.

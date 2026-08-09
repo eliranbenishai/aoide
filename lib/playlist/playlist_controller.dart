@@ -216,6 +216,21 @@ class PlaylistController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Patch a track in place (e.g. after a background duration/tag probe).
+  ///
+  /// Returns `true` when a track with [path] was found and changed.
+  bool updateTrackByPath(String path, Track Function(Track current) update) {
+    final tracks = List<Track>.of(_playlist.tracks);
+    final index = tracks.indexWhere((t) => t.path == path);
+    if (index < 0) return false;
+    final next = update(tracks[index]);
+    if (next == tracks[index]) return false;
+    tracks[index] = next;
+    _playlist = _playlist.copyWith(tracks: tracks);
+    notifyListeners();
+    return true;
+  }
+
   void _restoreSelectionByPath(
     List<Track> tracks,
     Set<String> selectedPaths,

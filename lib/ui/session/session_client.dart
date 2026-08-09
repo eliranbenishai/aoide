@@ -58,7 +58,7 @@ class _SessionClientAppState extends State<SessionClientApp>
   int? _playingIndex;
   bool _playing = false;
   Size _playlistSize = TrampMetrics.playlistDefault;
-  int _zoomPercent = 100;
+  int _zoomPercent = TrampSettings.defaults.zoomPercent;
   double _logicalLeft = 0;
   double _logicalTop = 0;
   bool _applyingFrame = false;
@@ -265,11 +265,11 @@ class _SessionClientAppState extends State<SessionClientApp>
         (logical.height - _playlistSize.height).abs() < 0.5) {
       return;
     }
+    // Paint path reads constraints live; this only persists / syncs host.
     _playlistSize = logical;
     await _send(
       ResizePlaylistCommand(width: logical.width, height: logical.height),
     );
-    if (mounted) setState(() {});
   }
 
   Future<void> _hideInsteadOfClose() async {
@@ -472,26 +472,37 @@ class _SessionClientAppState extends State<SessionClientApp>
         color: const Color(0x00000000),
         home: ColoredBox(
           color: const Color(0x00000000),
-          child: ZoomedCanvas(
-            factor: zoom,
-            child: PlaylistWindow(
-              playlist: _playlist,
-              size: _playlistSize,
-              shaded: _plShaded,
-              playingIndex: _playingIndex,
-              playing: _playing,
-              zoom: zoom,
-              dockLogicalTopLeft: () => Offset(_logicalLeft, _logicalTop),
-              onDockMove: _onDockMove,
-              onNativeDragStarted: _onNativeDragStarted,
-              onSessionCommand: (cmd) => unawaited(_send(cmd)),
-              onAddFiles: () => unawaited(_addFiles()),
-              onLoadPlaylist: () => unawaited(_loadPlaylist()),
-              onSavePlaylist: () => unawaited(_savePlaylist()),
-              onDropPaths: _dropPaths,
-              onCollapse: _togglePlShade,
-              onClose: () => unawaited(_hideInsteadOfClose()),
-            ),
+          // Derive logical size from live window constraints every frame so
+          // resize never anisotropic-stretches a stale canvas (zoom owns
+          // proportions; only spacing grows). Host sync stays debounced.
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final logical = Size(
+                constraints.maxWidth / zoom,
+                constraints.maxHeight / zoom,
+              );
+              return ZoomedCanvas(
+                factor: zoom,
+                child: PlaylistWindow(
+                  playlist: _playlist,
+                  size: logical,
+                  shaded: _plShaded,
+                  playingIndex: _playingIndex,
+                  playing: _playing,
+                  zoom: zoom,
+                  dockLogicalTopLeft: () => Offset(_logicalLeft, _logicalTop),
+                  onDockMove: _onDockMove,
+                  onNativeDragStarted: _onNativeDragStarted,
+                  onSessionCommand: (cmd) => unawaited(_send(cmd)),
+                  onAddFiles: () => unawaited(_addFiles()),
+                  onLoadPlaylist: () => unawaited(_loadPlaylist()),
+                  onSavePlaylist: () => unawaited(_savePlaylist()),
+                  onDropPaths: _dropPaths,
+                  onCollapse: _togglePlShade,
+                  onClose: () => unawaited(_hideInsteadOfClose()),
+                ),
+              );
+            },
           ),
         ),
       );

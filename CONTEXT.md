@@ -49,7 +49,7 @@ A persisted, browsable catalog of known tracks on disk. Out of scope for v1 — 
 _Avoid_: collection, media database (in v1 discussions)
 
 **Zoom step**:
-One of the discrete scale factors (100%, 125%, 150%, 200%, 250%, 300%) applied globally to the three windows’ logical canvases. Persisted; steps that would not fit the display’s work area are disabled. Changes via main title-bar zoom-in / zoom-out (and matching menu or shortcut). Scales main/EQ canvases and the playlist’s stored logical size; does not replace playlist free resize.
+One of the discrete scale factors (50%, 75%, 100%, 125%, 150%, 200%, 250%, 300%; default **75%**) applied globally to the three windows’ logical canvases. Persisted; steps that would not fit the display’s work area are disabled. Changes via main title-bar zoom-in / zoom-out (and matching menu or shortcut). Scales main/EQ canvases and the playlist’s stored logical size; does not replace playlist free resize.
 _Avoid_: DPI scale (OS setting), continuous zoom, maximize (as a window-size control), per-window zoom (product model is global), stretching main/EQ via window drag
 
 **Clutterbar**:

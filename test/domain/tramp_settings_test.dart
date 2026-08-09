@@ -114,7 +114,7 @@ void main() {
 
     test('defaults stack main / EQ / playlist for multi-window', () {
       final d = TrampSettings.defaults;
-      expect(d.zoomPercent, 100);
+      expect(d.zoomPercent, 75);
       expect(d.alwaysOnTop, isFalse);
       expect(d.forceMono, isFalse);
       expect(d.main.visible, isTrue);
@@ -247,7 +247,7 @@ void main() {
       expect(updated.playlist.width, 800);
       expect(updated.playlist.height, 600);
       expect(updated.dockEdges, hasLength(1));
-      expect(updated.zoomPercent, 100);
+      expect(updated.zoomPercent, 75);
     });
 
     test('equality and hashCode include multi-window fields', () {

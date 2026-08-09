@@ -173,7 +173,7 @@ class TrampSettings {
   });
 
   static const defaults = TrampSettings(
-    zoomPercent: 100,
+    zoomPercent: 75,
     alwaysOnTop: false,
     forceMono: false,
     main: WindowFrameState.mainDefault,
@@ -182,7 +182,16 @@ class TrampSettings {
     dockEdges: [],
   );
 
-  static const validZoomPercents = <int>[100, 125, 150, 200, 250, 300];
+  static const validZoomPercents = <int>[
+    50,
+    75,
+    100,
+    125,
+    150,
+    200,
+    250,
+    300,
+  ];
 
   final int zoomPercent;
   final bool alwaysOnTop;
