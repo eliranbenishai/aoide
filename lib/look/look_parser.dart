@@ -22,14 +22,19 @@ const _knownMaterialGroups = {
 const _knownFontRoles = {'chrome', 'lcd'};
 
 class LookParser {
-  static LookManifest parse(Map<String, dynamic> json) {
+  static LookManifest parse(
+    Map<String, dynamic> json, {
+    bool allowBuiltin = false,
+  }) {
     final formatVersion = json['formatVersion'];
     if (formatVersion != 1) {
       throw FormatException('formatVersion must be 1');
     }
 
     final id = json['id'];
-    if (id is! String || !isValidLookId(id)) {
+    final idValid = id is String &&
+        (allowBuiltin && id == 'builtin' ? isReservedLookId(id) : isValidLookId(id));
+    if (!idValid) {
       throw FormatException('invalid look pack id: $id');
     }
 
