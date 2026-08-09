@@ -70,6 +70,8 @@ class PlaybackController extends ChangeNotifier {
   AudioFormatInfo _formatInfo = AudioFormatInfo.unknown;
 
   bool get playing => _playing;
+  /// Track loaded and not playing (after pause; cleared by [stop]).
+  bool get paused => _mediaOpen && !_playing;
   int? get playingIndex => _playingIndex;
   bool get muted => _muted;
   double get volume => _volume;

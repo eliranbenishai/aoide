@@ -79,8 +79,10 @@ void main() {
     await playback.playIndex(1);
     await playback.playPause(); // pause
     expect(playback.playing, isFalse);
+    expect(playback.paused, isTrue);
     await playback.playPause(); // resume
     expect(playback.playing, isTrue);
+    expect(playback.paused, isFalse);
     expect(playback.currentTrack?.path, '/b.mp3');
     expect(engine.lastOpenedPath, '/b.mp3');
   });
@@ -90,6 +92,7 @@ void main() {
     expect(engine.openCount, 1);
     await playback.stop();
     expect(playback.playing, isFalse);
+    expect(playback.paused, isFalse);
     expect(engine.hasMedia, isFalse);
 
     await playback.playPause();

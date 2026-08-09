@@ -60,7 +60,9 @@ class _MockupButtonState extends State<MockupButton> {
       child: MockupHover(
         enabled: widget.isEnabled,
         builder: (context, hover) {
-          final content = widget.child ??
+          // `.btn--on` ink is deep teal (`#04222b`) for labels and SVG fills.
+          const onInk = Color(0xFF04222B);
+          Widget content = widget.child ??
               Text(
                 widget.label!.toUpperCase(),
                 style: TextStyle(
@@ -70,11 +72,15 @@ class _MockupButtonState extends State<MockupButton> {
                   height: 1,
                   letterSpacing: 13 * 0.18,
                   decoration: TextDecoration.none,
-                  color: widget.on
-                      ? const Color(0xFF04222B)
-                      : const Color(0xB8C4D2E8),
+                  color: widget.on ? onInk : const Color(0xB8C4D2E8),
                 ),
               );
+          if (widget.on && widget.child != null) {
+            content = ColorFiltered(
+              colorFilter: const ColorFilter.mode(onInk, BlendMode.srcIn),
+              child: content,
+            );
+          }
 
           final face = Stack(
             alignment: Alignment.center,

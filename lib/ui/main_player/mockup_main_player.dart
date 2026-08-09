@@ -943,6 +943,7 @@ class _VolumeRow extends StatelessWidget {
           width: 40,
           height: 40,
           semanticLabel: playback.muted ? 'Unmute' : 'Mute',
+          on: playback.muted,
           onPressed: playback.toggleMute,
           child: MockupIcons.mute(),
         ),
@@ -1099,6 +1100,7 @@ class _TransportRow extends StatelessWidget {
           buttonKey: const Key('transport-play'),
           semanticLabel: 'Play',
           width: 78,
+          on: playback.playing,
           onPressed: canTransport ? onPlay : null,
           child: MockupIcons.play(),
         ),
@@ -1106,6 +1108,7 @@ class _TransportRow extends StatelessWidget {
         _TransportBtn(
           buttonKey: const Key('transport-pause'),
           semanticLabel: 'Pause',
+          on: playback.paused,
           onPressed: canTransport ? onPause : null,
           child: MockupIcons.pause(),
         ),
@@ -1158,6 +1161,7 @@ class _TransportBtn extends StatelessWidget {
     required this.child,
     required this.semanticLabel,
     this.onPressed,
+    this.on = false,
     this.width = 66,
   });
 
@@ -1165,6 +1169,7 @@ class _TransportBtn extends StatelessWidget {
   final Widget child;
   final String semanticLabel;
   final VoidCallback? onPressed;
+  final bool on;
   final double width;
 
   @override
@@ -1174,6 +1179,7 @@ class _TransportBtn extends StatelessWidget {
       width: width,
       height: 50,
       semanticLabel: semanticLabel,
+      on: on,
       onPressed: onPressed,
       child: child,
     );

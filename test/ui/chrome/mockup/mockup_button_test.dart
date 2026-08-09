@@ -65,4 +65,27 @@ void main() {
     expect(taps, 0);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('on state tints icon children to btn--on ink', (tester) async {
+    await tester.pumpWidget(host(
+      MockupButton(
+        on: true,
+        onPressed: () {},
+        child: const Icon(Icons.play_arrow, color: Color(0xFFFFFFFF)),
+      ),
+    ));
+
+    expect(
+      find.descendant(
+        of: find.byType(MockupButton),
+        matching: find.byWidgetPredicate(
+          (w) =>
+              w is ColorFiltered &&
+              w.colorFilter ==
+                  const ColorFilter.mode(Color(0xFF04222B), BlendMode.srcIn),
+        ),
+      ),
+      findsOneWidget,
+    );
+  });
 }

@@ -9,6 +9,7 @@ import 'package:tramp/playback/fake_player_engine.dart';
 import 'package:tramp/playback/playback_controller.dart';
 import 'package:tramp/playlist/playlist_controller.dart';
 import 'package:tramp/playlist/playlist_store.dart';
+import 'package:tramp/ui/chrome/mockup/mockup_button.dart';
 import 'package:tramp/ui/main_player/mockup_main_player.dart';
 import 'package:tramp/ui/session/session_messages.dart';
 import 'package:tramp/ui/windows/main_player_window.dart';
@@ -131,6 +132,32 @@ void main() {
     await tester.tap(find.byKey(const Key('transport-pause')));
     await tester.pumpAndSettle();
     expect(playback.playing, isFalse);
+  });
+
+  testWidgets('play/pause/mute use btn--on like PL and Mono', (tester) async {
+    playlist.addTracks([const Track(path: 'a.mp3')]);
+    final commands = <SessionCommand>[];
+    await pumpPlayer(tester, commands: commands);
+
+    MockupButton btn(Key key) => tester.widget<MockupButton>(find.byKey(key));
+
+    expect(btn(const Key('transport-play')).on, isFalse);
+    expect(btn(const Key('transport-pause')).on, isFalse);
+    expect(btn(const Key('transport-mute')).on, isFalse);
+
+    await tester.tap(find.byKey(const Key('transport-play')));
+    await tester.pumpAndSettle();
+    expect(btn(const Key('transport-play')).on, isTrue);
+    expect(btn(const Key('transport-pause')).on, isFalse);
+
+    await tester.tap(find.byKey(const Key('transport-pause')));
+    await tester.pumpAndSettle();
+    expect(btn(const Key('transport-play')).on, isFalse);
+    expect(btn(const Key('transport-pause')).on, isTrue);
+
+    await tester.tap(find.byKey(const Key('transport-mute')));
+    await tester.pumpAndSettle();
+    expect(btn(const Key('transport-mute')).on, isTrue);
   });
 
   testWidgets('transport looks disabled with an empty playlist', (tester) async {
