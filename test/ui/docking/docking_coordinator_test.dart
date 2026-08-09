@@ -120,6 +120,71 @@ void main() {
       );
     });
 
+    test('reanchorForZoom keeps free window screen top-left', () {
+      final c = DockingCoordinator(DockLayout.defaults);
+      c.setVisible(WindowId.equalizer, false);
+      c.setVisible(WindowId.playlist, false);
+      c.move(WindowId.main, const Offset(100, 80), shiftUndock: false);
+
+      const fromZoom = 1.0;
+      const toZoom = 2.0;
+      final pixelBefore = c.frameFor(WindowId.main, fromZoom).topLeft;
+      c.reanchorForZoom(fromZoom: fromZoom, toZoom: toZoom);
+      final pixelAfter = c.frameFor(WindowId.main, toZoom).topLeft;
+
+      expect(pixelAfter.dx, closeTo(pixelBefore.dx, 0.001));
+      expect(pixelAfter.dy, closeTo(pixelBefore.dy, 0.001));
+      expect(c.layout.main.left, closeTo(50, 0.001));
+      expect(c.layout.main.top, closeTo(40, 0.001));
+    });
+
+    test('reanchorForZoom reseats docked playlist flush under main', () {
+      final c = DockingCoordinator(DockLayout.defaults);
+      c.setVisible(WindowId.equalizer, false);
+      c.move(WindowId.main, const Offset(40, 20), shiftUndock: false);
+      c.move(WindowId.playlist, const Offset(40, 348 + 20 - 10), shiftUndock: false);
+      expect(c.layout.playlist.top, 348 + 20);
+      expect(c.groupOf(WindowId.playlist), contains(WindowId.main));
+
+      const fromZoom = 1.0;
+      const toZoom = 0.75;
+      final mainPixel = c.frameFor(WindowId.main, fromZoom).topLeft;
+      c.reanchorForZoom(fromZoom: fromZoom, toZoom: toZoom);
+
+      final mainAfter = c.frameFor(WindowId.main, toZoom);
+      expect(mainAfter.left, closeTo(mainPixel.dx, 0.001));
+      expect(mainAfter.top, closeTo(mainPixel.dy, 0.001));
+      // Still edge-docked and flush in logical space (no gap from size change).
+      expect(c.groupOf(WindowId.playlist), contains(WindowId.main));
+      expect(
+        c.layout.playlist.top,
+        closeTo(c.layout.main.top + TrampMetrics.mainPlayer.height, 0.001),
+      );
+      expect(c.layout.playlist.left, closeTo(c.layout.main.left, 0.001));
+    });
+
+    test('reanchorForZoom keeps EQ snapped to the right of main', () {
+      final c = DockingCoordinator(DockLayout.defaults);
+      c.setVisible(WindowId.playlist, false);
+      c.move(WindowId.main, const Offset(10, 10), shiftUndock: false);
+      c.move(
+        WindowId.equalizer,
+        Offset(TrampMetrics.mainPlayer.width + 10 - 8, 10),
+        shiftUndock: false,
+      );
+      expect(c.layout.equalizer.left, TrampMetrics.mainPlayer.width + 10);
+      expect(c.groupOf(WindowId.equalizer), contains(WindowId.main));
+
+      c.reanchorForZoom(fromZoom: 1.0, toZoom: 2.0);
+
+      expect(c.groupOf(WindowId.equalizer), contains(WindowId.main));
+      expect(
+        c.layout.equalizer.left,
+        closeTo(c.layout.main.left + TrampMetrics.mainPlayer.width, 0.001),
+      );
+      expect(c.layout.equalizer.top, closeTo(c.layout.main.top, 0.001));
+    });
+
     test('does not snap when farther than snapThreshold', () {
       final c = DockingCoordinator(DockLayout.defaults);
       final gap = DockingCoordinator.snapThreshold + 1;

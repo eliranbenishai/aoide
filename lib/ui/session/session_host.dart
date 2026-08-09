@@ -508,7 +508,12 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     final index = steps.indexOf(_zoomPercent);
     final nextIndex = (index < 0 ? 0 : index) + delta;
     if (nextIndex < 0 || nextIndex >= steps.length) return;
+    final fromZoom = (_zoomPercent / 100.0).clamp(0.5, 4.0);
     _zoomPercent = steps[nextIndex];
+    final toZoom = (_zoomPercent / 100.0).clamp(0.5, 4.0);
+    // Logical frames are zoom-scaled for window_manager; rebase TLs so free
+    // windows keep their screen corner and docked ones stay flush to partners.
+    _docking.reanchorForZoom(fromZoom: fromZoom, toZoom: toZoom);
     await _applyAllFrames();
     await _persistLayout();
     await _broadcast(ZoomChangedEvent(_zoomPercent));

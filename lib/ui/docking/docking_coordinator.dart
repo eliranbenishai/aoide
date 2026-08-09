@@ -168,6 +168,83 @@ class DockingCoordinator extends ChangeNotifier {
     );
   }
 
+  /// Keep screen top-lefts stable across a zoom step, then reseat docked
+  /// satellites flush on their dock edges (sizes change with zoom).
+  ///
+  /// Free windows (no dock edges) only get the pixel-TL rebase. Docked EQ /
+  /// playlist windows keep their edges and are re-aligned to partners — usually
+  /// the main player — so contact stays tight after the scale change.
+  void reanchorForZoom({required double fromZoom, required double toZoom}) {
+    if (fromZoom <= 0 || toZoom <= 0) return;
+    if ((fromZoom - toZoom).abs() < 1e-9) return;
+
+    final scale = fromZoom / toZoom;
+    for (final id in WindowId.values) {
+      final frame = _layout.frameOf(id);
+      _layout = _layout.withFrame(
+        id,
+        frame.copyWith(
+          left: frame.left * scale,
+          top: frame.top * scale,
+        ),
+      );
+    }
+
+    // Multiple passes so PL→EQ→main chains reseat after partners move.
+    for (var pass = 0; pass < WindowId.values.length; pass++) {
+      for (final id in WindowId.values) {
+        if (id == WindowId.main) continue;
+        if (!_hasEdge(id, _layout.dockEdges)) continue;
+        _applyDockConstraints(id);
+      }
+    }
+    notifyListeners();
+  }
+
+  /// Force [id]'s logical top-left onto every dock edge it participates in.
+  ///
+  /// Primary snap sides are face-adjacent; orthogonal flush sides share an
+  /// edge coordinate (e.g. lefts equal). Pick whichever interpretation is
+  /// closer to the current geometry so zoom rebase does not shove a
+  /// left-flush playlist onto main's right.
+  void _applyDockConstraints(WindowId id) {
+    final size = _logicalSize(id);
+    var left = _layout.frameOf(id).left;
+    var top = _layout.frameOf(id).top;
+
+    for (final edge in _layout.dockEdges) {
+      if (edge.a != id && edge.b != id) continue;
+      final partnerId = edge.a == id ? edge.b : edge.a;
+      final selfSide = edge.a == id ? edge.side : _opposite(edge.side);
+      final partner = _rectFor(partnerId);
+      switch (selfSide) {
+        case DockSide.bottom:
+          final adj = partner.top - size.height;
+          final flush = partner.bottom - size.height;
+          top = (top - adj).abs() <= (top - flush).abs() ? adj : flush;
+        case DockSide.top:
+          final adj = partner.bottom;
+          final flush = partner.top;
+          top = (top - adj).abs() <= (top - flush).abs() ? adj : flush;
+        case DockSide.right:
+          final adj = partner.left - size.width;
+          final flush = partner.right - size.width;
+          left = (left - adj).abs() <= (left - flush).abs() ? adj : flush;
+        case DockSide.left:
+          final adj = partner.right;
+          final flush = partner.left;
+          left = (left - adj).abs() <= (left - flush).abs() ? adj : flush;
+      }
+    }
+
+    final frame = _layout.frameOf(id);
+    if (frame.left == left && frame.top == top) return;
+    _layout = _layout.withFrame(
+      id,
+      frame.copyWith(left: left, top: top),
+    );
+  }
+
   Offset _topLeft(WindowId id) {
     final frame = _layout.frameOf(id);
     return Offset(frame.left, frame.top);

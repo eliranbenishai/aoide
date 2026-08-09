@@ -591,7 +591,11 @@ class _MarqueeTitleState extends State<_MarqueeTitle>
   /// Pixels per second for the LTR marquee crawl.
   static const _speedPxPerSec = 36.0;
 
+  /// Hold at the end of the crawl before snapping back to the start.
+  static const _endPause = Duration(seconds: 1);
+
   AnimationController? _controller;
+  Timer? _endPauseTimer;
   double _textWidth = 0;
   double _viewportWidth = 0;
 
@@ -615,6 +619,7 @@ class _MarqueeTitleState extends State<_MarqueeTitle>
 
   @override
   void dispose() {
+    _endPauseTimer?.cancel();
     _controller?.dispose();
     super.dispose();
   }
@@ -629,6 +634,8 @@ class _MarqueeTitleState extends State<_MarqueeTitle>
   }
 
   void _restartIfNeeded() {
+    _endPauseTimer?.cancel();
+    _endPauseTimer = null;
     _controller?.stop();
     _controller?.dispose();
     _controller = null;
@@ -643,8 +650,12 @@ class _MarqueeTitleState extends State<_MarqueeTitle>
       duration: Duration(milliseconds: (seconds * 1000).round()),
     )..addStatusListener((status) {
         if (status == AnimationStatus.completed) {
-          // Snap back to the start, then crawl again (always L→R reveal).
-          _controller?.forward(from: 0);
+          // Hold at the end, then snap back and crawl again (L→R reveal).
+          _endPauseTimer?.cancel();
+          _endPauseTimer = Timer(_endPause, () {
+            if (!mounted) return;
+            _controller?.forward(from: 0);
+          });
         }
       });
     _controller!.forward();
