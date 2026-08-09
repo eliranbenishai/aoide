@@ -10,7 +10,11 @@ _Avoid_: Winamp clone, media player (when meaning this product)
 
 **Classic skin**:
 A Winamp-compatible skin that replaces the built-in chrome with the skin's own layout and art.
-_Avoid_: theme (when meaning a classic Winamp skin), skin pack (unless referring to a collection)
+_Avoid_: theme (when meaning a classic Winamp skin), skin pack (unless referring to a collection), look pack (different thing — tokens/fonts only)
+
+**Look pack**:
+A shareable folder or zip (`look.json` + optional TTF/OTF) that recolors and optionally retypes the built-in mockup chrome — palette, a few named materials (bevel, spectrum/rail gradients), and font roles — without changing layout or art. Friendly slug ids; may extend `builtin` or another pack. Not a classic Winamp skin.
+_Avoid_: classic skin, WSZ, theme (when meaning this pack), graphite skin, skin (alone when this pack is meant)
 
 **App chrome**:
 Tramp's own window decoration — no OS title bar or standard window frame; the visible UI is the app surface. Three detachable windows (main, equalizer, playlist) with Winamp-style docking. Main player and equalizer never stretch; on-screen size follows the global zoom step only. The playlist window may be freely resized. Main title bar carries logo + wordmark; EQ/playlist title bars show role title only. EQ band faders use a spectrum-gradient value fill.
