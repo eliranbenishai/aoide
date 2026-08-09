@@ -255,4 +255,31 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('long title and album do not overflow the display with PLAYLIST',
+      (tester) async {
+    playlist.addTracks([
+      const Track(
+        path: 'aion.mp3',
+        title: 'Aion – kingdom.',
+        artist: 'Very Long Artist Name That Keeps Going',
+        album: 'IXION: ORIGINAL SOUNDTRACK — DELUXE EDITION VOLUME ONE',
+        year: 2022,
+      ),
+      const Track(path: 'b.mp3', title: 'B'),
+      const Track(path: 'c.mp3', title: 'C'),
+    ]);
+    playback.cycleRepeatMode(); // all → PLAYLIST chip visible
+    final commands = <SessionCommand>[];
+    await pumpPlayer(tester, commands: commands);
+
+    await tester.tap(find.byKey(const Key('transport-play')));
+    await tester.pump();
+    // Marquee schedules a post-frame restart; advance past layout + a tick.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('PLAYLIST'), findsOneWidget);
+  });
 }

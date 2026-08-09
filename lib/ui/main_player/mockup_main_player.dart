@@ -504,33 +504,44 @@ class _DisplayWell extends StatelessWidget {
                         const Spacer(),
                         Row(
                           children: [
-                            _MetaDim(bitrate),
-                            const SizedBox(width: 22),
-                            _MetaDim(rate),
-                            const SizedBox(width: 22),
-                            Text(
-                              channel,
-                              style: const TextStyle(
-                                fontFamily: 'TrampCondensed',
-                                fontWeight: FontWeight.w700,
-                                fontSize: 12,
-                                height: 1,
-                                letterSpacing: 12 * 0.2,
-                                decoration: TextDecoration.none,
-                                color: MockupTokens.phos,
-                                shadows: [
-                                  Shadow(
-                                    color: Color(0xD93DE7FF),
-                                    blurRadius: 1,
-                                  ),
-                                  Shadow(
-                                    color: Color(0x733DE7FF),
-                                    blurRadius: 12,
-                                  ),
-                                ],
+                            Expanded(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _MetaDim(bitrate),
+                                    const SizedBox(width: 22),
+                                    _MetaDim(rate),
+                                    const SizedBox(width: 22),
+                                    Text(
+                                      channel,
+                                      style: const TextStyle(
+                                        fontFamily: 'TrampCondensed',
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 12,
+                                        height: 1,
+                                        letterSpacing: 12 * 0.2,
+                                        decoration: TextDecoration.none,
+                                        color: MockupTokens.phos,
+                                        shadows: [
+                                          Shadow(
+                                            color: Color(0xD93DE7FF),
+                                            blurRadius: 1,
+                                          ),
+                                          Shadow(
+                                            color: Color(0x733DE7FF),
+                                            blurRadius: 12,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                            const Spacer(),
+                            const SizedBox(width: 8),
                             _RepeatStatusChip(
                               mode: playback.repeatMode,
                               onPressed: playback.cycleRepeatMode,
@@ -562,7 +573,7 @@ class _MarqueeTitle extends StatefulWidget {
 }
 
 class _MarqueeTitleState extends State<_MarqueeTitle>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const _style = TextStyle(
     fontFamily: 'TrampCondensed',
     fontWeight: FontWeight.w700,
@@ -633,7 +644,7 @@ class _MarqueeTitleState extends State<_MarqueeTitle>
     )..addStatusListener((status) {
         if (status == AnimationStatus.completed) {
           // Snap back to the start, then crawl again (always L→R reveal).
-          _controller!.forward(from: 0);
+          _controller?.forward(from: 0);
         }
       });
     _controller!.forward();
@@ -663,7 +674,16 @@ class _MarqueeTitleState extends State<_MarqueeTitle>
         }
 
         if (!_overflows) {
-          return _titleText();
+          return SizedBox(
+            width: maxW,
+            child: Text(
+              widget.text,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              style: _style,
+            ),
+          );
         }
 
         final travel = _textWidth - _viewportWidth;
@@ -682,14 +702,23 @@ class _MarqueeTitleState extends State<_MarqueeTitle>
           );
         }
 
-        return ClipRect(
-          child: ShaderMask(
-            blendMode: BlendMode.dstIn,
-            shaderCallback: (bounds) => const LinearGradient(
-              colors: [Color(0xFF000000), Color(0xFF000000), Color(0x00000000)],
-              stops: [0, 0.84, 1],
-            ).createShader(bounds),
-            child: content,
+        // SizedBox pins layout width; ClipRect only clips paint otherwise the
+        // full title width expands the parent Row (yellow/black overflow bars).
+        return SizedBox(
+          width: maxW,
+          child: ClipRect(
+            child: ShaderMask(
+              blendMode: BlendMode.dstIn,
+              shaderCallback: (bounds) => const LinearGradient(
+                colors: [
+                  Color(0xFF000000),
+                  Color(0xFF000000),
+                  Color(0x00000000),
+                ],
+                stops: [0, 0.84, 1],
+              ).createShader(bounds),
+              child: content,
+            ),
           ),
         );
       },
