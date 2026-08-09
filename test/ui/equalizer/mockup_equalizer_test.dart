@@ -215,26 +215,12 @@ void main() {
 
   testWidgets('collapse invokes shade callback', (tester) async {
     final commands = <SessionCommand>[];
-    var collapsed = 0;
-    await tester.binding.setSurfaceSize(const Size(900, 400));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Align(
-          alignment: Alignment.topLeft,
-          child: EqualizerWindow(
-            settings: EqualizerSettings.flat,
-            draggableTitle: false,
-            onSessionCommand: commands.add,
-            onCollapse: () => collapsed++,
-          ),
-        ),
-      ),
-    );
+    final collapses = <VoidCallback>[];
+    await pumpEq(tester, commands: commands, collapses: collapses);
 
     await tester.tap(find.bySemanticsLabel('Collapse'));
     await tester.pump();
-    expect(collapsed, 1);
+    expect(collapses, hasLength(1));
   });
 
   testWidgets('band track repaints when look materials change', (tester) async {
