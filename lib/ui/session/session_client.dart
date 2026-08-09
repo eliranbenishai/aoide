@@ -12,6 +12,7 @@ import '../../playlist/playlist_controller.dart';
 import '../../playlist/playlist_store.dart';
 import '../../theme/mockup_tokens.dart';
 import '../../theme/tramp_metrics.dart';
+import '../docking/dock_move_coalescer.dart';
 import '../windows/equalizer_window.dart';
 import '../windows/playlist_window.dart';
 import 'session_bus.dart';
@@ -60,7 +61,10 @@ class _SessionClientAppState extends State<SessionClientApp>
   double _logicalLeft = 0;
   double _logicalTop = 0;
   bool _applyingFrame = false;
+  bool _nativeDragging = false;
+  final DockMoveCoalescer _nativeSyncCoalescer = DockMoveCoalescer();
   Timer? _resizeDebounce;
+  Timer? _nativeDragEndFallback;
 
   @override
   void initState() {
@@ -85,6 +89,8 @@ class _SessionClientAppState extends State<SessionClientApp>
     };
     await windowManager.setTitle(title);
     await windowManager.setAsFrameless();
+    // Secondaries must not appear as separate Windows taskbar buttons.
+    await windowManager.setSkipTaskbar(true);
     // Edge resize only on the playlist window.
     await windowManager.setResizable(widget.role == WindowRole.playlist);
     if (widget.role == WindowRole.playlist) {
@@ -177,10 +183,20 @@ class _SessionClientAppState extends State<SessionClientApp>
     final height = (args['height'] as num).toDouble();
     final visible = args['visible'] == true;
     final alwaysOnTop = args['alwaysOnTop'] == true;
+    final positionOnly = args['positionOnly'] == true;
 
     final zoom = (_zoomPercent / 100.0).clamp(0.5, 4.0);
     _logicalLeft = left / zoom;
     _logicalTop = top / zoom;
+
+    if (positionOnly) {
+      // During native drag the OS owns this HWND — never fight it with
+      // host setPosition echoes (host should skip us; this is a safeguard).
+      if (!_nativeDragging) {
+        await windowManager.setPosition(Offset(left, top));
+      }
+      return;
+    }
 
     _applyingFrame = true;
     try {
@@ -196,6 +212,8 @@ class _SessionClientAppState extends State<SessionClientApp>
       await windowManager.setPosition(Offset(left, top));
       await windowManager.setAlwaysOnTop(alwaysOnTop);
       if (visible) {
+        // Re-assert after show — some hosts re-register taskbar buttons.
+        await windowManager.setSkipTaskbar(true);
         await windowManager.show();
         await widget.windowController.show();
       } else {
@@ -277,7 +295,7 @@ class _SessionClientAppState extends State<SessionClientApp>
     required bool shiftUndock,
     required bool ended,
   }) {
-    // Optimistic local anchor so the next pan-start (if any) matches host.
+    // Fallback when nativeDragging is disabled (tests).
     _logicalLeft = logicalTopLeft.dx;
     _logicalTop = logicalTopLeft.dy;
     unawaited(
@@ -290,6 +308,57 @@ class _SessionClientAppState extends State<SessionClientApp>
           ended: ended,
         ),
       ),
+    );
+  }
+
+  void _onNativeDragStarted() {
+    _nativeDragging = true;
+    _nativeDragEndFallback?.cancel();
+  }
+
+  void _armNativeDragEndFallback() {
+    _nativeDragEndFallback?.cancel();
+    _nativeDragEndFallback = Timer(const Duration(milliseconds: 180), () {
+      if (!_nativeDragging) return;
+      unawaited(
+        _nativeSyncCoalescer.flush(() => _reportNativeDrag(ended: true)),
+      );
+    });
+  }
+
+  Future<void> _reportNativeDrag({required bool ended}) async {
+    if (!_nativeDragging && !ended) return;
+    if (ended) _nativeDragEndFallback?.cancel();
+    final zoom = (_zoomPercent / 100.0).clamp(0.5, 4.0);
+    final pos = await windowManager.getPosition();
+    final logical = Offset(pos.dx / zoom, pos.dy / zoom);
+    _logicalLeft = logical.dx;
+    _logicalTop = logical.dy;
+    await _send(
+      MoveWindowCommand(
+        window: _windowId,
+        left: logical.dx,
+        top: logical.dy,
+        shiftUndock: HardwareKeyboard.instance.isShiftPressed,
+        ended: ended,
+      ),
+    );
+    if (ended) _nativeDragging = false;
+  }
+
+  @override
+  void onWindowMove() {
+    if (!_nativeDragging) return;
+    _nativeSyncCoalescer.schedule(() => _reportNativeDrag(ended: false));
+    _armNativeDragEndFallback();
+  }
+
+  @override
+  void onWindowMoved() {
+    if (!_nativeDragging) return;
+    _nativeDragEndFallback?.cancel();
+    unawaited(
+      _nativeSyncCoalescer.flush(() => _reportNativeDrag(ended: true)),
     );
   }
 
@@ -349,6 +418,7 @@ class _SessionClientAppState extends State<SessionClientApp>
   @override
   void dispose() {
     _resizeDebounce?.cancel();
+    _nativeDragEndFallback?.cancel();
     windowManager.removeListener(this);
     unawaited(widget.windowController.setWindowMethodHandler(null));
     _playlist.dispose();
@@ -371,6 +441,7 @@ class _SessionClientAppState extends State<SessionClientApp>
               zoom: _zoomPercent / 100.0,
               dockLogicalTopLeft: () => Offset(_logicalLeft, _logicalTop),
               onDockMove: _onDockMove,
+              onNativeDragStarted: _onNativeDragStarted,
               onSessionCommand: (cmd) => unawaited(_send(cmd)),
               onCollapse: _toggleEqShade,
               onClose: () => unawaited(_hideInsteadOfClose()),
@@ -396,6 +467,7 @@ class _SessionClientAppState extends State<SessionClientApp>
               zoom: _zoomPercent / 100.0,
               dockLogicalTopLeft: () => Offset(_logicalLeft, _logicalTop),
               onDockMove: _onDockMove,
+              onNativeDragStarted: _onNativeDragStarted,
               onSessionCommand: (cmd) => unawaited(_send(cmd)),
               onAddFiles: () => unawaited(_addFiles()),
               onLoadPlaylist: () => unawaited(_loadPlaylist()),

@@ -60,6 +60,9 @@ class SessionBus {
   }
 
   /// Ask a secondary window to resize/reposition via its local window_manager.
+  ///
+  /// When [positionOnly] is true, the client updates OS position alone — used
+  /// during dock drag so size/AOT/show/focus do not fight the gesture.
   static Future<void> pushFrame(
     WindowController controller, {
     required double left,
@@ -68,6 +71,7 @@ class SessionBus {
     required double height,
     required bool visible,
     required bool alwaysOnTop,
+    bool positionOnly = false,
   }) {
     return controller.invokeMethod(applyFrameMethod, {
       'left': left,
@@ -76,6 +80,7 @@ class SessionBus {
       'height': height,
       'visible': visible,
       'alwaysOnTop': alwaysOnTop,
+      'positionOnly': positionOnly,
     });
   }
 }

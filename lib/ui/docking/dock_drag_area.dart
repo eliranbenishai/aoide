@@ -1,11 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:window_manager/window_manager.dart';
 
 import 'dock_drag_session.dart';
 
-/// Title-bar / grip drag that drives docking via logical coordinates + Shift.
+/// Title-bar / grip drag that drives docking.
 ///
-/// Replaces `DragToMoveArea` so [DockingCoordinator.move] stays authoritative.
+/// Production ([nativeDragging] = true): OS owns the dragged HWND via
+/// [windowManager.startDragging] so the window tracks the cursor with no
+/// Flutter `setPosition` fight. Callers sync docked siblings from
+/// `onWindowMove` / `onWindowMoved` using [onNativeDragStarted].
+///
+/// Tests ([nativeDragging] = false): pan updates drive [onMove] through
+/// [DockDragSession] without touching the OS.
 class DockDragArea extends StatefulWidget {
   const DockDragArea({
     super.key,
@@ -13,6 +22,9 @@ class DockDragArea extends StatefulWidget {
     required this.logicalTopLeft,
     required this.onMove,
     required this.child,
+    this.nativeDragging = true,
+    this.onNativeDragStarted,
+    this.startDragging,
   });
 
   /// Global zoom factor (logical → pixel).
@@ -22,11 +34,23 @@ class DockDragArea extends StatefulWidget {
   final ValueGetter<Offset> logicalTopLeft;
 
   /// Called on pan update/end with logical top-left and Shift undock flag.
+  ///
+  /// Only used when [nativeDragging] is false (widget tests).
   final void Function(
     Offset logicalTopLeft, {
     required bool shiftUndock,
     required bool ended,
   }) onMove;
+
+  /// Invoked when a native OS drag begins so the host/client can enter
+  /// sibling-sync mode.
+  final VoidCallback? onNativeDragStarted;
+
+  /// Override for tests; defaults to [windowManager.startDragging].
+  final Future<void> Function()? startDragging;
+
+  /// When true, use OS drag; when false, gesture-driven [onMove] (tests).
+  final bool nativeDragging;
 
   final Widget child;
 
@@ -49,11 +73,21 @@ class _DockDragAreaState extends State<DockDragArea> {
     );
   }
 
+  Future<void> _beginNativeDrag() async {
+    widget.onNativeDragStarted?.call();
+    final start = widget.startDragging ?? windowManager.startDragging;
+    await start();
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onPanStart: (details) {
+        if (widget.nativeDragging) {
+          unawaited(_beginNativeDrag());
+          return;
+        }
         _session = DockDragSession(
           originLogical: widget.logicalTopLeft(),
           originGlobal: details.globalPosition,
@@ -61,9 +95,11 @@ class _DockDragAreaState extends State<DockDragArea> {
         );
       },
       onPanUpdate: (details) {
+        if (widget.nativeDragging) return;
         _emit(details.globalPosition, ended: false);
       },
       onPanEnd: (details) {
+        if (widget.nativeDragging) return;
         _emit(details.globalPosition, ended: true);
         _session = null;
       },

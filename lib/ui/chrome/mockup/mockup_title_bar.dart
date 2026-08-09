@@ -12,6 +12,7 @@ class MockupTitleBar extends StatelessWidget {
     this.wordmarkSize = 24,
     this.showVersion = true,
     this.showZoom = true,
+    this.showBrand = true,
     this.onMinimize,
     this.onCollapse,
     this.onZoomOut,
@@ -23,6 +24,9 @@ class MockupTitleBar extends StatelessWidget {
   final double wordmarkSize;
   final bool showVersion;
   final bool showZoom;
+
+  /// When false (EQ / playlist), omit logo + TRAMP wordmark — role title only.
+  final bool showBrand;
   final VoidCallback? onMinimize;
 
   /// When set (EQ / playlist), shows Collapse (shade) instead of Minimize.
@@ -32,6 +36,22 @@ class MockupTitleBar extends StatelessWidget {
   final VoidCallback? onClose;
 
   static const height = 42.0;
+
+  static const _windowNameStyle = TextStyle(
+    fontFamily: 'TrampCondensed',
+    fontWeight: FontWeight.w700,
+    fontSize: 13,
+    height: 1,
+    letterSpacing: 13 * 0.26,
+    decoration: TextDecoration.none,
+    color: Color(0x8CC8D6EB),
+    shadows: [
+      Shadow(
+        offset: Offset(0, 1),
+        color: Color(0xB3000000),
+      ),
+    ],
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -43,31 +63,23 @@ class MockupTitleBar extends StatelessWidget {
           children: [
             const Positioned.fill(child: CustomPaint(painter: _TitleBarPainter())),
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 0, 9, 0),
+              // Optical center sits slightly below geometric mid (top bevel reads
+              // heavier); nudge content down to match mockup `.tbar` alignment.
+              padding: const EdgeInsets.fromLTRB(10, 3, 9, 1),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const _TitleLogo(),
-                  const SizedBox(width: 12),
-                  _Wordmark(size: wordmarkSize, showVersion: showVersion),
-                  const SizedBox(width: 12),
+                  if (showBrand) ...[
+                    const _TitleLogo(),
+                    const SizedBox(width: 12),
+                    _Wordmark(size: wordmarkSize, showVersion: showVersion),
+                    const SizedBox(width: 12),
+                  ],
                   const Expanded(child: _Grip()),
                   const SizedBox(width: 12),
                   Text(
                     windowName.toUpperCase(),
-                    style: const TextStyle(
-                      fontFamily: 'TrampCondensed',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                      height: 1,
-                      letterSpacing: 13 * 0.26,
-                      color: Color(0x8CC8D6EB),
-                      shadows: [
-                        Shadow(
-                          offset: Offset(0, 1),
-                          color: Color(0xB3000000),
-                        ),
-                      ],
-                    ),
+                    style: _windowNameStyle,
                   ),
                   const SizedBox(width: 12),
                   const Expanded(child: _Grip()),
@@ -95,50 +107,108 @@ class _TitleLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    // Mockup `.tbar-logo`: 30×30 circle, logo at `center / 112%`, ring + pink bloom.
+    return SizedBox(
       width: 30,
       height: 30,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        color: Color(0xFFE9ECF4),
-        boxShadow: [
-          BoxShadow(color: Color(0xA6000000), spreadRadius: 1),
-          BoxShadow(
-            color: Color(0x47FF3D9A),
-            blurRadius: 12,
-          ),
-          BoxShadow(
-            color: Color(0x8C000000),
-            offset: Offset(0, 2),
-            blurRadius: 4,
-          ),
-        ],
-      ),
       child: Stack(
-        fit: StackFit.expand,
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
         children: [
-          const Padding(
-            padding: EdgeInsets.all(1),
-            child: ClipOval(child: TrampLogo(size: 28)),
-          ),
-          DecoratedBox(
-            decoration: BoxDecoration(
+          // `0 0 12px rgba(255, 61, 154, 0.28)` — outside the face.
+          Container(
+            width: 30,
+            height: 30,
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: const Alignment(-0.6, -0.8),
-                end: const Alignment(0.4, 0.6),
-                colors: [
-                  const Color(0x73FFFFFF),
-                  const Color(0x00FFFFFF),
-                ],
-                stops: const [0, 0.46],
+              boxShadow: [
+                BoxShadow(color: Color(0x47FF3D9A), blurRadius: 12),
+                BoxShadow(
+                  color: Color(0x8C000000),
+                  offset: Offset(0, 2),
+                  blurRadius: 4,
+                ),
+              ],
+            ),
+          ),
+          ClipOval(
+            child: ColoredBox(
+              color: const Color(0xFFE9ECF4),
+              child: Transform.scale(
+                scale: 1.12,
+                child: const TrampLogo(size: 30),
               ),
+            ),
+          ),
+          // `0 0 0 1px rgba(0, 0, 0, 0.65)`
+          IgnorePointer(
+            child: Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xA6000000), width: 1),
+              ),
+            ),
+          ),
+          // Inset highlights: top sheen + bottom shade + CSS ::after gloss.
+          const IgnorePointer(
+            child: CustomPaint(
+              size: Size.square(30),
+              painter: _TitleLogoInsetPainter(),
             ),
           ),
         ],
       ),
     );
   }
+}
+
+class _TitleLogoInsetPainter extends CustomPainter {
+  const _TitleLogoInsetPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(size.width / 2));
+    canvas.save();
+    canvas.clipRRect(rrect);
+    // Soft top inset highlight — clipped inside the disc (no outer white ring).
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height * 0.55),
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0x80FFFFFF), Color(0x00FFFFFF)],
+        ).createShader(rect),
+    );
+    // Bottom shade: inset 0 -3px 6px rgba(20, 34, 66, 0.35)
+    canvas.drawRect(
+      Rect.fromLTWH(0, size.height * 0.45, size.width, size.height * 0.55),
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0x00142242), Color(0x59142242)],
+        ).createShader(Rect.fromLTWH(0, size.height * 0.45, size.width, size.height * 0.55)),
+    );
+    // ::after gloss wedge
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment(-0.6, -0.8),
+          end: Alignment(0.4, 0.6),
+          colors: [Color(0x73FFFFFF), Color(0x00FFFFFF)],
+          stops: [0, 0.46],
+        ).createShader(rect),
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _Wordmark extends StatelessWidget {
@@ -161,11 +231,13 @@ class _Wordmark extends StatelessWidget {
             fontSize: size,
             height: 1,
             letterSpacing: size * 0.2,
+            decoration: TextDecoration.none,
             color: const Color(0xFFEAF2FF),
             shadows: const [
               Shadow(offset: Offset(0, -1), color: Color(0x4DE2ECFF)),
               Shadow(offset: Offset(0, 1), color: Color(0xD9000000)),
-              Shadow(color: Color(0x4D3DE7FF), blurRadius: 14),
+              // CSS `0 0 14px rgba(61,231,255,0.3)` — Skia blur reads hotter.
+              Shadow(color: Color(0x4D3DE7FF), blurRadius: 5),
             ],
           ),
         ),
@@ -180,6 +252,7 @@ class _Wordmark extends StatelessWidget {
                 fontSize: 11,
                 height: 1,
                 letterSpacing: 11 * 0.06,
+                decoration: TextDecoration.none,
                 color: MockupTokens.phos.withValues(alpha: 0.85),
                 shadows: const [
                   Shadow(color: Color(0x803DE7FF), blurRadius: 8),
@@ -197,50 +270,65 @@ class _Grip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return const SizedBox(
       height: 8,
-      child: Stack(
-        alignment: Alignment.centerLeft,
-        children: [
-          Container(
-            height: 2,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0x00000000),
-                  MockupTokens.phosDim,
-                  MockupTokens.accentDim,
-                  MockupTokens.phosDim,
-                  Color(0x00000000),
-                ],
-                stops: [0, 0.12, 0.5, 0.88, 1],
-              ),
-              boxShadow: const [
-                BoxShadow(color: Color(0x4D3DE7FF), blurRadius: 7),
-              ],
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 6,
-            child: Container(
-              height: 1,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Color(0x00000000),
-                    Color(0x59FF3D9A),
-                    Color(0x00000000),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+      width: double.infinity,
+      child: CustomPaint(painter: _GripPainter()),
     );
   }
+}
+
+class _GripPainter extends CustomPainter {
+  const _GripPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rail = Rect.fromLTWH(0, 2, size.width, 2);
+    // Soft bloom behind the 2px rail (CSS `box-shadow: 0 0 7px`).
+    canvas.drawRect(
+      rail,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [
+            Color(0x00000000),
+            Color(0x4D3DE7FF),
+            Color(0x4D3DE7FF),
+            Color(0x00000000),
+          ],
+          stops: [0, 0.12, 0.88, 1],
+        ).createShader(rail)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.5),
+    );
+    canvas.drawRect(
+      rail,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [
+            Color(0x00000000),
+            MockupTokens.phosDim,
+            MockupTokens.accentDim,
+            MockupTokens.phosDim,
+            Color(0x00000000),
+          ],
+          stops: [0, 0.12, 0.5, 0.88, 1],
+        ).createShader(rail),
+    );
+    final under = Rect.fromLTWH(0, 6, size.width, 1);
+    canvas.drawRect(
+      under,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [
+            Color(0x00000000),
+            Color(0x59FF3D9A),
+            Color(0x00000000),
+          ],
+        ).createShader(under),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _WindowButtons extends StatelessWidget {
@@ -397,10 +485,8 @@ class _WinBtnPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rrect = RRect.fromRectAndRadius(
-      Offset.zero & size,
-      const Radius.circular(3),
-    );
+    final rect = Offset.zero & size;
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(3));
     final colors = close
         ? (pressed
             ? const [Color(0xFF79204A), Color(0xFF4A1129), Color(0xFF2E0A1A)]
@@ -408,6 +494,15 @@ class _WinBtnPainter extends CustomPainter {
         : (pressed
             ? const [Color(0xFF2F3543), Color(0xFF20242E), Color(0xFF161920)]
             : const [Color(0xFF454D60), Color(0xFF2F3543), Color(0xFF20242E)]);
+
+    // Outer drop: mockup `0 1px 2px rgba(0, 0, 0, 0.55)`.
+    canvas.drawRRect(
+      rrect.shift(const Offset(0, 1)),
+      Paint()
+        ..color = const Color(0x8C000000)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.2),
+    );
+
     canvas.drawRRect(
       rrect,
       Paint()
@@ -416,15 +511,22 @@ class _WinBtnPainter extends CustomPainter {
           end: Alignment.bottomCenter,
           colors: colors,
           stops: const [0, 0.55, 1],
-        ).createShader(Offset.zero & size),
+        ).createShader(rect),
     );
-    canvas.drawRRect(
-      rrect,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..color = const Color(0x4DE8F0FF),
+
+    canvas.save();
+    canvas.clipRRect(rrect);
+    // Inset top lip: `inset 0 1px 0 rgba(232, 240, 255, 0.3)`.
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, 1),
+      Paint()..color = pressed ? const Color(0x26E8F0FF) : const Color(0x4DE8F0FF),
     );
+    // Inset bottom lip: `inset 0 -1px 0 rgba(0, 0, 0, 0.6)`.
+    canvas.drawRect(
+      Rect.fromLTWH(0, size.height - 1, size.width, 1),
+      Paint()..color = const Color(0x99000000),
+    );
+    canvas.restore();
   }
 
   @override

@@ -23,3 +23,7 @@ Living design map: `docs/architecture.md`. Update it in the same change whenever
 ### Subagent models
 
 Do not use Claude or ChatGPT/GPT models for subagents unless the user explicitly requests them, or a task truly requires them and the user approves. See `.cursor/rules/subagent-models.mdc`.
+
+### Commits
+
+When a discrete task is finished, **commit it** (do not wait for a separate “please commit”). See `.cursor/rules/commit-completed-tasks.mdc`.

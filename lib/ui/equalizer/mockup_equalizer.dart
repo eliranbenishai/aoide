@@ -60,6 +60,7 @@ class MockupEqualizer extends StatelessWidget {
       width: bodySize.width,
       height: bodySize.height,
       child: Stack(
+        clipBehavior: Clip.none,
         children: [
           const Positioned(left: 9, bottom: 8, child: MockupRivet()),
           const Positioned(right: 9, bottom: 8, child: MockupRivet()),
@@ -468,15 +469,49 @@ class _VTrackPainter extends CustomPainter {
         ..maskFilter = const MaskFilter.blur(BlurStyle.inner, 2),
     );
 
+    // Thumb (top = +12 → fraction 1).
+    final thumbY = (1.0 - fraction.clamp(0.0, 1.0)) * size.height;
+
+    // Bottom→thumb fill; spectrum gradient in track space (cyan low → magenta high).
+    final fillBottom = size.height;
+    final fillTop = thumbY.clamp(0.0, size.height);
+    final fillH = fillBottom - fillTop;
+    if (fillH > 0.5) {
+      final fillRect = Rect.fromLTWH(trackLeft, fillTop, trackW, fillH);
+      canvas.save();
+      canvas.clipRRect(track);
+      canvas.clipRect(fillRect);
+      canvas.drawRect(
+        fillRect,
+        Paint()
+          ..color = const Color(0x663DE7FF)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.5),
+      );
+      // Shader spans the full track so rising values reveal more magenta.
+      canvas.drawRect(
+        track.outerRect,
+        Paint()
+          ..shader = const LinearGradient(
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
+            colors: [
+              Color(0xFFCBF9FF),
+              MockupTokens.phos,
+              Color(0xFF1B9EC4),
+              MockupTokens.accent,
+            ],
+            stops: [0, 0.26, 0.62, 1],
+          ).createShader(track.outerRect),
+      );
+      canvas.restore();
+    }
+
     // Zero notch.
     final midY = size.height / 2;
     canvas.drawRect(
       Rect.fromLTWH(trackLeft - 13, midY - 0.5, trackW + 26, 1),
       Paint()..color = const Color(0x24E2ECFF),
     );
-
-    // Thumb (top = +12 → fraction 1).
-    final thumbY = (1.0 - fraction.clamp(0.0, 1.0)) * size.height;
     const thumbW = 34.0;
     const thumbH = 18.0;
     final thumb = RRect.fromRectAndRadius(

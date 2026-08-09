@@ -18,6 +18,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: DockDragArea(
+              nativeDragging: false,
               zoom: 2.0,
               logicalTopLeft: () => Offset(
                 docking.layout.main.left,
@@ -63,6 +64,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: DockDragArea(
+              nativeDragging: false,
               zoom: 1.0,
               logicalTopLeft: () => Offset.zero,
               onMove: (topLeft, {required shiftUndock, required ended}) {
@@ -104,6 +106,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: DockDragArea(
+              nativeDragging: false,
               zoom: 1.0,
               logicalTopLeft: () => Offset(
                 docking.layout.main.left,
@@ -135,6 +138,42 @@ void main() {
       expect(docking.layout.main.left, 30);
       expect(docking.layout.playlist.left, 30);
       expect(docking.layout.playlist.top, 348);
+    });
+
+    testWidgets('nativeDragging calls startDragging and onNativeDragStarted',
+        (tester) async {
+      var started = 0;
+      var nativeStarts = 0;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DockDragArea(
+              zoom: 1.0,
+              logicalTopLeft: () => Offset.zero,
+              onMove: (topLeft, {required shiftUndock, required ended}) {},
+              onNativeDragStarted: () => nativeStarts++,
+              startDragging: () async {
+                started++;
+              },
+              child: const SizedBox(
+                width: 200,
+                height: 42,
+                child: Text('title'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final center = tester.getCenter(find.text('title'));
+      final gesture = await tester.startGesture(center);
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+
+      expect(nativeStarts, 1);
+      expect(started, 1);
     });
   });
 }

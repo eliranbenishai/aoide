@@ -29,6 +29,7 @@ class MainPlayerWindow extends StatelessWidget {
     this.zoom = 1.0,
     this.dockLogicalTopLeft,
     this.onDockMove,
+    this.onNativeDragStarted,
     this.draggableTitle = true,
     this.spectrumBars,
     this.spectrumPeaks,
@@ -64,6 +65,9 @@ class MainPlayerWindow extends StatelessWidget {
     required bool ended,
   })? onDockMove;
 
+  /// Native OS title-bar drag began (sibling sync via onWindowMove).
+  final VoidCallback? onNativeDragStarted;
+
   final bool draggableTitle;
   final List<double>? spectrumBars;
   final List<double>? spectrumPeaks;
@@ -77,11 +81,14 @@ class MainPlayerWindow extends StatelessWidget {
       onZoomIn: onZoomIn,
       onClose: onClose,
     );
-    if (draggableTitle && onDockMove != null && dockLogicalTopLeft != null) {
+    if (draggableTitle &&
+        onDockMove != null &&
+        dockLogicalTopLeft != null) {
       title = DockDragArea(
         zoom: zoom,
         logicalTopLeft: dockLogicalTopLeft!,
         onMove: onDockMove!,
+        onNativeDragStarted: onNativeDragStarted,
         child: title,
       );
     }

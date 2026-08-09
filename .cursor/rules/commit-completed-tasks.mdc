@@ -1,0 +1,26 @@
+---
+description: Always commit when a discrete task is completed (overrides default ask-first)
+alwaysApply: true
+---
+
+# Commit completed tasks
+
+When a **discrete task is finished** (feature slice, bugfix, polish pass, design/docs delivery the user accepted, etc.), **create a git commit** as part of finishing — do not leave the completed work uncommitted and do not wait for a separate “please commit” message.
+
+## What counts as done
+
+- The agreed scope for that task is implemented (or docs-only delivery is written)
+- Relevant verification you already owe for the task has been run (tests/goldens/smoke as appropriate)
+- Living docs (`docs/architecture.md`, ADRs, specs) are updated in the **same** change when the architecture rule requires it
+
+## How to commit
+
+Follow the repo’s normal git safety protocol (no force push, no config changes, no secrets, HEREDOC/here-string commit messages, verify with `git status` after). Prefer **one commit per completed task**; exclude unrelated WIP, scratch fidelity dumps, and secrets.
+
+## Overrides
+
+- **User says not to commit** / “leave uncommitted” / “don’t commit yet” → do not commit
+- **Ambiguous whether the task is complete** → ask once, then commit when they confirm done
+- Still never push unless the user asks
+
+This project rule **overrides** the generic habit of only committing when explicitly asked.

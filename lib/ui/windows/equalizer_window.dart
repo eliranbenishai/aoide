@@ -23,6 +23,7 @@ class EqualizerWindow extends StatelessWidget {
     this.zoom = 1.0,
     this.dockLogicalTopLeft,
     this.onDockMove,
+    this.onNativeDragStarted,
     this.draggableTitle = true,
   });
 
@@ -48,12 +49,16 @@ class EqualizerWindow extends StatelessWidget {
     required bool ended,
   })? onDockMove;
 
+  /// Native OS title-bar drag began (sibling sync via onWindowMove).
+  final VoidCallback? onNativeDragStarted;
+
   final bool draggableTitle;
 
   @override
   Widget build(BuildContext context) {
     Widget title = MockupTitleBar(
       windowName: 'Equalizer',
+      showBrand: false,
       showZoom: false,
       onCollapse: onCollapse,
       onClose: onClose,
@@ -63,6 +68,7 @@ class EqualizerWindow extends StatelessWidget {
         zoom: zoom,
         logicalTopLeft: dockLogicalTopLeft!,
         onMove: onDockMove!,
+        onNativeDragStarted: onNativeDragStarted,
         child: title,
       );
     }
@@ -78,10 +84,19 @@ class EqualizerWindow extends StatelessWidget {
           children: [
             title,
             if (!shaded)
-              MockupEqualizer(
-                settings: settings,
-                onSessionCommand: onSessionCommand,
-                presetNames: presetNames,
+              // Expanded + clip: OS frame height can be a fraction of a logical
+              // pixel short of 348 after snap/DPI rounding (overflowed by ~0.67px).
+              Expanded(
+                child: ClipRect(
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: MockupEqualizer(
+                      settings: settings,
+                      onSessionCommand: onSessionCommand,
+                      presetNames: presetNames,
+                    ),
+                  ),
+                ),
               ),
           ],
         ),

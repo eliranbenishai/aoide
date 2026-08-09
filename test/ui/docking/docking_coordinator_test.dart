@@ -14,17 +14,17 @@ void main() {
       expect(c.groupOf(WindowId.playlist), contains(WindowId.main));
     });
 
-    test('moving a docked window moves the whole group', () {
+    test('moving docked main moves the whole group', () {
       final c = DockingCoordinator(DockLayout.defaults);
       c.move(WindowId.playlist, const Offset(0, 348 - 10), shiftUndock: false);
 
-      c.move(WindowId.playlist, const Offset(40, 348), shiftUndock: false);
+      c.move(WindowId.main, const Offset(40, 0), shiftUndock: false);
 
-      expect(c.layout.playlist.left, 40);
-      expect(c.layout.playlist.top, 348);
       expect(c.layout.main.left, 40);
       expect(c.layout.main.top, 0);
-      expect(c.groupOf(WindowId.playlist), contains(WindowId.main));
+      expect(c.layout.playlist.left, 40);
+      expect(c.layout.playlist.top, 348);
+      expect(c.groupOf(WindowId.main), contains(WindowId.playlist));
     });
 
     test('shiftUndock breaks edges and moves only the dragged window', () {
@@ -120,11 +120,205 @@ void main() {
       );
     });
 
-    test('does not snap when farther than 12px', () {
+    test('does not snap when farther than snapThreshold', () {
       final c = DockingCoordinator(DockLayout.defaults);
-      c.move(WindowId.playlist, const Offset(0, 348 - 13), shiftUndock: false);
-      expect(c.layout.playlist.top, 348 - 13);
+      final gap = DockingCoordinator.snapThreshold + 1;
+      c.move(
+        WindowId.playlist,
+        Offset(0, 348 - gap),
+        shiftUndock: false,
+      );
+      expect(c.layout.playlist.top, 348 - gap);
       expect(c.groupOf(WindowId.playlist), equals({WindowId.playlist}));
+    });
+
+    test('snap:false defers edge snap until a later snap:true move', () {
+      final c = DockingCoordinator(DockLayout.defaults);
+      c.move(
+        WindowId.playlist,
+        const Offset(0, 348 - 10),
+        shiftUndock: false,
+        snap: false,
+      );
+      expect(c.layout.playlist.top, 348 - 10);
+      expect(c.layout.dockEdges, isEmpty);
+
+      c.move(
+        WindowId.playlist,
+        const Offset(0, 348 - 10),
+        shiftUndock: false,
+        snap: true,
+      );
+      expect(c.layout.playlist.top, 348);
+      expect(c.groupOf(WindowId.playlist), contains(WindowId.main));
+    });
+
+    test('hiding a window drops its dock edges and leaves others free to snap',
+        () {
+      final c = DockingCoordinator(DockLayout.defaults);
+      c.move(WindowId.equalizer, const Offset(0, 348 - 10), shiftUndock: false);
+      expect(c.groupOf(WindowId.main), contains(WindowId.equalizer));
+
+      c.setVisible(WindowId.equalizer, false);
+
+      expect(c.layout.dockEdges, isEmpty);
+      expect(c.groupOf(WindowId.main), equals({WindowId.main}));
+
+      c.move(WindowId.playlist, const Offset(0, 348 - 10), shiftUndock: false);
+      expect(c.groupOf(WindowId.main), contains(WindowId.playlist));
+    });
+
+    test('mid-drag main move keeps sticky group (no false undock)', () {
+      final c = DockingCoordinator(DockLayout.defaults);
+      c.move(WindowId.playlist, const Offset(0, 348 - 10), shiftUndock: false);
+      expect(c.groupOf(WindowId.main), contains(WindowId.playlist));
+
+      // Farther than undockSeparation mid-drag — main sticky still moves PL.
+      c.move(
+        WindowId.main,
+        const Offset(0, 80),
+        shiftUndock: false,
+        snap: false,
+      );
+      expect(c.groupOf(WindowId.main), contains(WindowId.playlist));
+      expect(c.layout.main.top, 80);
+      expect(c.layout.playlist.top, 348 + 80);
+    });
+
+    test('dragging playlist peels it off the docked group', () {
+      final c = DockingCoordinator(DockLayout.defaults);
+      c.move(WindowId.playlist, const Offset(0, 348 - 10), shiftUndock: false);
+      expect(c.groupOf(WindowId.main), contains(WindowId.playlist));
+
+      c.move(
+        WindowId.playlist,
+        const Offset(40, 500),
+        shiftUndock: false,
+        snap: false,
+      );
+
+      expect(c.groupOf(WindowId.playlist), equals({WindowId.playlist}));
+      expect(c.layout.dockEdges, isEmpty);
+      expect(c.layout.main.left, 0);
+      expect(c.layout.main.top, 0);
+      expect(c.layout.playlist.left, 40);
+      expect(c.layout.playlist.top, 500);
+    });
+
+    test('moving main translates all visible windows even when undocked', () {
+      final c = DockingCoordinator(DockLayout.defaults);
+      // Defaults: EQ + PL visible, no edges.
+      expect(c.layout.dockEdges, isEmpty);
+      final eqTop = c.layout.equalizer.top;
+      final plTop = c.layout.playlist.top;
+
+      c.move(WindowId.main, const Offset(50, 20), shiftUndock: false);
+
+      expect(c.layout.main.left, 50);
+      expect(c.layout.main.top, 20);
+      expect(c.layout.equalizer.left, 50);
+      expect(c.layout.equalizer.top, eqTop + 20);
+      expect(c.layout.playlist.left, 50);
+      expect(c.layout.playlist.top, plTop + 20);
+      expect(c.moveCohortOf(WindowId.main), containsAll([
+        WindowId.main,
+        WindowId.equalizer,
+        WindowId.playlist,
+      ]));
+    });
+
+    test('moving main does not create snap edges', () {
+      final c = DockingCoordinator(DockLayout.defaults);
+      c.setVisible(WindowId.playlist, false);
+      // Place EQ just below main within threshold; main move must not snap.
+      c.move(
+        WindowId.equalizer,
+        const Offset(0, 348 + 40),
+        shiftUndock: true,
+      );
+      c.move(WindowId.main, const Offset(0, 30), shiftUndock: false);
+
+      expect(c.layout.dockEdges, isEmpty);
+      expect(c.layout.equalizer.top, 348 + 40 + 30);
+    });
+
+    test('playlist does not snap to left/right side of main', () {
+      final c = DockingCoordinator(DockLayout.defaults);
+      c.setVisible(WindowId.equalizer, false);
+      // Approach main's right edge within threshold, vertically overlapping.
+      c.move(
+        WindowId.playlist,
+        const Offset(825 - 10, 0),
+        shiftUndock: false,
+      );
+
+      expect(c.layout.playlist.left, 825 - 10);
+      expect(c.layout.dockEdges, isEmpty);
+      expect(c.groupOf(WindowId.playlist), equals({WindowId.playlist}));
+    });
+
+    test('playlist top/bottom snap flushes left when within threshold', () {
+      final c = DockingCoordinator(DockLayout.defaults);
+      c.setVisible(WindowId.equalizer, false);
+      c.move(
+        WindowId.playlist,
+        const Offset(8, 348 - 10),
+        shiftUndock: false,
+      );
+
+      expect(c.layout.playlist.top, 348);
+      expect(c.layout.playlist.left, 0);
+      expect(
+        c.layout.dockEdges.any(
+          (e) =>
+              (e.a == WindowId.playlist || e.b == WindowId.playlist) &&
+              (e.side == DockSide.left || e.side == DockSide.right),
+        ),
+        isTrue,
+      );
+    });
+
+    test('playlist top/bottom snap keeps horizontal offset when far', () {
+      final c = DockingCoordinator(DockLayout.defaults);
+      c.setVisible(WindowId.equalizer, false);
+      const left = DockingCoordinator.snapThreshold + 5;
+      c.move(
+        WindowId.playlist,
+        const Offset(left, 348 - 10),
+        shiftUndock: false,
+      );
+
+      expect(c.layout.playlist.top, 348);
+      expect(c.layout.playlist.left, left);
+    });
+
+    test('equalizer still snaps to the right of main', () {
+      final c = DockingCoordinator(DockLayout.defaults);
+      c.setVisible(WindowId.playlist, false);
+      c.move(
+        WindowId.equalizer,
+        const Offset(825 - 10, 0),
+        shiftUndock: false,
+      );
+
+      expect(c.layout.equalizer.left, 825);
+      expect(c.groupOf(WindowId.equalizer), contains(WindowId.main));
+    });
+
+    test('hidden windows are excluded from main move cohort', () {
+      final c = DockingCoordinator(DockLayout.defaults);
+      c.setVisible(WindowId.equalizer, false);
+      final plTop = c.layout.playlist.top;
+      final eqLeft = c.layout.equalizer.left;
+      final eqTop = c.layout.equalizer.top;
+
+      c.move(WindowId.main, const Offset(30, 10), shiftUndock: false);
+
+      expect(c.layout.playlist.left, 30);
+      expect(c.layout.playlist.top, plTop + 10);
+      expect(c.layout.equalizer.left, eqLeft);
+      expect(c.layout.equalizer.top, eqTop);
+      expect(c.moveCohortOf(WindowId.main), equals({WindowId.main, WindowId.playlist}));
     });
   });
 }

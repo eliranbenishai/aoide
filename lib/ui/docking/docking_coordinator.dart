@@ -12,21 +12,37 @@ import 'dock_layout.dart';
 class DockingCoordinator extends ChangeNotifier {
   DockingCoordinator(DockLayout initial) : _layout = initial;
 
-  static const double snapThreshold = 12.0;
+  static const double snapThreshold = 20.0;
   static const double undockSeparation = 48.0;
 
   DockLayout _layout;
   DockLayout get layout => _layout;
 
-  void move(WindowId id, Offset topLeft, {required bool shiftUndock}) {
+  void move(WindowId id, Offset topLeft, {required bool shiftUndock, bool snap = true}) {
     final current = _topLeft(id);
     final delta = topLeft - current;
 
     var edges = List<DockEdge>.from(_layout.dockEdges);
     var shouldUndock = shiftUndock;
-    if (!shouldUndock && _hasEdge(id, edges)) {
-      final proposed = _rectFor(id).shift(delta);
-      shouldUndock = _separatesBeyondBreak(id, proposed, edges);
+
+    // EQ / playlist peel off dock edges as soon as the user drags them.
+    // Main never peels — it always translates all visible satellites.
+    if (!shouldUndock &&
+        id != WindowId.main &&
+        delta.distanceSquared > 0.25 &&
+        _hasEdge(id, edges)) {
+      shouldUndock = true;
+    }
+
+    // Separation undock: only EQ / playlist finalize (main always carries
+    // visible partners, so solo-vs-partner gap is not meaningful).
+    if (!shouldUndock &&
+        snap &&
+        id != WindowId.main &&
+        _hasEdge(id, edges)) {
+      final size = _logicalSize(id);
+      final solo = Rect.fromLTWH(topLeft.dx, topLeft.dy, size.width, size.height);
+      shouldUndock = _separatesBeyondBreak(id, solo, edges);
     }
     if (shouldUndock) {
       edges = edges
@@ -35,8 +51,8 @@ class DockingCoordinator extends ChangeNotifier {
     }
 
     _layout = _layout.copyWith(dockEdges: edges);
-    final group = groupOf(id);
-    for (final member in group) {
+    final cohort = moveCohortOf(id);
+    for (final member in cohort) {
       if (member == id) {
         _layout = _layout.withFrame(
           member,
@@ -54,8 +70,9 @@ class DockingCoordinator extends ChangeNotifier {
       }
     }
 
-    // Shift-undock must stay undocked even when still within snap range.
-    if (!shiftUndock) {
+    // Snap only from EQ / playlist finalize — never from main.
+    // Live drag passes snap: false so snap does not fight the cursor.
+    if (snap && !shiftUndock && id != WindowId.main) {
       _trySnap(id);
     }
     notifyListeners();
@@ -80,17 +97,17 @@ class DockingCoordinator extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setVisible(WindowId id, bool visible) {
-    _layout = _layout.withFrame(
-      id,
-      _layout.frameOf(id).copyWith(visible: visible),
-    );
-    notifyListeners();
-  }
-
+  /// Edge-connected dock component containing [id] (visible members only).
+  ///
+  /// Used for snap partner exclusion and “is docked” checks. Main title-bar
+  /// drag uses [moveCohortOf] instead — visibility, not edges.
   Set<WindowId> groupOf(WindowId id) {
     final edges = _layout.dockEdges;
     final group = <WindowId>{id};
+    // Hidden windows stay out of sticky groups so minimize/hide does not
+    // freeze snap between the remaining visible windows.
+    if (!_layout.frameOf(id).visible) return group;
+
     var grew = true;
     while (grew) {
       grew = false;
@@ -98,15 +115,46 @@ class DockingCoordinator extends ChangeNotifier {
         final aIn = group.contains(edge.a);
         final bIn = group.contains(edge.b);
         if (aIn && !bIn) {
+          if (!_layout.frameOf(edge.b).visible) continue;
           group.add(edge.b);
           grew = true;
         } else if (bIn && !aIn) {
+          if (!_layout.frameOf(edge.a).visible) continue;
           group.add(edge.a);
           grew = true;
         }
       }
     }
     return group;
+  }
+
+  /// Windows that move together when [id]'s title bar is dragged.
+  ///
+  /// Main → every visible window. EQ / playlist → edge [groupOf] (usually
+  /// just self after peel).
+  Set<WindowId> moveCohortOf(WindowId id) {
+    if (id == WindowId.main) {
+      return {
+        for (final w in WindowId.values)
+          if (_layout.frameOf(w).visible) w,
+      };
+    }
+    return groupOf(id);
+  }
+
+  void setVisible(WindowId id, bool visible) {
+    _layout = _layout.withFrame(
+      id,
+      _layout.frameOf(id).copyWith(visible: visible),
+    );
+    if (!visible) {
+      _layout = _layout.copyWith(
+        dockEdges: _layout.dockEdges
+            .where((e) => e.a != id && e.b != id)
+            .toList(growable: false),
+      );
+    }
+    notifyListeners();
   }
 
   /// Pixel frames at [zoom] for window_manager.
@@ -214,7 +262,16 @@ class DockingCoordinator extends ChangeNotifier {
 
     if (best == null) return;
 
-    final snapDelta = best.delta;
+    final target = _rectFor(best.targetId);
+    final snapped = moving.shift(best.delta);
+    var snapDelta = best.delta;
+    DockSide? orthoSide;
+    final ortho = _orthogonalFlush(best.side, snapped, target);
+    if (ortho != null) {
+      snapDelta += ortho.delta;
+      orthoSide = ortho.side;
+    }
+
     for (final member in group) {
       final frame = _layout.frameOf(member);
       _layout = _layout.withFrame(
@@ -227,16 +284,67 @@ class DockingCoordinator extends ChangeNotifier {
     }
 
     final edges = List<DockEdge>.from(_layout.dockEdges);
-    final already = edges.any(
-      (e) =>
-          (e.a == best!.movingId && e.b == best.targetId) ||
-          (e.a == best.targetId && e.b == best.movingId),
-    );
-    if (!already) {
-      edges.add(
-        DockEdge(a: best.movingId, b: best.targetId, side: best.side),
+    void addEdge(DockSide side) {
+      final already = edges.any(
+        (e) =>
+            ((e.a == best!.movingId && e.b == best.targetId) ||
+                (e.a == best.targetId && e.b == best.movingId)) &&
+            (e.side == side || e.side == _opposite(side)),
       );
-      _layout = _layout.copyWith(dockEdges: List.unmodifiable(edges));
+      if (!already) {
+        edges.add(
+          DockEdge(a: best!.movingId, b: best.targetId, side: side),
+        );
+      }
+    }
+
+    addEdge(best.side);
+    if (orthoSide != null) addEdge(orthoSide);
+    _layout = _layout.copyWith(dockEdges: List.unmodifiable(edges));
+  }
+
+  /// When the primary snap is top/bottom (or left/right), flush the orthogonal
+  /// axis if that edge is already within [snapThreshold].
+  ({DockSide side, Offset delta})? _orthogonalFlush(
+    DockSide primary,
+    Rect snapped,
+    Rect target,
+  ) {
+    switch (primary) {
+      case DockSide.top:
+      case DockSide.bottom:
+        final leftDist = (snapped.left - target.left).abs();
+        final rightDist = (snapped.right - target.right).abs();
+        if (leftDist <= snapThreshold && leftDist <= rightDist) {
+          return (
+            side: DockSide.left,
+            delta: Offset(target.left - snapped.left, 0),
+          );
+        }
+        if (rightDist <= snapThreshold) {
+          return (
+            side: DockSide.right,
+            delta: Offset(target.right - snapped.right, 0),
+          );
+        }
+        return null;
+      case DockSide.left:
+      case DockSide.right:
+        final topDist = (snapped.top - target.top).abs();
+        final bottomDist = (snapped.bottom - target.bottom).abs();
+        if (topDist <= snapThreshold && topDist <= bottomDist) {
+          return (
+            side: DockSide.top,
+            delta: Offset(0, target.top - snapped.top),
+          );
+        }
+        if (bottomDist <= snapThreshold) {
+          return (
+            side: DockSide.bottom,
+            delta: Offset(0, target.bottom - snapped.bottom),
+          );
+        }
+        return null;
     }
   }
 
@@ -247,6 +355,7 @@ class DockingCoordinator extends ChangeNotifier {
     Rect target,
   ) {
     final out = <_SnapCandidate>[];
+    final allowSides = movingId != WindowId.playlist;
 
     void consider({
       required DockSide side,
@@ -290,30 +399,32 @@ class DockingCoordinator extends ChangeNotifier {
         target.right,
       ),
     );
-    // moving.right → target.left
-    consider(
-      side: DockSide.right,
-      distance: (moving.right - target.left).abs(),
-      delta: Offset(target.left - moving.right, 0),
-      aligned: _overlapsOrNear1D(
-        moving.top,
-        moving.bottom,
-        target.top,
-        target.bottom,
-      ),
-    );
-    // moving.left → target.right
-    consider(
-      side: DockSide.left,
-      distance: (moving.left - target.right).abs(),
-      delta: Offset(target.right - moving.left, 0),
-      aligned: _overlapsOrNear1D(
-        moving.top,
-        moving.bottom,
-        target.top,
-        target.bottom,
-      ),
-    );
+    if (allowSides) {
+      // moving.right → target.left
+      consider(
+        side: DockSide.right,
+        distance: (moving.right - target.left).abs(),
+        delta: Offset(target.left - moving.right, 0),
+        aligned: _overlapsOrNear1D(
+          moving.top,
+          moving.bottom,
+          target.top,
+          target.bottom,
+        ),
+      );
+      // moving.left → target.right
+      consider(
+        side: DockSide.left,
+        distance: (moving.left - target.right).abs(),
+        delta: Offset(target.right - moving.left, 0),
+        aligned: _overlapsOrNear1D(
+          moving.top,
+          moving.bottom,
+          target.top,
+          target.bottom,
+        ),
+      );
+    }
 
     return out;
   }

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
@@ -21,6 +22,7 @@ import '../../theme/mockup_tokens.dart';
 import '../../theme/tramp_metrics.dart';
 import '../chrome/about_dialog.dart';
 import '../docking/dock_layout.dart';
+import '../docking/dock_move_coalescer.dart';
 import '../docking/docking_coordinator.dart';
 import '../windows/main_player_window.dart';
 import 'always_on_top.dart';
@@ -64,6 +66,11 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   bool _playlistReady = false;
   bool _bootstrapped = false;
   final MinimizeGroupCycle _minimizeGroup = MinimizeGroupCycle();
+  final DockMoveCoalescer _dockMoveCoalescer = DockMoveCoalescer();
+  final DockMoveCoalescer _nativeSyncCoalescer = DockMoveCoalescer();
+  WindowId? _dockDragWindow;
+  bool _nativeDragging = false;
+  Timer? _nativeDragEndFallback;
 
   @override
   void initState() {
@@ -216,32 +223,101 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
           :final shiftUndock,
           :final ended,
         ):
-        await _handleDockMove(
+        // Non-ended moves return immediately so IPC is not blocked on OS moves.
+        final future = _handleDockMove(
           window,
           Offset(left, top),
           shiftUndock: shiftUndock,
           ended: ended,
         );
+        if (ended) await future;
     }
   }
 
-  /// Title-bar drag → [DockingCoordinator.move] → apply group frames (± persist).
+  /// Title-bar drag → [DockingCoordinator.move] → coalesce OS position applies.
+  ///
+  /// During a native OS drag the dragged HWND is owned by the system; we only
+  /// push **siblings** (latest-wins, position-only) and snap on pan-end.
   Future<void> _handleDockMove(
     WindowId id,
     Offset logicalTopLeft, {
     required bool shiftUndock,
     required bool ended,
   }) async {
-    _docking.move(id, logicalTopLeft, shiftUndock: shiftUndock);
-    final group = _docking.groupOf(id);
-    for (final member in group) {
-      await _applyRoleFrame(_roleFor(member));
-    }
+    _docking.move(
+      id,
+      logicalTopLeft,
+      shiftUndock: shiftUndock,
+      snap: ended,
+    );
+    _dockDragWindow = id;
+
     if (ended) {
+      await _dockMoveCoalescer.flush(() async {
+        await _applyDockGroupFrames(id, positionOnly: false);
+      });
+      _dockDragWindow = null;
+      _nativeDragging = false;
       await _persistLayout();
       await _broadcastDockSnapshot();
+      if (mounted) setState(() {});
+      return;
     }
-    if (mounted) setState(() {});
+
+    _dockMoveCoalescer.schedule(() async {
+      final dragged = _dockDragWindow ?? id;
+      // OS already moved [dragged]; only reposition docked partners.
+      await _applyDockGroupFrames(
+        dragged,
+        positionOnly: true,
+        skip: dragged,
+      );
+    });
+  }
+
+  Future<void> _applyDockGroupFrames(
+    WindowId id, {
+    required bool positionOnly,
+    WindowId? skip,
+  }) {
+    final group = _docking.moveCohortOf(id);
+    return Future.wait([
+      for (final member in group)
+        if (member != skip)
+          _applyRoleFrame(_roleFor(member), positionOnly: positionOnly),
+    ]);
+  }
+
+  void _onNativeDragStarted(WindowId id) {
+    _nativeDragging = true;
+    _dockDragWindow = id;
+    _nativeDragEndFallback?.cancel();
+  }
+
+  void _armNativeDragEndFallback() {
+    // WM_EXITSIZEMOVE / "moved" is not always delivered after startDragging.
+    // If move events go quiet, finalize snap as if the gesture ended.
+    _nativeDragEndFallback?.cancel();
+    _nativeDragEndFallback = Timer(const Duration(milliseconds: 180), () {
+      if (!_nativeDragging || _dockDragWindow != WindowId.main) return;
+      unawaited(
+        _nativeSyncCoalescer.flush(() => _syncNativeMainDrag(ended: true)),
+      );
+    });
+  }
+
+  Future<void> _syncNativeMainDrag({required bool ended}) async {
+    if (!_nativeDragging && !ended) return;
+    if (ended) _nativeDragEndFallback?.cancel();
+    final zoom = (_zoomPercent / 100.0).clamp(0.5, 4.0);
+    final pos = await windowManager.getPosition();
+    final logical = Offset(pos.dx / zoom, pos.dy / zoom);
+    await _handleDockMove(
+      WindowId.main,
+      logical,
+      shiftUndock: HardwareKeyboard.instance.isShiftPressed,
+      ended: ended,
+    );
   }
 
   Future<void> _handleTransport(String action) async {
@@ -419,9 +495,13 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     if (_playlistReady) await _applyRoleFrame(WindowRole.playlist);
   }
 
-  Future<void> _applyMainFrame() async {
+  Future<void> _applyMainFrame({bool positionOnly = false}) async {
     final zoom = _zoomPercent / 100.0;
     final rect = _docking.frameFor(WindowId.main, zoom);
+    if (positionOnly) {
+      await windowManager.setPosition(rect.topLeft);
+      return;
+    }
     final visible = _docking.layout.main.visible;
     await windowManager.setMinimumSize(rect.size);
     await windowManager.setSize(rect.size);
@@ -452,9 +532,12 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     if (_playlistReady) await _applyRoleFrame(WindowRole.playlist);
   }
 
-  Future<void> _applyRoleFrame(WindowRole role) async {
+  Future<void> _applyRoleFrame(
+    WindowRole role, {
+    bool positionOnly = false,
+  }) async {
     if (role == WindowRole.main) {
-      await _applyMainFrame();
+      await _applyMainFrame(positionOnly: positionOnly);
       return;
     }
     final controller = role == WindowRole.equalizer
@@ -482,6 +565,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
           alwaysOnTop: _alwaysOnTop,
           visible: show,
         ),
+        positionOnly: positionOnly,
       );
     } catch (error, stack) {
       // Client may be restarting; ready handshake will retry.
@@ -675,6 +759,22 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   }
 
   @override
+  void onWindowMove() {
+    if (!_nativeDragging || _dockDragWindow != WindowId.main) return;
+    _nativeSyncCoalescer.schedule(() => _syncNativeMainDrag(ended: false));
+    _armNativeDragEndFallback();
+  }
+
+  @override
+  void onWindowMoved() {
+    if (!_nativeDragging || _dockDragWindow != WindowId.main) return;
+    _nativeDragEndFallback?.cancel();
+    unawaited(
+      _nativeSyncCoalescer.flush(() => _syncNativeMainDrag(ended: true)),
+    );
+  }
+
+  @override
   void onWindowClose() {
     unawaited(_quit());
   }
@@ -696,6 +796,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
 
   @override
   void dispose() {
+    _nativeDragEndFallback?.cancel();
     windowManager.removeListener(this);
     _playlist.removeListener(_onPlaylistChanged);
     _playback.removeListener(_onPlaybackChanged);
@@ -733,6 +834,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
                     _docking.layout.main.top,
                   ),
                   onDockMove: (topLeft, {required shiftUndock, required ended}) {
+                    // Fallback path when nativeDragging is disabled (tests).
                     unawaited(
                       _handleDockMove(
                         WindowId.main,
@@ -742,6 +844,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
                       ),
                     );
                   },
+                  onNativeDragStarted: () =>
+                      _onNativeDragStarted(WindowId.main),
                   onSessionCommand: (cmd) => unawaited(_handleLocalCommand(cmd)),
                   onOpenFiles: () => unawaited(_openFiles()),
                   onOpenOptions: () => unawaited(_showOptions()),

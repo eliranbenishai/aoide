@@ -1,7 +1,7 @@
 # UI polish: title chrome, docking rules, EQ fill, taskbar
 
 Date: 2026-08-09  
-Status: Approved (design)  
+Status: Implemented  
 Branch intent: follow-on to mockup multi-window redesign  
 UI authority: [`player-mockup-2.html`](../../../player-mockup-2.html) for button chrome and spectrum gradient; product rules below override mockup where noted.
 
