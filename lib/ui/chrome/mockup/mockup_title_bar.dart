@@ -68,49 +68,50 @@ class MockupTitleBar extends StatelessWidget {
         child: Stack(
           children: [
             const Positioned.fill(child: CustomPaint(painter: _TitleBarPainter())),
-            Padding(
-              // Optical center sits slightly below geometric mid (top bevel reads
-              // heavier). Without the 30px brand mark (EQ / PL), condensed caps
-              // sit high in the em-box — use a stronger downward nudge.
-              padding: EdgeInsets.fromLTRB(10, showBrand ? 3 : 5, 9, showBrand ? 1 : 0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: _wrapDrag(
-                      Row(
-                        children: [
-                          if (showBrand) ...[
-                            const _TitleLogo(),
+            // Fill the strip; center like `.tbar { align-items: center }`.
+            // A loose Stack child sizes the Row to logo/buttons and pins top.
+            Positioned.fill(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 0, 9, 0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: _wrapDrag(
+                        Row(
+                          children: [
+                            if (showBrand) ...[
+                              const _TitleLogo(),
+                              const SizedBox(width: 12),
+                              _Wordmark(
+                                size: wordmarkSize,
+                                showVersion: showVersion,
+                              ),
+                              const SizedBox(width: 12),
+                            ],
+                            const Expanded(child: _Grip()),
                             const SizedBox(width: 12),
-                            _Wordmark(
-                              size: wordmarkSize,
-                              showVersion: showVersion,
+                            Text(
+                              windowName.toUpperCase(),
+                              style: _windowNameStyle,
                             ),
                             const SizedBox(width: 12),
+                            const Expanded(child: _Grip()),
                           ],
-                          const Expanded(child: _Grip()),
-                          const SizedBox(width: 12),
-                          Text(
-                            windowName.toUpperCase(),
-                            style: _windowNameStyle,
-                          ),
-                          const SizedBox(width: 12),
-                          const Expanded(child: _Grip()),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  _WindowButtons(
-                    showZoom: showZoom,
-                    onMinimize: onMinimize,
-                    onCollapse: onCollapse,
-                    onZoomOut: onZoomOut,
-                    onZoomIn: onZoomIn,
-                    onClose: onClose,
-                  ),
-                ],
+                    const SizedBox(width: 12),
+                    _WindowButtons(
+                      showZoom: showZoom,
+                      onMinimize: onMinimize,
+                      onCollapse: onCollapse,
+                      onZoomOut: onZoomOut,
+                      onZoomIn: onZoomIn,
+                      onClose: onClose,
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
