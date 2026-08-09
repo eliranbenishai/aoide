@@ -10,6 +10,10 @@ abstract final class TrampMetrics {
   static const equalizer = Size(825, 348);
   static const playlistDefault = Size(825, 696);
 
+  /// Narrowest playlist window that still fits the footer chrome (buttons +
+  /// TOTAL) without horizontal overflow. Spacing may collapse; controls do not.
+  static const playlistMin = Size(640, 280);
+
   /// Black gutter between stacked panels (legacy single-window chrome).
   static const gutter = 6.0;
 

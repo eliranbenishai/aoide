@@ -400,8 +400,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   }
 
   Future<void> _handlePlaylistResize(double width, double height) async {
-    final w = width.clamp(400.0, 4000.0);
-    final h = height.clamp(200.0, 4000.0);
+    final w = width.clamp(TrampMetrics.playlistMin.width, 4000.0);
+    final h = height.clamp(TrampMetrics.playlistMin.height, 4000.0);
     final current = _docking.layout.playlist;
     final logicalH = current.shaded
         ? (current.height ?? TrampMetrics.playlistDefault.height)

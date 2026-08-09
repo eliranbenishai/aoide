@@ -109,6 +109,18 @@ void main() {
     expect(find.textContaining('Alpha'), findsOneWidget);
   });
 
+  testWidgets('narrow window does not overflow the footer strip', (tester) async {
+    final commands = <SessionCommand>[];
+    await pumpPl(
+      tester,
+      commands: commands,
+      size: TrampMetrics.playlistMin,
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('TOTAL'), findsOneWidget);
+  });
+
   testWidgets('row tap selects and emits select op', (tester) async {
     final commands = <SessionCommand>[];
     await pumpPl(tester, commands: commands);

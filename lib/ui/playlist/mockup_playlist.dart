@@ -569,7 +569,11 @@ class _PlaylistFooter extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Expanded(child: MockupRail(height: 52)),
+                    // minWidth 0 so the rail can fully collapse before TOTAL
+                    // / buttons are forced into overflow.
+                    const Expanded(
+                      child: MockupRail(height: 52, minWidth: 0),
+                    ),
                     const SizedBox(width: 8),
                     MockupButton(
                       key: const Key('pl-prev'),

@@ -102,7 +102,10 @@ class _SessionClientAppState extends State<SessionClientApp>
     await windowManager.setResizable(widget.role == WindowRole.playlist);
     if (widget.role == WindowRole.playlist) {
       final zoom = _zoomPercent / 100.0;
-      await windowManager.setMinimumSize(Size(400 * zoom, 200 * zoom));
+      await windowManager.setMinimumSize(Size(
+        TrampMetrics.playlistMin.width * zoom,
+        TrampMetrics.playlistMin.height * zoom,
+      ));
     }
   }
 
@@ -215,7 +218,10 @@ class _SessionClientAppState extends State<SessionClientApp>
     try {
       if (widget.role == WindowRole.playlist) {
         final zoom = _zoomPercent / 100.0;
-        await windowManager.setMinimumSize(Size(400 * zoom, 200 * zoom));
+        await windowManager.setMinimumSize(Size(
+          TrampMetrics.playlistMin.width * zoom,
+          TrampMetrics.playlistMin.height * zoom,
+        ));
         await windowManager.setResizable(!_plShaded);
       } else {
         await windowManager.setMinimumSize(Size(width, height));
