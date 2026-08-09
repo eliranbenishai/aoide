@@ -455,6 +455,7 @@ class _SessionClientAppState extends State<SessionClientApp>
           color: const Color(0x00000000),
           child: ZoomedCanvas(
             factor: zoom,
+            logicalSize: TrampMetrics.equalizer,
             child: EqualizerWindow(
               settings: _eqSettings,
               shaded: _eqShaded,

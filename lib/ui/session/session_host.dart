@@ -906,6 +906,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
               )
             : ZoomedCanvas(
                 factor: zoom,
+                logicalSize: TrampMetrics.mainPlayer,
                 child: MainPlayerWindow(
                   playback: _playback,
                   trackCount: _playlist.playlist.tracks.length,

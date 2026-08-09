@@ -8,17 +8,24 @@ import 'zoom_scope.dart';
 /// by scaling [child] via a uniform [Transform.scale] (never anisotropic
 /// stretch), and exposes the factor through [ZoomScope] for hairline snapping.
 ///
-/// Free-resize surfaces (playlist) pass a child sized to
-/// `constraints / factor` so only spacing grows — proportions stay zoom-owned.
+/// - **Fixed panels** (main / EQ): pass [logicalSize] so the child is always
+///   the authored canvas. Sub-pixel OS window rounding is clipped — it must
+///   not shrink the logical layout (that causes RenderFlex overflow).
+/// - **Free-resize** (playlist): omit [logicalSize]; the logical canvas is
+///   `constraints / factor` so only spacing grows with the window.
 class ZoomedCanvas extends StatelessWidget {
   const ZoomedCanvas({
     super.key,
     required this.factor,
     required this.child,
+    this.logicalSize,
   });
 
   final double factor;
   final Widget child;
+
+  /// Authored canvas size for zoom-only windows. Null = free-resize mode.
+  final Size? logicalSize;
 
   @override
   Widget build(BuildContext context) {
@@ -33,8 +40,7 @@ class ZoomedCanvas extends StatelessWidget {
           if (!maxW.isFinite || !maxH.isFinite || factor <= 0) {
             return child;
           }
-          final logicalW = maxW / factor;
-          final logicalH = maxH / factor;
+          final logical = logicalSize ?? Size(maxW / factor, maxH / factor);
           return SizedBox(
             width: maxW,
             height: maxH,
@@ -44,13 +50,13 @@ class ZoomedCanvas extends StatelessWidget {
                 alignment: Alignment.topLeft,
                 child: OverflowBox(
                   alignment: Alignment.topLeft,
-                  minWidth: logicalW,
-                  maxWidth: logicalW,
-                  minHeight: logicalH,
-                  maxHeight: logicalH,
+                  minWidth: logical.width,
+                  maxWidth: logical.width,
+                  minHeight: logical.height,
+                  maxHeight: logical.height,
                   child: SizedBox(
-                    width: logicalW,
-                    height: logicalH,
+                    width: logical.width,
+                    height: logical.height,
                     child: child,
                   ),
                 ),

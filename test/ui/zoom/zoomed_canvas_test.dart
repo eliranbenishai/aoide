@@ -32,8 +32,7 @@ void main() {
     expect(tester.getSize(find.byType(ZoomedCanvas)), surface);
   });
 
-  testWidgets('logical child size tracks surface / factor without stretch',
-      (tester) async {
+  testWidgets('free-resize logical child tracks surface / factor', (tester) async {
     Size? logicalChildSize;
     const surface = Size(900, 600);
     const factor = 1.5;
@@ -61,25 +60,43 @@ void main() {
       ),
     );
 
-    expect(logicalChildSize, Size(surface.width / factor, surface.height / factor));
+    expect(
+      logicalChildSize,
+      Size(surface.width / factor, surface.height / factor),
+    );
+  });
 
-    // Mid-resize: aspect changes; logical canvas follows — uniform scale only.
-    const resized = Size(1200, 500);
-    await tester.binding.setSurfaceSize(resized);
+  testWidgets(
+      'fixed logicalSize keeps authored canvas when the surface rounds short',
+      (tester) async {
+    Size? logicalChildSize;
+    // 75% of 825×348 is 618.75×261; OS-style rounding short by a fraction.
+    const surface = Size(618.5, 260.8);
+    const authored = Size(825, 348);
+    const factor = 0.75;
+    await tester.binding.setSurfaceSize(const Size(640, 280));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     await tester.pumpWidget(
       MaterialApp(
         home: SizedBox(
-          width: resized.width,
-          height: resized.height,
+          width: surface.width,
+          height: surface.height,
           child: ZoomedCanvas(
             factor: factor,
+            logicalSize: authored,
             child: LayoutBuilder(
               builder: (context, constraints) {
                 logicalChildSize = Size(
                   constraints.maxWidth,
                   constraints.maxHeight,
                 );
-                return const ColoredBox(color: Color(0xFF00FF00));
+                // Fixed chrome that must not be asked to lay out under 825×348.
+                return const SizedBox(
+                  width: 825,
+                  height: 348,
+                  child: ColoredBox(color: Color(0xFF00FF00)),
+                );
               },
             ),
           ),
@@ -87,9 +104,7 @@ void main() {
       ),
     );
 
-    expect(
-      logicalChildSize,
-      Size(resized.width / factor, resized.height / factor),
-    );
+    expect(logicalChildSize, authored);
+    expect(tester.takeException(), isNull);
   });
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart' hide RepeatMode;
 import 'package:path/path.dart' as p;
@@ -107,6 +108,7 @@ class _MockupMainPlayerState extends State<MockupMainPlayer> {
       child: ListenableBuilder(
         listenable: playback,
         builder: (context, _) => Stack(
+          clipBehavior: Clip.none,
           children: [
             const Positioned(
               left: 9,
@@ -238,6 +240,8 @@ class _Clutterbar extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
+          // Keep mockup's 5-slot spacing (O A I D V) so O/A/I land on the
+          // same vertical positions as the HTML; D/V slots stay empty.
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -262,6 +266,8 @@ class _Clutterbar extends StatelessWidget {
                 semanticLabel: 'Track info',
                 onTap: onInfo,
               ),
+              const SizedBox(width: 26, height: 20),
+              const SizedBox(width: 26, height: 20),
             ],
           ),
         ),
@@ -303,6 +309,7 @@ class _ClutterGlyph extends StatelessWidget {
                 fontWeight: FontWeight.w700,
                 fontSize: 12,
                 height: 1,
+                decoration: TextDecoration.none,
                 color: lit
                     ? MockupTokens.phos
                     : MockupTokens.phos.withValues(alpha: 0.4),
@@ -366,6 +373,7 @@ class _DisplayWell extends StatelessWidget {
     final subParts = <String>[
       if (track?.album != null && track!.album!.trim().isNotEmpty)
         track.album!.trim(),
+      if (track?.year != null) '${track!.year}',
       if (index != null && trackCount > 0) 'track ${index + 1} of $trackCount',
     ];
 
@@ -415,15 +423,17 @@ class _DisplayWell extends StatelessWidget {
                                   fontSize: 46,
                                   height: 0.9,
                                   letterSpacing: 46 * 0.02,
+                                  decoration: TextDecoration.none,
                                   color: MockupTokens.phos,
                                   shadows: [
+                                    // `.glow` — 0 0 1px / 0 0 12px phosphor
                                     Shadow(
                                       color: Color(0xD93DE7FF),
                                       blurRadius: 1,
                                     ),
                                     Shadow(
                                       color: Color(0x733DE7FF),
-                                      blurRadius: 12,
+                                      blurRadius: 8,
                                     ),
                                   ],
                                 ),
@@ -437,6 +447,7 @@ class _DisplayWell extends StatelessWidget {
                                   fontSize: 12,
                                   height: 1,
                                   letterSpacing: 12 * 0.22,
+                                  decoration: TextDecoration.none,
                                   color: MockupTokens.phos.withValues(alpha: 0.5),
                                   shadows: const [
                                     Shadow(
@@ -479,6 +490,7 @@ class _DisplayWell extends StatelessWidget {
                               fontSize: 14,
                               height: 1.15,
                               letterSpacing: 14 * 0.14,
+                              decoration: TextDecoration.none,
                               color: MockupTokens.phos.withValues(alpha: 0.5),
                               shadows: const [
                                 Shadow(
@@ -504,6 +516,7 @@ class _DisplayWell extends StatelessWidget {
                                 fontSize: 12,
                                 height: 1,
                                 letterSpacing: 12 * 0.2,
+                                decoration: TextDecoration.none,
                                 color: MockupTokens.phos,
                                 shadows: [
                                   Shadow(
@@ -534,37 +547,147 @@ class _DisplayWell extends StatelessWidget {
   }
 }
 
-class _MarqueeTitle extends StatelessWidget {
+class _MarqueeTitle extends StatefulWidget {
   const _MarqueeTitle(this.text);
 
   final String text;
 
   @override
+  State<_MarqueeTitle> createState() => _MarqueeTitleState();
+}
+
+class _MarqueeTitleState extends State<_MarqueeTitle>
+    with SingleTickerProviderStateMixin {
+  static const _style = TextStyle(
+    fontFamily: 'TrampCondensed',
+    fontWeight: FontWeight.w700,
+    fontSize: 24,
+    height: 1.15,
+    letterSpacing: 24 * 0.03,
+    decoration: TextDecoration.none,
+    color: MockupTokens.phosHot,
+    shadows: [
+      Shadow(color: Color(0xE63DE7FF), blurRadius: 1.5),
+      Shadow(color: Color(0x803DE7FF), blurRadius: 10),
+    ],
+  );
+
+  /// Pixels per second for the LTR marquee crawl.
+  static const _speedPxPerSec = 36.0;
+
+  AnimationController? _controller;
+  double _textWidth = 0;
+  double _viewportWidth = 0;
+
+  bool get _overflows =>
+      _viewportWidth > 0 && _textWidth > _viewportWidth + 0.5;
+
+  @override
+  void initState() {
+    super.initState();
+    _measureText();
+  }
+
+  @override
+  void didUpdateWidget(covariant _MarqueeTitle oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text) {
+      _measureText();
+      _restartIfNeeded();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  void _measureText() {
+    final painter = TextPainter(
+      text: TextSpan(text: widget.text, style: _style),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    _textWidth = painter.width;
+  }
+
+  void _restartIfNeeded() {
+    _controller?.stop();
+    _controller?.dispose();
+    _controller = null;
+    if (!_overflows) {
+      if (mounted) setState(() {});
+      return;
+    }
+    final travel = _textWidth - _viewportWidth;
+    final seconds = (travel / _speedPxPerSec).clamp(1.5, 20.0);
+    _controller = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: (seconds * 1000).round()),
+    )..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          // Snap back to the start, then crawl again (always L→R reveal).
+          _controller!.forward(from: 0);
+        }
+      });
+    _controller!.forward();
+    if (mounted) setState(() {});
+  }
+
+  Widget _titleText() {
+    return Text(
+      widget.text,
+      maxLines: 1,
+      softWrap: false,
+      overflow: TextOverflow.visible,
+      style: _style,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ShaderMask(
-      blendMode: BlendMode.dstIn,
-      shaderCallback: (bounds) => const LinearGradient(
-        colors: [Color(0xFF000000), Color(0xFF000000), Color(0x00000000)],
-        stops: [0, 0.84, 1],
-      ).createShader(bounds),
-      child: Text(
-        text,
-        maxLines: 1,
-        softWrap: false,
-        overflow: TextOverflow.visible,
-        style: const TextStyle(
-          fontFamily: 'TrampCondensed',
-          fontWeight: FontWeight.w700,
-          fontSize: 24,
-          height: 1.15,
-          letterSpacing: 24 * 0.03,
-          color: MockupTokens.phosHot,
-          shadows: [
-            Shadow(color: Color(0xE63DE7FF), blurRadius: 2),
-            Shadow(color: Color(0x803DE7FF), blurRadius: 16),
-          ],
-        ),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxW = constraints.maxWidth;
+        if ((maxW - _viewportWidth).abs() > 0.5) {
+          _viewportWidth = maxW;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _restartIfNeeded();
+          });
+        }
+
+        if (!_overflows) {
+          return _titleText();
+        }
+
+        final travel = _textWidth - _viewportWidth;
+        final animation = _controller;
+        Widget content = _titleText();
+        if (animation != null) {
+          content = AnimatedBuilder(
+            animation: animation,
+            builder: (context, child) {
+              return Transform.translate(
+                offset: Offset(-travel * animation.value, 0),
+                child: child,
+              );
+            },
+            child: content,
+          );
+        }
+
+        return ClipRect(
+          child: ShaderMask(
+            blendMode: BlendMode.dstIn,
+            shaderCallback: (bounds) => const LinearGradient(
+              colors: [Color(0xFF000000), Color(0xFF000000), Color(0x00000000)],
+              stops: [0, 0.84, 1],
+            ).createShader(bounds),
+            child: content,
+          ),
+        );
+      },
     );
   }
 }
@@ -584,6 +707,7 @@ class _MetaDim extends StatelessWidget {
         fontSize: 13,
         height: 1,
         letterSpacing: 13 * 0.04,
+        decoration: TextDecoration.none,
         color: MockupTokens.phos.withValues(alpha: 0.5),
         shadows: const [
           Shadow(color: Color(0x403DE7FF), blurRadius: 8),
@@ -631,6 +755,7 @@ class _FormatChip extends StatelessWidget {
           fontSize: 12,
           height: 1,
           letterSpacing: 12 * 0.18,
+          decoration: TextDecoration.none,
           color: Color(0xFF2B0616),
         ),
       ),
@@ -763,8 +888,8 @@ class _MockupSpectrumPainter extends CustomPainter {
         canvas.drawRect(
           barRect,
           Paint()
-            ..color = const Color(0x663DE7FF)
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.5),
+            ..color = const Color(0x4D3DE7FF)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5),
         );
       }
       if (peakH > 2) {
@@ -834,6 +959,7 @@ class _VolumeRow extends StatelessWidget {
                   fontSize: 11,
                   height: 1,
                   letterSpacing: 11 * 0.2,
+                  decoration: TextDecoration.none,
                   color: MockupTokens.inkFaint,
                   shadows: [
                     Shadow(offset: Offset(0, 1), color: Color(0xB3000000)),
@@ -935,6 +1061,7 @@ class _Stamp extends StatelessWidget {
         fontWeight: FontWeight.w500,
         fontSize: 14,
         height: 1,
+        decoration: TextDecoration.none,
         color: MockupTokens.inkDim,
       ),
     );
@@ -974,10 +1101,8 @@ class _TransportRow extends StatelessWidget {
           semanticLabel: 'Play',
           width: 78,
           onPressed: canTransport ? onPlay : null,
-          child: MockupIcons.play(
-            color: const Color(0xFFB8F6FF),
-            size: 22,
-          ),
+          // `.btn--play` — phosphor-hot glyph + CSS drop-shadow glow.
+          child: _PlayGlyph(),
         ),
         const SizedBox(width: 6),
         _TransportBtn(
@@ -1009,7 +1134,7 @@ class _TransportRow extends StatelessWidget {
           child: MockupIcons.eject(),
         ),
         const SizedBox(width: 12),
-        const Expanded(child: MockupRail()),
+        const Expanded(child: MockupRail(minWidth: 0)),
         const SizedBox(width: 12),
         _ToggleBtn(
           buttonKey: const Key('player-shuffle'),
@@ -1091,11 +1216,46 @@ class _ToggleBtn extends StatelessWidget {
               fontSize: 13,
               height: 1,
               letterSpacing: 13 * 0.16,
+              decoration: TextDecoration.none,
               color: Color(0xB8C4D2E8),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Play triangle with mockup `.btn--play` drop-shadow glow.
+class _PlayGlyph extends StatelessWidget {
+  const _PlayGlyph();
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = MockupIcons.play(
+      color: const Color(0xFFB8F6FF),
+      size: 22,
+    );
+    return Stack(
+      alignment: Alignment.center,
+      clipBehavior: Clip.none,
+      children: [
+        // CSS: filter: drop-shadow(0 0 8px rgba(61, 231, 255, 0.7))
+        ImageFiltered(
+          imageFilter: ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+          child: Opacity(
+            opacity: 0.55,
+            child: ColorFiltered(
+              colorFilter: const ColorFilter.mode(
+                Color(0xFF3DE7FF),
+                BlendMode.srcATop,
+              ),
+              child: icon,
+            ),
+          ),
+        ),
+        icon,
+      ],
     );
   }
 }
