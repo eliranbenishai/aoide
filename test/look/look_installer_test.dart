@@ -187,5 +187,36 @@ void main() {
         isTrue,
       );
     });
+
+    test('zip with ../ escape does not write outside temp and fails', () async {
+      final lookJson = utf8.encode(jsonEncode(manifest()));
+      final markerName =
+          'tramp-zip-slip-${DateTime.now().microsecondsSinceEpoch}.txt';
+      final marker = File(p.join(Directory.systemTemp.path, markerName));
+      addTearDown(() {
+        if (marker.existsSync()) marker.deleteSync();
+      });
+
+      final zipFile = await createZip([
+        MapEntry('look.json', lookJson),
+        MapEntry('../$markerName', utf8.encode('pwned')),
+      ]);
+
+      await expectLater(
+        installer().installZip(zipFile),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            contains('escapes pack root'),
+          ),
+        ),
+      );
+      expect(marker.existsSync(), isFalse);
+      expect(
+        Directory(p.join(looksDir.path, 'neon-cyan')).existsSync(),
+        isFalse,
+      );
+    });
   });
 }

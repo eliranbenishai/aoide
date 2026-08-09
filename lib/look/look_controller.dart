@@ -89,32 +89,46 @@ class LookController extends ChangeNotifier {
     File zip, {
     required Future<LookConflictChoice> Function(LookConflict) onConflict,
   }) async {
-    final installer = LookInstaller(
-      looksDir: looksDirectory,
-      onConflict: onConflict,
-    );
-    final ok = await installer.installZip(zip);
-    if (ok) {
-      await _rescan();
+    try {
+      final installer = LookInstaller(
+        looksDir: looksDirectory,
+        onConflict: onConflict,
+      );
+      final ok = await installer.installZip(zip);
+      if (ok) {
+        await _rescan();
+        _lastError = null;
+        notifyListeners();
+      }
+      return ok;
+    } catch (e) {
+      _lastError = _shortError(e);
       notifyListeners();
+      return false;
     }
-    return ok;
   }
 
   Future<bool> installDirectory(
     Directory dir, {
     required Future<LookConflictChoice> Function(LookConflict) onConflict,
   }) async {
-    final installer = LookInstaller(
-      looksDir: looksDirectory,
-      onConflict: onConflict,
-    );
-    final ok = await installer.installDirectory(dir);
-    if (ok) {
-      await _rescan();
+    try {
+      final installer = LookInstaller(
+        looksDir: looksDirectory,
+        onConflict: onConflict,
+      );
+      final ok = await installer.installDirectory(dir);
+      if (ok) {
+        await _rescan();
+        _lastError = null;
+        notifyListeners();
+      }
+      return ok;
+    } catch (e) {
+      _lastError = _shortError(e);
       notifyListeners();
+      return false;
     }
-    return ok;
   }
 
   Future<void> _activateInternal(String id) async {
@@ -128,9 +142,26 @@ class LookController extends ChangeNotifier {
       await _persistSettings();
       notifyListeners();
     } catch (e) {
-      _lastError = e.toString();
+      _lastError = _shortError(e);
       notifyListeners();
     }
+  }
+
+  String _shortError(Object e) {
+    if (e is FormatException) {
+      final message = e.message;
+      return message.length > 160 ? '${message.substring(0, 157)}...' : message;
+    }
+    if (e is FileSystemException) {
+      final message = e.message;
+      if (message.isNotEmpty) {
+        return message.length > 160
+            ? '${message.substring(0, 157)}...'
+            : message;
+      }
+    }
+    final text = e.toString();
+    return text.length > 160 ? '${text.substring(0, 157)}...' : text;
   }
 
   Future<(ResolvedLook, Map<String, String>)> _resolveWithFonts(
@@ -149,7 +180,14 @@ class LookController extends ChangeNotifier {
       final (manifest, fileRel, weight) = nearest;
       if (manifest.id == 'builtin') continue;
 
-      final file = File(p.join(_looksDirectory!.path, manifest.id, fileRel));
+      final packRoot = p.canonicalize(
+        p.join(_looksDirectory!.path, manifest.id),
+      );
+      final file = File(p.normalize(p.join(packRoot, fileRel)));
+      final canonicalFile = p.canonicalize(file.path);
+      if (!p.isWithin(packRoot, canonicalFile)) {
+        throw FormatException('font file escapes pack root: $fileRel');
+      }
       if (!await file.exists()) {
         throw FileSystemException('font file missing', file.path);
       }

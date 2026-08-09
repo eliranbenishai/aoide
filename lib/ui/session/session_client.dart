@@ -61,6 +61,7 @@ class _SessionClientAppState extends State<SessionClientApp>
 
   late final PlaylistController _playlist;
   ResolvedLook _look = BuiltinLook.resolved;
+  int _lookApplyGeneration = 0;
   bool _plShaded = false;
   int? _playingIndex;
   bool _playing = false;
@@ -213,6 +214,7 @@ class _SessionClientAppState extends State<SessionClientApp>
   }
 
   Future<void> _applyLookSnapshot(LookSnapshotEvent event) async {
+    final generation = ++_lookApplyGeneration;
     final files = event.fontFiles;
     if (files != null && files.isNotEmpty && event.id != 'builtin') {
       for (final entry in files.entries) {
@@ -232,7 +234,7 @@ class _SessionClientAppState extends State<SessionClientApp>
         }
       }
     }
-    if (!mounted) return;
+    if (!mounted || generation != _lookApplyGeneration) return;
     setState(() {
       _lastEventType = event.type;
       _look = event.toResolved();

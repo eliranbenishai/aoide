@@ -124,6 +124,7 @@ class LookInstaller {
     Directory targetDir,
   ) async {
     await targetDir.create(recursive: true);
+    final targetRoot = p.canonicalize(targetDir.path);
 
     for (final file in archive.files) {
       if (!file.isFile) continue;
@@ -134,10 +135,13 @@ class LookInstaller {
       final relative = normalizedName.substring(prefix.length);
       if (relative.isEmpty) continue;
 
-      final outPath = p.join(
-        targetDir.path,
-        relative.replaceAll('/', Platform.pathSeparator),
-      );
+      final safeRelative = _safeZipRelativePath(relative);
+      final outPath = p.join(targetDir.path, safeRelative);
+      final canonicalOut = p.canonicalize(outPath);
+      if (!p.isWithin(targetRoot, canonicalOut)) {
+        throw FormatException('zip entry escapes pack root: $relative');
+      }
+
       await Directory(p.dirname(outPath)).create(recursive: true);
       final outFile = File(outPath);
       final sink = outFile.openWrite();
@@ -147,6 +151,32 @@ class LookInstaller {
         await sink.close();
       }
     }
+  }
+
+  /// Normalizes a zip entry path relative to the pack root and rejects escapes.
+  String _safeZipRelativePath(String relative) {
+    final normalized = relative.replaceAll('\\', '/');
+    if (normalized.isEmpty) {
+      throw const FormatException('zip entry has empty path');
+    }
+    if (p.isAbsolute(normalized) ||
+        normalized.startsWith('/') ||
+        RegExp(r'^[a-zA-Z]:').hasMatch(normalized)) {
+      throw FormatException('zip entry is absolute: $relative');
+    }
+
+    final segments = <String>[];
+    for (final segment in normalized.split('/')) {
+      if (segment.isEmpty || segment == '.') continue;
+      if (segment == '..') {
+        throw FormatException('zip entry escapes pack root: $relative');
+      }
+      segments.add(segment);
+    }
+    if (segments.isEmpty) {
+      throw FormatException('zip entry has empty path: $relative');
+    }
+    return p.joinAll(segments);
   }
 
   Future<void> _copyPack(Directory source, Directory targetDir) async {

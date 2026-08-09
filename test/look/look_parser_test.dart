@@ -42,4 +42,46 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('rejects absolute font file paths', () {
+    expect(
+      () => LookParser.parse({
+        'formatVersion': 1,
+        'id': 'neon-cyan',
+        'name': 'X',
+        'extends': 'builtin',
+        'fonts': {
+          'lcd': {'file': '/tmp/evil.ttf'},
+        },
+      }),
+      throwsA(
+        isA<FormatException>().having(
+          (e) => e.message,
+          'message',
+          contains('absolute'),
+        ),
+      ),
+    );
+  });
+
+  test('rejects font file paths with .. segments', () {
+    expect(
+      () => LookParser.parse({
+        'formatVersion': 1,
+        'id': 'neon-cyan',
+        'name': 'X',
+        'extends': 'builtin',
+        'fonts': {
+          'lcd': {'file': 'fonts/../../evil.ttf'},
+        },
+      }),
+      throwsA(
+        isA<FormatException>().having(
+          (e) => e.message,
+          'message',
+          contains('..'),
+        ),
+      ),
+    );
+  });
 }

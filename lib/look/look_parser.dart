@@ -1,3 +1,5 @@
+import 'package:path/path.dart' as p;
+
 import 'look_id.dart';
 import 'look_manifest.dart';
 
@@ -230,6 +232,17 @@ class LookParser {
   static String _parseFontFile(Object? value, String path) {
     if (value is! String || !_fontFilePattern.hasMatch(value)) {
       throw FormatException('$path must be a pack-relative .ttf or .otf path');
+    }
+    final normalized = value.replaceAll('\\', '/');
+    if (p.isAbsolute(normalized) ||
+        normalized.startsWith('/') ||
+        RegExp(r'^[a-zA-Z]:').hasMatch(normalized)) {
+      throw FormatException('$path must not be an absolute path');
+    }
+    for (final segment in normalized.split('/')) {
+      if (segment == '..') {
+        throw FormatException('$path must not contain .. segments');
+      }
     }
     return value;
   }

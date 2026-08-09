@@ -148,4 +148,34 @@ void main() {
     expect(fontLoads.single.bytes, [1, 2, 3, 4]);
     expect(store.stored.activeLookId, 'neon-cyan');
   });
+
+  test('activate with missing font sets lastError and keeps previous look',
+      () async {
+    final packDir = Directory(p.join(looksDir.path, 'broken-font'));
+    await packDir.create(recursive: true);
+    await File(p.join(packDir.path, 'look.json')).writeAsString('''
+{
+  "formatVersion": 1,
+  "id": "broken-font",
+  "name": "Broken Font",
+  "extends": "builtin",
+  "fonts": {
+    "lcd": { "file": "fonts/missing.ttf", "weight": 500 }
+  }
+}
+''');
+
+    final c = controller();
+    await c.bootstrap(
+      settings: TrampSettings.defaults,
+      supportDir: supportDirFn,
+    );
+    expect(c.activeLookId, 'builtin');
+
+    await c.activate('broken-font');
+
+    expect(c.activeLookId, 'builtin');
+    expect(c.lastError, isNotNull);
+    expect(c.lastError, contains('font file missing'));
+  });
 }

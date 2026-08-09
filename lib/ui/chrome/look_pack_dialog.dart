@@ -115,25 +115,37 @@ class LookPackDialog extends StatelessWidget {
   Future<void> _installZip(BuildContext context) async {
     final path = await (pickZipPath ?? _defaultPickZip)();
     if (path == null || !context.mounted) return;
-    await controller.installZip(
-      File(path),
-      onConflict: (conflict) => showLookConflictDialog(context, conflict),
-    );
+    try {
+      await controller.installZip(
+        File(path),
+        onConflict: (conflict) => showLookConflictDialog(context, conflict),
+      );
+    } catch (_) {
+      // LookController sets lastError; ListenableBuilder rebuilds the dialog.
+    }
   }
 
   Future<void> _installDirectory(BuildContext context) async {
     final path = await (pickDirectoryPath ?? _defaultPickDirectory)();
     if (path == null || !context.mounted) return;
-    await controller.installDirectory(
-      Directory(path),
-      onConflict: (conflict) => showLookConflictDialog(context, conflict),
-    );
+    try {
+      await controller.installDirectory(
+        Directory(path),
+        onConflict: (conflict) => showLookConflictDialog(context, conflict),
+      );
+    } catch (_) {
+      // LookController sets lastError; ListenableBuilder rebuilds the dialog.
+    }
   }
 
   Future<void> _setLooksFolder(BuildContext context) async {
     final path = await (pickLooksDirectoryPath ?? _defaultPickLooksDirectory)();
     if (path == null) return;
-    await controller.setLooksDirectory(path);
+    try {
+      await controller.setLooksDirectory(path);
+    } catch (_) {
+      // LookController sets lastError when activation after rescan fails.
+    }
   }
 
   @override
@@ -163,6 +175,7 @@ class LookPackDialog extends StatelessWidget {
           builder: (context, _) {
             final looks = controller.installed;
             final activeId = controller.activeLookId;
+            final error = controller.lastError;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -179,6 +192,18 @@ class LookPackDialog extends StatelessWidget {
                     },
                   ),
                 ),
+                if (error != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    key: const Key('look-pack-error'),
+                    error,
+                    style: TrampText.lcd(look).copyWith(
+                      fontSize: 10,
+                      color: palette.accentDefault,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,

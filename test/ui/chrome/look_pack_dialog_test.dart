@@ -28,6 +28,21 @@ class MemorySettingsStore implements SettingsStore {
   }
 }
 
+/// Test seam: forces [lastError] for dialog rendering without activate I/O.
+class FakeErrorLookController extends LookController {
+  FakeErrorLookController({
+    required super.settingsStore,
+    required super.supportDir,
+    super.fontLoader,
+    this.forcedError,
+  });
+
+  final String? forcedError;
+
+  @override
+  String? get lastError => forcedError ?? super.lastError;
+}
+
 void main() {
   late Directory supportDir;
   late Directory looksDir;
@@ -117,6 +132,36 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(controller.activeLookId, 'neon-cyan');
+  });
+
+  testWidgets('shows lastError after activate failure', (tester) async {
+    final errorController = FakeErrorLookController(
+      settingsStore: MemorySettingsStore(),
+      supportDir: () async => supportDir,
+      fontLoader: LookFontLoader(
+        load: ({
+          required String family,
+          required Uint8List bytes,
+          required int weight,
+        }) async {},
+      ),
+      forcedError: 'font file missing',
+    );
+    addTearDown(errorController.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) =>
+            wrapWithLook(child ?? const SizedBox.shrink()),
+        home: Scaffold(
+          body: LookPackDialog(controller: errorController),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const Key('look-pack-error')), findsOneWidget);
+    expect(find.text('font file missing'), findsOneWidget);
   });
 
   testWidgets('conflict dialog offers Replace and Cancel', (tester) async {
