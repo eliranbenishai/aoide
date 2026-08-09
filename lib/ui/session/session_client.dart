@@ -87,6 +87,9 @@ class _SessionClientAppState extends State<SessionClientApp>
       WindowRole.playlist => 'Tramp — Playlist',
       WindowRole.main => 'Tramp',
     };
+    // waitUntilReadyToShow CoCreateInstances ITaskbarList; setSkipTaskbar
+    // null-derefs without it (native crash → "Lost connection to device").
+    await windowManager.waitUntilReadyToShow();
     await windowManager.setTitle(title);
     await windowManager.setAsFrameless();
     // Secondaries must not appear as separate Windows taskbar buttons.
