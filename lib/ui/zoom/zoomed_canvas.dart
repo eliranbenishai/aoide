@@ -13,6 +13,10 @@ import 'zoom_scope.dart';
 ///   not shrink the logical layout (that causes RenderFlex overflow).
 /// - **Free-resize** (playlist): omit [logicalSize]; the logical canvas is
 ///   `constraints / factor` so only spacing grows with the window.
+///
+/// Hit-testing: [OverflowBox] must wrap [Transform.scale], not the reverse.
+/// With `factor < 1`, inverse-scaled pointer coords exceed the window-sized
+/// box; if that box is the hit-test boundary, bottom/right controls go dead.
 class ZoomedCanvas extends StatelessWidget {
   const ZoomedCanvas({
     super.key,
@@ -45,15 +49,15 @@ class ZoomedCanvas extends StatelessWidget {
             width: maxW,
             height: maxH,
             child: ClipRect(
-              child: Transform.scale(
-                scale: factor,
+              child: OverflowBox(
                 alignment: Alignment.topLeft,
-                child: OverflowBox(
+                minWidth: logical.width,
+                maxWidth: logical.width,
+                minHeight: logical.height,
+                maxHeight: logical.height,
+                child: Transform.scale(
+                  scale: factor,
                   alignment: Alignment.topLeft,
-                  minWidth: logical.width,
-                  maxWidth: logical.width,
-                  minHeight: logical.height,
-                  maxHeight: logical.height,
                   child: SizedBox(
                     width: logical.width,
                     height: logical.height,

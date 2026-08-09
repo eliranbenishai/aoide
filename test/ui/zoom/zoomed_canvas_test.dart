@@ -107,4 +107,107 @@ void main() {
     expect(logicalChildSize, authored);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'hit tests reach bottom-right controls when factor < 1',
+    (tester) async {
+      var taps = 0;
+      // Default app zoom is 75%: window = logical × 0.75.
+      const factor = 0.75;
+      const logical = Size(825, 348);
+      final surface = Size(logical.width * factor, logical.height * factor);
+      await tester.binding.setSurfaceSize(surface);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SizedBox(
+            width: surface.width,
+            height: surface.height,
+            child: ZoomedCanvas(
+              factor: factor,
+              logicalSize: logical,
+              child: SizedBox(
+                width: logical.width,
+                height: logical.height,
+                child: Stack(
+                  children: [
+                    Positioned(
+                      right: 20,
+                      bottom: 20,
+                      child: GestureDetector(
+                        key: const Key('br-btn'),
+                        onTap: () => taps++,
+                        child: const SizedBox(
+                          width: 66,
+                          height: 50,
+                          child: ColoredBox(color: Color(0xFF00FF00)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('br-btn')));
+      await tester.pump();
+      expect(taps, 1);
+    },
+  );
+
+  testWidgets(
+    'free-resize hit tests reach bottom-right when factor < 1',
+    (tester) async {
+      var taps = 0;
+      const factor = 0.75;
+      const surface = Size(600, 400);
+      await tester.binding.setSurfaceSize(surface);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SizedBox(
+            width: surface.width,
+            height: surface.height,
+            child: ZoomedCanvas(
+              factor: factor,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SizedBox(
+                    width: constraints.maxWidth,
+                    height: constraints.maxHeight,
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          right: 12,
+                          bottom: 12,
+                          child: GestureDetector(
+                            key: const Key('pl-br-btn'),
+                            onTap: () => taps++,
+                            child: const SizedBox(
+                              width: 52,
+                              height: 52,
+                              child: ColoredBox(color: Color(0xFF00FF00)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('pl-br-btn')));
+      await tester.pump();
+      expect(taps, 1);
+    },
+  );
 }

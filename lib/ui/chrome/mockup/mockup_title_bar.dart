@@ -69,8 +69,9 @@ class MockupTitleBar extends StatelessWidget {
             const Positioned.fill(child: CustomPaint(painter: _TitleBarPainter())),
             Padding(
               // Optical center sits slightly below geometric mid (top bevel reads
-              // heavier); nudge content down to match mockup `.tbar` alignment.
-              padding: const EdgeInsets.fromLTRB(10, 3, 9, 1),
+              // heavier). Without the 30px brand mark (EQ / PL), condensed caps
+              // sit high in the em-box — use a stronger downward nudge.
+              padding: EdgeInsets.fromLTRB(10, showBrand ? 3 : 5, 9, showBrand ? 1 : 0),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
