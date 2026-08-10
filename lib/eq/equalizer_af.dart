@@ -2,31 +2,27 @@ import '../domain/equalizer_settings.dart';
 
 /// Builds an mpv `af` property value for [settings].
 ///
-/// Returns an empty string when EQ is off (or on but fully flat with zero
-/// preamp) so the host clears the filter graph. When active, returns a
-/// `lavfi=[...]` chain: optional preamp `volume` plus peaking `equalizer`
-/// stages at the Winamp band centres (1-octave width).
+/// Returns an empty string when EQ is off so the host clears the filter graph.
+/// When enabled, always emits a **stable** lavfi chain: preamp `volume` plus
+/// all ten peaking `equalizer` stages (including 0 dB bands). A fixed topology
+/// avoids tearing the graph down/up on every fader tick (audio dropouts).
 String buildEqualizerAf(EqualizerSettings settings) {
   if (!settings.enabled) return '';
 
-  final stages = <String>[];
-  if (settings.preamp != 0) {
-    stages.add('volume=${_formatDb(settings.preamp)}dB');
-  }
+  final stages = <String>[
+    'volume=${_formatDb(settings.preamp)}dB',
+  ];
 
   final gains = settings.gains;
   final freqs = EqualizerSettings.bandFrequencies;
   final count =
       gains.length < freqs.length ? gains.length : freqs.length;
   for (var i = 0; i < count; i++) {
-    final gain = gains[i];
-    if (gain == 0) continue;
     stages.add(
-      'equalizer=f=${freqs[i]}:t=o:w=1:g=${_formatDb(gain)}',
+      'equalizer=f=${freqs[i]}:t=o:w=1:g=${_formatDb(gains[i])}',
     );
   }
 
-  if (stages.isEmpty) return '';
   return 'lavfi=[${stages.join(',')}]';
 }
 

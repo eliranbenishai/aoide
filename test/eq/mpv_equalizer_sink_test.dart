@@ -18,56 +18,53 @@ void main() {
     );
   });
 
-  test('enabled flat curve with zero preamp clears af', () {
-    expect(
-      buildEqualizerAf(
-        EqualizerSettings.flat.copyWith(enabled: true),
-      ),
-      isEmpty,
+  test('enabled flat curve keeps a stable full lavfi chain', () {
+    final af = buildEqualizerAf(
+      EqualizerSettings.flat.copyWith(enabled: true),
     );
+    expect(af, startsWith('lavfi=[volume=0dB,'));
+    expect(af, contains('equalizer=f=60:t=o:w=1:g=0'));
+    expect(af, contains('equalizer=f=16000:t=o:w=1:g=0'));
+    // Ten bands + volume.
+    expect('equalizer='.allMatches(af).length, 10);
   });
 
-  test('preamp alone becomes a volume stage', () {
-    expect(
-      buildEqualizerAf(
-        const EqualizerSettings(
-          enabled: true,
-          auto: false,
-          preamp: 3,
-          gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        ),
+  test('preamp is always the volume stage when enabled', () {
+    final af = buildEqualizerAf(
+      const EqualizerSettings(
+        enabled: true,
+        auto: false,
+        preamp: 3,
+        gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       ),
-      'lavfi=[volume=3dB]',
     );
+    expect(af, startsWith('lavfi=[volume=3dB,'));
   });
 
-  test('single boosted band uses octave peaking equalizer', () {
-    expect(
-      buildEqualizerAf(
-        const EqualizerSettings(
-          enabled: true,
-          auto: false,
-          preamp: 0,
-          gains: [0, 0, 0, 0, 12, 0, 0, 0, 0, 0],
-        ),
+  test('boosted band updates gain in the stable chain', () {
+    final af = buildEqualizerAf(
+      const EqualizerSettings(
+        enabled: true,
+        auto: false,
+        preamp: 0,
+        gains: [0, 0, 0, 0, 12, 0, 0, 0, 0, 0],
       ),
-      'lavfi=[equalizer=f=1000:t=o:w=1:g=12]',
     );
+    expect(af, contains('equalizer=f=1000:t=o:w=1:g=12'));
   });
 
-  test('preamp and multiple bands join in lavfi chain order', () {
-    expect(
-      buildEqualizerAf(
-        const EqualizerSettings(
-          enabled: true,
-          auto: false,
-          preamp: -2.5,
-          gains: [5, 0, 0, 0, 0, 0, 0, 0, 0, -3],
-        ),
+  test('preamp and band gains appear in lavfi chain order', () {
+    final af = buildEqualizerAf(
+      const EqualizerSettings(
+        enabled: true,
+        auto: false,
+        preamp: -2.5,
+        gains: [5, 0, 0, 0, 0, 0, 0, 0, 0, -3],
       ),
-      'lavfi=[volume=-2.5dB,equalizer=f=60:t=o:w=1:g=5,'
-      'equalizer=f=16000:t=o:w=1:g=-3]',
     );
+    expect(af, startsWith('lavfi=[volume=-2.5dB,'));
+    expect(af, contains('equalizer=f=60:t=o:w=1:g=5'));
+    expect(af, contains('equalizer=f=16000:t=o:w=1:g=-3'));
   });
 
   test('band centres match EqualizerSettings.bandFrequencies', () {

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
 import '../../../look/look_materials.dart';
 import '../../../look/look_palette.dart';
@@ -28,6 +28,22 @@ class MockupShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Material + explicit no-decoration DefaultTextStyle: without a Material
+    // ancestor Flutter paints yellow debug underlines on every Text — that
+    // alone destroyed mockup parity in goldens and the live multi-window UI.
+    final content = DefaultTextStyle(
+      style: const TextStyle(
+        decoration: TextDecoration.none,
+        color: MockupTokens.ink,
+        fontFamily: 'TrampCondensed',
+        fontWeight: FontWeight.w700,
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: child,
+      ),
+    );
+
     return SizedBox(
       width: width,
       child: DecoratedBox(
@@ -63,7 +79,7 @@ class MockupShell extends StatelessWidget {
               Positioned.fill(
                 child: _MockupWinNoise(borderRadius: borderRadius),
               ),
-              child,
+              content,
             ],
           ),
         ),

@@ -44,17 +44,17 @@ class _LedPainter extends CustomPainter {
     if (lit) {
       canvas.drawCircle(
         center,
-        radius + 6,
+        radius + 5,
         Paint()
-          ..color = const Color(0x66FF3D9A)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+          ..color = const Color(0x59FF3D9A)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
       );
       canvas.drawCircle(
         center,
-        radius + 2,
+        radius + 1.5,
         Paint()
-          ..color = const Color(0xD9FF3D9A)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+          ..color = const Color(0xB3FF3D9A)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
       );
       canvas.drawCircle(
         center,

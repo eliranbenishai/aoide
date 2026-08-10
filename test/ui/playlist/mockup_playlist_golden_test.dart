@@ -133,7 +133,8 @@ void main() {
               PlaylistWindow(
                 playlist: _mockupPlaylist(),
                 playingIndex: 2,
-                playing: true,
+                // Mockup transport shows Play (not Pause); row 3 still uses play style.
+                playing: false,
                 draggableTitle: false,
               ),
             ),

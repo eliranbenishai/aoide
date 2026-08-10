@@ -135,7 +135,8 @@ void _renderToWav({
       check(opt('audio-channels', 'mono'), 'audio-channels');
       check(initialize(handle), 'mpv_initialize');
 
-      final load = 'loadfile ${inputPath.replaceAll(r'\', '/')} replace';
+      final load =
+          'loadfile "${inputPath.replaceAll(r'\', '/')}" replace';
       check(command(handle, load.toNativeUtf8(allocator: arena)), 'loadfile');
 
       final deadline = DateTime.now().add(const Duration(seconds: 120));

@@ -6,6 +6,7 @@ class Track {
     this.title,
     this.artist,
     this.album,
+    this.year,
     this.duration,
   });
 
@@ -13,6 +14,7 @@ class Track {
   final String? title;
   final String? artist;
   final String? album;
+  final int? year;
   final Duration? duration;
 
   String get displayTitle =>
@@ -23,6 +25,7 @@ class Track {
     String? title,
     String? artist,
     String? album,
+    int? year,
     Duration? duration,
   }) {
     return Track(
@@ -30,6 +33,7 @@ class Track {
       title: title ?? this.title,
       artist: artist ?? this.artist,
       album: album ?? this.album,
+      year: year ?? this.year,
       duration: duration ?? this.duration,
     );
   }
@@ -39,6 +43,7 @@ class Track {
         'title': title,
         'artist': artist,
         'album': album,
+        'year': year,
         'durationMs': duration?.inMilliseconds,
       };
 
@@ -48,11 +53,13 @@ class Track {
       throw const FormatException('Track.path');
     }
     final ms = json['durationMs'];
+    final yearRaw = json['year'];
     return Track(
       path: path,
       title: json['title'] as String?,
       artist: json['artist'] as String?,
       album: json['album'] as String?,
+      year: yearRaw is num ? yearRaw.toInt() : null,
       duration: ms is num ? Duration(milliseconds: ms.toInt()) : null,
     );
   }
@@ -64,8 +71,9 @@ class Track {
       other.title == title &&
       other.artist == artist &&
       other.album == album &&
+      other.year == year &&
       other.duration == duration;
 
   @override
-  int get hashCode => Object.hash(path, title, artist, album, duration);
+  int get hashCode => Object.hash(path, title, artist, album, year, duration);
 }

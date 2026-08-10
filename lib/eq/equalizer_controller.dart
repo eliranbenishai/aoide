@@ -27,13 +27,23 @@ class EqualizerController extends ChangeNotifier {
   EqualizerController({
     required SettingsStore store,
     required EqualizerSink sink,
+    this.applyDebounce = const Duration(milliseconds: 40),
+    this.persistDebounce = const Duration(milliseconds: 400),
   })  : _store = store,
         _sink = sink;
 
   final SettingsStore _store;
   final EqualizerSink _sink;
 
+  /// Coalesce rapid fader updates before touching mpv `af`.
+  final Duration applyDebounce;
+
+  /// Coalesce disk writes while dragging bands.
+  final Duration persistDebounce;
+
   EqualizerSettings _settings = EqualizerSettings.flat;
+  Timer? _applyTimer;
+  Timer? _persistTimer;
 
   EqualizerSettings get settings => _settings;
 
@@ -43,7 +53,7 @@ class EqualizerController extends ChangeNotifier {
     final persisted = await _store.read();
     _settings = persisted.equalizerCurve;
     notifyListeners();
-    unawaited(_sink.apply(_settings));
+    await _sink.apply(_settings);
   }
 
   void setEnabled(bool value) => _apply(_settings.copyWith(enabled: value));
@@ -72,8 +82,34 @@ class EqualizerController extends ChangeNotifier {
     if (next == _settings) return;
     _settings = next;
     notifyListeners();
-    unawaited(_sink.apply(next));
-    unawaited(_persist());
+
+    _applyTimer?.cancel();
+    if (applyDebounce <= Duration.zero) {
+      unawaited(_sink.apply(next));
+    } else {
+      _applyTimer = Timer(applyDebounce, () {
+        unawaited(_sink.apply(_settings));
+      });
+    }
+
+    _persistTimer?.cancel();
+    if (persistDebounce <= Duration.zero) {
+      unawaited(_persist());
+    } else {
+      _persistTimer = Timer(persistDebounce, () {
+        unawaited(_persist());
+      });
+    }
+  }
+
+  /// Flush pending apply/persist (tests / teardown).
+  Future<void> flush() async {
+    _applyTimer?.cancel();
+    _applyTimer = null;
+    _persistTimer?.cancel();
+    _persistTimer = null;
+    await _sink.apply(_settings);
+    await _persist();
   }
 
   Future<void> _persist() async {

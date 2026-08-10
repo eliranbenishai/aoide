@@ -58,12 +58,12 @@ class EqCurvePainter extends CustomPainter {
     canvas.drawPath(
       strokePath,
       Paint()
-        ..color = const Color(0xD93DE7FF)
+        ..color = const Color(0x993DE7FF)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.4
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.5),
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5),
     );
     canvas.drawPath(
       strokePath,

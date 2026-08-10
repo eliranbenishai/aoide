@@ -57,7 +57,12 @@ void main() {
 
   test('setGain updates, notifies and persists', () async {
     final store = MemorySettingsStore();
-    final c = EqualizerController(store: store, sink: NoopEqualizerSink());
+    final c = EqualizerController(
+      store: store,
+      sink: NoopEqualizerSink(),
+      applyDebounce: Duration.zero,
+      persistDebounce: Duration.zero,
+    );
     var notifications = 0;
     c.addListener(() => notifications++);
 
@@ -72,6 +77,8 @@ void main() {
     final c = EqualizerController(
       store: MemorySettingsStore(),
       sink: NoopEqualizerSink(),
+      applyDebounce: Duration.zero,
+      persistDebounce: Duration.zero,
     );
     c.applyPreset('Rock');
     expect(c.settings.gains, EqualizerPresets.builtIn['Rock']);
@@ -82,6 +89,8 @@ void main() {
     final c = EqualizerController(
       store: MemorySettingsStore(),
       sink: NoopEqualizerSink(),
+      applyDebounce: Duration.zero,
+      persistDebounce: Duration.zero,
     );
     c.applyPreset('Nope');
     expect(c.settings, EqualizerSettings.flat);
@@ -91,19 +100,45 @@ void main() {
     final c = EqualizerController(
       store: MemorySettingsStore(),
       sink: NoopEqualizerSink(),
+      applyDebounce: Duration.zero,
+      persistDebounce: Duration.zero,
     );
     c.applyPreset('Rock');
     c.setGain(0, 1);
     expect(c.settings.presetName, isNull);
   });
 
-  test('every change reaches the sink', () {
+  test('every change reaches the sink', () async {
     final sink = RecordingSink();
-    final c = EqualizerController(store: MemorySettingsStore(), sink: sink);
+    final c = EqualizerController(
+      store: MemorySettingsStore(),
+      sink: sink,
+      applyDebounce: Duration.zero,
+      persistDebounce: Duration.zero,
+    );
     c.setEnabled(true);
     c.setPreamp(3);
-    expect(sink.applied, hasLength(2));
+    await c.flush();
+    expect(sink.applied, isNotEmpty);
     expect(sink.applied.last.preamp, 3);
+  });
+
+  test('rapid setGain coalesces sink applies when debounced', () async {
+    final sink = RecordingSink();
+    final c = EqualizerController(
+      store: MemorySettingsStore(),
+      sink: sink,
+      applyDebounce: const Duration(milliseconds: 30),
+      persistDebounce: const Duration(hours: 1),
+    );
+    c.setEnabled(true);
+    for (var i = 0; i < 10; i++) {
+      c.setGain(0, i.toDouble());
+    }
+    expect(sink.applied, isEmpty);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(sink.applied, hasLength(1));
+    expect(sink.applied.single.gains[0], 9);
   });
 
   test('preset names are the built-in curves', () {
