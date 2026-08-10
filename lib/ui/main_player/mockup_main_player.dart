@@ -612,8 +612,9 @@ class _MarqueeTitleState extends State<_MarqueeTitle>
       (_textWidth - _viewportWidth + _endPad).clamp(0.0, double.infinity);
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // LookScope.of must not run in initState (InheritedWidget subscribe).
     _measureText();
   }
 
