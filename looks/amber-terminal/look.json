@@ -1,0 +1,48 @@
+{
+  "formatVersion": 1,
+  "id": "amber-terminal",
+  "name": "Amber Terminal",
+  "author": "Tramp",
+  "extends": "builtin",
+  "colors": {
+    "shell": {
+      "highlight": "#3a3228",
+      "base": "#2a241c",
+      "mid": "#1c1812",
+      "low": "#12100c",
+      "deep": "#0a0907"
+    },
+    "ink": {
+      "default": "#f3e6c8",
+      "dim": "#a8946e",
+      "faint": "#6e6048"
+    },
+    "phosphor": {
+      "default": "#ffb000",
+      "hot": "#ffe08a",
+      "dim": "#8a6200",
+      "deep": "#3d2a00"
+    },
+    "accent": {
+      "default": "#ff5a1f",
+      "dim": "#8a3110"
+    },
+    "well": "#080604"
+  },
+  "materials": {
+    "bevel": {
+      "lightOpacity": 0.18,
+      "softOpacity": 0.07
+    },
+    "spectrum": {
+      "stops": ["#fff1c2", "#ffb000", "#c46a12", "#ff5a1f"]
+    },
+    "rail": {
+      "stops": ["#8a6200", "#8a3110", "#8a6200"]
+    }
+  },
+  "fonts": {
+    "chrome": { "file": "fonts/chrome.ttf", "weight": 700 },
+    "lcd": { "file": "fonts/lcd.ttf", "weight": 500 }
+  }
+}
