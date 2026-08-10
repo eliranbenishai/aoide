@@ -224,4 +224,4 @@ The embedded `builtin` pack is the current mockup palette and materials (from `p
 
 ## Implementation
 
-Implemented in `lib/look/` (parse, merge, catalog, install) and `LookController` on the session host; chrome reads `ResolvedLook` via `LookScope`; `LookSnapshotEvent` syncs secondary windows. Install UI: `LookPackDialog` (clutter **O** → Look packs…).
+Implemented in `lib/look/` (parse, merge, catalog, install) and `LookController` on the session host; chrome reads `ResolvedLook` via `LookScope`; `LookSnapshotEvent` syncs secondary windows. Install UI: `LookPackDialog` (main options cog → Look packs…).

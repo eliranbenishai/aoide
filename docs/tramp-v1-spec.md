@@ -38,7 +38,7 @@ Tramp is a multi-platform desktop music player — a spiritual successor to Wina
 - **Zoom:** eight discrete steps from 50% to 300% (default **75%**), persisted across sessions; steps larger than the current display’s work area are disabled. Main title-bar zoom-in / zoom-out (and matching menu/shortcuts) change the step for **all three** windows.
 - **Windowshade:** EQ and playlist title-bar collapse → title bar only; docking uses shaded height.
 - **EQ band faders:** bottom→thumb fill using the spectrum cyan→magenta gradient (product enhancement vs mockup HTML bands).
-- **Clutterbar** on main: product letters **O / A / I** only (Options, always-on-top for visible tramp windows, track info). No D, no V, no ghost glyphs.
+- **Options cog** on main (top-left of body): opens Always on top / Look packs… / Track info / About / Quit. Replaces mockup clutter **O / A / I** (approved delta).
 
 ## UI direction
 

@@ -20,8 +20,7 @@ class MainPlayerWindow extends StatelessWidget {
     this.playlistVisible = true,
     this.onSessionCommand,
     this.onOpenFiles,
-    this.onOpenOptions,
-    this.onShowTrackInfo,
+    this.onOptionsAction,
     this.onMinimize,
     this.onZoomOut,
     this.onZoomIn,
@@ -45,8 +44,7 @@ class MainPlayerWindow extends StatelessWidget {
   final bool playlistVisible;
   final ValueChanged<SessionCommand>? onSessionCommand;
   final VoidCallback? onOpenFiles;
-  final VoidCallback? onOpenOptions;
-  final VoidCallback? onShowTrackInfo;
+  final void Function(BuildContext context, String action)? onOptionsAction;
   final VoidCallback? onMinimize;
   final VoidCallback? onZoomOut;
   final VoidCallback? onZoomIn;
@@ -111,8 +109,7 @@ class MainPlayerWindow extends StatelessWidget {
               playlistVisible: playlistVisible,
               onSessionCommand: onSessionCommand,
               onOpenFiles: onOpenFiles,
-              onOpenOptions: onOpenOptions,
-              onShowTrackInfo: onShowTrackInfo,
+              onOptionsAction: onOptionsAction,
               spectrumBars: spectrumBars,
               spectrumPeaks: spectrumPeaks,
             ),

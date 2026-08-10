@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/widgets.dart' hide RepeatMode;
+import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:path/path.dart' as p;
 
 import '../../domain/repeat_mode.dart';
@@ -23,8 +23,8 @@ import '../../theme/look_scope.dart';
 
 /// Mockup-faithful main player body (825×306) + optional full window chrome.
 ///
-/// Absolute layout matches `player-mockup-2.html` (clutterbar, display, vol /
-/// seek / transport rows). Clutterbar product letters: **O / A / I** only.
+/// Absolute layout matches `player-mockup-2.html` (display, vol / seek /
+/// transport rows). Approved delta: clutter **O / A / I** → options cog.
 class MockupMainPlayer extends StatefulWidget {
   const MockupMainPlayer({
     super.key,
@@ -36,8 +36,7 @@ class MockupMainPlayer extends StatefulWidget {
     this.playlistVisible = true,
     this.onSessionCommand,
     this.onOpenFiles,
-    this.onOpenOptions,
-    this.onShowTrackInfo,
+    this.onOptionsAction,
     this.spectrumBars,
     this.spectrumPeaks,
     this.showElapsed = true,
@@ -57,8 +56,10 @@ class MockupMainPlayer extends StatefulWidget {
   final ValueChanged<SessionCommand>? onSessionCommand;
 
   final VoidCallback? onOpenFiles;
-  final VoidCallback? onOpenOptions;
-  final VoidCallback? onShowTrackInfo;
+
+  /// Host actions from the options cog menu (`looks` / `info` / `about` / `quit`).
+  /// Always on top is emitted as [AlwaysOnTopCommand] via [onSessionCommand].
+  final void Function(BuildContext context, String action)? onOptionsAction;
 
   /// When set, spectrum paints these fixed heights (goldens / demo).
   final List<double>? spectrumBars;
@@ -101,6 +102,61 @@ class _MockupMainPlayerState extends State<MockupMainPlayer> {
     if (playback.playing) await playback.playPause();
   }
 
+  Future<void> _openOptionsMenu(BuildContext context) async {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final origin = box.localToGlobal(Offset.zero);
+    // Capture look here — popup routes sit above the local LookScope in tests.
+    final look = LookScope.of(context);
+    final labelStyle = TextStyle(
+      color: look.palette.inkDefault,
+      fontFamily: look.chromeFamily,
+      fontWeight: FontWeight.w700,
+      fontSize: 13,
+      letterSpacing: 13 * 0.12,
+    );
+    final aotLabel =
+        widget.alwaysOnTop ? 'Always on top ✓' : 'Always on top';
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        origin.dx,
+        origin.dy + box.size.height,
+        origin.dx + box.size.width,
+        origin.dy,
+      ),
+      color: look.palette.shellMid,
+      items: [
+        PopupMenuItem(
+          value: 'aot',
+          child: Text(aotLabel, style: labelStyle),
+        ),
+        PopupMenuItem(
+          value: 'looks',
+          child: Text('Look packs…', style: labelStyle),
+        ),
+        PopupMenuItem(
+          value: 'info',
+          child: Text('Track info', style: labelStyle),
+        ),
+        PopupMenuItem(
+          value: 'about',
+          child: Text('About Tramp', style: labelStyle),
+        ),
+        PopupMenuItem(
+          value: 'quit',
+          child: Text('Quit', style: labelStyle),
+        ),
+      ],
+    );
+    if (!context.mounted || selected == null) return;
+    if (selected == 'aot') {
+      _emit(AlwaysOnTopCommand(!widget.alwaysOnTop));
+      return;
+    }
+    widget.onOptionsAction?.call(context, selected);
+  }
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -121,13 +177,20 @@ class _MockupMainPlayerState extends State<MockupMainPlayer> {
               bottom: 8,
               child: MockupRivet(),
             ),
-            _Clutterbar(
-              alwaysOnTop: widget.alwaysOnTop,
-              onOptions: widget.onOpenOptions,
-              onAlwaysOnTop: () => _emit(
-                AlwaysOnTopCommand(!widget.alwaysOnTop),
+            Positioned(
+              left: 22,
+              top: 18,
+              child: Builder(
+                builder: (buttonContext) => MockupButton(
+                  key: const Key('player-options'),
+                  width: 26,
+                  height: 26,
+                  padding: EdgeInsets.zero,
+                  semanticLabel: 'Options',
+                  onPressed: () => unawaited(_openOptionsMenu(buttonContext)),
+                  child: MockupIcons.options(size: 16),
+                ),
               ),
-              onInfo: widget.onShowTrackInfo,
             ),
             Positioned.fromRect(
               rect: const Rect.fromLTWH(96, 14, 705, 132),
@@ -188,141 +251,6 @@ class _MockupMainPlayerState extends State<MockupMainPlayer> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Clutterbar
-// ---------------------------------------------------------------------------
-
-class _Clutterbar extends StatelessWidget {
-  const _Clutterbar({
-    required this.alwaysOnTop,
-    this.onOptions,
-    this.onAlwaysOnTop,
-    this.onInfo,
-  });
-
-  final bool alwaysOnTop;
-  final VoidCallback? onOptions;
-  final VoidCallback? onAlwaysOnTop;
-  final VoidCallback? onInfo;
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      left: 22,
-      top: 18,
-      width: 26,
-      height: 129,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(3),
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0x8C000000),
-              Color(0x0AE2ECFF),
-            ],
-          ),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0xCC000000),
-              blurRadius: 4,
-              offset: Offset(0, 2),
-              blurStyle: BlurStyle.inner,
-            ),
-            BoxShadow(color: Color(0x14E2ECFF), offset: Offset(0, 1)),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          // Keep mockup's 5-slot spacing (O A I D V) so O/A/I land on the
-          // same vertical positions as the HTML; D/V slots stay empty.
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _ClutterGlyph(
-                key: const Key('clutter-o'),
-                letter: 'O',
-                lit: true,
-                semanticLabel: 'Options',
-                onTap: onOptions,
-              ),
-              _ClutterGlyph(
-                key: const Key('clutter-a'),
-                letter: 'A',
-                lit: alwaysOnTop,
-                semanticLabel: 'Always on top',
-                onTap: onAlwaysOnTop,
-              ),
-              _ClutterGlyph(
-                key: const Key('clutter-i'),
-                letter: 'I',
-                lit: false,
-                semanticLabel: 'Track info',
-                onTap: onInfo,
-              ),
-              const SizedBox(width: 26, height: 20),
-              const SizedBox(width: 26, height: 20),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ClutterGlyph extends StatelessWidget {
-  const _ClutterGlyph({
-    super.key,
-    required this.letter,
-    required this.lit,
-    required this.semanticLabel,
-    this.onTap,
-  });
-
-  final String letter;
-  final bool lit;
-  final String semanticLabel;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: semanticLabel,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: SizedBox(
-          width: 26,
-          height: 20,
-          child: Center(
-            child: Text(
-              letter,
-              style: TextStyle(
-                fontFamily: LookScope.of(context).chromeFamily,
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-                height: 1,
-                decoration: TextDecoration.none,
-                color: lit
-                    ? LookScope.of(context).palette.phosphorDefault
-                    : LookScope.of(context).palette.phosphorDefault.withValues(alpha: 0.4),
-                shadows: [
-                  Shadow(
-                    color: Color.fromRGBO(61, 231, 255, lit ? 0.7 : 0.25),
-                    blurRadius: lit ? 9 : 6,
-                  ),
-                ],
-              ),
-            ),
-          ),
         ),
       ),
     );

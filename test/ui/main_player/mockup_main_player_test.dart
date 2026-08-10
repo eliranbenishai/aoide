@@ -110,12 +110,15 @@ void main() {
     expect((commands.single as MonoCommand).enabled, isTrue);
   });
 
-  testWidgets('clutter A sends AlwaysOnTopCommand', (tester) async {
+  testWidgets('options menu Always on top sends AlwaysOnTopCommand',
+      (tester) async {
     final commands = <SessionCommand>[];
     await pumpPlayer(tester, commands: commands, alwaysOnTop: false);
 
-    await tester.tap(find.byKey(const Key('clutter-a')));
-    await tester.pump();
+    await tester.tap(find.byKey(const Key('player-options')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Always on top'));
+    await tester.pumpAndSettle();
 
     expect(commands.single, isA<AlwaysOnTopCommand>());
     expect((commands.single as AlwaysOnTopCommand).enabled, isTrue);
@@ -199,15 +202,43 @@ void main() {
     );
   });
 
-  testWidgets('clutterbar shows O A I only', (tester) async {
+  testWidgets('options cog opens menu with clutter actions', (tester) async {
     final commands = <SessionCommand>[];
-    await pumpPlayer(tester, commands: commands);
+    final actions = <String>[];
+    await tester.binding.setSurfaceSize(const Size(900, 400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Align(
+          alignment: Alignment.topLeft,
+          child: wrapWithLook(
+            MainPlayerWindow(
+              playback: playback,
+              trackCount: playlist.playlist.tracks.length,
+              draggableTitle: false,
+              onSessionCommand: commands.add,
+              onOptionsAction: (context, action) => actions.add(action),
+            ),
+          ),
+        ),
+      ),
+    );
 
-    expect(find.byKey(const Key('clutter-o')), findsOneWidget);
-    expect(find.byKey(const Key('clutter-a')), findsOneWidget);
-    expect(find.byKey(const Key('clutter-i')), findsOneWidget);
-    expect(find.text('D'), findsNothing);
-    expect(find.text('V'), findsNothing);
+    expect(find.byKey(const Key('player-options')), findsOneWidget);
+    expect(find.byKey(const Key('clutter-o')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('player-options')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Always on top'), findsOneWidget);
+    expect(find.text('Look packs…'), findsOneWidget);
+    expect(find.text('Track info'), findsOneWidget);
+    expect(find.text('About Tramp'), findsOneWidget);
+    expect(find.text('Quit'), findsOneWidget);
+
+    await tester.tap(find.text('Track info'));
+    await tester.pumpAndSettle();
+    expect(actions, ['info']);
 
     final body = tester.getSize(find.byType(MockupMainPlayer));
     expect(body, MockupMainPlayer.bodySize);

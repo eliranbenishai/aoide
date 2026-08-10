@@ -789,26 +789,12 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     }
   }
 
-  Future<void> _showOptions() async {
-    final choice = await showMenu<String>(
-      context: context,
-      position: const RelativeRect.fromLTRB(40, 80, 0, 0),
-      items: [
-        PopupMenuItem(
-          value: 'aot',
-          child: Text(_alwaysOnTop ? 'Always on top ✓' : 'Always on top'),
-        ),
-        const PopupMenuItem(value: 'looks', child: Text('Look packs…')),
-        const PopupMenuItem(value: 'about', child: Text('About Tramp')),
-        const PopupMenuItem(value: 'quit', child: Text('Quit')),
-      ],
-    );
-    if (!mounted || choice == null) return;
-    switch (choice) {
-      case 'aot':
-        await _handleLocalCommand(AlwaysOnTopCommand(!_alwaysOnTop));
+  Future<void> _handleOptionsAction(BuildContext context, String action) async {
+    switch (action) {
       case 'looks':
         await showLookPackDialog(context, controller: _lookController);
+      case 'info':
+        await _showTrackInfo(context);
       case 'about':
         await showTrampAboutDialog(context, version: '0.1.0');
       case 'quit':
@@ -816,7 +802,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     }
   }
 
-  Future<void> _showTrackInfo() async {
+  Future<void> _showTrackInfo(BuildContext context) async {
     final track = _playback.currentTrack;
     final message = track == null
         ? 'No track loaded.'
@@ -1024,8 +1010,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
                       _onNativeDragStarted(WindowId.main),
                   onSessionCommand: (cmd) => unawaited(_handleLocalCommand(cmd)),
                   onOpenFiles: () => unawaited(_openFiles()),
-                  onOpenOptions: () => unawaited(_showOptions()),
-                  onShowTrackInfo: () => unawaited(_showTrackInfo()),
+                  onOptionsAction: (context, action) =>
+                      unawaited(_handleOptionsAction(context, action)),
                   onMinimize: () => unawaited(_minimizeVisibleGroup()),
                   onZoomOut: () => unawaited(_stepZoom(-1)),
                   onZoomIn: () => unawaited(_stepZoom(1)),
