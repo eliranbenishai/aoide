@@ -31,11 +31,12 @@ class MockupShell extends StatelessWidget {
     // Material + explicit no-decoration DefaultTextStyle: without a Material
     // ancestor Flutter paints yellow debug underlines on every Text — that
     // alone destroyed mockup parity in goldens and the live multi-window UI.
+    final look = LookScope.of(context);
     final content = DefaultTextStyle(
-      style: const TextStyle(
+      style: TextStyle(
         decoration: TextDecoration.none,
-        color: MockupTokens.ink,
-        fontFamily: 'TrampCondensed',
+        color: look.palette.inkDefault,
+        fontFamily: look.chromeFamily,
         fontWeight: FontWeight.w700,
       ),
       child: Material(
