@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 
+import '../../zoom/zoom_scope.dart';
+
 /// Vertical placement of a mockup popup relative to its anchor button.
 enum MockupMenuPlacement {
   /// Prefer just below the button; if it won't fit, open to the right instead.
-  ///
-  /// Needed on the short main/EQ canvases (especially when zoomed): Material's
-  /// [showMenu] otherwise slides an oversized menu upward and covers the trigger.
   below,
 
   /// Prefer just above the button; if it won't fit, open to the right instead.
   above,
 }
 
-/// Shows a [showMenu] popup anchored to [anchor] without covering it.
+/// Shows a popup menu anchored to [anchor], scaled by the ambient [ZoomScope].
+///
+/// Chrome lives under [ZoomedCanvas]; Material's [showMenu] does not. This
+/// builds a transparent-barrier dialog and applies the same zoom factor so the
+/// menu matches chrome density and usually fits under the trigger.
 Future<T?> showMockupMenu<T>({
   required BuildContext context,
   required RenderBox anchor,
@@ -23,55 +26,86 @@ Future<T?> showMockupMenu<T>({
   assert(items.isNotEmpty);
   final overlay =
       Overlay.of(context).context.findRenderObject()! as RenderBox;
-  const gap = 4.0;
+  final zoom = ZoomScope.maybeOf(context)?.factor ?? 1.0;
   const edgePad = 8.0;
+  final gap = 4.0 * zoom;
 
-  // Button rect in overlay coordinates (handles zoom transforms).
+  // Button rect in overlay coordinates (includes ZoomedCanvas transform).
   final button = Rect.fromPoints(
     anchor.localToGlobal(Offset.zero, ancestor: overlay),
     anchor.localToGlobal(anchor.size.bottomRight(Offset.zero), ancestor: overlay),
   );
 
-  final menuHeight = _estimateMenuHeight(items);
-  final maxBottom = overlay.size.height - edgePad;
+  // Menu is laid out at logical size then scaled — use visual height for fit.
+  final visualMenuHeight = _estimateMenuHeight(items) * zoom;
+  final overlayH = overlay.size.height;
 
   late final double top;
   late final double left;
   switch (placement) {
     case MockupMenuPlacement.below:
       final belowTop = button.bottom + gap;
-      if (belowTop + menuHeight <= maxBottom) {
+      // Prefer under the trigger even if the menu kisses the window edge —
+      // covering the lit button is worse than a flush bottom.
+      if (belowTop + visualMenuHeight <= overlayH + 0.5) {
         top = belowTop;
         left = button.left;
       } else {
-        // Not enough room under the trigger (common at <100% zoom on main).
-        // Sit beside it so the lit button stays visible.
-        top = button.top.clamp(edgePad, maxBottom);
+        top = button.top.clamp(edgePad, overlayH - edgePad);
         left = button.right + gap;
       }
     case MockupMenuPlacement.above:
-      final aboveTop = button.top - gap - menuHeight;
-      if (aboveTop >= edgePad) {
-        top = aboveTop;
+      final aboveTop = button.top - gap - visualMenuHeight;
+      if (aboveTop >= -0.5) {
+        top = aboveTop.clamp(0.0, overlayH);
         left = button.left;
       } else {
-        top = (button.top - menuHeight).clamp(edgePad, maxBottom);
+        top = (button.top - visualMenuHeight).clamp(edgePad, overlayH - edgePad);
         left = button.right + gap;
       }
   }
 
-  final position = RelativeRect.fromLTRB(
-    left,
-    top,
-    overlay.size.width - left - button.width,
-    overlay.size.height - top,
-  );
+  final menuColor = color ?? Theme.of(context).colorScheme.surface;
 
-  return showMenu<T>(
+  return showGeneralDialog<T>(
     context: context,
-    position: position,
-    color: color,
-    items: items,
+    barrierDismissible: true,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    barrierColor: Colors.transparent,
+    transitionDuration: Duration.zero,
+    pageBuilder: (context, animation, secondaryAnimation) {
+      return Stack(
+        children: [
+          Positioned(
+            left: left,
+            top: top,
+            child: Transform.scale(
+              scale: zoom,
+              alignment: Alignment.topLeft,
+              child: Material(
+                color: menuColor,
+                elevation: 8,
+                shadowColor: Colors.black,
+                child: IntrinsicWidth(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final entry in items)
+                          if (entry is PopupMenuItem<T>)
+                            _MockupMenuRow<T>(item: entry),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    },
   );
 }
 
@@ -80,6 +114,35 @@ double _estimateMenuHeight(List<PopupMenuEntry<dynamic>> items) {
   for (final item in items) {
     height += item.height;
   }
-  // Material popup vertical padding (symmetric 8).
+  // Match prior Material popup vertical padding (symmetric 8).
   return height + 16;
+}
+
+class _MockupMenuRow<T> extends StatelessWidget {
+  const _MockupMenuRow({required this.item});
+
+  final PopupMenuItem<T> item;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: item.enabled
+          ? () {
+              item.onTap?.call();
+              Navigator.of(context).pop<T>(item.value);
+            }
+          : null,
+      child: SizedBox(
+        height: item.height,
+        child: Padding(
+          padding: item.padding ??
+              const EdgeInsets.symmetric(horizontal: 16),
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: item.child,
+          ),
+        ),
+      ),
+    );
+  }
 }
