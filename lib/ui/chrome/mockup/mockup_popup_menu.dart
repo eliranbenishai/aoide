@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 
 /// Vertical placement of a mockup popup relative to its anchor button.
 enum MockupMenuPlacement {
-  /// Menu sits just below the button (main options cog, EQ presets).
+  /// Prefer just below the button; if it won't fit, open to the right instead.
+  ///
+  /// Needed on the short main/EQ canvases (especially when zoomed): Material's
+  /// [showMenu] otherwise slides an oversized menu upward and covers the trigger.
   below,
 
-  /// Menu sits just above the button (playlist footer menus).
+  /// Prefer just above the button; if it won't fit, open to the right instead.
   above,
 }
 
@@ -21,6 +24,7 @@ Future<T?> showMockupMenu<T>({
   final overlay =
       Overlay.of(context).context.findRenderObject()! as RenderBox;
   const gap = 4.0;
+  const edgePad = 8.0;
 
   // Button rect in overlay coordinates (handles zoom transforms).
   final button = Rect.fromPoints(
@@ -29,27 +33,39 @@ Future<T?> showMockupMenu<T>({
   );
 
   final menuHeight = _estimateMenuHeight(items);
-  final RelativeRect position;
+  final maxBottom = overlay.size.height - edgePad;
+
+  late final double top;
+  late final double left;
   switch (placement) {
     case MockupMenuPlacement.below:
-      // Same idea as [PopupMenuPosition.under]: menu top at button bottom.
-      final top = button.bottom + gap;
-      position = RelativeRect.fromLTRB(
-        button.left,
-        top,
-        overlay.size.width - button.right,
-        overlay.size.height - top,
-      );
+      final belowTop = button.bottom + gap;
+      if (belowTop + menuHeight <= maxBottom) {
+        top = belowTop;
+        left = button.left;
+      } else {
+        // Not enough room under the trigger (common at <100% zoom on main).
+        // Sit beside it so the lit button stays visible.
+        top = button.top.clamp(edgePad, maxBottom);
+        left = button.right + gap;
+      }
     case MockupMenuPlacement.above:
-      // Place menu top so its bottom clears the button (estimate height).
-      final top = button.top - gap - menuHeight;
-      position = RelativeRect.fromLTRB(
-        button.left,
-        top,
-        overlay.size.width - button.right,
-        overlay.size.height - top,
-      );
+      final aboveTop = button.top - gap - menuHeight;
+      if (aboveTop >= edgePad) {
+        top = aboveTop;
+        left = button.left;
+      } else {
+        top = (button.top - menuHeight).clamp(edgePad, maxBottom);
+        left = button.right + gap;
+      }
   }
+
+  final position = RelativeRect.fromLTRB(
+    left,
+    top,
+    overlay.size.width - left - button.width,
+    overlay.size.height - top,
+  );
 
   return showMenu<T>(
     context: context,
