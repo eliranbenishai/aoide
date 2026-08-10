@@ -9,6 +9,7 @@ import '../../ui/format.dart';
 import '../chrome/logo.dart';
 import '../chrome/mockup/mockup_button.dart';
 import '../chrome/mockup/mockup_icons.dart';
+import '../chrome/mockup/mockup_popup_menu.dart';
 import '../chrome/mockup/mockup_screen.dart';
 import '../chrome/mockup/mockup_shell.dart';
 import '../session/session_messages.dart';
@@ -417,7 +418,7 @@ class _PlaylistRow extends StatelessWidget {
   }
 }
 
-class _PlaylistFooter extends StatelessWidget {
+class _PlaylistFooter extends StatefulWidget {
   const _PlaylistFooter({
     required this.playlist,
     required this.playing,
@@ -442,9 +443,17 @@ class _PlaylistFooter extends StatelessWidget {
   final VoidCallback? onPlayPause;
   final VoidCallback? onNext;
 
+  @override
+  State<_PlaylistFooter> createState() => _PlaylistFooterState();
+}
+
+class _PlaylistFooterState extends State<_PlaylistFooter> {
+  bool _sortMenuOpen = false;
+  bool _optionsMenuOpen = false;
+
   Duration get _total {
     var sum = Duration.zero;
-    for (final t in playlist.playlist.tracks) {
+    for (final t in widget.playlist.playlist.tracks) {
       final d = t.duration;
       if (d != null) sum += d;
     }
@@ -452,7 +461,7 @@ class _PlaylistFooter extends StatelessWidget {
   }
 
   String get _statusName {
-    final path = playlist.playlist.sourcePath;
+    final path = widget.playlist.playlist.sourcePath;
     if (path == null || path.isEmpty) return 'untitled playlist';
     return p.basename(path);
   }
@@ -460,58 +469,92 @@ class _PlaylistFooter extends StatelessWidget {
   Future<void> _openSortMenu(BuildContext context) async {
     final box = context.findRenderObject() as RenderBox?;
     if (box == null) return;
-    final origin = box.localToGlobal(Offset.zero);
-    final selected = await showMenu<String>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        origin.dx,
-        origin.dy + box.size.height,
-        origin.dx + box.size.width,
-        origin.dy,
-      ),
-      color: LookScope.of(context).palette.shellMid,
-      items: const [
-        PopupMenuItem(value: 'title', child: _MenuLabel('Title')),
-        PopupMenuItem(value: 'artist', child: _MenuLabel('Artist')),
-        PopupMenuItem(value: 'duration', child: _MenuLabel('Duration')),
-        PopupMenuItem(value: 'path', child: _MenuLabel('Path')),
-        PopupMenuItem(value: 'reverse', child: _MenuLabel('Reverse')),
-      ],
+    // Capture styles — popup routes sit above the local LookScope in tests.
+    final look = LookScope.of(context);
+    final labelStyle = TextStyle(
+      color: look.palette.inkDefault,
+      fontFamily: look.chromeFamily,
+      fontWeight: FontWeight.w700,
+      fontSize: 13,
+      letterSpacing: 13 * 0.12,
     );
-    if (selected != null) onSort?.call(selected);
+    setState(() => _sortMenuOpen = true);
+    String? selected;
+    try {
+      selected = await showMockupMenu<String>(
+        context: context,
+        anchor: box,
+        placement: MockupMenuPlacement.above,
+        color: look.palette.shellMid,
+        items: [
+          PopupMenuItem(value: 'title', child: Text('Title', style: labelStyle)),
+          PopupMenuItem(value: 'artist', child: Text('Artist', style: labelStyle)),
+          PopupMenuItem(
+            value: 'duration',
+            child: Text('Duration', style: labelStyle),
+          ),
+          PopupMenuItem(value: 'path', child: Text('Path', style: labelStyle)),
+          PopupMenuItem(
+            value: 'reverse',
+            child: Text('Reverse', style: labelStyle),
+          ),
+        ],
+      );
+    } finally {
+      if (mounted) setState(() => _sortMenuOpen = false);
+    }
+    if (selected != null) widget.onSort?.call(selected);
   }
 
   Future<void> _openOptionsMenu(BuildContext context) async {
     final box = context.findRenderObject() as RenderBox?;
     if (box == null) return;
-    final origin = box.localToGlobal(Offset.zero);
-    final selected = await showMenu<String>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        origin.dx,
-        origin.dy + box.size.height,
-        origin.dx + box.size.width,
-        origin.dy,
-      ),
-      color: LookScope.of(context).palette.shellMid,
-      items: const [
-        PopupMenuItem(value: 'load', child: _MenuLabel('Load playlist…')),
-        PopupMenuItem(value: 'save', child: _MenuLabel('Save playlist…')),
-        PopupMenuItem(value: 'clear', child: _MenuLabel('Clear')),
-        PopupMenuItem(value: 'selectAll', child: _MenuLabel('Select all')),
-        PopupMenuItem(
-          value: 'invertSelection',
-          child: _MenuLabel('Invert selection'),
-        ),
-      ],
+    final look = LookScope.of(context);
+    final labelStyle = TextStyle(
+      color: look.palette.inkDefault,
+      fontFamily: look.chromeFamily,
+      fontWeight: FontWeight.w700,
+      fontSize: 13,
+      letterSpacing: 13 * 0.12,
     );
-    if (selected != null) onOption?.call(selected);
+    setState(() => _optionsMenuOpen = true);
+    String? selected;
+    try {
+      selected = await showMockupMenu<String>(
+        context: context,
+        anchor: box,
+        placement: MockupMenuPlacement.above,
+        color: look.palette.shellMid,
+        items: [
+          PopupMenuItem(
+            value: 'load',
+            child: Text('Load playlist…', style: labelStyle),
+          ),
+          PopupMenuItem(
+            value: 'save',
+            child: Text('Save playlist…', style: labelStyle),
+          ),
+          PopupMenuItem(value: 'clear', child: Text('Clear', style: labelStyle)),
+          PopupMenuItem(
+            value: 'selectAll',
+            child: Text('Select all', style: labelStyle),
+          ),
+          PopupMenuItem(
+            value: 'invertSelection',
+            child: Text('Invert selection', style: labelStyle),
+          ),
+        ],
+      );
+    } finally {
+      if (mounted) setState(() => _optionsMenuOpen = false);
+    }
+    if (selected != null) widget.onOption?.call(selected);
   }
 
   @override
   Widget build(BuildContext context) {
-    final count = playlist.playlist.tracks.length;
-    final statusPlaying = playingIndex;
+    final count = widget.playlist.playlist.tracks.length;
+    final statusPlaying = widget.playingIndex;
 
     // Strip 74 + gap 10 + status 26 — no spare band under the status row.
     return SizedBox(
@@ -530,7 +573,7 @@ class _PlaylistFooter extends StatelessWidget {
                       width: 52,
                       height: 52,
                       semanticLabel: 'Add tracks',
-                      onPressed: onAdd,
+                      onPressed: widget.onAdd,
                       child: MockupIcons.add(size: 21),
                     ),
                     const SizedBox(width: 8),
@@ -539,7 +582,7 @@ class _PlaylistFooter extends StatelessWidget {
                       width: 52,
                       height: 52,
                       semanticLabel: 'Remove selected tracks',
-                      onPressed: onRemove,
+                      onPressed: widget.onRemove,
                       child: MockupIcons.remove(size: 21),
                     ),
                     const SizedBox(width: 14),
@@ -551,6 +594,7 @@ class _PlaylistFooter extends StatelessWidget {
                         width: 52,
                         height: 52,
                         menu: true,
+                        on: _sortMenuOpen,
                         semanticLabel: 'Sort playlist',
                         onPressed: () => _openSortMenu(ctx),
                         child: MockupIcons.sort(size: 21),
@@ -563,6 +607,7 @@ class _PlaylistFooter extends StatelessWidget {
                         width: 52,
                         height: 52,
                         menu: true,
+                        on: _optionsMenuOpen,
                         semanticLabel: 'Playlist options',
                         onPressed: () => _openOptionsMenu(ctx),
                         child: MockupIcons.options(size: 21),
@@ -580,7 +625,7 @@ class _PlaylistFooter extends StatelessWidget {
                       width: 52,
                       height: 52,
                       semanticLabel: 'Previous',
-                      onPressed: onPrevious,
+                      onPressed: widget.onPrevious,
                       child: MockupIcons.previous(size: 18),
                     ),
                     const SizedBox(width: 8),
@@ -588,10 +633,10 @@ class _PlaylistFooter extends StatelessWidget {
                       key: const Key('pl-play'),
                       width: 52,
                       height: 52,
-                      semanticLabel: playing ? 'Pause' : 'Play',
-                      on: playing,
-                      onPressed: onPlayPause,
-                      child: playing
+                      semanticLabel: widget.playing ? 'Pause' : 'Play',
+                      on: widget.playing,
+                      onPressed: widget.onPlayPause,
+                      child: widget.playing
                           ? MockupIcons.pause(size: 18)
                           : MockupIcons.play(size: 18),
                     ),
@@ -601,7 +646,7 @@ class _PlaylistFooter extends StatelessWidget {
                       width: 52,
                       height: 52,
                       semanticLabel: 'Next',
-                      onPressed: onNext,
+                      onPressed: widget.onNext,
                       child: MockupIcons.next(size: 18),
                     ),
                     const SizedBox(width: 8),
@@ -692,26 +737,6 @@ class _PlaylistFooter extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _MenuLabel extends StatelessWidget {
-  const _MenuLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: TextStyle(
-        color: LookScope.of(context).palette.inkDefault,
-        fontFamily: LookScope.of(context).chromeFamily,
-        fontWeight: FontWeight.w700,
-        fontSize: 13,
-        letterSpacing: 13 * 0.12,
       ),
     );
   }

@@ -116,12 +116,21 @@ void main() {
     await pumpPlayer(tester, commands: commands, alwaysOnTop: false);
 
     await tester.tap(find.byKey(const Key('player-options')));
+    await tester.pump();
+    expect(
+      tester.widget<MockupButton>(find.byKey(const Key('player-options'))).on,
+      isTrue,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Always on top'));
     await tester.pumpAndSettle();
 
     expect(commands.single, isA<AlwaysOnTopCommand>());
     expect((commands.single as AlwaysOnTopCommand).enabled, isTrue);
+    expect(
+      tester.widget<MockupButton>(find.byKey(const Key('player-options'))).on,
+      isFalse,
+    );
   });
 
   testWidgets('separate play and pause drive the controller', (tester) async {

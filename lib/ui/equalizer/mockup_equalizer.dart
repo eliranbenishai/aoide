@@ -5,6 +5,7 @@ import '../../theme/tramp_metrics.dart';
 import '../chrome/logo.dart';
 import '../chrome/mockup/mockup_button.dart';
 import '../chrome/mockup/mockup_hover.dart';
+import '../chrome/mockup/mockup_popup_menu.dart';
 import '../chrome/mockup/mockup_screen.dart';
 import '../chrome/mockup/mockup_shell.dart';
 import '../session/session_messages.dart';
@@ -193,7 +194,7 @@ class _EqHead extends StatelessWidget {
   }
 }
 
-class _PresetsButton extends StatelessWidget {
+class _PresetsButton extends StatefulWidget {
   const _PresetsButton({
     required this.presetNames,
     required this.onApplyPreset,
@@ -202,50 +203,59 @@ class _PresetsButton extends StatelessWidget {
   final List<String> presetNames;
   final ValueChanged<String> onApplyPreset;
 
+  @override
+  State<_PresetsButton> createState() => _PresetsButtonState();
+}
+
+class _PresetsButtonState extends State<_PresetsButton> {
+  bool _menuOpen = false;
+
   Future<void> _open(BuildContext context) async {
     final box = context.findRenderObject() as RenderBox?;
     if (box == null) return;
-    final origin = box.localToGlobal(Offset.zero);
-    final size = box.size;
-    final selected = await showMenu<String>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        origin.dx,
-        origin.dy + size.height + 4,
-        origin.dx + size.width,
-        origin.dy,
-      ),
-      color: LookScope.of(context).palette.shellMid,
-      items: [
-        for (final name in presetNames)
-          PopupMenuItem<String>(
-            value: name,
-            child: Text(
-              name,
-              style: TextStyle(
-                color: LookScope.of(context).palette.inkDefault,
-                fontFamily: LookScope.of(context).chromeFamily,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-                letterSpacing: 13 * 0.12,
-              ),
-            ),
-          ),
-      ],
+    final look = LookScope.of(context);
+    final labelStyle = TextStyle(
+      color: look.palette.inkDefault,
+      fontFamily: look.chromeFamily,
+      fontWeight: FontWeight.w700,
+      fontSize: 13,
+      letterSpacing: 13 * 0.12,
     );
-    if (selected != null) onApplyPreset(selected);
+    setState(() => _menuOpen = true);
+    String? selected;
+    try {
+      selected = await showMockupMenu<String>(
+        context: context,
+        anchor: box,
+        placement: MockupMenuPlacement.below,
+        color: look.palette.shellMid,
+        items: [
+          for (final name in widget.presetNames)
+            PopupMenuItem<String>(
+              value: name,
+              child: Text(name, style: labelStyle),
+            ),
+        ],
+      );
+    } finally {
+      if (mounted) setState(() => _menuOpen = false);
+    }
+    if (selected != null) widget.onApplyPreset(selected);
   }
 
   @override
   Widget build(BuildContext context) {
-    return MockupButton(
-      key: const Key('eq-presets'),
-      label: 'Presets',
-      menu: true,
-      height: 38,
-      padding: const EdgeInsets.fromLTRB(16, 0, 22, 0),
-      onPressed: () => _open(context),
-      semanticLabel: 'Presets',
+    return Builder(
+      builder: (buttonContext) => MockupButton(
+        key: const Key('eq-presets'),
+        label: 'Presets',
+        menu: true,
+        on: _menuOpen,
+        height: 38,
+        padding: const EdgeInsets.fromLTRB(16, 0, 22, 0),
+        onPressed: () => _open(buttonContext),
+        semanticLabel: 'Presets',
+      ),
     );
   }
 }

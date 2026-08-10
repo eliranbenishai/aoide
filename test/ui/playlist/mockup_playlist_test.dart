@@ -8,6 +8,7 @@ import 'package:tramp/ui/playlist/mockup_playlist.dart';
 import 'package:tramp/ui/session/session_messages.dart';
 import 'package:tramp/ui/windows/playlist_window.dart';
 
+import '../../support/look_harness.dart';
 import '../../support/test_fonts.dart';
 
 class MemoryStore implements PlaylistStore {
@@ -63,14 +64,16 @@ void main() {
       MaterialApp(
         home: Align(
           alignment: Alignment.topLeft,
-          child: PlaylistWindow(
-            playlist: playlist,
-            size: size,
-            shaded: shaded,
-            playingIndex: playingIndex,
-            playing: playing,
-            draggableTitle: false,
-            onSessionCommand: commands.add,
+          child: wrapWithLook(
+            PlaylistWindow(
+              playlist: playlist,
+              size: size,
+              shaded: shaded,
+              playingIndex: playingIndex,
+              playing: playing,
+              draggableTitle: false,
+              onSessionCommand: commands.add,
+            ),
           ),
         ),
       ),
@@ -202,10 +205,12 @@ void main() {
       MaterialApp(
         home: Align(
           alignment: Alignment.topLeft,
-          child: PlaylistWindow(
-            playlist: playlist,
-            draggableTitle: false,
-            onCollapse: () => collapsed++,
+          child: wrapWithLook(
+            PlaylistWindow(
+              playlist: playlist,
+              draggableTitle: false,
+              onCollapse: () => collapsed++,
+            ),
           ),
         ),
       ),

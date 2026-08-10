@@ -12,6 +12,7 @@ import '../../theme/tramp_metrics.dart';
 import '../chrome/mockup/mockup_button.dart';
 import '../chrome/mockup/mockup_icons.dart';
 import '../chrome/mockup/mockup_led.dart';
+import '../chrome/mockup/mockup_popup_menu.dart';
 import '../chrome/mockup/mockup_screen.dart';
 import '../chrome/mockup/mockup_shell.dart';
 import '../chrome/mockup/mockup_slider.dart';
@@ -73,6 +74,7 @@ class MockupMainPlayer extends StatefulWidget {
 
 class _MockupMainPlayerState extends State<MockupMainPlayer> {
   late bool _showElapsed;
+  bool _optionsMenuOpen = false;
 
   @override
   void initState() {
@@ -105,7 +107,6 @@ class _MockupMainPlayerState extends State<MockupMainPlayer> {
   Future<void> _openOptionsMenu(BuildContext context) async {
     final box = context.findRenderObject() as RenderBox?;
     if (box == null) return;
-    final origin = box.localToGlobal(Offset.zero);
     // Capture look here — popup routes sit above the local LookScope in tests.
     final look = LookScope.of(context);
     final labelStyle = TextStyle(
@@ -117,38 +118,40 @@ class _MockupMainPlayerState extends State<MockupMainPlayer> {
     );
     final aotLabel =
         widget.alwaysOnTop ? 'Always on top ✓' : 'Always on top';
-    final selected = await showMenu<String>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        origin.dx,
-        origin.dy + box.size.height,
-        origin.dx + box.size.width,
-        origin.dy,
-      ),
-      color: look.palette.shellMid,
-      items: [
-        PopupMenuItem(
-          value: 'aot',
-          child: Text(aotLabel, style: labelStyle),
-        ),
-        PopupMenuItem(
-          value: 'looks',
-          child: Text('Look packs…', style: labelStyle),
-        ),
-        PopupMenuItem(
-          value: 'info',
-          child: Text('Track info', style: labelStyle),
-        ),
-        PopupMenuItem(
-          value: 'about',
-          child: Text('About Tramp', style: labelStyle),
-        ),
-        PopupMenuItem(
-          value: 'quit',
-          child: Text('Quit', style: labelStyle),
-        ),
-      ],
-    );
+    setState(() => _optionsMenuOpen = true);
+    String? selected;
+    try {
+      selected = await showMockupMenu<String>(
+        context: context,
+        anchor: box,
+        placement: MockupMenuPlacement.below,
+        color: look.palette.shellMid,
+        items: [
+          PopupMenuItem(
+            value: 'aot',
+            child: Text(aotLabel, style: labelStyle),
+          ),
+          PopupMenuItem(
+            value: 'looks',
+            child: Text('Look packs…', style: labelStyle),
+          ),
+          PopupMenuItem(
+            value: 'info',
+            child: Text('Track info', style: labelStyle),
+          ),
+          PopupMenuItem(
+            value: 'about',
+            child: Text('About Tramp', style: labelStyle),
+          ),
+          PopupMenuItem(
+            value: 'quit',
+            child: Text('Quit', style: labelStyle),
+          ),
+        ],
+      );
+    } finally {
+      if (mounted) setState(() => _optionsMenuOpen = false);
+    }
     if (!context.mounted || selected == null) return;
     if (selected == 'aot') {
       _emit(AlwaysOnTopCommand(!widget.alwaysOnTop));
@@ -187,6 +190,7 @@ class _MockupMainPlayerState extends State<MockupMainPlayer> {
                   height: 26,
                   padding: EdgeInsets.zero,
                   semanticLabel: 'Options',
+                  on: _optionsMenuOpen,
                   onPressed: () => unawaited(_openOptionsMenu(buttonContext)),
                   child: MockupIcons.options(size: 16),
                 ),
