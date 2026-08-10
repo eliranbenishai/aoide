@@ -118,6 +118,9 @@ abstract final class LookPaint {
   /// Cool chrome sheen (`#E2ECFF` on builtin) for lips / screen rims.
   static Color coolSheen(LookPalette p) => _lift(p.inkDefault, -6, 2, 15);
 
+  /// Brushed plate / rail face (`.plate` / `.rail` — `#1E222C` on builtin).
+  static Color plateFace(LookPalette p) => _lift(p.shellMid, 4, 5, 6);
+
   /// Unlit LED face highlights (mockup `.led`).
   static Color idleLedHi(LookPalette p) => _lift(p.shellBase, 23, 24, 24);
   static Color idleLedLo(LookPalette p) => _lift(p.shellMid, 8, 9, 9);

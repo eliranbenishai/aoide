@@ -14,6 +14,7 @@ import '../chrome/mockup/mockup_screen.dart';
 import '../chrome/mockup/mockup_shell.dart';
 import '../session/session_messages.dart';
 import 'mockup_playlist_scrollbar.dart';
+import '../../theme/look_paint.dart';
 import '../../theme/look_scope.dart';
 
 /// Mockup-faithful playlist body (grows with window; footer bottom-anchored).
@@ -747,6 +748,7 @@ class _FooterSep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final sheen = LookPaint.coolSheen(LookScope.of(context).palette);
     return Container(
       width: 1,
       height: 40,
@@ -755,9 +757,9 @@ class _FooterSep extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Color(0xB3000000),
-            Color(0x1FE2ECFF),
-            Color(0xB3000000),
+            const Color(0xB3000000),
+            sheen.withValues(alpha: 0x1F / 255),
+            const Color(0xB3000000),
           ],
         ),
       ),

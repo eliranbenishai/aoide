@@ -98,10 +98,18 @@ void main() {
     expect(LookPaint.sliderFillLo(builtin), const Color(0xFF0F7F96));
     expect(LookPaint.closeGlyphInk(builtin), const Color(0xFFFFD6E8));
     expect(LookPaint.accentHot(builtin), const Color(0xFFFFD6EA));
+    expect(LookPaint.plateFace(builtin), const Color(0xFF1E222C));
+    expect(LookPaint.coolSheen(builtin), const Color(0xFFE2ECFF));
+  });
+
+  test('plate face follows shell mid under alternate look', () {
+    final alt = _palette(shellMid: const Color(0xFF1C1812));
+    expect(LookPaint.plateFace(alt), const Color(0xFF201D18));
   });
 }
 
 LookPalette _palette({
+  Color? shellMid,
   Color? phosphorDefault,
   Color? phosphorHot,
   Color? phosphorDim,
@@ -112,7 +120,7 @@ LookPalette _palette({
   return LookPalette(
     shellHighlight: b.shellHighlight,
     shellBase: b.shellBase,
-    shellMid: b.shellMid,
+    shellMid: shellMid ?? b.shellMid,
     shellLow: b.shellLow,
     shellDeep: b.shellDeep,
     inkDefault: b.inkDefault,

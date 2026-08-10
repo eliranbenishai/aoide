@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../../look/look_materials.dart';
 import '../../../look/look_palette.dart';
+import '../../../theme/look_paint.dart';
 import '../../../theme/look_scope.dart';
 
 /// Window chassis matching mockup `.win`, plus `.rivet` / `.plate` / `.rail`.
@@ -263,23 +264,28 @@ class MockupPlate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = LookScope.of(context).palette;
+    final face = LookPaint.plateFace(palette);
+    final sheen = LookPaint.coolSheen(palette);
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
       child: Stack(
         fit: StackFit.passthrough,
         children: [
-          const Positioned.fill(
-            child: ColoredBox(color: Color(0xFF1E222C)),
+          Positioned.fill(
+            child: ColoredBox(color: face),
           ),
-          const Positioned.fill(
-            child: CustomPaint(painter: _BrushPainter(opacity: 1)),
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _BrushPainter(opacity: 1, sheen: sheen),
+            ),
           ),
-          const Positioned.fill(
+          Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
                 border: Border(
-                  top: BorderSide(color: Color(0x1AE2ECFF)),
-                  bottom: BorderSide(color: Color(0xB3000000)),
+                  top: BorderSide(color: sheen.withValues(alpha: 0x1A / 255)),
+                  bottom: const BorderSide(color: Color(0xB3000000)),
                 ),
               ),
             ),
@@ -304,6 +310,9 @@ class MockupRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = LookScope.of(context).palette;
+    final face = LookPaint.plateFace(palette);
+    final sheen = LookPaint.coolSheen(palette);
     return ConstrainedBox(
       constraints: BoxConstraints(minWidth: minWidth, minHeight: height),
       child: SizedBox(
@@ -312,16 +321,18 @@ class MockupRail extends StatelessWidget {
           opacity: 0.9,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(3),
-            child: const Stack(
+            child: Stack(
               fit: StackFit.expand,
               children: [
-                ColoredBox(color: Color(0xFF1E222C)),
-                CustomPaint(painter: _BrushPainter(opacity: 1)),
+                ColoredBox(color: face),
+                CustomPaint(
+                  painter: _BrushPainter(opacity: 1, sheen: sheen),
+                ),
                 DecoratedBox(
                   decoration: BoxDecoration(
                     border: Border(
-                      top: BorderSide(color: Color(0x14E2ECFF)),
-                      bottom: BorderSide(color: Color(0x99000000)),
+                      top: BorderSide(color: sheen.withValues(alpha: 0x14 / 255)),
+                      bottom: const BorderSide(color: Color(0x99000000)),
                     ),
                   ),
                 ),
@@ -362,11 +373,9 @@ class _ShellPainter extends CustomPainter {
     );
 
     // Inset bevels from mockup box-shadow stack (--bevel-light / --bevel-soft).
-    // Pack alpha as 8-bit to match prior Color(0x26E2ECFF) / Color(0x0FE2ECFF).
-    Color bevelInk(double opacity) {
-      final a = (opacity * 255.0).round().clamp(0, 255);
-      return Color((a << 24) | 0x00E2ECFF);
-    }
+    final sheen = LookPaint.coolSheen(palette);
+    Color bevelInk(double opacity) =>
+        sheen.withValues(alpha: opacity.clamp(0.0, 1.0));
 
     canvas.drawRRect(
       rrect,
@@ -439,15 +448,16 @@ class _RivetPainter extends CustomPainter {
 
 /// Mockup `--brush` repeating horizontal grain.
 class _BrushPainter extends CustomPainter {
-  const _BrushPainter({required this.opacity});
+  const _BrushPainter({required this.opacity, required this.sheen});
 
   final double opacity;
+  final Color sheen;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final a = Paint()..color = Color.fromRGBO(226, 236, 255, 0.045 * opacity);
+    final a = Paint()..color = sheen.withValues(alpha: 0.045 * opacity);
     final b = Paint()..color = Color.fromRGBO(0, 0, 0, 0.10 * opacity);
-    final c = Paint()..color = Color.fromRGBO(226, 236, 255, 0.015 * opacity);
+    final c = Paint()..color = sheen.withValues(alpha: 0.015 * opacity);
     for (var y = 0.0; y < size.height; y += 3) {
       canvas.drawRect(Rect.fromLTWH(0, y, size.width, 1), a);
       canvas.drawRect(Rect.fromLTWH(0, y + 1, size.width, 1), b);
@@ -457,5 +467,5 @@ class _BrushPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BrushPainter oldDelegate) =>
-      opacity != oldDelegate.opacity;
+      opacity != oldDelegate.opacity || sheen != oldDelegate.sheen;
 }
