@@ -75,7 +75,7 @@ void main() {
   }
 
   group('LookInstaller.installDirectory', () {
-    test('fresh install copies look.json and fonts to looksDir/id', () async {
+    test('fresh install copies skin.json and fonts to looksDir/id', () async {
       await writeSourcePack(
         manifestJson: manifest(author: 'Alice'),
         withFonts: true,
@@ -85,7 +85,7 @@ void main() {
 
       expect(installed, isTrue);
       final target = Directory(p.join(looksDir.path, 'neon-cyan'));
-      expect(await File(p.join(target.path, 'look.json')).exists(), isTrue);
+      expect(await File(p.join(target.path, 'skin.json')).exists(), isTrue);
       expect(await File(p.join(target.path, 'fonts', 'chrome.ttf')).exists(),
           isTrue);
       expect(lastConflict, isNull);
@@ -139,7 +139,7 @@ void main() {
 
       expect(installed, isTrue);
       final manifestJson = jsonDecode(
-        await File(p.join(existing.path, 'look.json')).readAsString(),
+        await File(p.join(existing.path, 'skin.json')).readAsString(),
       ) as Map<String, dynamic>;
       expect(manifestJson['name'], 'Incoming');
       expect(await File(p.join(existing.path, 'old.txt')).exists(), isFalse);
@@ -168,7 +168,7 @@ void main() {
 
       expect(installed, isTrue);
       expect(
-        await File(p.join(looksDir.path, 'neon-cyan', 'look.json')).exists(),
+        await File(p.join(looksDir.path, 'neon-cyan', 'skin.json')).exists(),
         isTrue,
       );
     });
@@ -183,7 +183,7 @@ void main() {
 
       expect(installed, isTrue);
       expect(
-        await File(p.join(looksDir.path, 'neon-cyan', 'look.json')).exists(),
+        await File(p.join(looksDir.path, 'neon-cyan', 'skin.json')).exists(),
         isTrue,
       );
     });

@@ -10,8 +10,9 @@ void main() {
           mainVisible: true,
           equalizerVisible: true,
           playlistVisible: false,
+          settingsVisible: true,
         ),
-        [WindowId.main, WindowId.equalizer],
+        [WindowId.main, WindowId.equalizer, WindowId.settings],
       );
     });
 
@@ -31,11 +32,16 @@ void main() {
     test('begin snapshots visible secondaries to hide with main', () {
       final cycle = MinimizeGroupCycle();
       expect(
-        cycle.begin(equalizerVisible: true, playlistVisible: true),
-        {WindowId.equalizer, WindowId.playlist},
+        cycle.begin(
+          equalizerVisible: true,
+          playlistVisible: true,
+          settingsVisible: true,
+        ),
+        {WindowId.equalizer, WindowId.playlist, WindowId.settings},
       );
       expect(cycle.isActive, isTrue);
       expect(cycle.shouldSuppressShow(WindowId.equalizer), isTrue);
+      expect(cycle.shouldSuppressShow(WindowId.settings), isTrue);
       expect(cycle.shouldSuppressShow(WindowId.main), isFalse);
     });
 
@@ -50,10 +56,18 @@ void main() {
 
     test('end restores only secondaries still marked visible', () {
       final cycle = MinimizeGroupCycle();
-      cycle.begin(equalizerVisible: true, playlistVisible: true);
+      cycle.begin(
+        equalizerVisible: true,
+        playlistVisible: true,
+        settingsVisible: true,
+      );
       expect(
-        cycle.end(equalizerVisible: true, playlistVisible: false),
-        {WindowId.equalizer},
+        cycle.end(
+          equalizerVisible: true,
+          playlistVisible: false,
+          settingsVisible: true,
+        ),
+        {WindowId.equalizer, WindowId.settings},
       );
       expect(cycle.isActive, isFalse);
       expect(cycle.shouldSuppressShow(WindowId.equalizer), isFalse);

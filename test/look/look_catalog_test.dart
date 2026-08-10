@@ -71,15 +71,15 @@ void main() {
     });
   });
 
-  group('LookCatalog.defaultLooksDirectory', () {
-    test('returns supportDir/looks', () async {
+  group('LookCatalog.defaultSkinsDirectory', () {
+    test('returns supportDir/skins', () async {
       final support = Directory.systemTemp.createTempSync('tramp-support');
       addTearDown(() {
         if (support.existsSync()) support.deleteSync(recursive: true);
       });
 
-      final looks = await LookCatalog.defaultLooksDirectory(() async => support);
-      expect(looks.path, '${support.path}${Platform.pathSeparator}looks');
+      final looks = await LookCatalog.defaultSkinsDirectory(() async => support);
+      expect(looks.path, '${support.path}${Platform.pathSeparator}skins');
     });
   });
 }

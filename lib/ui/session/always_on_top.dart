@@ -15,11 +15,13 @@ List<WindowId> alwaysOnTopTargets({
   required bool mainVisible,
   required bool equalizerVisible,
   required bool playlistVisible,
+  bool settingsVisible = false,
 }) {
   if (!alwaysOnTop) return const [];
   return [
     if (mainVisible) WindowId.main,
     if (equalizerVisible) WindowId.equalizer,
     if (playlistVisible) WindowId.playlist,
+    if (settingsVisible) WindowId.settings,
   ];
 }

@@ -9,6 +9,7 @@ class DockLayout {
     required this.main,
     required this.equalizer,
     required this.playlist,
+    required this.settings,
     required this.dockEdges,
   });
 
@@ -16,12 +17,14 @@ class DockLayout {
     main: WindowFrameState.mainDefault,
     equalizer: WindowFrameState.equalizerDefault,
     playlist: WindowFrameState.playlistDefault,
+    settings: WindowFrameState.settingsDefault,
     dockEdges: [],
   );
 
   final WindowFrameState main;
   final WindowFrameState equalizer;
   final WindowFrameState playlist;
+  final WindowFrameState settings;
   final List<DockEdge> dockEdges;
 
   WindowFrameState frameOf(WindowId id) {
@@ -32,6 +35,8 @@ class DockLayout {
         return equalizer;
       case WindowId.playlist:
         return playlist;
+      case WindowId.settings:
+        return settings;
     }
   }
 
@@ -39,12 +44,14 @@ class DockLayout {
     WindowFrameState? main,
     WindowFrameState? equalizer,
     WindowFrameState? playlist,
+    WindowFrameState? settings,
     List<DockEdge>? dockEdges,
   }) {
     return DockLayout(
       main: main ?? this.main,
       equalizer: equalizer ?? this.equalizer,
       playlist: playlist ?? this.playlist,
+      settings: settings ?? this.settings,
       dockEdges: dockEdges ?? this.dockEdges,
     );
   }
@@ -57,6 +64,8 @@ class DockLayout {
         return copyWith(equalizer: frame);
       case WindowId.playlist:
         return copyWith(playlist: frame);
+      case WindowId.settings:
+        return copyWith(settings: frame);
     }
   }
 
@@ -65,6 +74,7 @@ class DockLayout {
       main: settings.main,
       equalizer: settings.equalizer,
       playlist: settings.playlist,
+      settings: settings.settings,
       dockEdges: List<DockEdge>.unmodifiable(settings.dockEdges),
     );
   }

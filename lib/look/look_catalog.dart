@@ -16,25 +16,34 @@ class LookCatalogResult {
 class LookCatalog {
   const LookCatalog();
 
-  Future<LookCatalogResult> scan(Directory looksDir) async {
+  /// Prefer `skin.json`, fall back to legacy `look.json`.
+  static Future<File?> manifestFileIn(Directory packDir) async {
+    final skin = File(p.join(packDir.path, 'skin.json'));
+    if (await skin.exists()) return skin;
+    final look = File(p.join(packDir.path, 'look.json'));
+    if (await look.exists()) return look;
+    return null;
+  }
+
+  Future<LookCatalogResult> scan(Directory skinsDir) async {
     final manifests = <String, LookManifest>{};
     final warnings = <String>[];
 
-    if (!await looksDir.exists()) {
+    if (!await skinsDir.exists()) {
       return LookCatalogResult(manifests, warnings);
     }
 
-    await for (final entity in looksDir.list(followLinks: false)) {
+    await for (final entity in skinsDir.list(followLinks: false)) {
       if (entity is! Directory) continue;
 
       final folderName = p.basename(entity.path);
-      final lookFile = File(p.join(entity.path, 'look.json'));
-      if (!await lookFile.exists()) continue;
+      final manifestFile = await manifestFileIn(entity);
+      if (manifestFile == null) continue;
 
       try {
-        final decoded = jsonDecode(await lookFile.readAsString());
+        final decoded = jsonDecode(await manifestFile.readAsString());
         if (decoded is! Map) {
-          warnings.add('Look pack "$folderName": look.json is not an object');
+          warnings.add('Skin "$folderName": manifest is not an object');
           continue;
         }
 
@@ -43,7 +52,7 @@ class LookCatalog {
         );
         if (manifest.id != folderName) {
           warnings.add(
-            'Look pack folder "$folderName" id mismatch: '
+            'Skin folder "$folderName" id mismatch: '
             'manifest id "${manifest.id}"',
           );
           continue;
@@ -51,9 +60,9 @@ class LookCatalog {
 
         manifests[manifest.id] = manifest;
       } on FormatException catch (e) {
-        warnings.add('Look pack "$folderName": ${e.message}');
+        warnings.add('Skin "$folderName": ${e.message}');
       } catch (_) {
-        warnings.add('Look pack "$folderName": failed to read look.json');
+        warnings.add('Skin "$folderName": failed to read manifest');
       }
     }
 
@@ -63,10 +72,16 @@ class LookCatalog {
     );
   }
 
-  static Future<Directory> defaultLooksDirectory(
+  static Future<Directory> defaultSkinsDirectory(
     Future<Directory> Function() supportDir,
   ) async {
     final dir = await supportDir();
-    return Directory(p.join(dir.path, 'looks'));
+    return Directory(p.join(dir.path, 'skins'));
   }
+
+  @Deprecated('Use defaultSkinsDirectory')
+  static Future<Directory> defaultLooksDirectory(
+    Future<Directory> Function() supportDir,
+  ) =>
+      defaultSkinsDirectory(supportDir);
 }

@@ -66,6 +66,7 @@ void main() {
           width: 900,
           height: 500,
         ),
+        settings: WindowFrameState.settingsDefault,
         dockEdges: const [
           DockEdge(a: WindowId.main, b: WindowId.playlist, side: DockSide.bottom),
         ],

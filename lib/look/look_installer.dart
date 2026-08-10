@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 
+import 'look_catalog.dart';
 import 'look_manifest.dart';
 import 'look_parser.dart';
 
@@ -26,9 +27,17 @@ class LookConflict {
 }
 
 class LookInstaller {
-  LookInstaller({required this.looksDir, required this.onConflict});
+  LookInstaller({
+    Directory? skinsDir,
+    Directory? looksDir,
+    required this.onConflict,
+  }) : skinsDir = skinsDir ?? looksDir ?? (throw ArgumentError('skinsDir'));
 
-  final Directory looksDir;
+  final Directory skinsDir;
+
+  /// Alias for callers/tests still using the old name.
+  Directory get looksDir => skinsDir;
+
   final Future<LookConflictChoice> Function(LookConflict conflict) onConflict;
 
   Future<bool> installDirectory(Directory source) async {
@@ -39,14 +48,14 @@ class LookInstaller {
   Future<bool> installZip(File zipFile) async {
     final bytes = await zipFile.readAsBytes();
     final archive = ZipDecoder().decodeBytes(bytes);
-    final lookEntry = _findLookJsonEntry(archive);
+    final lookEntry = _findManifestEntry(archive);
     if (lookEntry == null) {
-      throw FormatException('look.json not found in zip');
+      throw FormatException('skin.json / look.json not found in zip');
     }
 
     final incoming = _parseManifestBytes(lookEntry.content);
     final prefix = _packRootPrefix(lookEntry.name);
-    final tempDir = Directory.systemTemp.createTempSync('tramp-look-install');
+    final tempDir = Directory.systemTemp.createTempSync('tramp-skin-install');
     try {
       await _extractZipPrefix(archive, prefix, tempDir);
       return await _installParsed(tempDir, incoming);
@@ -58,7 +67,7 @@ class LookInstaller {
   }
 
   Future<bool> _installParsed(Directory source, LookManifest incoming) async {
-    final targetDir = Directory(p.join(looksDir.path, incoming.id));
+    final targetDir = Directory(p.join(skinsDir.path, incoming.id));
 
     if (await targetDir.exists()) {
       final conflict = await _buildConflict(targetDir, incoming);
@@ -74,18 +83,20 @@ class LookInstaller {
   }
 
   Future<LookManifest> _readManifest(Directory source) async {
-    final lookFile = File(p.join(source.path, 'look.json'));
-    if (!await lookFile.exists()) {
-      throw FormatException('look.json not found in ${source.path}');
+    final file = await LookCatalog.manifestFileIn(source);
+    if (file == null) {
+      throw FormatException(
+        'skin.json / look.json not found in ${source.path}',
+      );
     }
 
-    return _parseManifestBytes(await lookFile.readAsBytes());
+    return _parseManifestBytes(await file.readAsBytes());
   }
 
   LookManifest _parseManifestBytes(List<int> bytes) {
     final decoded = jsonDecode(utf8.decode(bytes));
     if (decoded is! Map) {
-      throw FormatException('look.json is not an object');
+      throw FormatException('skin manifest is not an object');
     }
 
     return LookParser.parse(Map<String, dynamic>.from(decoded));
@@ -95,11 +106,11 @@ class LookInstaller {
     Directory targetDir,
     LookManifest incoming,
   ) async {
-    final existingFile = File(p.join(targetDir.path, 'look.json'));
+    final existingFile = await LookCatalog.manifestFileIn(targetDir);
     var installedName = incoming.id;
     String? installedAuthor;
 
-    if (await existingFile.exists()) {
+    if (existingFile != null) {
       try {
         final existing = _parseManifestBytes(await existingFile.readAsBytes());
         installedName = existing.name;
@@ -136,7 +147,9 @@ class LookInstaller {
       if (relative.isEmpty) continue;
 
       final safeRelative = _safeZipRelativePath(relative);
-      final outPath = p.join(targetDir.path, safeRelative);
+      // Normalize legacy look.json → skin.json on install.
+      final destRelative = safeRelative == 'look.json' ? 'skin.json' : safeRelative;
+      final outPath = p.join(targetDir.path, destRelative);
       final canonicalOut = p.canonicalize(outPath);
       if (!p.isWithin(targetRoot, canonicalOut)) {
         throw FormatException('zip entry escapes pack root: $relative');
@@ -184,7 +197,8 @@ class LookInstaller {
 
     await for (final entity in source.list(recursive: false)) {
       final name = p.basename(entity.path);
-      final dest = p.join(targetDir.path, name);
+      final destName = name == 'look.json' ? 'skin.json' : name;
+      final dest = p.join(targetDir.path, destName);
 
       if (entity is File) {
         await entity.copy(dest);
@@ -207,27 +221,33 @@ class LookInstaller {
     }
   }
 
-  ArchiveFile? _findLookJsonEntry(Archive archive) {
+  ArchiveFile? _findManifestEntry(Archive archive) {
+    ArchiveFile? rootSkin;
     ArchiveFile? rootLook;
+    ArchiveFile? nestedSkin;
     ArchiveFile? nestedLook;
 
     for (final file in archive.files) {
       if (!file.isFile) continue;
 
       final normalized = file.name.replaceAll('\\', '/');
-      if (normalized == 'look.json') {
+      if (normalized == 'skin.json') {
+        rootSkin = file;
+      } else if (normalized == 'look.json') {
         rootLook = file;
+      } else if (RegExp(r'^[^/]+/skin\.json$').hasMatch(normalized)) {
+        nestedSkin ??= file;
       } else if (RegExp(r'^[^/]+/look\.json$').hasMatch(normalized)) {
         nestedLook ??= file;
       }
     }
 
-    return rootLook ?? nestedLook;
+    return rootSkin ?? rootLook ?? nestedSkin ?? nestedLook;
   }
 
-  String _packRootPrefix(String lookJsonPath) {
-    final normalized = lookJsonPath.replaceAll('\\', '/');
-    if (normalized == 'look.json') {
+  String _packRootPrefix(String manifestPath) {
+    final normalized = manifestPath.replaceAll('\\', '/');
+    if (normalized == 'skin.json' || normalized == 'look.json') {
       return '';
     }
 

@@ -31,8 +31,8 @@ class LookController extends ChangeNotifier {
     activeId: 'builtin',
     installed: const {},
   );
-  String _activeLookId = 'builtin';
-  Directory? _looksDirectory;
+  String _activeSkinId = 'builtin';
+  Directory? _skinsDirectory;
   Map<String, LookManifest> _installed = const {};
   Map<String, String> _fontFiles = const {};
   String? _lastError;
@@ -41,9 +41,13 @@ class LookController extends ChangeNotifier {
   ResolvedLook get resolved => _resolved;
   /// Absolute font paths for overridden roles (`chrome` / `lcd`).
   Map<String, String> get fontFiles => _fontFiles;
-  String get activeLookId => _activeLookId;
-  Directory get looksDirectory =>
-      _looksDirectory ?? Directory(p.join('looks'));
+  String get activeSkinId => _activeSkinId;
+  @Deprecated('Use activeSkinId')
+  String get activeLookId => _activeSkinId;
+  Directory get skinsDirectory =>
+      _skinsDirectory ?? Directory(p.join('skins'));
+  @Deprecated('Use skinsDirectory')
+  Directory get looksDirectory => skinsDirectory;
   List<LookManifest> get installed => [
         BuiltinLook.manifest,
         ..._installed.values,
@@ -56,30 +60,34 @@ class LookController extends ChangeNotifier {
   }) async {
     _supportDir = supportDir;
     _settings = settings;
-    _looksDirectory = await _resolveLooksDirectory(settings.looksDirectory);
+    _skinsDirectory = await _resolveSkinsDirectory(settings.skinsDirectory);
     await _rescan();
 
-    final requested = settings.activeLookId;
+    final requested = settings.activeSkinId;
     final available = requested == 'builtin' || _installed.containsKey(requested);
     await _activateInternal(available ? requested : 'builtin');
   }
 
-  Future<void> setLooksDirectory(String? absolutePath) async {
+  Future<void> setSkinsDirectory(String? absolutePath) async {
     _settings = _settings.copyWith(
-      looksDirectory: absolutePath,
-      clearLooksDirectory: absolutePath == null,
+      skinsDirectory: absolutePath,
+      clearSkinsDirectory: absolutePath == null,
     );
-    _looksDirectory = await _resolveLooksDirectory(absolutePath);
+    _skinsDirectory = await _resolveSkinsDirectory(absolutePath);
     await _persistSettings();
     await _rescan();
 
-    final active = _activeLookId;
+    final active = _activeSkinId;
     if (active != 'builtin' && !_installed.containsKey(active)) {
       await activate('builtin');
       return;
     }
     await _activateInternal(active);
   }
+
+  @Deprecated('Use setSkinsDirectory')
+  Future<void> setLooksDirectory(String? absolutePath) =>
+      setSkinsDirectory(absolutePath);
 
   Future<void> activate(String id) async {
     await _activateInternal(id);
@@ -91,7 +99,7 @@ class LookController extends ChangeNotifier {
   }) async {
     try {
       final installer = LookInstaller(
-        looksDir: looksDirectory,
+        skinsDir: skinsDirectory,
         onConflict: onConflict,
       );
       final ok = await installer.installZip(zip);
@@ -114,7 +122,7 @@ class LookController extends ChangeNotifier {
   }) async {
     try {
       final installer = LookInstaller(
-        looksDir: looksDirectory,
+        skinsDir: skinsDirectory,
         onConflict: onConflict,
       );
       final ok = await installer.installDirectory(dir);
@@ -136,9 +144,9 @@ class LookController extends ChangeNotifier {
       final (next, fontFiles) = await _resolveWithFonts(id);
       _resolved = next;
       _fontFiles = fontFiles;
-      _activeLookId = id;
+      _activeSkinId = id;
       _lastError = null;
-      _settings = _settings.copyWith(activeLookId: id);
+      _settings = _settings.copyWith(activeSkinId: id);
       await _persistSettings();
       notifyListeners();
     } catch (e) {
@@ -181,7 +189,7 @@ class LookController extends ChangeNotifier {
       if (manifest.id == 'builtin') continue;
 
       final packRoot = p.canonicalize(
-        p.join(_looksDirectory!.path, manifest.id),
+        p.join(_skinsDirectory!.path, manifest.id),
       );
       final file = File(p.normalize(p.join(packRoot, fileRel)));
       final canonicalFile = p.canonicalize(file.path);
@@ -264,16 +272,16 @@ class LookController extends ChangeNotifier {
   }
 
   Future<void> _rescan() async {
-    final dir = _looksDirectory!;
+    final dir = _skinsDirectory!;
     final result = await _catalog.scan(dir);
     _installed = result.manifests;
   }
 
-  Future<Directory> _resolveLooksDirectory(String? absolutePath) async {
+  Future<Directory> _resolveSkinsDirectory(String? absolutePath) async {
     if (absolutePath != null && absolutePath.isNotEmpty) {
       return Directory(absolutePath);
     }
-    return LookCatalog.defaultLooksDirectory(_supportDir);
+    return LookCatalog.defaultSkinsDirectory(_supportDir);
   }
 
   Future<void> _persistSettings() async {

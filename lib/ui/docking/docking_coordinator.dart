@@ -10,15 +10,30 @@ import 'dock_layout.dart';
 /// Pure layout math — no OS window APIs. [frameFor] returns pixel rects at
 /// the given zoom for `window_manager`.
 class DockingCoordinator extends ChangeNotifier {
-  DockingCoordinator(DockLayout initial) : _layout = initial;
+  DockingCoordinator(
+    DockLayout initial, {
+    double snapThreshold = 20.0,
+  })  : _layout = initial,
+        snapThreshold = snapThreshold;
 
-  static const double snapThreshold = 20.0;
+  /// Logical px within which edges snap. Set from [DockSnapStrength].
+  double snapThreshold;
   static const double undockSeparation = 48.0;
 
   DockLayout _layout;
   DockLayout get layout => _layout;
 
   void move(WindowId id, Offset topLeft, {required bool shiftUndock, bool snap = true}) {
+    // Settings is free-floating: never snap, never peel, never carry partners.
+    if (id == WindowId.settings) {
+      _layout = _layout.withFrame(
+        id,
+        _layout.frameOf(id).copyWith(left: topLeft.dx, top: topLeft.dy),
+      );
+      notifyListeners();
+      return;
+    }
+
     final current = _topLeft(id);
     final delta = topLeft - current;
 
@@ -70,7 +85,7 @@ class DockingCoordinator extends ChangeNotifier {
       }
     }
 
-    // Snap only from EQ / playlist finalize — never from main.
+    // Snap only from EQ / playlist finalize — never from main or settings.
     // Live drag passes snap: false so snap does not fight the cursor.
     if (snap && !shiftUndock && id != WindowId.main) {
       _trySnap(id);
@@ -130,13 +145,16 @@ class DockingCoordinator extends ChangeNotifier {
 
   /// Windows that move together when [id]'s title bar is dragged.
   ///
-  /// Main → every visible window. EQ / playlist → edge [groupOf] (usually
-  /// just self after peel).
+  /// Main → every visible window except settings. Settings → self only.
+  /// EQ / playlist → edge [groupOf] (usually just self after peel).
   Set<WindowId> moveCohortOf(WindowId id) {
+    if (id == WindowId.settings) {
+      return {WindowId.settings};
+    }
     if (id == WindowId.main) {
       return {
         for (final w in WindowId.values)
-          if (_layout.frameOf(w).visible) w,
+          if (w != WindowId.settings && _layout.frameOf(w).visible) w,
       };
     }
     return groupOf(id);
@@ -193,7 +211,7 @@ class DockingCoordinator extends ChangeNotifier {
     // Multiple passes so PL→EQ→main chains reseat after partners move.
     for (var pass = 0; pass < WindowId.values.length; pass++) {
       for (final id in WindowId.values) {
-        if (id == WindowId.main) continue;
+        if (id == WindowId.main || id == WindowId.settings) continue;
         if (!_hasEdge(id, _layout.dockEdges)) continue;
         _applyDockConstraints(id);
       }
@@ -259,6 +277,7 @@ class DockingCoordinator extends ChangeNotifier {
           frame.width ?? TrampMetrics.playlistDefault.width,
           frame.height ?? TrampMetrics.playlistDefault.height,
         ),
+      WindowId.settings => TrampMetrics.settings,
     };
     if (frame.shaded) {
       return Size(base.width, TrampMetrics.titleBar);
@@ -321,12 +340,13 @@ class DockingCoordinator extends ChangeNotifier {
   }
 
   void _trySnap(WindowId id) {
+    if (id == WindowId.settings || snapThreshold <= 0) return;
     final group = groupOf(id);
     final moving = _rectFor(id);
     _SnapCandidate? best;
 
     for (final otherId in WindowId.values) {
-      if (otherId == id) continue;
+      if (otherId == id || otherId == WindowId.settings) continue;
       if (group.contains(otherId)) continue;
       if (!_layout.frameOf(otherId).visible) continue;
       final other = _rectFor(otherId);

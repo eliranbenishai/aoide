@@ -8,7 +8,7 @@ import '../../look/look_palette.dart';
 import '../../look/resolved_look.dart';
 
 /// Which Flutter engine / OS window this entrypoint owns.
-enum WindowRole { main, equalizer, playlist }
+enum WindowRole { main, equalizer, playlist, settings }
 
 /// JSON arguments passed to [WindowController.create] / secondary engines.
 String encodeWindowArguments(WindowRole role) =>
@@ -26,6 +26,7 @@ WindowRole parseWindowRole(String arguments) {
   if (role == null || role == 'main') return WindowRole.main;
   if (role == 'equalizer') return WindowRole.equalizer;
   if (role == 'playlist') return WindowRole.playlist;
+  if (role == 'settings') return WindowRole.settings;
   throw FormatException('unknown window role: $role');
 }
 
@@ -68,6 +69,8 @@ sealed class SessionEvent {
         return DockSnapshotEvent.fromPayload(payload);
       case LookSnapshotEvent.typeName:
         return LookSnapshotEvent.fromPayload(payload);
+      case SettingsSnapshotEvent.typeName:
+        return SettingsSnapshotEvent.fromPayload(payload);
       case LevelsFrameEvent.typeName:
         return LevelsFrameEvent.fromPayload(payload);
       default:
@@ -262,6 +265,7 @@ final class DockSnapshotEvent extends SessionEvent {
     required this.main,
     required this.equalizer,
     required this.playlist,
+    required this.settings,
     required this.dockEdges,
     required this.zoomPercent,
   });
@@ -271,6 +275,7 @@ final class DockSnapshotEvent extends SessionEvent {
   final WindowFrameState main;
   final WindowFrameState equalizer;
   final WindowFrameState playlist;
+  final WindowFrameState settings;
   final List<DockEdge> dockEdges;
   final int zoomPercent;
 
@@ -282,6 +287,7 @@ final class DockSnapshotEvent extends SessionEvent {
         'main': main.toJson(),
         'equalizer': equalizer.toJson(),
         'playlist': playlist.toJson(),
+        'settings': settings.toJson(),
         'dockEdges': dockEdges.map((e) => e.toJson()).toList(),
         'zoomPercent': zoomPercent,
       };
@@ -300,11 +306,116 @@ final class DockSnapshotEvent extends SessionEvent {
         Map<String, dynamic>.from(json['playlist'] as Map? ?? const {}),
         fallback: WindowFrameState.playlistDefault,
       ),
+      settings: WindowFrameState.fromJson(
+        Map<String, dynamic>.from(json['settings'] as Map? ?? const {}),
+        fallback: WindowFrameState.settingsDefault,
+      ),
       dockEdges: [
         for (final edge in (json['dockEdges'] as List? ?? const []))
           DockEdge.fromJson(Map<String, dynamic>.from(edge as Map)),
       ],
       zoomPercent: (json['zoomPercent'] as num?)?.toInt() ?? 100,
+    );
+  }
+}
+
+/// Catalog entry for a skin (look pack) in settings UI.
+final class SkinCatalogEntry {
+  const SkinCatalogEntry({
+    required this.id,
+    required this.name,
+    this.author,
+  });
+
+  final String id;
+  final String name;
+  final String? author;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        if (author != null) 'author': author,
+      };
+
+  factory SkinCatalogEntry.fromJson(Map<String, dynamic> json) {
+    final id = json['id'];
+    final name = json['name'];
+    if (id is! String || id.isEmpty) {
+      throw const FormatException('SkinCatalogEntry.id');
+    }
+    if (name is! String || name.isEmpty) {
+      throw const FormatException('SkinCatalogEntry.name');
+    }
+    final author = json['author'];
+    return SkinCatalogEntry(
+      id: id,
+      name: name,
+      author: author is String && author.isNotEmpty ? author : null,
+    );
+  }
+}
+
+/// General prefs + skin catalog for the settings window.
+final class SettingsSnapshotEvent extends SessionEvent {
+  const SettingsSnapshotEvent({
+    required this.resumeLastSession,
+    required this.confirmBeforeQuit,
+    required this.scrollTitle,
+    required this.minimizeHidesSecondaries,
+    required this.dockSnapStrength,
+    required this.skins,
+    required this.activeSkinId,
+    this.lastSkinError,
+  });
+
+  static const typeName = 'settings_snapshot';
+
+  final bool resumeLastSession;
+  final bool confirmBeforeQuit;
+  final bool scrollTitle;
+  final bool minimizeHidesSecondaries;
+  final DockSnapStrength dockSnapStrength;
+  final List<SkinCatalogEntry> skins;
+  final String activeSkinId;
+  final String? lastSkinError;
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'resumeLastSession': resumeLastSession,
+        'confirmBeforeQuit': confirmBeforeQuit,
+        'scrollTitle': scrollTitle,
+        'minimizeHidesSecondaries': minimizeHidesSecondaries,
+        'dockSnapStrength': dockSnapStrength.name,
+        'skins': [for (final s in skins) s.toJson()],
+        'activeSkinId': activeSkinId,
+        'lastSkinError': lastSkinError,
+      };
+
+  factory SettingsSnapshotEvent.fromPayload(Map<String, dynamic> json) {
+    final rawSkins = json['skins'];
+    final skins = <SkinCatalogEntry>[];
+    if (rawSkins is List) {
+      for (final item in rawSkins) {
+        if (item is Map) {
+          skins.add(SkinCatalogEntry.fromJson(Map<String, dynamic>.from(item)));
+        }
+      }
+    }
+    final active = json['activeSkinId'];
+    return SettingsSnapshotEvent(
+      resumeLastSession: json['resumeLastSession'] == true,
+      confirmBeforeQuit: json['confirmBeforeQuit'] == true,
+      scrollTitle: json['scrollTitle'] != false,
+      minimizeHidesSecondaries: json['minimizeHidesSecondaries'] != false,
+      dockSnapStrength:
+          DockSnapStrength.tryParse(json['dockSnapStrength']) ??
+              DockSnapStrength.normal,
+      skins: skins,
+      activeSkinId: active is String && active.isNotEmpty ? active : 'builtin',
+      lastSkinError: json['lastSkinError'] as String?,
     );
   }
 }
@@ -496,6 +607,16 @@ sealed class SessionCommand {
         return AlwaysOnTopCommand.fromPayload(payload);
       case ClientReadyCommand.typeName:
         return ClientReadyCommand.fromPayload(payload);
+      case UpdateGeneralSettingsCommand.typeName:
+        return UpdateGeneralSettingsCommand.fromPayload(payload);
+      case ActivateSkinCommand.typeName:
+        return ActivateSkinCommand.fromPayload(payload);
+      case InstallSkinPathCommand.typeName:
+        return InstallSkinPathCommand.fromPayload(payload);
+      case SetSkinsDirectoryCommand.typeName:
+        return SetSkinsDirectoryCommand.fromPayload(payload);
+      case ResetSettingsCommand.typeName:
+        return const ResetSettingsCommand();
       default:
         throw FormatException('unknown SessionCommand type: $type');
     }
@@ -762,6 +883,145 @@ final class SetShadedCommand extends SessionCommand {
       shaded: json['shaded'] == true,
     );
   }
+}
+
+/// Partial update for general preferences (null fields leave host unchanged).
+final class UpdateGeneralSettingsCommand extends SessionCommand {
+  const UpdateGeneralSettingsCommand({
+    this.resumeLastSession,
+    this.confirmBeforeQuit,
+    this.scrollTitle,
+    this.minimizeHidesSecondaries,
+    this.dockSnapStrength,
+  });
+
+  static const typeName = 'update_general_settings';
+
+  final bool? resumeLastSession;
+  final bool? confirmBeforeQuit;
+  final bool? scrollTitle;
+  final bool? minimizeHidesSecondaries;
+  final DockSnapStrength? dockSnapStrength;
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {
+        if (resumeLastSession != null) 'resumeLastSession': resumeLastSession,
+        if (confirmBeforeQuit != null) 'confirmBeforeQuit': confirmBeforeQuit,
+        if (scrollTitle != null) 'scrollTitle': scrollTitle,
+        if (minimizeHidesSecondaries != null)
+          'minimizeHidesSecondaries': minimizeHidesSecondaries,
+        if (dockSnapStrength != null)
+          'dockSnapStrength': dockSnapStrength!.name,
+      };
+
+  factory UpdateGeneralSettingsCommand.fromPayload(Map<String, dynamic> json) {
+    return UpdateGeneralSettingsCommand(
+      resumeLastSession: json.containsKey('resumeLastSession')
+          ? json['resumeLastSession'] == true
+          : null,
+      confirmBeforeQuit: json.containsKey('confirmBeforeQuit')
+          ? json['confirmBeforeQuit'] == true
+          : null,
+      scrollTitle: json.containsKey('scrollTitle')
+          ? json['scrollTitle'] == true
+          : null,
+      minimizeHidesSecondaries: json.containsKey('minimizeHidesSecondaries')
+          ? json['minimizeHidesSecondaries'] == true
+          : null,
+      dockSnapStrength: DockSnapStrength.tryParse(json['dockSnapStrength']),
+    );
+  }
+}
+
+final class ActivateSkinCommand extends SessionCommand {
+  const ActivateSkinCommand(this.id);
+
+  static const typeName = 'activate_skin';
+
+  final String id;
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {'id': id};
+
+  factory ActivateSkinCommand.fromPayload(Map<String, dynamic> json) {
+    final id = json['id'];
+    if (id is! String || id.isEmpty) {
+      throw const FormatException('ActivateSkinCommand.id');
+    }
+    return ActivateSkinCommand(id);
+  }
+}
+
+final class InstallSkinPathCommand extends SessionCommand {
+  const InstallSkinPathCommand({required this.path, required this.isDirectory});
+
+  static const typeName = 'install_skin_path';
+
+  final String path;
+  final bool isDirectory;
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'path': path,
+        'isDirectory': isDirectory,
+      };
+
+  factory InstallSkinPathCommand.fromPayload(Map<String, dynamic> json) {
+    final path = json['path'];
+    if (path is! String || path.isEmpty) {
+      throw const FormatException('InstallSkinPathCommand.path');
+    }
+    return InstallSkinPathCommand(
+      path: path,
+      isDirectory: json['isDirectory'] == true,
+    );
+  }
+}
+
+/// Set skins catalog directory; null path resets to the default support dir.
+final class SetSkinsDirectoryCommand extends SessionCommand {
+  const SetSkinsDirectoryCommand(this.path);
+
+  static const typeName = 'set_skins_directory';
+
+  final String? path;
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {'path': path};
+
+  factory SetSkinsDirectoryCommand.fromPayload(Map<String, dynamic> json) {
+    final path = json['path'];
+    if (path == null) return const SetSkinsDirectoryCommand(null);
+    if (path is! String) {
+      throw const FormatException('SetSkinsDirectoryCommand.path');
+    }
+    return SetSkinsDirectoryCommand(path.isEmpty ? null : path);
+  }
+}
+
+/// Reset all TrampSettings to defaults and re-bootstrap looks/skins.
+final class ResetSettingsCommand extends SessionCommand {
+  const ResetSettingsCommand();
+
+  static const typeName = 'reset_settings';
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => const {};
 }
 
 final class PlaylistOpCommand extends SessionCommand {

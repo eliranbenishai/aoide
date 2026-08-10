@@ -32,6 +32,7 @@ class MainPlayerWindow extends StatelessWidget {
     this.draggableTitle = true,
     this.spectrumBars,
     this.spectrumPeaks,
+    this.scrollTitle = true,
   });
 
   static const logicalSize = TrampMetrics.mainPlayer;
@@ -42,6 +43,7 @@ class MainPlayerWindow extends StatelessWidget {
   final bool alwaysOnTop;
   final bool equalizerVisible;
   final bool playlistVisible;
+  final bool scrollTitle;
   final ValueChanged<SessionCommand>? onSessionCommand;
   final VoidCallback? onOpenFiles;
   final void Function(BuildContext context, String action)? onOptionsAction;
@@ -107,6 +109,7 @@ class MainPlayerWindow extends StatelessWidget {
               alwaysOnTop: alwaysOnTop,
               equalizerVisible: equalizerVisible,
               playlistVisible: playlistVisible,
+              scrollTitle: scrollTitle,
               onSessionCommand: onSessionCommand,
               onOpenFiles: onOpenFiles,
               onOptionsAction: onOptionsAction,

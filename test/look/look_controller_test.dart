@@ -51,7 +51,7 @@ void main() {
 
   setUp(() async {
     supportDir = Directory.systemTemp.createTempSync('tramp-look-support');
-    looksDir = Directory(p.join(supportDir.path, 'looks'));
+    looksDir = Directory(p.join(supportDir.path, 'skins'));
     await looksDir.create(recursive: true);
     store = MemorySettingsStore();
     fontLoads = [];
@@ -93,14 +93,14 @@ void main() {
       () async {
     final c = controller();
     await c.bootstrap(
-      settings: TrampSettings.defaults.copyWith(activeLookId: 'missing-pack'),
+      settings: TrampSettings.defaults.copyWith(activeSkinId: 'missing-pack'),
       supportDir: supportDirFn,
     );
 
-    expect(c.activeLookId, 'builtin');
+    expect(c.activeSkinId, 'builtin');
     expect(c.resolved.id, 'builtin');
     expect(store.writes, greaterThan(0));
-    expect(store.stored.activeLookId, 'builtin');
+    expect(store.stored.activeSkinId, 'builtin');
   });
 
   test('setLooksDirectory to empty temp falls back to builtin when active missing',
@@ -109,10 +109,10 @@ void main() {
 
     final c = controller();
     await c.bootstrap(
-      settings: TrampSettings.defaults.copyWith(activeLookId: 'neon-cyan'),
+      settings: TrampSettings.defaults.copyWith(activeSkinId: 'neon-cyan'),
       supportDir: supportDirFn,
     );
-    expect(c.activeLookId, 'neon-cyan');
+    expect(c.activeSkinId, 'neon-cyan');
 
     final emptyLooks = Directory.systemTemp.createTempSync('tramp-empty-looks');
     addTearDown(() {
@@ -121,10 +121,10 @@ void main() {
 
     await c.setLooksDirectory(emptyLooks.path);
 
-    expect(c.activeLookId, 'builtin');
+    expect(c.activeSkinId, 'builtin');
     expect(c.resolved.id, 'builtin');
-    expect(store.stored.looksDirectory, emptyLooks.path);
-    expect(store.stored.activeLookId, 'builtin');
+    expect(store.stored.skinsDirectory, emptyLooks.path);
+    expect(store.stored.activeSkinId, 'builtin');
   });
 
   test('activate neon-cyan applies palette overlay and loads fonts', () async {
@@ -138,7 +138,7 @@ void main() {
 
     await c.activate('neon-cyan');
 
-    expect(c.activeLookId, 'neon-cyan');
+    expect(c.activeSkinId, 'neon-cyan');
     expect(c.resolved.id, 'neon-cyan');
     expect(c.resolved.palette.phosphorDefault, const Color(0xFF112233));
     expect(c.resolved.lcdFamily, 'Look.neon-cyan.lcd');
@@ -146,7 +146,7 @@ void main() {
     expect(fontLoads.single.family, 'Look.neon-cyan.lcd');
     expect(fontLoads.single.weight, 500);
     expect(fontLoads.single.bytes, [1, 2, 3, 4]);
-    expect(store.stored.activeLookId, 'neon-cyan');
+    expect(store.stored.activeSkinId, 'neon-cyan');
   });
 
   test('activate with missing font sets lastError and keeps previous look',
@@ -170,11 +170,11 @@ void main() {
       settings: TrampSettings.defaults,
       supportDir: supportDirFn,
     );
-    expect(c.activeLookId, 'builtin');
+    expect(c.activeSkinId, 'builtin');
 
     await c.activate('broken-font');
 
-    expect(c.activeLookId, 'builtin');
+    expect(c.activeSkinId, 'builtin');
     expect(c.lastError, isNotNull);
     expect(c.lastError, contains('font file missing'));
   });

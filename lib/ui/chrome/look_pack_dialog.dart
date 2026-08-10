@@ -1,15 +1,15 @@
 import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../look/look_controller.dart';
 import '../../look/look_installer.dart';
-import '../../look/look_manifest.dart';
 import '../../theme/look_scope.dart';
 import '../../theme/tramp_text.dart';
+import '../session/session_messages.dart';
+import '../settings/skins_panel.dart';
 
-/// Dark look-pack manager: list, activate, install zip/folder, looks directory.
+/// Dark skins manager dialog (tests / legacy). Prefer the Settings window.
 Future<void> showLookPackDialog(
   BuildContext context, {
   required LookController controller,
@@ -42,7 +42,7 @@ Future<LookConflictChoice> showLookConflictDialog(
         backgroundColor: palette.shellMid,
         surfaceTintColor: Colors.transparent,
         title: Text(
-          'Replace look?',
+          'Replace skin?',
           style: TrampText.chromeLabel(look).copyWith(
             fontSize: 14,
             color: palette.inkDefault,
@@ -96,58 +96,6 @@ class LookPackDialog extends StatelessWidget {
   final Future<String?> Function()? pickDirectoryPath;
   final Future<String?> Function()? pickLooksDirectoryPath;
 
-  Future<String?> _defaultPickZip() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['zip'],
-      dialogTitle: 'Install look pack',
-    );
-    if (result == null || result.files.isEmpty) return null;
-    return result.files.first.path;
-  }
-
-  Future<String?> _defaultPickDirectory() =>
-      FilePicker.platform.getDirectoryPath(dialogTitle: 'Install look folder');
-
-  Future<String?> _defaultPickLooksDirectory() =>
-      FilePicker.platform.getDirectoryPath(dialogTitle: 'Looks folder');
-
-  Future<void> _installZip(BuildContext context) async {
-    final path = await (pickZipPath ?? _defaultPickZip)();
-    if (path == null || !context.mounted) return;
-    try {
-      await controller.installZip(
-        File(path),
-        onConflict: (conflict) => showLookConflictDialog(context, conflict),
-      );
-    } catch (_) {
-      // LookController sets lastError; ListenableBuilder rebuilds the dialog.
-    }
-  }
-
-  Future<void> _installDirectory(BuildContext context) async {
-    final path = await (pickDirectoryPath ?? _defaultPickDirectory)();
-    if (path == null || !context.mounted) return;
-    try {
-      await controller.installDirectory(
-        Directory(path),
-        onConflict: (conflict) => showLookConflictDialog(context, conflict),
-      );
-    } catch (_) {
-      // LookController sets lastError; ListenableBuilder rebuilds the dialog.
-    }
-  }
-
-  Future<void> _setLooksFolder(BuildContext context) async {
-    final path = await (pickLooksDirectoryPath ?? _defaultPickLooksDirectory)();
-    if (path == null) return;
-    try {
-      await controller.setLooksDirectory(path);
-    } catch (_) {
-      // LookController sets lastError when activation after rescan fails.
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final look = LookScope.of(context);
@@ -160,7 +108,7 @@ class LookPackDialog extends StatelessWidget {
       contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
       actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       title: Text(
-        'Look packs',
+        'Skins',
         style: TrampText.chromeLabel(look).copyWith(
           fontSize: 14,
           letterSpacing: 1.2,
@@ -173,65 +121,47 @@ class LookPackDialog extends StatelessWidget {
         child: ListenableBuilder(
           listenable: controller,
           builder: (context, _) {
-            final looks = controller.installed;
-            final activeId = controller.activeLookId;
-            final error = controller.lastError;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: looks.length,
-                    itemBuilder: (context, index) {
-                      final manifest = looks[index];
-                      return _LookRow(
-                        manifest: manifest,
-                        active: manifest.id == activeId,
-                        onTap: () => controller.activate(manifest.id),
-                      );
-                    },
-                  ),
+            final skins = [
+              for (final m in controller.installed)
+                SkinCatalogEntry(
+                  id: m.id,
+                  name: m.name,
+                  author: m.author,
                 ),
-                if (error != null) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    key: const Key('look-pack-error'),
-                    error,
-                    style: TrampText.lcd(look).copyWith(
-                      fontSize: 10,
-                      color: palette.accentDefault,
-                      height: 1.3,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    _DialogAction(
-                      key: const Key('look-install-zip'),
-                      label: 'Install look…',
-                      onPressed: () => _installZip(context),
-                    ),
-                    _DialogAction(
-                      key: const Key('look-install-folder'),
-                      label: 'Install folder…',
-                      onPressed: () => _installDirectory(context),
-                    ),
-                    _DialogAction(
-                      key: const Key('look-folder'),
-                      label: 'Looks folder…',
-                      onPressed: () => _setLooksFolder(context),
-                    ),
-                    _DialogAction(
-                      key: const Key('look-reset-folder'),
-                      label: 'Reset folder',
-                      onPressed: () => controller.setLooksDirectory(null),
-                    ),
-                  ],
-                ),
-              ],
+            ];
+            return SkinsPanel(
+              skins: skins,
+              activeSkinId: controller.activeSkinId,
+              lastError: controller.lastError,
+              pickZipPath: pickZipPath,
+              pickDirectoryPath: pickDirectoryPath,
+              pickSkinsDirectoryPath: pickLooksDirectoryPath,
+              onActivate: controller.activate,
+              onInstallZipPath: (path) async {
+                try {
+                  await controller.installZip(
+                    File(path),
+                    onConflict: (conflict) =>
+                        showLookConflictDialog(context, conflict),
+                  );
+                } catch (_) {}
+              },
+              onInstallDirectoryPath: (path) async {
+                try {
+                  await controller.installDirectory(
+                    Directory(path),
+                    onConflict: (conflict) =>
+                        showLookConflictDialog(context, conflict),
+                  );
+                } catch (_) {}
+              },
+              onSetSkinsDirectory: (path) async {
+                try {
+                  await controller.setSkinsDirectory(path);
+                } catch (_) {}
+              },
+              onResetSkinsDirectory: () =>
+                  controller.setSkinsDirectory(null),
             );
           },
         ),
@@ -246,92 +176,6 @@ class LookPackDialog extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _LookRow extends StatelessWidget {
-  const _LookRow({
-    required this.manifest,
-    required this.active,
-    required this.onTap,
-  });
-
-  final LookManifest manifest;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final look = LookScope.of(context);
-    final palette = look.palette;
-    final author = manifest.author;
-    final subtitle = author == null || author.isEmpty ? null : author;
-
-    return Material(
-      color: active
-          ? palette.shellHighlight.withValues(alpha: 0.45)
-          : Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                manifest.name,
-                style: TrampText.chromeLabel(look).copyWith(
-                  fontSize: 12,
-                  color: active ? palette.phosphorDefault : palette.inkDefault,
-                ),
-              ),
-              if (subtitle != null) ...[
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: TrampText.lcd(look).copyWith(
-                    fontSize: 10,
-                    color: palette.inkDim,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DialogAction extends StatelessWidget {
-  const _DialogAction({
-    super.key,
-    required this.label,
-    required this.onPressed,
-  });
-
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final look = LookScope.of(context);
-    final palette = look.palette;
-    return TextButton(
-      onPressed: onPressed,
-      style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-      child: Text(
-        label,
-        style: TrampText.chromeLabel(look).copyWith(
-          fontSize: 11,
-          color: palette.phosphorDefault,
-        ),
-      ),
     );
   }
 }

@@ -40,6 +40,7 @@ class MockupMainPlayer extends StatefulWidget {
     this.onOptionsAction,
     this.spectrumBars,
     this.spectrumPeaks,
+    this.scrollTitle = true,
     this.showElapsed = true,
   });
 
@@ -58,13 +59,16 @@ class MockupMainPlayer extends StatefulWidget {
 
   final VoidCallback? onOpenFiles;
 
-  /// Host actions from the options cog menu (`looks` / `info` / `about` / `quit`).
+  /// Host actions from the options cog menu (`settings` / `info` / `about` / `quit`).
   /// Always on top is emitted as [AlwaysOnTopCommand] via [onSessionCommand].
   final void Function(BuildContext context, String action)? onOptionsAction;
 
   /// When set, spectrum paints these fixed heights (goldens / demo).
   final List<double>? spectrumBars;
   final List<double>? spectrumPeaks;
+
+  /// When false, the title field truncates instead of marquee-scrolling.
+  final bool scrollTitle;
 
   final bool showElapsed;
 
@@ -132,8 +136,8 @@ class _MockupMainPlayerState extends State<MockupMainPlayer> {
             child: Text(aotLabel, style: labelStyle),
           ),
           PopupMenuItem(
-            value: 'looks',
-            child: Text('Look packs…', style: labelStyle),
+            value: 'settings',
+            child: Text('Settings…', style: labelStyle),
           ),
           PopupMenuItem(
             value: 'info',
@@ -202,6 +206,7 @@ class _MockupMainPlayerState extends State<MockupMainPlayer> {
                 playback: playback,
                 trackCount: widget.trackCount,
                 showElapsed: _showElapsed,
+                scrollTitle: widget.scrollTitle,
                 onToggleElapsed: () =>
                     setState(() => _showElapsed = !_showElapsed),
                 spectrumBars: widget.spectrumBars,
@@ -271,6 +276,7 @@ class _DisplayWell extends StatelessWidget {
     required this.trackCount,
     required this.showElapsed,
     required this.onToggleElapsed,
+    this.scrollTitle = true,
     this.spectrumBars,
     this.spectrumPeaks,
   });
@@ -278,6 +284,7 @@ class _DisplayWell extends StatelessWidget {
   final PlaybackController playback;
   final int trackCount;
   final bool showElapsed;
+  final bool scrollTitle;
   final VoidCallback onToggleElapsed;
   final List<double>? spectrumBars;
   final List<double>? spectrumPeaks;
@@ -409,7 +416,7 @@ class _DisplayWell extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _MarqueeTitle(title),
+                        _MarqueeTitle(title, scroll: scrollTitle),
                         if (subParts.isNotEmpty) ...[
                           const SizedBox(height: 5),
                           Text(
@@ -496,9 +503,10 @@ class _DisplayWell extends StatelessWidget {
 }
 
 class _MarqueeTitle extends StatefulWidget {
-  const _MarqueeTitle(this.text);
+  const _MarqueeTitle(this.text, {this.scroll = true});
 
   final String text;
+  final bool scroll;
 
   @override
   State<_MarqueeTitle> createState() => _MarqueeTitleState();
@@ -553,7 +561,7 @@ class _MarqueeTitleState extends State<_MarqueeTitle>
   @override
   void didUpdateWidget(covariant _MarqueeTitle oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.text != widget.text) {
+    if (oldWidget.text != widget.text || oldWidget.scroll != widget.scroll) {
       _measureText();
       _restartIfNeeded();
     }
@@ -581,7 +589,7 @@ class _MarqueeTitleState extends State<_MarqueeTitle>
     _controller?.stop();
     _controller?.dispose();
     _controller = null;
-    if (!_overflows) {
+    if (!widget.scroll || !_overflows) {
       if (mounted) setState(() {});
       return;
     }
@@ -625,7 +633,7 @@ class _MarqueeTitleState extends State<_MarqueeTitle>
           });
         }
 
-        if (!_overflows) {
+        if (!widget.scroll || !_overflows) {
           return SizedBox(
             width: maxW,
             child: Text(

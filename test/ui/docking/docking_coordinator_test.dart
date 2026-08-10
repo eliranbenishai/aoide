@@ -187,7 +187,7 @@ void main() {
 
     test('does not snap when farther than snapThreshold', () {
       final c = DockingCoordinator(DockLayout.defaults);
-      final gap = DockingCoordinator.snapThreshold + 1;
+      final gap = 20.0 + 1;
       c.move(
         WindowId.playlist,
         Offset(0, 348 - gap),
@@ -346,7 +346,7 @@ void main() {
     test('playlist top/bottom snap keeps horizontal offset when far', () {
       final c = DockingCoordinator(DockLayout.defaults);
       c.setVisible(WindowId.equalizer, false);
-      const left = DockingCoordinator.snapThreshold + 5;
+      const left = 20.0 + 5;
       c.move(
         WindowId.playlist,
         const Offset(left, 348 - 10),
@@ -384,6 +384,63 @@ void main() {
       expect(c.layout.equalizer.left, eqLeft);
       expect(c.layout.equalizer.top, eqTop);
       expect(c.moveCohortOf(WindowId.main), equals({WindowId.main, WindowId.playlist}));
+    });
+
+    test('settings is excluded from main move cohort even when visible', () {
+      final c = DockingCoordinator(DockLayout.defaults);
+      c.setVisible(WindowId.settings, true);
+      final settingsLeft = c.layout.settings.left;
+      final settingsTop = c.layout.settings.top;
+
+      c.move(WindowId.main, const Offset(40, 20), shiftUndock: false);
+
+      expect(c.layout.settings.left, settingsLeft);
+      expect(c.layout.settings.top, settingsTop);
+      expect(c.moveCohortOf(WindowId.main).contains(WindowId.settings), isFalse);
+    });
+
+    test('moving settings never snaps or peels partners', () {
+      final c = DockingCoordinator(DockLayout.defaults);
+      c.move(WindowId.playlist, const Offset(0, 348 - 10), shiftUndock: false);
+      expect(c.layout.dockEdges, isNotEmpty);
+      final edgesBefore = c.layout.dockEdges;
+      final plLeft = c.layout.playlist.left;
+
+      c.move(WindowId.settings, const Offset(10, 10), shiftUndock: false);
+
+      expect(c.layout.settings.left, 10);
+      expect(c.layout.settings.top, 10);
+      expect(c.layout.dockEdges, edgesBefore);
+      expect(c.layout.playlist.left, plLeft);
+      expect(c.groupOf(WindowId.settings), equals({WindowId.settings}));
+    });
+
+    test('settings is ignored as a snap target', () {
+      final c = DockingCoordinator(DockLayout.defaults);
+      c.setVisible(WindowId.settings, true);
+      // Place settings far from main so only settings is nearby.
+      c.move(WindowId.settings, const Offset(2000, 2000), shiftUndock: false);
+
+      c.move(
+        WindowId.playlist,
+        const Offset(2000, 2000 - 8),
+        shiftUndock: false,
+      );
+
+      expect(c.layout.playlist.top, 2000 - 8);
+      expect(
+        c.layout.dockEdges.any(
+          (e) => e.a == WindowId.settings || e.b == WindowId.settings,
+        ),
+        isFalse,
+      );
+    });
+
+    test('snapThreshold instance field gates snap distance', () {
+      final c = DockingCoordinator(DockLayout.defaults, snapThreshold: 0);
+      c.move(WindowId.playlist, const Offset(0, 348 - 10), shiftUndock: false);
+      expect(c.layout.playlist.top, 348 - 10);
+      expect(c.layout.dockEdges, isEmpty);
     });
   });
 }

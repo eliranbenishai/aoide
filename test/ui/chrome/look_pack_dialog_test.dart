@@ -55,7 +55,7 @@ void main() {
 
   setUp(() async {
     supportDir = Directory.systemTemp.createTempSync('tramp-look-dialog');
-    looksDir = Directory(p.join(supportDir.path, 'looks'));
+    looksDir = Directory(p.join(supportDir.path, 'skins'));
     await looksDir.create(recursive: true);
     store = MemorySettingsStore();
 
@@ -131,7 +131,7 @@ void main() {
     await tester.tap(find.text('Neon Cyan'));
     await tester.pumpAndSettle();
 
-    expect(controller.activeLookId, 'neon-cyan');
+    expect(controller.activeSkinId, 'neon-cyan');
   });
 
   testWidgets('shows lastError after activate failure', (tester) async {
@@ -160,7 +160,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byKey(const Key('look-pack-error')), findsOneWidget);
+    expect(find.byKey(const Key('skins-panel-error')), findsOneWidget);
     expect(find.text('font file missing'), findsOneWidget);
   });
 

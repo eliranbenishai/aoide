@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
@@ -11,7 +12,9 @@ import '../../domain/track.dart';
 import '../../domain/tramp_settings.dart';
 import '../../eq/equalizer_controller.dart';
 import '../../eq/mpv_equalizer_sink.dart';
+import '../../look/look_installer.dart';
 import '../../platform/file_open.dart';
+import '../../platform/session_resume_store.dart';
 import '../../platform/settings_store.dart';
 import '../../playback/media_kit_player_engine.dart';
 import '../../playback/playback_controller.dart';
@@ -22,7 +25,6 @@ import '../../playlist/playlist_store.dart';
 import '../../playlist/track_metadata_probe.dart';
 import '../../theme/tramp_metrics.dart';
 import '../chrome/about_dialog.dart';
-import '../chrome/look_pack_dialog.dart';
 import '../docking/dock_layout.dart';
 import '../docking/dock_move_coalescer.dart';
 import '../docking/docking_coordinator.dart';
@@ -64,20 +66,30 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   late final EqualizerController _equalizer;
   late final TrackMetadataProbe _trackProbe;
   late DockingCoordinator _docking;
+  late final SessionResumeStore _resumeStore;
   int _zoomPercent = TrampSettings.defaults.zoomPercent;
   bool _alwaysOnTop = TrampSettings.defaults.alwaysOnTop;
   bool _forceMono = TrampSettings.defaults.forceMono;
+  bool _resumeLastSession = TrampSettings.defaults.resumeLastSession;
+  bool _confirmBeforeQuit = TrampSettings.defaults.confirmBeforeQuit;
+  bool _scrollTitle = TrampSettings.defaults.scrollTitle;
+  bool _minimizeHidesSecondaries =
+      TrampSettings.defaults.minimizeHidesSecondaries;
+  DockSnapStrength _dockSnapStrength = TrampSettings.defaults.dockSnapStrength;
 
   WindowController? _equalizerWindow;
   WindowController? _playlistWindow;
+  WindowController? _settingsWindow;
   bool _eqReady = false;
   bool _playlistReady = false;
+  bool _settingsReady = false;
   bool _bootstrapped = false;
   final MinimizeGroupCycle _minimizeGroup = MinimizeGroupCycle();
   final DockMoveCoalescer _dockMoveCoalescer = DockMoveCoalescer();
   final DockMoveCoalescer _nativeSyncCoalescer = DockMoveCoalescer();
   WindowId? _dockDragWindow;
   bool _nativeDragging = false;
+  Timer? _resumeSaveTimer;
   late final NativeDragTracker _mainNativeDrag;
   /// Guards [onWindowFocus] → raise → main [focus] from re-entering.
   bool _raisingFocusGroup = false;
@@ -97,6 +109,9 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     );
     _settingsStore = widget.settingsStore ??
         FileSettingsStore(supportDir: getApplicationSupportDirectory);
+    _resumeStore = FileSessionResumeStore(
+      supportDir: getApplicationSupportDirectory,
+    );
     _lookController = LookController(
       settingsStore: _settingsStore,
       supportDir: getApplicationSupportDirectory,
@@ -144,10 +159,30 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   void _onPlaybackChanged() {
     unawaited(_broadcastPlaylistSnapshot());
     unawaited(_broadcastPlaybackSnapshot());
+    _scheduleResumeSave();
   }
 
   void _onLookChanged() {
     unawaited(_broadcastLookSnapshot());
+    unawaited(_broadcastSettingsSnapshot());
+  }
+
+  void _scheduleResumeSave() {
+    _resumeSaveTimer?.cancel();
+    _resumeSaveTimer = Timer(const Duration(seconds: 2), () {
+      unawaited(_persistResume());
+    });
+  }
+
+  Future<void> _persistResume() async {
+    if (!_resumeLastSession) return;
+    await _resumeStore.write(
+      SessionResume(
+        playingIndex: _playback.playingIndex,
+        positionMs: _playback.position.inMilliseconds,
+        wasPlaying: _playback.playing,
+      ),
+    );
   }
 
   Future<void> _bootstrap() async {
@@ -161,18 +196,22 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     await windowManager.setTitle('Tramp — Main');
 
     final settings = await _settingsStore.read();
-    _zoomPercent = settings.zoomPercent;
-    _alwaysOnTop = settings.alwaysOnTop;
-    _forceMono = settings.forceMono;
-    _docking = DockingCoordinator(DockLayout.fromSettings(settings));
+    _applySettingsFields(settings);
+    _docking = DockingCoordinator(
+      DockLayout.fromSettings(settings),
+      snapThreshold: _dockSnapStrength.snapPixels,
+    );
 
     await _lookController.bootstrap(
       settings: settings,
       supportDir: getApplicationSupportDirectory,
     );
     await _equalizer.load();
-    await _playlist.restoreLastPlaylist();
-    unawaited(_enrichMissingTrackMetadata());
+    if (_resumeLastSession) {
+      await _playlist.restoreLastPlaylist();
+      unawaited(_enrichMissingTrackMetadata());
+      await _restorePlaybackResume();
+    }
     await _playback.setForceMono(_forceMono);
     await _ensureSecondaryWindows();
     await _applyAllFrames();
@@ -180,6 +219,31 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
 
     if (mounted) {
       setState(() => _bootstrapped = true);
+    }
+  }
+
+  void _applySettingsFields(TrampSettings settings) {
+    _zoomPercent = settings.zoomPercent;
+    _alwaysOnTop = settings.alwaysOnTop;
+    _forceMono = settings.forceMono;
+    _resumeLastSession = settings.resumeLastSession;
+    _confirmBeforeQuit = settings.confirmBeforeQuit;
+    _scrollTitle = settings.scrollTitle;
+    _minimizeHidesSecondaries = settings.minimizeHidesSecondaries;
+    _dockSnapStrength = settings.dockSnapStrength;
+  }
+
+  Future<void> _restorePlaybackResume() async {
+    final resume = await _resumeStore.read();
+    final index = resume.playingIndex;
+    if (index == null) return;
+    if (index < 0 || index >= _playlist.playlist.tracks.length) return;
+    await _playback.playIndex(index);
+    if (resume.positionMs > 0) {
+      await _playback.seek(Duration(milliseconds: resume.positionMs));
+    }
+    if (!resume.wasPlaying && _playback.playing) {
+      await _playback.playPause();
     }
   }
 
@@ -196,6 +260,12 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         arguments: encodeWindowArguments(WindowRole.playlist),
       ),
     );
+    _settingsWindow ??= await WindowController.create(
+      WindowConfiguration(
+        hiddenAtLaunch: true,
+        arguments: encodeWindowArguments(WindowRole.settings),
+      ),
+    );
   }
 
   Future<void> _onCommand(SessionCommand command) async {
@@ -208,6 +278,9 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
           _playlistReady = true;
           await _pushPlaylistSnapshot(role);
           await _pushPlaybackSnapshot(role);
+        } else if (role == WindowRole.settings) {
+          _settingsReady = true;
+          await _pushSettingsSnapshot(role);
         }
         await _pushLookSnapshot(role);
         await _applyRoleFrame(role);
@@ -218,6 +291,9 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         await _persistLayout();
         await _applyRoleFrame(_roleFor(window));
         await _broadcastDockSnapshot();
+        if (visible && window == WindowId.settings) {
+          await _orderSettingsOnTop();
+        }
         if (mounted) setState(() {});
       case SetShadedCommand(:final window, :final shaded):
         _docking.setShaded(window, shaded);
@@ -236,6 +312,18 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         await _playback.setForceMono(enabled);
         await _persistLayout();
         if (mounted) setState(() {});
+      case UpdateGeneralSettingsCommand():
+        await _handleUpdateGeneralSettings(command);
+      case ActivateSkinCommand(:final id):
+        await _lookController.activate(id);
+        await _broadcastSettingsSnapshot();
+      case InstallSkinPathCommand(:final path, :final isDirectory):
+        await _handleInstallSkin(path, isDirectory: isDirectory);
+      case SetSkinsDirectoryCommand(:final path):
+        await _lookController.setSkinsDirectory(path);
+        await _broadcastSettingsSnapshot();
+      case ResetSettingsCommand():
+        await _handleResetSettings();
       case EqGainCommand(:final band, :final gain):
         _equalizer.setGain(band, gain);
         await _broadcastEqSnapshot();
@@ -277,6 +365,67 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         );
         if (ended) await future;
     }
+  }
+
+  Future<void> _handleUpdateGeneralSettings(
+    UpdateGeneralSettingsCommand command,
+  ) async {
+    if (command.resumeLastSession != null) {
+      _resumeLastSession = command.resumeLastSession!;
+    }
+    if (command.confirmBeforeQuit != null) {
+      _confirmBeforeQuit = command.confirmBeforeQuit!;
+    }
+    if (command.scrollTitle != null) {
+      _scrollTitle = command.scrollTitle!;
+    }
+    if (command.minimizeHidesSecondaries != null) {
+      _minimizeHidesSecondaries = command.minimizeHidesSecondaries!;
+    }
+    if (command.dockSnapStrength != null) {
+      _dockSnapStrength = command.dockSnapStrength!;
+      _docking.snapThreshold = _dockSnapStrength.snapPixels;
+    }
+    await _persistLayout();
+    await _broadcastSettingsSnapshot();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _handleInstallSkin(
+    String path, {
+    required bool isDirectory,
+  }) async {
+    Future<LookConflictChoice> replace(_) async => LookConflictChoice.replace;
+    if (isDirectory) {
+      await _lookController.installDirectory(
+        Directory(path),
+        onConflict: replace,
+      );
+    } else {
+      await _lookController.installZip(File(path), onConflict: replace);
+    }
+    await _broadcastSettingsSnapshot();
+  }
+
+  Future<void> _handleResetSettings() async {
+    const next = TrampSettings.defaults;
+    await _settingsStore.write(next);
+    _applySettingsFields(next);
+    _docking = DockingCoordinator(
+      DockLayout.fromSettings(next),
+      snapThreshold: _dockSnapStrength.snapPixels,
+    );
+    await _lookController.bootstrap(
+      settings: next,
+      supportDir: getApplicationSupportDirectory,
+    );
+    await _playback.setForceMono(_forceMono);
+    await _applyAllFrames();
+    await _applyAlwaysOnTop();
+    await _broadcastDockSnapshot();
+    await _broadcastLookSnapshot();
+    await _broadcastSettingsSnapshot();
+    if (mounted) setState(() {});
   }
 
   /// Title-bar drag → [DockingCoordinator.move] → coalesce OS position applies.
@@ -446,6 +595,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     final controller = switch (role) {
       WindowRole.equalizer => _equalizerWindow,
       WindowRole.playlist => _playlistWindow,
+      WindowRole.settings => _settingsWindow,
       WindowRole.main => null,
     };
     if (controller == null) return;
@@ -477,6 +627,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     final controller = switch (role) {
       WindowRole.playlist => _playlistWindow,
       WindowRole.equalizer => _equalizerWindow,
+      WindowRole.settings => _settingsWindow,
       WindowRole.main => null,
     };
     if (controller == null) return;
@@ -507,6 +658,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     final controller = switch (role) {
       WindowRole.playlist => _playlistWindow,
       WindowRole.equalizer => _equalizerWindow,
+      WindowRole.settings => _settingsWindow,
       WindowRole.main => null,
     };
     if (controller == null) return;
@@ -542,12 +694,14 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         WindowId.main => WindowRole.main,
         WindowId.equalizer => WindowRole.equalizer,
         WindowId.playlist => WindowRole.playlist,
+        WindowId.settings => WindowRole.settings,
       };
 
   Future<void> _applyAllFrames() async {
     await _applyMainFrame();
     if (_eqReady) await _applyRoleFrame(WindowRole.equalizer);
     if (_playlistReady) await _applyRoleFrame(WindowRole.playlist);
+    if (_settingsReady) await _applyRoleFrame(WindowRole.settings);
   }
 
   Future<void> _applyMainFrame({bool positionOnly = false}) async {
@@ -580,11 +734,13 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       mainVisible: layout.main.visible,
       equalizerVisible: layout.equalizer.visible,
       playlistVisible: layout.playlist.visible,
+      settingsVisible: layout.settings.visible,
     );
     await windowManager.setAlwaysOnTop(targets.contains(WindowId.main));
     // Secondaries apply AOT via apply_frame (visible ∩ global flag).
     if (_eqReady) await _applyRoleFrame(WindowRole.equalizer);
     if (_playlistReady) await _applyRoleFrame(WindowRole.playlist);
+    if (_settingsReady) await _applyRoleFrame(WindowRole.settings);
   }
 
   Future<void> _applyRoleFrame(
@@ -595,15 +751,23 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       await _applyMainFrame(positionOnly: positionOnly);
       return;
     }
-    final controller = role == WindowRole.equalizer
-        ? _equalizerWindow
-        : _playlistWindow;
+    final controller = switch (role) {
+      WindowRole.equalizer => _equalizerWindow,
+      WindowRole.playlist => _playlistWindow,
+      WindowRole.settings => _settingsWindow,
+      WindowRole.main => null,
+    };
     if (controller == null) return;
     if (role == WindowRole.equalizer && !_eqReady) return;
     if (role == WindowRole.playlist && !_playlistReady) return;
+    if (role == WindowRole.settings && !_settingsReady) return;
 
-    final id =
-        role == WindowRole.equalizer ? WindowId.equalizer : WindowId.playlist;
+    final id = switch (role) {
+      WindowRole.equalizer => WindowId.equalizer,
+      WindowRole.playlist => WindowId.playlist,
+      WindowRole.settings => WindowId.settings,
+      WindowRole.main => WindowId.main,
+    };
     final zoom = _zoomPercent / 100.0;
     final rect = _docking.frameFor(id, zoom);
     final visible = _docking.layout.frameOf(id).visible;
@@ -634,12 +798,14 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     await windowManager.minimize();
   }
 
-  /// Snapshot + OS-hide currently visible EQ/PL (layout visibility unchanged).
+  /// Snapshot + OS-hide currently visible EQ/PL/settings (layout unchanged).
   Future<void> _hideVisibleSecondariesForMinimize() async {
+    if (!_minimizeHidesSecondaries) return;
     final layout = _docking.layout;
     final toHide = _minimizeGroup.begin(
       equalizerVisible: layout.equalizer.visible,
       playlistVisible: layout.playlist.visible,
+      settingsVisible: layout.settings.visible,
     );
     await _setSecondariesHidden(toHide, hidden: true);
   }
@@ -650,6 +816,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     final toShow = _minimizeGroup.end(
       equalizerVisible: layout.equalizer.visible,
       playlistVisible: layout.playlist.visible,
+      settingsVisible: layout.settings.visible,
     );
     await _setSecondariesHidden(toShow, hidden: false);
   }
@@ -662,6 +829,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       final controller = switch (id) {
         WindowId.equalizer => _equalizerWindow,
         WindowId.playlist => _playlistWindow,
+        WindowId.settings => _settingsWindow,
         WindowId.main => null,
       };
       if (controller == null) continue;
@@ -691,7 +859,13 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         main: layout.main,
         equalizer: layout.equalizer,
         playlist: layout.playlist,
+        settings: layout.settings,
         dockEdges: layout.dockEdges,
+        resumeLastSession: _resumeLastSession,
+        confirmBeforeQuit: _confirmBeforeQuit,
+        scrollTitle: _scrollTitle,
+        minimizeHidesSecondaries: _minimizeHidesSecondaries,
+        dockSnapStrength: _dockSnapStrength,
       ),
     );
   }
@@ -702,17 +876,14 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       main: layout.main,
       equalizer: layout.equalizer,
       playlist: layout.playlist,
+      settings: layout.settings,
       dockEdges: layout.dockEdges,
       zoomPercent: _zoomPercent,
     );
   }
 
   Future<void> _pushDockSnapshot(WindowRole role) async {
-    final controller = switch (role) {
-      WindowRole.equalizer => _equalizerWindow,
-      WindowRole.playlist => _playlistWindow,
-      WindowRole.main => null,
-    };
+    final controller = _controllerFor(role);
     if (controller == null) return;
     try {
       await SessionBus.pushEvent(controller, _dockSnapshot());
@@ -729,11 +900,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       );
 
   Future<void> _pushLookSnapshot(WindowRole role) async {
-    final controller = switch (role) {
-      WindowRole.equalizer => _equalizerWindow,
-      WindowRole.playlist => _playlistWindow,
-      WindowRole.main => null,
-    };
+    final controller = _controllerFor(role);
     if (controller == null) return;
     try {
       await SessionBus.pushEvent(controller, _lookSnapshot());
@@ -744,8 +911,48 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
 
   Future<void> _broadcastLookSnapshot() => _broadcast(_lookSnapshot());
 
+  SettingsSnapshotEvent _settingsSnapshot() {
+    return SettingsSnapshotEvent(
+      resumeLastSession: _resumeLastSession,
+      confirmBeforeQuit: _confirmBeforeQuit,
+      scrollTitle: _scrollTitle,
+      minimizeHidesSecondaries: _minimizeHidesSecondaries,
+      dockSnapStrength: _dockSnapStrength,
+      skins: [
+        for (final m in _lookController.installed)
+          SkinCatalogEntry(id: m.id, name: m.name, author: m.author),
+      ],
+      activeSkinId: _lookController.activeSkinId,
+      lastSkinError: _lookController.lastError,
+    );
+  }
+
+  Future<void> _pushSettingsSnapshot(WindowRole role) async {
+    final controller = _controllerFor(role);
+    if (controller == null) return;
+    try {
+      await SessionBus.pushEvent(controller, _settingsSnapshot());
+    } catch (error, stack) {
+      debugPrint('SessionHost pushSettings($role) failed: $error\n$stack');
+    }
+  }
+
+  Future<void> _broadcastSettingsSnapshot() =>
+      _broadcast(_settingsSnapshot());
+
+  WindowController? _controllerFor(WindowRole role) => switch (role) {
+        WindowRole.equalizer => _equalizerWindow,
+        WindowRole.playlist => _playlistWindow,
+        WindowRole.settings => _settingsWindow,
+        WindowRole.main => null,
+      };
+
   Future<void> _broadcast(SessionEvent event) async {
-    for (final controller in [_equalizerWindow, _playlistWindow]) {
+    for (final controller in [
+      _equalizerWindow,
+      _playlistWindow,
+      _settingsWindow,
+    ]) {
       if (controller == null) continue;
       try {
         await SessionBus.pushEvent(controller, event);
@@ -791,14 +998,17 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
 
   Future<void> _handleOptionsAction(BuildContext context, String action) async {
     switch (action) {
-      case 'looks':
-        await showLookPackDialog(context, controller: _lookController);
+      case 'settings':
+        final visible = !_docking.layout.settings.visible;
+        await _onCommand(
+          ToggleWindowCommand(window: WindowId.settings, visible: visible),
+        );
       case 'info':
         await _showTrackInfo(context);
       case 'about':
         await showTrampAboutDialog(context, version: '0.1.0');
       case 'quit':
-        await _quit();
+        await _quit(context: context);
     }
   }
 
@@ -855,7 +1065,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     unawaited(_raiseVisibleGroupWithMain());
   }
 
-  /// Show+focus visible secondaries, then keep main as the focused HWND.
+  /// Show+focus visible EQ/PL, refocus main, then order settings on top.
   Future<void> _raiseVisibleGroupWithMain() async {
     if (_raisingFocusGroup || !_bootstrapped || _nativeDragging) return;
     if (_minimizeGroup.isActive) return;
@@ -883,11 +1093,28 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         }
       }
       await windowManager.focus();
+      // Settings stays above other Tramp windows without stealing focus.
+      await _orderSettingsOnTop();
     } finally {
       // Defer clear so the focus() echo does not re-enter immediately.
       Future<void>.delayed(const Duration(milliseconds: 100), () {
         _raisingFocusGroup = false;
       });
+    }
+  }
+
+  Future<void> _orderSettingsOnTop() async {
+    final layout = _docking.layout;
+    if (!layout.settings.visible ||
+        !_settingsReady ||
+        _settingsWindow == null ||
+        _minimizeGroup.shouldSuppressShow(WindowId.settings)) {
+      return;
+    }
+    try {
+      await SessionBus.pushOrderTop(_settingsWindow!);
+    } catch (error, stack) {
+      debugPrint('SessionHost orderTop(settings) failed: $error\n$stack');
     }
   }
 
@@ -918,8 +1145,45 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     unawaited(_quit());
   }
 
-  Future<void> _quit() async {
-    for (final controller in [_equalizerWindow, _playlistWindow]) {
+  Future<void> _quit({BuildContext? context}) async {
+    if (_confirmBeforeQuit) {
+      final ctx = context ?? (mounted ? this.context : null);
+      if (ctx != null && ctx.mounted) {
+        final look = LookScope.of(ctx);
+        final palette = look.palette;
+        final ok = await showDialog<bool>(
+          context: ctx,
+          builder: (dialogContext) => AlertDialog(
+            backgroundColor: palette.shellMid,
+            title: Text(
+              'Quit Tramp?',
+              style: TextStyle(color: palette.inkDefault),
+            ),
+            content: Text(
+              'Are you sure you want to quit?',
+              style: TextStyle(color: palette.inkDim),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Quit'),
+              ),
+            ],
+          ),
+        );
+        if (ok != true) return;
+      }
+    }
+    await _persistResume();
+    for (final controller in [
+      _equalizerWindow,
+      _playlistWindow,
+      _settingsWindow,
+    ]) {
       if (controller == null) continue;
       try {
         await controller.invokeMethod('session_shutdown');
@@ -935,6 +1199,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
 
   @override
   void dispose() {
+    _resumeSaveTimer?.cancel();
     _mainNativeDrag.dispose();
     windowManager.removeListener(this);
     _lookController.removeListener(_onLookChanged);
@@ -990,6 +1255,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
                   alwaysOnTop: _alwaysOnTop,
                   equalizerVisible: layout.equalizer.visible,
                   playlistVisible: layout.playlist.visible,
+                  scrollTitle: _scrollTitle,
                   zoom: zoom,
                   dockLogicalTopLeft: () => Offset(
                     _docking.layout.main.left,

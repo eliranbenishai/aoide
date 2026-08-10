@@ -7,13 +7,35 @@ const double _defaultStackTop = 348;
 /// Default Y for playlist stacked under EQ (main + EQ = 696).
 const double _defaultPlaylistTop = _defaultStackTop + 348;
 
-/// Identifies one of the three product windows in dock / settings graphs.
-enum WindowId { main, equalizer, playlist }
+/// Identifies one of the product windows in dock / settings graphs.
+enum WindowId { main, equalizer, playlist, settings }
 
 /// Which edge of [DockEdge.a] touches [DockEdge.b].
 enum DockSide { left, right, top, bottom }
 
-/// Persisted frame for one of the three windows.
+/// Snap distance strength for docking (logical px).
+enum DockSnapStrength {
+  off,
+  normal,
+  strong;
+
+  /// Mapped snap threshold in logical pixels.
+  double get snapPixels => switch (this) {
+        DockSnapStrength.off => 0,
+        DockSnapStrength.normal => 20,
+        DockSnapStrength.strong => 40,
+      };
+
+  static DockSnapStrength? tryParse(Object? raw) {
+    if (raw is! String) return null;
+    for (final value in DockSnapStrength.values) {
+      if (value.name == raw) return value;
+    }
+    return null;
+  }
+}
+
+/// Persisted frame for one of the product windows.
 class WindowFrameState {
   const WindowFrameState({
     required this.visible,
@@ -43,6 +65,13 @@ class WindowFrameState {
     shaded: false,
     left: 0,
     top: _defaultPlaylistTop,
+  );
+
+  static const settingsDefault = WindowFrameState(
+    visible: false,
+    shaded: false,
+    left: 860,
+    top: 40,
   );
 
   final bool visible;
@@ -169,10 +198,16 @@ class TrampSettings {
     required this.main,
     required this.equalizer,
     required this.playlist,
+    required this.settings,
     required this.dockEdges,
     this.equalizerCurve = EqualizerSettings.flat,
-    this.activeLookId = 'builtin',
-    this.looksDirectory,
+    this.activeSkinId = 'builtin',
+    this.skinsDirectory,
+    this.resumeLastSession = true,
+    this.confirmBeforeQuit = false,
+    this.scrollTitle = true,
+    this.minimizeHidesSecondaries = true,
+    this.dockSnapStrength = DockSnapStrength.normal,
   });
 
   static const defaults = TrampSettings(
@@ -182,6 +217,7 @@ class TrampSettings {
     main: WindowFrameState.mainDefault,
     equalizer: WindowFrameState.equalizerDefault,
     playlist: WindowFrameState.playlistDefault,
+    settings: WindowFrameState.settingsDefault,
     dockEdges: [],
   );
 
@@ -202,10 +238,16 @@ class TrampSettings {
   final WindowFrameState main;
   final WindowFrameState equalizer;
   final WindowFrameState playlist;
+  final WindowFrameState settings;
   final List<DockEdge> dockEdges;
   final EqualizerSettings equalizerCurve;
-  final String activeLookId;
-  final String? looksDirectory;
+  final String activeSkinId;
+  final String? skinsDirectory;
+  final bool resumeLastSession;
+  final bool confirmBeforeQuit;
+  final bool scrollTitle;
+  final bool minimizeHidesSecondaries;
+  final DockSnapStrength dockSnapStrength;
 
   TrampSettings copyWith({
     int? zoomPercent,
@@ -214,11 +256,17 @@ class TrampSettings {
     WindowFrameState? main,
     WindowFrameState? equalizer,
     WindowFrameState? playlist,
+    WindowFrameState? settings,
     List<DockEdge>? dockEdges,
     EqualizerSettings? equalizerCurve,
-    String? activeLookId,
-    String? looksDirectory,
-    bool clearLooksDirectory = false,
+    String? activeSkinId,
+    String? skinsDirectory,
+    bool clearSkinsDirectory = false,
+    bool? resumeLastSession,
+    bool? confirmBeforeQuit,
+    bool? scrollTitle,
+    bool? minimizeHidesSecondaries,
+    DockSnapStrength? dockSnapStrength,
   }) {
     return TrampSettings(
       zoomPercent: zoomPercent ?? this.zoomPercent,
@@ -227,11 +275,18 @@ class TrampSettings {
       main: main ?? this.main,
       equalizer: equalizer ?? this.equalizer,
       playlist: playlist ?? this.playlist,
+      settings: settings ?? this.settings,
       dockEdges: dockEdges ?? this.dockEdges,
       equalizerCurve: equalizerCurve ?? this.equalizerCurve,
-      activeLookId: activeLookId ?? this.activeLookId,
-      looksDirectory:
-          clearLooksDirectory ? null : (looksDirectory ?? this.looksDirectory),
+      activeSkinId: activeSkinId ?? this.activeSkinId,
+      skinsDirectory:
+          clearSkinsDirectory ? null : (skinsDirectory ?? this.skinsDirectory),
+      resumeLastSession: resumeLastSession ?? this.resumeLastSession,
+      confirmBeforeQuit: confirmBeforeQuit ?? this.confirmBeforeQuit,
+      scrollTitle: scrollTitle ?? this.scrollTitle,
+      minimizeHidesSecondaries:
+          minimizeHidesSecondaries ?? this.minimizeHidesSecondaries,
+      dockSnapStrength: dockSnapStrength ?? this.dockSnapStrength,
     );
   }
 
@@ -242,10 +297,16 @@ class TrampSettings {
         'main': main.toJson(),
         'equalizer': equalizer.toJson(),
         'playlist': playlist.toJson(),
+        'settings': settings.toJson(),
         'dockEdges': dockEdges.map((e) => e.toJson()).toList(),
         'equalizerCurve': equalizerCurve.toJson(),
-        'activeLookId': activeLookId,
-        if (looksDirectory != null) 'looksDirectory': looksDirectory,
+        'activeSkinId': activeSkinId,
+        if (skinsDirectory != null) 'skinsDirectory': skinsDirectory,
+        'resumeLastSession': resumeLastSession,
+        'confirmBeforeQuit': confirmBeforeQuit,
+        'scrollTitle': scrollTitle,
+        'minimizeHidesSecondaries': minimizeHidesSecondaries,
+        'dockSnapStrength': dockSnapStrength.name,
       };
 
   factory TrampSettings.fromJson(Map<String, dynamic> json) {
@@ -255,6 +316,7 @@ class TrampSettings {
     var main = WindowFrameState.mainDefault;
     var equalizer = WindowFrameState.equalizerDefault;
     var playlist = WindowFrameState.playlistDefault;
+    var settings = WindowFrameState.settingsDefault;
 
     final mainJson = json['main'];
     if (mainJson is Map<String, dynamic>) {
@@ -269,6 +331,11 @@ class TrampSettings {
     final playlistJson = json['playlist'];
     if (playlistJson is Map<String, dynamic>) {
       playlist = WindowFrameState.fromJson(playlistJson, fallback: playlist);
+    }
+
+    final settingsJson = json['settings'];
+    if (settingsJson is Map<String, dynamic>) {
+      settings = WindowFrameState.fromJson(settingsJson, fallback: settings);
     }
 
     // Legacy top-level playlist size → playlist frame.
@@ -304,20 +371,40 @@ class TrampSettings {
       main: main,
       equalizer: equalizer,
       playlist: playlist,
+      settings: settings,
       dockEdges: _parseDockEdges(json['dockEdges']),
       equalizerCurve: curve,
-      activeLookId: _parseActiveLookId(json['activeLookId']),
-      looksDirectory: _parseLooksDirectory(json['looksDirectory']),
+      activeSkinId: _parseActiveSkinId(
+        json['activeSkinId'] ?? json['activeLookId'],
+      ),
+      skinsDirectory: _parseSkinsDirectory(
+        json['skinsDirectory'] ?? json['looksDirectory'],
+      ),
+      resumeLastSession: json['resumeLastSession'] is bool
+          ? json['resumeLastSession'] as bool
+          : defaults.resumeLastSession,
+      confirmBeforeQuit: json['confirmBeforeQuit'] is bool
+          ? json['confirmBeforeQuit'] as bool
+          : defaults.confirmBeforeQuit,
+      scrollTitle: json['scrollTitle'] is bool
+          ? json['scrollTitle'] as bool
+          : defaults.scrollTitle,
+      minimizeHidesSecondaries: json['minimizeHidesSecondaries'] is bool
+          ? json['minimizeHidesSecondaries'] as bool
+          : defaults.minimizeHidesSecondaries,
+      dockSnapStrength:
+          DockSnapStrength.tryParse(json['dockSnapStrength']) ??
+              defaults.dockSnapStrength,
     );
   }
 
-  static String _parseActiveLookId(Object? raw) {
-    if (raw is! String || raw.isEmpty) return defaults.activeLookId;
+  static String _parseActiveSkinId(Object? raw) {
+    if (raw is! String || raw.isEmpty) return defaults.activeSkinId;
     if (raw == 'builtin' || isValidLookId(raw)) return raw;
-    return defaults.activeLookId;
+    return defaults.activeSkinId;
   }
 
-  static String? _parseLooksDirectory(Object? raw) {
+  static String? _parseSkinsDirectory(Object? raw) {
     if (raw is! String || raw.isEmpty) return null;
     return raw;
   }
@@ -369,10 +456,16 @@ class TrampSettings {
       other.main == main &&
       other.equalizer == equalizer &&
       other.playlist == playlist &&
+      other.settings == settings &&
       _listEquals(other.dockEdges, dockEdges) &&
       other.equalizerCurve == equalizerCurve &&
-      other.activeLookId == activeLookId &&
-      other.looksDirectory == looksDirectory;
+      other.activeSkinId == activeSkinId &&
+      other.skinsDirectory == skinsDirectory &&
+      other.resumeLastSession == resumeLastSession &&
+      other.confirmBeforeQuit == confirmBeforeQuit &&
+      other.scrollTitle == scrollTitle &&
+      other.minimizeHidesSecondaries == minimizeHidesSecondaries &&
+      other.dockSnapStrength == dockSnapStrength;
 
   @override
   int get hashCode => Object.hash(
@@ -382,19 +475,30 @@ class TrampSettings {
         main,
         equalizer,
         playlist,
+        settings,
         Object.hashAll(dockEdges),
         equalizerCurve,
-        activeLookId,
-        looksDirectory,
+        activeSkinId,
+        skinsDirectory,
+        Object.hash(
+          resumeLastSession,
+          confirmBeforeQuit,
+          scrollTitle,
+          minimizeHidesSecondaries,
+          dockSnapStrength,
+        ),
       );
 
   @override
   String toString() =>
       'TrampSettings(zoomPercent: $zoomPercent, alwaysOnTop: $alwaysOnTop, '
       'forceMono: $forceMono, main: $main, equalizer: $equalizer, '
-      'playlist: $playlist, dockEdges: $dockEdges, '
-      'equalizerCurve: $equalizerCurve, activeLookId: $activeLookId, '
-      'looksDirectory: $looksDirectory)';
+      'playlist: $playlist, settings: $settings, dockEdges: $dockEdges, '
+      'equalizerCurve: $equalizerCurve, activeSkinId: $activeSkinId, '
+      'skinsDirectory: $skinsDirectory, resumeLastSession: $resumeLastSession, '
+      'confirmBeforeQuit: $confirmBeforeQuit, scrollTitle: $scrollTitle, '
+      'minimizeHidesSecondaries: $minimizeHidesSecondaries, '
+      'dockSnapStrength: $dockSnapStrength)';
 }
 
 WindowId? _windowId(Object? value) {

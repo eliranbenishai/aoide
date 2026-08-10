@@ -20,11 +20,12 @@ import '../docking/dock_move_coalescer.dart';
 import '../docking/native_drag_tracker.dart';
 import '../windows/equalizer_window.dart';
 import '../windows/playlist_window.dart';
+import '../windows/settings_window.dart';
 import '../zoom/zoomed_canvas.dart';
 import 'session_bus.dart';
 import 'session_messages.dart';
 
-/// Secondary-engine shell (EQ / playlist). Mockup chrome for both roles.
+/// Secondary-engine shell (EQ / playlist / settings). Mockup chrome for all.
 class SessionClientApp extends StatefulWidget {
   const SessionClientApp({
     super.key,
@@ -63,6 +64,16 @@ class _SessionClientAppState extends State<SessionClientApp>
   ResolvedLook _look = BuiltinLook.resolved;
   int _lookApplyGeneration = 0;
   bool _plShaded = false;
+  bool _settingsShaded = false;
+  SettingsSnapshotEvent _settingsSnapshot = const SettingsSnapshotEvent(
+    resumeLastSession: true,
+    confirmBeforeQuit: false,
+    scrollTitle: true,
+    minimizeHidesSecondaries: true,
+    dockSnapStrength: DockSnapStrength.normal,
+    skins: [],
+    activeSkinId: 'builtin',
+  );
   int? _playingIndex;
   bool _playing = false;
   Size _playlistSize = TrampMetrics.playlistDefault;
@@ -103,6 +114,7 @@ class _SessionClientAppState extends State<SessionClientApp>
     final title = switch (widget.role) {
       WindowRole.equalizer => 'Tramp — Equalizer',
       WindowRole.playlist => 'Tramp — Playlist',
+      WindowRole.settings => 'Tramp — Settings',
       WindowRole.main => 'Tramp',
     };
     // waitUntilReadyToShow CoCreateInstances ITaskbarList; setSkipTaskbar
@@ -138,6 +150,12 @@ class _SessionClientAppState extends State<SessionClientApp>
         await widget.windowController.show();
         await windowManager.focus();
         return null;
+      case SessionBus.orderTopMethod:
+        await windowManager.setSkipTaskbar(true);
+        await windowManager.show();
+        await widget.windowController.show();
+        // Intentionally no focus — keep the previously focused tramp window.
+        return null;
       case SessionBus.eventMethod:
         final envelope = SessionEvent.decodeEnvelope(call.arguments);
         final event = SessionEvent.fromJson(envelope);
@@ -166,6 +184,8 @@ class _SessionClientAppState extends State<SessionClientApp>
       switch (event) {
         case EqSnapshotEvent(:final settings):
           _eqSettings = settings;
+        case SettingsSnapshotEvent():
+          _settingsSnapshot = event;
         case PlaylistSnapshotEvent(
             :final tracks,
             :final selectedIndices,
@@ -191,6 +211,7 @@ class _SessionClientAppState extends State<SessionClientApp>
         case DockSnapshotEvent(
             :final equalizer,
             :final playlist,
+            :final settings,
             :final zoomPercent,
           ):
           _zoomPercent = zoomPercent;
@@ -206,6 +227,10 @@ class _SessionClientAppState extends State<SessionClientApp>
               playlist.width ?? TrampMetrics.playlistDefault.width,
               playlist.height ?? TrampMetrics.playlistDefault.height,
             );
+          } else if (widget.role == WindowRole.settings) {
+            _settingsShaded = settings.shaded;
+            _logicalLeft = settings.left;
+            _logicalTop = settings.top;
           }
         default:
           break;
@@ -331,6 +356,7 @@ class _SessionClientAppState extends State<SessionClientApp>
     final windowId = switch (widget.role) {
       WindowRole.equalizer => WindowId.equalizer,
       WindowRole.playlist => WindowId.playlist,
+      WindowRole.settings => WindowId.settings,
       WindowRole.main => WindowId.main,
     };
     try {
@@ -355,6 +381,7 @@ class _SessionClientAppState extends State<SessionClientApp>
   WindowId get _windowId => switch (widget.role) {
         WindowRole.equalizer => WindowId.equalizer,
         WindowRole.playlist => WindowId.playlist,
+        WindowRole.settings => WindowId.settings,
         WindowRole.main => WindowId.main,
       };
 
@@ -448,6 +475,17 @@ class _SessionClientAppState extends State<SessionClientApp>
         SetShadedCommand(
           window: WindowId.playlist,
           shaded: !_plShaded,
+        ),
+      ),
+    );
+  }
+
+  void _toggleSettingsShade() {
+    unawaited(
+      _send(
+        SetShadedCommand(
+          window: WindowId.settings,
+          shaded: !_settingsShaded,
         ),
       ),
     );
@@ -568,6 +606,35 @@ class _SessionClientAppState extends State<SessionClientApp>
                 ),
               );
             },
+          ),
+        ),
+      );
+    }
+
+    if (widget.role == WindowRole.settings) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        color: const Color(0x00000000),
+        builder: (context, child) => LookScope(
+          look: _look,
+          child: child ?? const SizedBox.shrink(),
+        ),
+        home: ColoredBox(
+          color: const Color(0x00000000),
+          child: ZoomedCanvas(
+            factor: zoom,
+            logicalSize: TrampMetrics.settings,
+            child: SettingsWindow(
+              snapshot: _settingsSnapshot,
+              shaded: _settingsShaded,
+              zoom: zoom,
+              dockLogicalTopLeft: () => Offset(_logicalLeft, _logicalTop),
+              onDockMove: _onDockMove,
+              onNativeDragStarted: _onNativeDragStarted,
+              onSessionCommand: (cmd) => unawaited(_send(cmd)),
+              onCollapse: _toggleSettingsShade,
+              onClose: () => unawaited(_hideInsteadOfClose()),
+            ),
           ),
         ),
       );

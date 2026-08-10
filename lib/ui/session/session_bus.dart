@@ -24,6 +24,8 @@ class SessionBus {
   static const eventMethod = 'session_event';
   static const applyFrameMethod = 'apply_frame';
   static const raiseMethod = 'raise_window';
+  /// Show + order above peers without focusing (settings stays on top of tramp).
+  static const orderTopMethod = 'order_top_window';
 
   final WindowMethodChannel _channel;
 
@@ -90,5 +92,12 @@ class SessionBus {
   /// Used when the main player regains focus so EQ/PL rise with the group.
   static Future<void> pushRaise(WindowController controller) {
     return controller.invokeMethod(raiseMethod, const <String, dynamic>{});
+  }
+
+  /// Order a secondary HWND above peers without stealing focus.
+  ///
+  /// Used so settings can stay above other Tramp windows after main is focused.
+  static Future<void> pushOrderTop(WindowController controller) {
+    return controller.invokeMethod(orderTopMethod, const <String, dynamic>{});
   }
 }

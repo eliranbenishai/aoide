@@ -28,6 +28,7 @@ void main() {
           left: 40,
           top: 100,
         ),
+        settings: WindowFrameState.settingsDefault,
         dockEdges: [],
         equalizerCurve: EqualizerSettings.flat,
       );
@@ -55,6 +56,7 @@ void main() {
         main: WindowFrameState.mainDefault,
         equalizer: WindowFrameState.equalizerDefault,
         playlist: WindowFrameState.playlistDefault,
+        settings: WindowFrameState.settingsDefault,
         dockEdges: [
           DockEdge(
             a: WindowId.main,
@@ -221,47 +223,103 @@ void main() {
     });
   });
 
-  group('TrampSettings look fields', () {
-    test('activeLookId and looksDirectory round-trip', () {
+  group('TrampSettings skin fields', () {
+    test('activeSkinId and skinsDirectory round-trip', () {
       final settings = TrampSettings.defaults.copyWith(
-        activeLookId: 'neon-cyan',
-        looksDirectory: '/path/to/looks',
+        activeSkinId: 'neon-cyan',
+        skinsDirectory: '/path/to/skins',
       );
       final again = TrampSettings.fromJson(settings.toJson());
-      expect(again.activeLookId, 'neon-cyan');
-      expect(again.looksDirectory, '/path/to/looks');
+      expect(again.activeSkinId, 'neon-cyan');
+      expect(again.skinsDirectory, '/path/to/skins');
     });
 
-    test('defaults use builtin and null looksDirectory', () {
-      expect(TrampSettings.defaults.activeLookId, 'builtin');
-      expect(TrampSettings.defaults.looksDirectory, isNull);
+    test('defaults use builtin and null skinsDirectory', () {
+      expect(TrampSettings.defaults.activeSkinId, 'builtin');
+      expect(TrampSettings.defaults.skinsDirectory, isNull);
     });
 
-    test('missing activeLookId defaults to builtin', () {
+    test('missing activeSkinId defaults to builtin', () {
       final settings = TrampSettings.fromJson({'zoomPercent': 100});
-      expect(settings.activeLookId, 'builtin');
+      expect(settings.activeSkinId, 'builtin');
     });
 
-    test('invalid activeLookId defaults to builtin', () {
+    test('invalid activeSkinId defaults to builtin', () {
       final settings = TrampSettings.fromJson({
         'zoomPercent': 100,
-        'activeLookId': 'com.example.bad',
+        'activeSkinId': 'com.example.bad',
       });
-      expect(settings.activeLookId, 'builtin');
+      expect(settings.activeSkinId, 'builtin');
     });
 
-    test('empty looksDirectory becomes null', () {
+    test('empty skinsDirectory becomes null', () {
       final settings = TrampSettings.fromJson({
         'zoomPercent': 100,
-        'looksDirectory': '',
+        'skinsDirectory': '',
       });
-      expect(settings.looksDirectory, isNull);
+      expect(settings.skinsDirectory, isNull);
     });
 
-    test('defaults include activeLookId and omit looksDirectory in JSON', () {
-      final json = TrampSettings.defaults.toJson();
-      expect(json['activeLookId'], 'builtin');
+    test('reads legacy activeLookId / looksDirectory keys', () {
+      final settings = TrampSettings.fromJson({
+        'zoomPercent': 100,
+        'activeLookId': 'neon-cyan',
+        'looksDirectory': '/legacy/looks',
+      });
+      expect(settings.activeSkinId, 'neon-cyan');
+      expect(settings.skinsDirectory, '/legacy/looks');
+      final json = settings.toJson();
+      expect(json['activeSkinId'], 'neon-cyan');
+      expect(json.containsKey('activeLookId'), isFalse);
+      expect(json['skinsDirectory'], '/legacy/looks');
       expect(json.containsKey('looksDirectory'), isFalse);
+    });
+
+    test('defaults include activeSkinId and omit skinsDirectory in JSON', () {
+      final json = TrampSettings.defaults.toJson();
+      expect(json['activeSkinId'], 'builtin');
+      expect(json.containsKey('skinsDirectory'), isFalse);
+    });
+  });
+
+  group('TrampSettings general prefs', () {
+    test('defaults for settings frame and general prefs', () {
+      final d = TrampSettings.defaults;
+      expect(d.settings.visible, isFalse);
+      expect(d.settings.left, 860);
+      expect(d.settings.top, 40);
+      expect(d.settings.shaded, isFalse);
+      expect(d.resumeLastSession, isTrue);
+      expect(d.confirmBeforeQuit, isFalse);
+      expect(d.scrollTitle, isTrue);
+      expect(d.minimizeHidesSecondaries, isTrue);
+      expect(d.dockSnapStrength, DockSnapStrength.normal);
+      expect(d.dockSnapStrength.snapPixels, 20);
+    });
+
+    test('general prefs and settings frame round-trip', () {
+      final settings = TrampSettings.defaults.copyWith(
+        settings: WindowFrameState.settingsDefault.copyWith(
+          visible: true,
+          left: 100,
+          top: 50,
+        ),
+        resumeLastSession: false,
+        confirmBeforeQuit: true,
+        scrollTitle: false,
+        minimizeHidesSecondaries: false,
+        dockSnapStrength: DockSnapStrength.strong,
+      );
+      final again = TrampSettings.fromJson(settings.toJson());
+      expect(again.settings.visible, isTrue);
+      expect(again.settings.left, 100);
+      expect(again.resumeLastSession, isFalse);
+      expect(again.confirmBeforeQuit, isTrue);
+      expect(again.scrollTitle, isFalse);
+      expect(again.minimizeHidesSecondaries, isFalse);
+      expect(again.dockSnapStrength, DockSnapStrength.strong);
+      expect(again.dockSnapStrength.snapPixels, 40);
+      expect(DockSnapStrength.off.snapPixels, 0);
     });
   });
 
