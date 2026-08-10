@@ -6,7 +6,7 @@ import '../../theme/tramp_text.dart';
 import '../session/session_messages.dart';
 import 'skins_panel.dart';
 
-/// Settings body: General prefs + Skins catalog + reset.
+/// Settings body: side tabs (General / Skins) + single Reset Settings action.
 class MockupSettings extends StatefulWidget {
   const MockupSettings({
     super.key,
@@ -21,21 +21,8 @@ class MockupSettings extends StatefulWidget {
   State<MockupSettings> createState() => _MockupSettingsState();
 }
 
-class _MockupSettingsState extends State<MockupSettings>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabs;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabs = TabController(length: 2, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabs.dispose();
-    super.dispose();
-  }
+class _MockupSettingsState extends State<MockupSettings> {
+  int _tabIndex = 0;
 
   void _emit(SessionCommand command) =>
       widget.onSessionCommand?.call(command);
@@ -90,49 +77,127 @@ class _MockupSettingsState extends State<MockupSettings>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TabBar(
-          controller: _tabs,
-          labelColor: palette.phosphorDefault,
-          unselectedLabelColor: palette.inkDim,
-          indicatorColor: palette.phosphorDefault,
-          labelStyle: TrampText.chromeLabel(look).copyWith(fontSize: 12),
-          tabs: const [
-            Tab(text: 'General'),
-            Tab(text: 'Skins'),
-          ],
-        ),
         Expanded(
-          child: TabBarView(
-            controller: _tabs,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _GeneralTab(
-                snapshot: snap,
-                onChanged: (cmd) => _emit(cmd),
-                onReset: _confirmReset,
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-                child: SkinsPanel(
-                  skins: snap.skins,
-                  activeSkinId: snap.activeSkinId,
-                  lastError: snap.lastSkinError,
-                  onActivate: (id) => _emit(ActivateSkinCommand(id)),
-                  onInstallZipPath: (path) => _emit(
-                    InstallSkinPathCommand(path: path, isDirectory: false),
+              SizedBox(
+                width: 108,
+                child: ColoredBox(
+                  color: palette.shellDeep,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _SideTab(
+                        label: 'General',
+                        selected: _tabIndex == 0,
+                        onTap: () => setState(() => _tabIndex = 0),
+                      ),
+                      _SideTab(
+                        label: 'Skins',
+                        selected: _tabIndex == 1,
+                        onTap: () => setState(() => _tabIndex = 1),
+                      ),
+                    ],
                   ),
-                  onInstallDirectoryPath: (path) => _emit(
-                    InstallSkinPathCommand(path: path, isDirectory: true),
-                  ),
-                  onSetSkinsDirectory: (path) =>
-                      _emit(SetSkinsDirectoryCommand(path)),
-                  onResetSkinsDirectory: () =>
-                      _emit(const SetSkinsDirectoryCommand(null)),
                 ),
+              ),
+              Expanded(
+                child: _tabIndex == 0
+                    ? _GeneralTab(
+                        snapshot: snap,
+                        onChanged: (cmd) => _emit(cmd),
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+                        child: SkinsPanel(
+                          skins: snap.skins,
+                          activeSkinId: snap.activeSkinId,
+                          lastError: snap.lastSkinError,
+                          onActivate: (id) => _emit(ActivateSkinCommand(id)),
+                          onInstallZipPath: (path) => _emit(
+                            InstallSkinPathCommand(
+                              path: path,
+                              isDirectory: false,
+                            ),
+                          ),
+                          onInstallDirectoryPath: (path) => _emit(
+                            InstallSkinPathCommand(
+                              path: path,
+                              isDirectory: true,
+                            ),
+                          ),
+                          onSetSkinsDirectory: (path) =>
+                              _emit(SetSkinsDirectoryCommand(path)),
+                          onResetSkinsDirectory: () =>
+                              _emit(const SetSkinsDirectoryCommand(null)),
+                        ),
+                      ),
               ),
             ],
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              key: const Key('settings-reset'),
+              onPressed: _confirmReset,
+              child: Text(
+                'Reset Settings',
+                style: TrampText.chromeLabel(look)
+                    .copyWith(color: palette.accentDefault),
+              ),
+            ),
+          ),
+        ),
       ],
+    );
+  }
+}
+
+class _SideTab extends StatelessWidget {
+  const _SideTab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final look = LookScope.of(context);
+    final palette = look.palette;
+    return Material(
+      color: selected
+          ? palette.shellHighlight.withValues(alpha: 0.4)
+          : Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(
+                color: selected ? palette.phosphorDefault : Colors.transparent,
+                width: 3,
+              ),
+            ),
+          ),
+          child: Text(
+            label,
+            style: TrampText.chromeLabel(look).copyWith(
+              fontSize: 12,
+              color: selected ? palette.phosphorDefault : palette.inkDim,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -141,12 +206,10 @@ class _GeneralTab extends StatelessWidget {
   const _GeneralTab({
     required this.snapshot,
     required this.onChanged,
-    required this.onReset,
   });
 
   final SettingsSnapshotEvent snapshot;
   final ValueChanged<UpdateGeneralSettingsCommand> onChanged;
-  final VoidCallback onReset;
 
   @override
   Widget build(BuildContext context) {
@@ -209,19 +272,6 @@ class _GeneralTab extends StatelessWidget {
             final value = set.first;
             onChanged(UpdateGeneralSettingsCommand(dockSnapStrength: value));
           },
-        ),
-        const SizedBox(height: 20),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton(
-            key: const Key('settings-reset'),
-            onPressed: onReset,
-            child: Text(
-              'Reset Settings…',
-              style: TrampText.chromeLabel(look)
-                  .copyWith(color: palette.accentDefault),
-            ),
-          ),
         ),
       ],
     );
