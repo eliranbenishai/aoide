@@ -1,5 +1,9 @@
 import 'package:flutter/widgets.dart';
 
+import '../../../look/look_palette.dart';
+import '../../../theme/look_paint.dart';
+import '../../../theme/look_scope.dart';
+
 /// CRT-style well matching mockup `.screen` (radial wash + scanlines).
 class MockupScreen extends StatelessWidget {
   const MockupScreen({
@@ -18,7 +22,13 @@ class MockupScreen extends StatelessWidget {
       child: Stack(
         fit: StackFit.passthrough,
         children: [
-          const Positioned.fill(child: CustomPaint(painter: _ScreenWellPainter())),
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _ScreenWellPainter(
+                palette: LookScope.of(context).palette,
+              ),
+            ),
+          ),
           if (child != null) child!,
           const Positioned.fill(
             child: IgnorePointer(
@@ -32,23 +42,22 @@ class MockupScreen extends StatelessWidget {
 }
 
 class _ScreenWellPainter extends CustomPainter {
-  const _ScreenWellPainter();
+  const _ScreenWellPainter({required this.palette});
+
+  final LookPalette palette;
 
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
+    final wash = LookPaint.screenWash(palette);
     canvas.drawRect(
       rect,
       Paint()
-        ..shader = const RadialGradient(
-          center: Alignment(-0.64, -1.4),
+        ..shader = RadialGradient(
+          center: const Alignment(-0.64, -1.4),
           radius: 1.35,
-          colors: [
-            Color(0xFF0F1C2A),
-            Color(0xFF071018),
-            Color(0xFF04070C),
-          ],
-          stops: [0, 0.48, 1],
+          colors: wash,
+          stops: const [0, 0.48, 1],
         ).createShader(rect),
     );
 
@@ -56,10 +65,11 @@ class _ScreenWellPainter extends CustomPainter {
     canvas.drawLine(
       const Offset(0, 0.5),
       Offset(size.width, 0.5),
-      Paint()..color = const Color(0x1FE2ECFF),
+      Paint()
+        ..color = LookPaint.coolSheen(palette).withValues(alpha: 0x1F / 255),
     );
 
-    // Inset cyan rim + deep well.
+    // Inset phosphor rim + deep well.
     final rrect = RRect.fromRectAndRadius(
       rect.deflate(0.5),
       const Radius.circular(2.5),
@@ -69,12 +79,12 @@ class _ScreenWellPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
-        ..color = const Color(0x1A3DE7FF),
+        ..color = palette.phosphorDefault.withValues(alpha: 0x1A / 255),
     );
     canvas.drawRRect(
       rrect,
       Paint()
-        ..color = const Color(0x0D3DE7FF)
+        ..color = palette.phosphorDefault.withValues(alpha: 0x0D / 255)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
     );
     canvas.drawRRect(
@@ -86,7 +96,8 @@ class _ScreenWellPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _ScreenWellPainter oldDelegate) =>
+      palette != oldDelegate.palette;
 }
 
 class _ScanlinePainter extends CustomPainter {
@@ -101,14 +112,14 @@ class _ScanlinePainter extends CustomPainter {
     canvas.drawRect(
       Offset.zero & size,
       Paint()
-        ..shader = LinearGradient(
+        ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            const Color(0x0DFFFFFF),
-            const Color(0x00FFFFFF),
+            Color(0x0DFFFFFF),
+            Color(0x00FFFFFF),
           ],
-          stops: const [0, 0.38],
+          stops: [0, 0.38],
         ).createShader(Offset.zero & size),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../../look/look_palette.dart';
+import '../../../theme/look_paint.dart';
 import '../../../theme/look_scope.dart';
 import 'mockup_hover.dart';
 
@@ -159,7 +160,7 @@ class _SliderPainter extends CustomPainter {
       canvas.drawRRect(
         fill,
         Paint()
-          ..color = const Color(0x663DE7FF)
+          ..color = LookPaint.phosphorBloom(palette, 0x66)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
       );
       canvas.drawRRect(
@@ -169,9 +170,9 @@ class _SliderPainter extends CustomPainter {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              const Color(0xFFCBF9FF),
+              LookPaint.sliderFillHi(palette),
               palette.phosphorDefault,
-              const Color(0xFF0F7F96),
+              LookPaint.sliderFillLo(palette),
             ],
             stops: const [0, 0.4, 1],
           ).createShader(fillRect),
@@ -181,7 +182,7 @@ class _SliderPainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1
-          ..color = const Color(0x99F0FDFF),
+          ..color = LookPaint.buttonOnLip(palette).withValues(alpha: 0x99 / 255),
       );
     }
 
@@ -196,11 +197,12 @@ class _SliderPainter extends CustomPainter {
     );
     final thumb = RRect.fromRectAndRadius(thumbRect, const Radius.circular(4));
 
+    final lift = LookPaint.hoverLiftTarget(palette);
     if (hover > 0.001) {
       canvas.drawRRect(
         thumb.inflate(2),
         Paint()
-          ..color = Color.fromRGBO(61, 231, 255, 0.22 * hover)
+          ..color = palette.phosphorDefault.withValues(alpha: 0.22 * hover)
           ..maskFilter = MaskFilter.blur(BlurStyle.normal, 5 + 3 * hover),
       );
     }
@@ -211,6 +213,9 @@ class _SliderPainter extends CustomPainter {
         ..color = const Color(0xA6000000)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
     );
+    final thumbHi = Color.lerp(palette.shellHighlight, palette.inkDim, 0.55)!;
+    final thumbMid = Color.lerp(palette.shellBase, palette.shellHighlight, 0.35)!;
+    final thumbLo = Color.lerp(palette.shellMid, palette.shellBase, 0.4)!;
     canvas.drawRRect(
       thumb,
       Paint()
@@ -218,9 +223,9 @@ class _SliderPainter extends CustomPainter {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            mockupHoverLift(const Color(0xFF6F7688), hover),
-            mockupHoverLift(const Color(0xFF3D4350), hover),
-            mockupHoverLift(const Color(0xFF22262F), hover),
+            mockupHoverLift(thumbHi, hover, MockupHoverTokens.faceLift, lift),
+            mockupHoverLift(thumbMid, hover, MockupHoverTokens.faceLift, lift),
+            mockupHoverLift(thumbLo, hover, MockupHoverTokens.faceLift, lift),
           ],
           stops: const [0, 0.55, 1],
         ).createShader(thumbRect),
@@ -234,8 +239,18 @@ class _SliderPainter extends CustomPainter {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            mockupHoverLift(const Color(0xFFB0B8C8), hover, 0.2),
-            mockupHoverLift(const Color(0xFF2A303C), hover, 0.1),
+            mockupHoverLift(
+              Color.lerp(palette.inkDim, lift, 0.45)!,
+              hover,
+              0.2,
+              lift,
+            ),
+            mockupHoverLift(
+              Color.lerp(palette.shellBase, palette.shellMid, 0.3)!,
+              hover,
+              0.1,
+              lift,
+            ),
           ],
         ).createShader(thumbRect),
     );
@@ -248,7 +263,7 @@ class _SliderPainter extends CustomPainter {
       thumbRect.bottom - 8,
     );
     final ridgeColor = Color.lerp(
-      const Color(0x38E2ECFF),
+      lift.withValues(alpha: 0x38 / 255),
       palette.phosphorDefault.withValues(alpha: 0.55),
       hover,
     )!;

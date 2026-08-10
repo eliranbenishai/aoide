@@ -19,10 +19,15 @@ abstract final class MockupHoverTokens {
   static const disabledOpacity = 0.45;
 }
 
-/// Lighten [color] toward steel-white by [hover] × faceLift.
-Color mockupHoverLift(Color color, double hover, [double amount = MockupHoverTokens.faceLift]) {
+/// Lighten [color] toward [toward] (default steel-white) by [hover] × amount.
+Color mockupHoverLift(
+  Color color,
+  double hover, [
+  double amount = MockupHoverTokens.faceLift,
+  Color toward = const Color(0xFFE8F0FF),
+]) {
   if (hover <= 0) return color;
-  return Color.lerp(color, const Color(0xFFE8F0FF), amount * hover)!;
+  return Color.lerp(color, toward, amount * hover)!;
 }
 
 /// Phosphor bloom behind [child] (icon / label). Amount is `0..1`.

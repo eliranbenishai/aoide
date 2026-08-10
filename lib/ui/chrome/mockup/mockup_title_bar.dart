@@ -4,6 +4,8 @@ import '../logo.dart';
 import 'mockup_hover.dart';
 import 'mockup_icons.dart';
 import '../../../look/look_materials.dart';
+import '../../../look/look_palette.dart';
+import '../../../theme/look_paint.dart';
 import '../../../theme/look_scope.dart';
 
 /// Title strip matching mockup `.tbar` (42px).
@@ -44,31 +46,39 @@ class MockupTitleBar extends StatelessWidget {
 
   static const height = 42.0;
 
-  static TextStyle _windowNameStyle(BuildContext context) => TextStyle(
-        fontFamily: LookScope.of(context).chromeFamily,
-        fontWeight: FontWeight.w700,
-        fontSize: 13,
-        height: 1,
-        letterSpacing: 13 * 0.26,
-        decoration: TextDecoration.none,
-        color: const Color(0x8CC8D6EB),
-        shadows: const [
-          Shadow(
-            offset: Offset(0, 1),
-            color: Color(0xB3000000),
-          ),
-        ],
-      );
+  static TextStyle _windowNameStyle(BuildContext context) {
+    final look = LookScope.of(context);
+    return TextStyle(
+      fontFamily: look.chromeFamily,
+      fontWeight: FontWeight.w700,
+      fontSize: 13,
+      height: 1,
+      letterSpacing: 13 * 0.26,
+      decoration: TextDecoration.none,
+      color: LookPaint.windowName(look.palette),
+      shadows: const [
+        Shadow(
+          offset: Offset(0, 1),
+          color: Color(0xB3000000),
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final palette = LookScope.of(context).palette;
     return SizedBox(
       height: height,
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
         child: Stack(
           children: [
-            const Positioned.fill(child: CustomPaint(painter: _TitleBarPainter())),
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _TitleBarPainter(palette: palette),
+              ),
+            ),
             // Fill the strip; center like `.tbar { align-items: center }`.
             // A loose Stack child sizes the Row to logo/buttons and pins top.
             Positioned.fill(
@@ -82,7 +92,7 @@ class MockupTitleBar extends StatelessWidget {
                         Row(
                           children: [
                             if (showBrand) ...[
-                              const _TitleLogo(),
+                              _TitleLogo(accent: palette.accentDefault),
                               const SizedBox(width: 12),
                               _Wordmark(
                                 size: wordmarkSize,
@@ -129,7 +139,9 @@ class MockupTitleBar extends StatelessWidget {
 }
 
 class _TitleLogo extends StatelessWidget {
-  const _TitleLogo();
+  const _TitleLogo({required this.accent});
+
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
@@ -141,15 +153,18 @@ class _TitleLogo extends StatelessWidget {
         clipBehavior: Clip.none,
         alignment: Alignment.center,
         children: [
-          // `0 0 12px rgba(255, 61, 154, 0.28)` — outside the face.
+          // `0 0 12px rgba(accent, 0.28)` — outside the face.
           Container(
             width: 30,
             height: 30,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
               boxShadow: [
-                BoxShadow(color: Color(0x47FF3D9A), blurRadius: 12),
                 BoxShadow(
+                  color: accent.withValues(alpha: 0x47 / 255),
+                  blurRadius: 12,
+                ),
+                const BoxShadow(
                   color: Color(0x8C000000),
                   offset: Offset(0, 2),
                   blurRadius: 4,
@@ -245,6 +260,9 @@ class _Wordmark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final look = LookScope.of(context);
+    final palette = look.palette;
+    final phosphor = palette.phosphorDefault;
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,18 +270,18 @@ class _Wordmark extends StatelessWidget {
         Text(
           'TRAMP',
           style: TextStyle(
-            fontFamily: LookScope.of(context).chromeFamily,
+            fontFamily: look.chromeFamily,
             fontWeight: FontWeight.w700,
             fontSize: size,
             height: 1,
             letterSpacing: size * 0.2,
             decoration: TextDecoration.none,
-            color: const Color(0xFFEAF2FF),
-            shadows: const [
-              Shadow(offset: Offset(0, -1), color: Color(0x4DE2ECFF)),
-              Shadow(offset: Offset(0, 1), color: Color(0xD9000000)),
-              // CSS `0 0 14px rgba(61,231,255,0.3)` — Skia blur reads hotter.
-              Shadow(color: Color(0x4D3DE7FF), blurRadius: 5),
+            color: LookPaint.wordmark(palette),
+            shadows: [
+              Shadow(offset: const Offset(0, -1), color: LookPaint.hoverLiftTarget(palette).withValues(alpha: 0x4D / 255)),
+              const Shadow(offset: Offset(0, 1), color: Color(0xD9000000)),
+              // CSS `0 0 14px` phosphor — Skia blur reads hotter.
+              Shadow(color: phosphor.withValues(alpha: 0x4D / 255), blurRadius: 5),
             ],
           ),
         ),
@@ -273,15 +291,15 @@ class _Wordmark extends StatelessWidget {
             child: Text(
               '1.0',
               style: TextStyle(
-                fontFamily: LookScope.of(context).chromeFamily,
+                fontFamily: look.chromeFamily,
                 fontWeight: FontWeight.w700,
                 fontSize: 11,
                 height: 1,
                 letterSpacing: 11 * 0.06,
                 decoration: TextDecoration.none,
-                color: LookScope.of(context).palette.phosphorDefault.withValues(alpha: 0.85),
-                shadows: const [
-                  Shadow(color: Color(0x803DE7FF), blurRadius: 8),
+                color: phosphor.withValues(alpha: 0.85),
+                shadows: [
+                  Shadow(color: phosphor.withValues(alpha: 0x80 / 255), blurRadius: 8),
                 ],
               ),
             ),
@@ -296,36 +314,45 @@ class _Grip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final look = LookScope.of(context);
     return SizedBox(
       height: 8,
       width: double.infinity,
       child: CustomPaint(
-        painter: _GripPainter(materials: LookScope.of(context).materials),
+        painter: _GripPainter(
+          materials: look.materials,
+          palette: look.palette,
+        ),
       ),
     );
   }
 }
 
 class _GripPainter extends CustomPainter {
-  const _GripPainter({required this.materials});
+  const _GripPainter({
+    required this.materials,
+    required this.palette,
+  });
 
   final LookMaterials materials;
+  final LookPalette palette;
 
   @override
   void paint(Canvas canvas, Size size) {
     final rail = Rect.fromLTWH(0, 2, size.width, 2);
+    final bloom = LookPaint.phosphorBloom(palette);
     // Soft bloom behind the 2px rail (CSS `box-shadow: 0 0 7px`).
     canvas.drawRect(
       rail,
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           colors: [
-            Color(0x00000000),
-            Color(0x4D3DE7FF),
-            Color(0x4D3DE7FF),
-            Color(0x00000000),
+            const Color(0x00000000),
+            bloom,
+            bloom,
+            const Color(0x00000000),
           ],
-          stops: [0, 0.12, 0.88, 1],
+          stops: const [0, 0.12, 0.88, 1],
         ).createShader(rail)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.5),
     );
@@ -340,9 +367,9 @@ class _GripPainter extends CustomPainter {
               materials.railStops[1],
               materials.railStops[2],
             ] else ...[
-              const Color(0xFF1A7A88),
-              const Color(0xFF8A2258),
-              const Color(0xFF1A7A88),
+              palette.phosphorDim,
+              palette.accentDim,
+              palette.phosphorDim,
             ],
             const Color(0x00000000),
           ],
@@ -350,14 +377,15 @@ class _GripPainter extends CustomPainter {
         ).createShader(rail),
     );
     final under = Rect.fromLTWH(0, 6, size.width, 1);
+    final underGlow = LookPaint.accentBloom(palette);
     canvas.drawRect(
       under,
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           colors: [
-            Color(0x00000000),
-            Color(0x59FF3D9A),
-            Color(0x00000000),
+            const Color(0x00000000),
+            underGlow,
+            const Color(0x00000000),
           ],
         ).createShader(under),
     );
@@ -365,7 +393,7 @@ class _GripPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _GripPainter oldDelegate) =>
-      materials != oldDelegate.materials;
+      materials != oldDelegate.materials || palette != oldDelegate.palette;
 }
 
 class _WindowButtons extends StatelessWidget {
@@ -387,6 +415,9 @@ class _WindowButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = LookScope.of(context).palette;
+    final glyph = LookPaint.glyphInk(palette);
+    final closeGlyph = LookPaint.closeGlyphInk(palette);
     final collapse = onCollapse != null;
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -394,20 +425,20 @@ class _WindowButtons extends StatelessWidget {
         _WinBtn(
           onPressed: collapse ? onCollapse : onMinimize,
           semanticLabel: collapse ? 'Collapse' : 'Minimize',
-          child: MockupIcons.minimize(),
+          child: MockupIcons.minimize(color: glyph),
         ),
         if (showZoom) ...[
           const SizedBox(width: 5),
           _WinBtn(
             onPressed: onZoomOut,
             semanticLabel: 'Zoom out',
-            child: MockupIcons.zoomOut(),
+            child: MockupIcons.zoomOut(color: glyph),
           ),
           const SizedBox(width: 5),
           _WinBtn(
             onPressed: onZoomIn,
             semanticLabel: 'Zoom in',
-            child: MockupIcons.zoomIn(),
+            child: MockupIcons.zoomIn(color: glyph),
           ),
         ],
         const SizedBox(width: 5),
@@ -415,7 +446,7 @@ class _WindowButtons extends StatelessWidget {
           onPressed: onClose,
           semanticLabel: 'Close',
           close: true,
-          child: MockupIcons.close(),
+          child: MockupIcons.close(color: closeGlyph),
         ),
       ],
     );
@@ -460,6 +491,8 @@ class _WinBtnState extends State<_WinBtn> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = LookScope.of(context).palette;
+    final lift = LookPaint.hoverLiftTarget(palette);
     return Semantics(
       button: true,
       enabled: _enabled,
@@ -472,6 +505,8 @@ class _WinBtnState extends State<_WinBtn> {
               close: widget.close,
               pressed: _down,
               hover: hover,
+              palette: palette,
+              liftTarget: lift,
             ),
             child: SizedBox(
               width: 26,
@@ -501,24 +536,24 @@ class _WinBtnState extends State<_WinBtn> {
 }
 
 class _TitleBarPainter extends CustomPainter {
-  const _TitleBarPainter();
+  const _TitleBarPainter({required this.palette});
+
+  final LookPalette palette;
 
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
+    final stops = LookPaint.titleBarStops(palette);
+    final lift = LookPaint.hoverLiftTarget(palette);
+    final cool = LookPaint.coolSheen(palette);
     canvas.drawRect(
       rect,
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF3C4356),
-            Color(0xFF2C3241),
-            Color(0xFF1D222C),
-            Color(0xFF12151C),
-          ],
-          stops: [0, 0.26, 0.62, 1],
+          colors: stops,
+          stops: const [0, 0.26, 0.62, 1],
         ).createShader(rect),
     );
     canvas.drawRect(
@@ -528,15 +563,15 @@ class _TitleBarPainter extends CustomPainter {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            const Color(0x1FE8F0FF),
-            const Color(0x00E8F0FF),
+            lift.withValues(alpha: 0x1F / 255),
+            lift.withValues(alpha: 0),
           ],
         ).createShader(Rect.fromLTWH(0, 0, size.width, size.height * 0.5)),
     );
     canvas.drawLine(
       const Offset(0, 0.5),
       Offset(size.width, 0.5),
-      Paint()..color = const Color(0x38E2ECFF),
+      Paint()..color = cool.withValues(alpha: 0x38 / 255),
     );
     canvas.drawLine(
       Offset(0, size.height - 0.5),
@@ -546,7 +581,8 @@ class _TitleBarPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _TitleBarPainter oldDelegate) =>
+      palette != oldDelegate.palette;
 }
 
 class _WinBtnPainter extends CustomPainter {
@@ -554,11 +590,15 @@ class _WinBtnPainter extends CustomPainter {
     required this.close,
     required this.pressed,
     required this.hover,
+    required this.palette,
+    required this.liftTarget,
   });
 
   final bool close;
   final bool pressed;
   final double hover;
+  final LookPalette palette;
+  final Color liftTarget;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -566,14 +606,16 @@ class _WinBtnPainter extends CustomPainter {
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(3));
     final base = close
         ? (pressed
-            ? const [Color(0xFF79204A), Color(0xFF4A1129), Color(0xFF2E0A1A)]
-            : const [Color(0xFF9C2A60), Color(0xFF79204A), Color(0xFF4A1129)])
+            ? LookPaint.winBtnClosePressed(palette)
+            : LookPaint.winBtnCloseIdle(palette))
         : (pressed
-            ? const [Color(0xFF2F3543), Color(0xFF20242E), Color(0xFF161920)]
-            : const [Color(0xFF454D60), Color(0xFF2F3543), Color(0xFF20242E)]);
+            ? LookPaint.winBtnPressed(palette)
+            : LookPaint.winBtnIdle(palette));
     final colors = pressed
         ? base
-        : base.map((c) => mockupHoverLift(c, hover)).toList(growable: false);
+        : base
+            .map((c) => mockupHoverLift(c, hover, MockupHoverTokens.faceLift, liftTarget))
+            .toList(growable: false);
 
     // Outer drop: mockup `0 1px 2px rgba(0, 0, 0, 0.55)`.
     canvas.drawRRect(
@@ -601,10 +643,10 @@ class _WinBtnPainter extends CustomPainter {
       Rect.fromLTWH(0, 0, size.width, 1),
       Paint()
         ..color = pressed
-            ? const Color(0x26E8F0FF)
+            ? liftTarget.withValues(alpha: 0x26 / 255)
             : Color.lerp(
-                const Color(0x4DE8F0FF),
-                const Color(0x80E8F0FF),
+                liftTarget.withValues(alpha: 0x4D / 255),
+                liftTarget.withValues(alpha: 0x80 / 255),
                 hover,
               )!,
     );
@@ -620,5 +662,7 @@ class _WinBtnPainter extends CustomPainter {
   bool shouldRepaint(covariant _WinBtnPainter oldDelegate) =>
       close != oldDelegate.close ||
       pressed != oldDelegate.pressed ||
-      hover != oldDelegate.hover;
+      hover != oldDelegate.hover ||
+      palette != oldDelegate.palette ||
+      liftTarget != oldDelegate.liftTarget;
 }

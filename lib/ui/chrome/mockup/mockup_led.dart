@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../../look/look_palette.dart';
+import '../../../theme/look_paint.dart';
 import '../../../theme/look_scope.dart';
 
 /// Phosphor/magenta status LED matching mockup `.led` / `.led--lit`.
@@ -42,18 +43,20 @@ class _LedPainter extends CustomPainter {
     final glow = Rect.fromCircle(center: center, radius: radius);
 
     if (lit) {
+      final bloom = LookPaint.accentBloom(palette);
+      final hot = LookPaint.accentHot(palette);
       canvas.drawCircle(
         center,
         radius + 5,
         Paint()
-          ..color = const Color(0x59FF3D9A)
+          ..color = bloom
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
       );
       canvas.drawCircle(
         center,
         radius + 1.5,
         Paint()
-          ..color = const Color(0xB3FF3D9A)
+          ..color = palette.accentDefault.withValues(alpha: 0xB3 / 255)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
       );
       canvas.drawCircle(
@@ -63,9 +66,9 @@ class _LedPainter extends CustomPainter {
           ..shader = RadialGradient(
             center: const Alignment(-0.2, -0.3),
             colors: [
-              const Color(0xFFFFD6EA),
+              hot,
               palette.accentDefault,
-              const Color(0xFF8A2258),
+              palette.accentDim,
             ],
             stops: const [0, 0.45, 1],
           ).createShader(glow),
@@ -76,18 +79,18 @@ class _LedPainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1
-          ..color = const Color(0x995A0F32),
+          ..color = LookPaint.litLedRim(palette).withValues(alpha: 0x99 / 255),
       );
     } else {
       canvas.drawCircle(
         center,
         radius,
         Paint()
-          ..shader = const RadialGradient(
-            center: Alignment(-0.2, -0.3),
+          ..shader = RadialGradient(
+            center: const Alignment(-0.2, -0.3),
             colors: [
-              Color(0xFF3D4350),
-              Color(0xFF22262F),
+              LookPaint.idleLedHi(palette),
+              LookPaint.idleLedLo(palette),
             ],
           ).createShader(glow),
       );
@@ -103,7 +106,7 @@ class _LedPainter extends CustomPainter {
         Offset(center.dx, center.dy + radius * 0.55),
         radius * 0.85,
         Paint()
-          ..color = const Color(0x1AE2ECFF)
+          ..color = LookPaint.hoverLiftTarget(palette).withValues(alpha: 0x1A / 255)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.5),
       );
     }

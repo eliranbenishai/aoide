@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import '../../theme/look_scope.dart';
+import '../../theme/tramp_colors.dart';
 import '../../theme/tramp_surfaces.dart';
 import '../zoom/zoom_scope.dart';
 
@@ -27,9 +29,12 @@ class MetalPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bevel = ZoomScope.hairlineFor(context);
+    final colors = TrampColors.of(LookScope.of(context));
     final spec = switch (surface) {
-      TrampSurface.raisedButton => TrampSurfaces.raisedButton(bevel: bevel),
-      TrampSurface.pressedButton => TrampSurfaces.pressedButton(bevel: bevel),
+      TrampSurface.raisedButton =>
+        TrampSurfaces.raisedButton(bevel: bevel, colors: colors),
+      TrampSurface.pressedButton =>
+        TrampSurfaces.pressedButton(bevel: bevel, colors: colors),
     };
 
     final inner =

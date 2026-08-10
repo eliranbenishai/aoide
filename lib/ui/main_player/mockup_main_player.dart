@@ -192,7 +192,7 @@ class _MockupMainPlayerState extends State<MockupMainPlayer> {
                   semanticLabel: 'Options',
                   on: _optionsMenuOpen,
                   onPressed: () => unawaited(_openOptionsMenu(buttonContext)),
-                  child: MockupIcons.options(size: 16),
+                  child: MockupIcons.options(size: 16, color: MockupIcons.inkOf(context)),
                 ),
               ),
             ),
@@ -882,9 +882,12 @@ class _MockupSpectrumState extends State<_MockupSpectrum> {
 
   @override
   Widget build(BuildContext context) {
+    final look = LookScope.of(context);
     return CustomPaint(
       painter: _MockupSpectrumPainter(
-        materials: LookScope.of(context).materials,
+        materials: look.materials,
+        phosphor: look.palette.phosphorDefault,
+        phosphorHot: look.palette.phosphorHot,
         bars: _bars,
         peaks: _peaks,
       ),
@@ -896,11 +899,15 @@ class _MockupSpectrumState extends State<_MockupSpectrum> {
 class _MockupSpectrumPainter extends CustomPainter {
   const _MockupSpectrumPainter({
     required this.materials,
+    required this.phosphor,
+    required this.phosphorHot,
     required this.bars,
     required this.peaks,
   });
 
   final LookMaterials materials;
+  final Color phosphor;
+  final Color phosphorHot;
   final List<double> bars;
   final List<double> peaks;
 
@@ -938,18 +945,22 @@ class _MockupSpectrumPainter extends CustomPainter {
         canvas.drawRect(
           barRect,
           Paint()
-            ..color = const Color(0x4D3DE7FF)
+            ..color = phosphor.withValues(alpha: 0x4D / 255)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5),
         );
       }
       if (peakH > 2) {
         final capTop = size.height - peakH;
         final cap = Rect.fromLTWH(left, capTop, _barWidth, 2);
-        canvas.drawRect(cap, Paint()..color = const Color(0xFFEAFFFF));
         canvas.drawRect(
           cap,
           Paint()
-            ..color = const Color(0xE63DE7FF)
+            ..color = Color.lerp(const Color(0xFFFFFFFF), phosphorHot, 0.2)!,
+        );
+        canvas.drawRect(
+          cap,
+          Paint()
+            ..color = phosphor.withValues(alpha: 0xE6 / 255)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
         );
       }
@@ -960,7 +971,9 @@ class _MockupSpectrumPainter extends CustomPainter {
   bool shouldRepaint(covariant _MockupSpectrumPainter oldDelegate) =>
       !identical(bars, oldDelegate.bars) ||
       !identical(peaks, oldDelegate.peaks) ||
-      materials != oldDelegate.materials;
+      materials != oldDelegate.materials ||
+      phosphor != oldDelegate.phosphor ||
+      phosphorHot != oldDelegate.phosphorHot;
 }
 
 // ---------------------------------------------------------------------------
@@ -998,7 +1011,7 @@ class _VolumeRow extends StatelessWidget {
           semanticLabel: playback.muted ? 'Unmute' : 'Mute',
           on: playback.muted,
           onPressed: playback.toggleMute,
-          child: MockupIcons.mute(),
+          child: MockupIcons.mute(color: MockupIcons.inkOf(context)),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -1146,7 +1159,7 @@ class _TransportRow extends StatelessWidget {
           semanticLabel: 'Previous',
           onPressed:
               canTransport ? () => unawaited(playback.previous()) : null,
-          child: MockupIcons.previous(),
+          child: MockupIcons.previous(color: MockupIcons.inkOf(context)),
         ),
         const SizedBox(width: 6),
         _TransportBtn(
@@ -1155,7 +1168,7 @@ class _TransportRow extends StatelessWidget {
           width: 78,
           on: playback.playing,
           onPressed: canTransport ? onPlay : null,
-          child: MockupIcons.play(),
+          child: MockupIcons.play(color: MockupIcons.inkOf(context)),
         ),
         const SizedBox(width: 6),
         _TransportBtn(
@@ -1163,7 +1176,7 @@ class _TransportRow extends StatelessWidget {
           semanticLabel: 'Pause',
           on: playback.paused,
           onPressed: canTransport ? onPause : null,
-          child: MockupIcons.pause(),
+          child: MockupIcons.pause(color: MockupIcons.inkOf(context)),
         ),
         const SizedBox(width: 6),
         _TransportBtn(
@@ -1171,21 +1184,21 @@ class _TransportRow extends StatelessWidget {
           semanticLabel: 'Stop',
           onPressed:
               trackOpen ? () => unawaited(playback.stop()) : null,
-          child: MockupIcons.stop(),
+          child: MockupIcons.stop(color: MockupIcons.inkOf(context)),
         ),
         const SizedBox(width: 6),
         _TransportBtn(
           buttonKey: const Key('transport-next'),
           semanticLabel: 'Next',
           onPressed: canTransport ? () => unawaited(playback.next()) : null,
-          child: MockupIcons.next(),
+          child: MockupIcons.next(color: MockupIcons.inkOf(context)),
         ),
         const SizedBox(width: 16),
         _TransportBtn(
           buttonKey: const Key('player-open'),
           semanticLabel: 'Open files',
           onPressed: onOpenFiles,
-          child: MockupIcons.eject(),
+          child: MockupIcons.eject(color: MockupIcons.inkOf(context)),
         ),
         const SizedBox(width: 12),
         const Expanded(child: MockupRail(minWidth: 0)),

@@ -1,8 +1,19 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../theme/look_paint.dart';
+import '../../../theme/look_scope.dart';
+
 /// Icon glyphs from `player-mockup-2.html` SVG paths (viewBox 16 / 24).
 abstract final class MockupIcons {
+  /// Look-aware glyph ink (transport / chrome icons).
+  static Color inkOf(BuildContext context, [int alpha = 0xD9]) =>
+      LookPaint.glyphInk(LookScope.of(context).palette, alpha);
+
+  /// Look-aware close-button glyph tint.
+  static Color closeInkOf(BuildContext context) =>
+      LookPaint.closeGlyphInk(LookScope.of(context).palette);
+
   static Widget minimize({
     Color color = const Color(0xD1D6E2F5),
     double size = 12,

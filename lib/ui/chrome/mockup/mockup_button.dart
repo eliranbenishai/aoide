@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import '../../../look/look_palette.dart';
+import '../../../theme/look_paint.dart';
 import '../../../theme/look_scope.dart';
 import 'mockup_hover.dart';
 
@@ -38,7 +40,7 @@ class _MockupButtonState extends State<MockupButton> {
   bool _down = false;
 
   void _setDown(bool value) {
-    // Clearing pressed must always work (e.g. disable mid-gesture).
+    // Clearing pressed state must always work (e.g. disable mid-gesture).
     if (value && !widget.isEnabled) return;
     if (_down == value) return;
     setState(() => _down = value);
@@ -61,9 +63,10 @@ class _MockupButtonState extends State<MockupButton> {
       child: MockupHover(
         enabled: widget.isEnabled,
         builder: (context, hover) {
-          // `.btn--on` ink is deep teal (`#04222b`) for labels and SVG fills.
-          const onInk = Color(0xFF04222B);
           final look = LookScope.of(context);
+          final palette = look.palette;
+          final onInk = LookPaint.buttonOnInk(palette);
+          final lift = LookPaint.hoverLiftTarget(palette);
           Widget content = widget.child ??
               Text(
                 widget.label!.toUpperCase(),
@@ -74,12 +77,12 @@ class _MockupButtonState extends State<MockupButton> {
                   height: 1,
                   letterSpacing: 13 * 0.18,
                   decoration: TextDecoration.none,
-                  color: widget.on ? onInk : const Color(0xB8C4D2E8),
+                  color: widget.on ? onInk : LookPaint.buttonLabelIdle(palette),
                 ),
               );
           if (widget.on && widget.child != null) {
             content = ColorFiltered(
-              colorFilter: const ColorFilter.mode(onInk, BlendMode.srcIn),
+              colorFilter: ColorFilter.mode(onInk, BlendMode.srcIn),
               child: content,
             );
           }
@@ -94,12 +97,12 @@ class _MockupButtonState extends State<MockupButton> {
                 ),
               ),
               if (widget.menu)
-                const Positioned(
+                Positioned(
                   right: 5,
                   bottom: 5,
                   child: CustomPaint(
-                    size: Size(6, 6),
-                    painter: _MenuCaretPainter(),
+                    size: const Size(6, 6),
+                    painter: _MenuCaretPainter(color: LookPaint.glyphInk(palette, 0x73)),
                   ),
                 ),
             ],
@@ -112,18 +115,24 @@ class _MockupButtonState extends State<MockupButton> {
             alignment: Alignment.center,
             children: [
               if (widget.on)
-                const Positioned(
+                Positioned(
                   left: -14,
                   right: -14,
                   top: -14,
                   bottom: -14,
-                  child: CustomPaint(painter: _OnBloomPainter()),
+                  child: CustomPaint(
+                    painter: _OnBloomPainter(
+                      color: LookPaint.phosphorBloom(palette),
+                    ),
+                  ),
                 ),
               CustomPaint(
                 painter: _ButtonPainter(
                   on: widget.on,
                   pressed: _down,
                   hover: hover,
+                  palette: palette,
+                  liftTarget: lift,
                 ),
                 child: face,
               ),
@@ -161,7 +170,9 @@ class _MockupButtonState extends State<MockupButton> {
 
 /// Soft outer bloom for lit buttons — sized larger than the face via [Positioned].
 class _OnBloomPainter extends CustomPainter {
-  const _OnBloomPainter();
+  const _OnBloomPainter({required this.color});
+
+  final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -177,13 +188,14 @@ class _OnBloomPainter extends CustomPainter {
     canvas.drawRRect(
       rrect.inflate(3),
       Paint()
-        ..color = const Color(0x4D3DE7FF)
+        ..color = color
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
     );
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _OnBloomPainter oldDelegate) =>
+      color != oldDelegate.color;
 }
 
 class _ButtonPainter extends CustomPainter {
@@ -191,11 +203,15 @@ class _ButtonPainter extends CustomPainter {
     required this.on,
     required this.pressed,
     required this.hover,
+    required this.palette,
+    required this.liftTarget,
   });
 
   final bool on;
   final bool pressed;
   final double hover;
+  final LookPalette palette;
+  final Color liftTarget;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -205,10 +221,11 @@ class _ButtonPainter extends CustomPainter {
     );
 
     if (on) {
+      final base = LookPaint.buttonOn(palette);
       final colors = [
-        mockupHoverLift(const Color(0xFFA9F4FF), hover, 0.1),
-        mockupHoverLift(const Color(0xFF3DE7FF), hover, 0.08),
-        mockupHoverLift(const Color(0xFF128FA8), hover, 0.08),
+        mockupHoverLift(base[0], hover, 0.1, liftTarget),
+        mockupHoverLift(base[1], hover, 0.08, liftTarget),
+        mockupHoverLift(base[2], hover, 0.08, liftTarget),
       ];
       canvas.drawRRect(
         rrect,
@@ -223,31 +240,26 @@ class _ButtonPainter extends CustomPainter {
       canvas.drawLine(
         const Offset(2, 1),
         Offset(size.width - 2, 1),
-        Paint()..color = const Color(0xB3F0FDFF),
+        Paint()
+          ..color = LookPaint.buttonOnLip(palette).withValues(alpha: 0xB3 / 255),
       );
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           Rect.fromLTWH(1, size.height - 4, size.width - 2, 3),
           const Radius.circular(2),
         ),
-        Paint()..color = const Color(0x8C054658),
+        Paint()
+          ..color = LookPaint.buttonOnFoot(palette).withValues(alpha: 0x8C / 255),
       );
     } else {
-      final base = pressed
-          ? const [
-              Color(0xFF2B313E),
-              Color(0xFF1E222C),
-              Color(0xFF161A22),
-            ]
-          : const [
-              Color(0xFF3F4657),
-              Color(0xFF2B313E),
-              Color(0xFF1E222C),
-            ];
+      final base =
+          pressed ? LookPaint.buttonPressed(palette) : LookPaint.buttonIdle(palette);
       // Pressed wins over hover for the dark inset; otherwise lift the face.
       final colors = pressed
           ? base
-          : base.map((c) => mockupHoverLift(c, hover)).toList(growable: false);
+          : base
+              .map((c) => mockupHoverLift(c, hover, MockupHoverTokens.faceLift, liftTarget))
+              .toList(growable: false);
       canvas.drawRRect(
         rrect,
         Paint()
@@ -258,6 +270,7 @@ class _ButtonPainter extends CustomPainter {
             stops: const [0, 0.48, 1],
           ).createShader(Offset.zero & size),
       );
+      final sheen = LookPaint.hoverLiftTarget(palette);
       canvas.drawRRect(
         rrect,
         Paint()
@@ -267,8 +280,8 @@ class _ButtonPainter extends CustomPainter {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              const Color(0x33E8F0FF),
-              const Color(0x00000000),
+              sheen.withValues(alpha: 0x33 / 255),
+              sheen.withValues(alpha: 0),
               const Color(0x80000000),
             ],
           ).createShader(Offset.zero & size),
@@ -283,6 +296,7 @@ class _ButtonPainter extends CustomPainter {
       bottomLeft: const Radius.circular(6),
       bottomRight: const Radius.circular(6),
     );
+    final glossTop = LookPaint.hoverLiftTarget(palette);
     canvas.drawRRect(
       gloss,
       Paint()
@@ -290,8 +304,8 @@ class _ButtonPainter extends CustomPainter {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Color.fromRGBO(232, 240, 255, on ? 0.28 : 0.12 + 0.08 * hover),
-            const Color(0x00E8F0FF),
+            glossTop.withValues(alpha: on ? 0.28 : 0.12 + 0.08 * hover),
+            glossTop.withValues(alpha: 0),
           ],
         ).createShader(gloss.outerRect),
     );
@@ -310,11 +324,15 @@ class _ButtonPainter extends CustomPainter {
   bool shouldRepaint(covariant _ButtonPainter oldDelegate) =>
       on != oldDelegate.on ||
       pressed != oldDelegate.pressed ||
-      hover != oldDelegate.hover;
+      hover != oldDelegate.hover ||
+      palette != oldDelegate.palette ||
+      liftTarget != oldDelegate.liftTarget;
 }
 
 class _MenuCaretPainter extends CustomPainter {
-  const _MenuCaretPainter();
+  const _MenuCaretPainter({required this.color});
+
+  final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -323,12 +341,10 @@ class _MenuCaretPainter extends CustomPainter {
       ..lineTo(size.width, size.height)
       ..lineTo(size.width, 0)
       ..close();
-    canvas.drawPath(
-      path,
-      Paint()..color = const Color(0x73D6E2F5),
-    );
+    canvas.drawPath(path, Paint()..color = color);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _MenuCaretPainter oldDelegate) =>
+      color != oldDelegate.color;
 }

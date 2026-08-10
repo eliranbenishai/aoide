@@ -574,7 +574,7 @@ class _PlaylistFooterState extends State<_PlaylistFooter> {
                       height: 52,
                       semanticLabel: 'Add tracks',
                       onPressed: widget.onAdd,
-                      child: MockupIcons.add(size: 21),
+                      child: MockupIcons.add(size: 21, color: MockupIcons.inkOf(context)),
                     ),
                     const SizedBox(width: 8),
                     MockupButton(
@@ -583,7 +583,7 @@ class _PlaylistFooterState extends State<_PlaylistFooter> {
                       height: 52,
                       semanticLabel: 'Remove selected tracks',
                       onPressed: widget.onRemove,
-                      child: MockupIcons.remove(size: 21),
+                      child: MockupIcons.remove(size: 21, color: MockupIcons.inkOf(context)),
                     ),
                     const SizedBox(width: 14),
                     const _FooterSep(),
@@ -597,7 +597,7 @@ class _PlaylistFooterState extends State<_PlaylistFooter> {
                         on: _sortMenuOpen,
                         semanticLabel: 'Sort playlist',
                         onPressed: () => _openSortMenu(ctx),
-                        child: MockupIcons.sort(size: 21),
+                        child: MockupIcons.sort(size: 21, color: MockupIcons.inkOf(context)),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -610,7 +610,7 @@ class _PlaylistFooterState extends State<_PlaylistFooter> {
                         on: _optionsMenuOpen,
                         semanticLabel: 'Playlist options',
                         onPressed: () => _openOptionsMenu(ctx),
-                        child: MockupIcons.options(size: 21),
+                        child: MockupIcons.options(size: 21, color: MockupIcons.inkOf(context)),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -626,7 +626,7 @@ class _PlaylistFooterState extends State<_PlaylistFooter> {
                       height: 52,
                       semanticLabel: 'Previous',
                       onPressed: widget.onPrevious,
-                      child: MockupIcons.previous(size: 18),
+                      child: MockupIcons.previous(size: 18, color: MockupIcons.inkOf(context)),
                     ),
                     const SizedBox(width: 8),
                     MockupButton(
@@ -637,8 +637,8 @@ class _PlaylistFooterState extends State<_PlaylistFooter> {
                       on: widget.playing,
                       onPressed: widget.onPlayPause,
                       child: widget.playing
-                          ? MockupIcons.pause(size: 18)
-                          : MockupIcons.play(size: 18),
+                          ? MockupIcons.pause(size: 18, color: MockupIcons.inkOf(context))
+                          : MockupIcons.play(size: 18, color: MockupIcons.inkOf(context)),
                     ),
                     const SizedBox(width: 8),
                     MockupButton(
@@ -647,7 +647,7 @@ class _PlaylistFooterState extends State<_PlaylistFooter> {
                       height: 52,
                       semanticLabel: 'Next',
                       onPressed: widget.onNext,
-                      child: MockupIcons.next(size: 18),
+                      child: MockupIcons.next(size: 18, color: MockupIcons.inkOf(context)),
                     ),
                     const SizedBox(width: 8),
                     MockupScreen(

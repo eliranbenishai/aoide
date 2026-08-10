@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tramp/look/builtin_look.dart';
+import 'package:tramp/look/look_palette.dart';
+import 'package:tramp/look/resolved_look.dart';
+import 'package:tramp/theme/look_paint.dart';
 import 'package:tramp/ui/chrome/mockup/mockup_button.dart';
 import 'package:tramp/ui/chrome/mockup/mockup_hover.dart';
 
@@ -73,17 +77,70 @@ void main() {
       ),
     ));
 
+    final onInk = LookPaint.buttonOnInk(BuiltinLook.resolved.palette);
     expect(
       find.descendant(
         of: find.byType(MockupButton),
         matching: find.byWidgetPredicate(
           (w) =>
               w is ColorFiltered &&
-              w.colorFilter ==
-                  const ColorFilter.mode(Color(0xFF04222B), BlendMode.srcIn),
+              w.colorFilter == ColorFilter.mode(onInk, BlendMode.srcIn),
         ),
       ),
       findsOneWidget,
     );
   });
+
+  testWidgets('on-state label ink follows look phosphorDeep', (tester) async {
+    final look = _probeLook(
+      phosphorDeep: const Color(0xFF3D2A00),
+    );
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: wrapWithLook(
+          Center(
+            child: MockupButton(
+              on: true,
+              label: 'EQ',
+              onPressed: () {},
+            ),
+          ),
+          look: look,
+        ),
+      ),
+    );
+
+    final text = tester.widget<Text>(find.text('EQ'));
+    expect(text.style?.color, LookPaint.buttonOnInk(look.palette));
+    expect(text.style?.color, isNot(BuiltinLook.resolved.palette.phosphorDeep));
+  });
+}
+
+ResolvedLook _probeLook({required Color phosphorDeep}) {
+  final b = BuiltinLook.resolved.palette;
+  return ResolvedLook(
+    id: 'probe',
+    name: 'Probe',
+    palette: LookPalette(
+      shellHighlight: b.shellHighlight,
+      shellBase: b.shellBase,
+      shellMid: b.shellMid,
+      shellLow: b.shellLow,
+      shellDeep: b.shellDeep,
+      inkDefault: b.inkDefault,
+      inkDim: b.inkDim,
+      inkFaint: b.inkFaint,
+      phosphorDefault: b.phosphorDefault,
+      phosphorHot: b.phosphorHot,
+      phosphorDim: b.phosphorDim,
+      phosphorDeep: phosphorDeep,
+      accentDefault: b.accentDefault,
+      accentDim: b.accentDim,
+      well: b.well,
+    ),
+    materials: BuiltinLook.resolved.materials,
+    chromeFamily: 'TrampCondensed',
+    lcdFamily: 'TrampMono',
+  );
 }

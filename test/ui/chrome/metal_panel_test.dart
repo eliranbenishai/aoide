@@ -5,6 +5,8 @@ import 'package:tramp/theme/tramp_surfaces.dart';
 import 'package:tramp/ui/chrome/metal_panel.dart';
 import 'package:tramp/ui/zoom/zoom_scope.dart';
 
+import '../../support/look_harness.dart';
+
 BoxDecoration decorationOf(WidgetTester tester) {
   final box = tester.widget<DecoratedBox>(find.byType(DecoratedBox));
   return box.decoration as BoxDecoration;
@@ -15,12 +17,16 @@ BevelPainter bevelOf(WidgetTester tester) {
   return paint.foregroundPainter! as BevelPainter;
 }
 
+Widget host(Widget child) => lookHost(child);
+
 void main() {
   testWidgets('raised button uses the button gradient', (tester) async {
     await tester.pumpWidget(
-      const MetalPanel(
-        surface: TrampSurface.raisedButton,
-        child: SizedBox(width: 10, height: 10),
+      host(
+        const MetalPanel(
+          surface: TrampSurface.raisedButton,
+          child: SizedBox(width: 10, height: 10),
+        ),
       ),
     );
     final gradient = decorationOf(tester).gradient! as LinearGradient;
@@ -29,12 +35,14 @@ void main() {
 
   testWidgets('bevel width is snapped from the ambient zoom', (tester) async {
     await tester.pumpWidget(
-      const ZoomScope(
-        factor: 1.5,
-        devicePixelRatio: 1,
-        child: MetalPanel(
-          surface: TrampSurface.raisedButton,
-          child: SizedBox(width: 10, height: 10),
+      host(
+        const ZoomScope(
+          factor: 1.5,
+          devicePixelRatio: 1,
+          child: MetalPanel(
+            surface: TrampSurface.raisedButton,
+            child: SizedBox(width: 10, height: 10),
+          ),
         ),
       ),
     );
@@ -44,10 +52,12 @@ void main() {
   testWidgets('renders and paints without a ZoomScope ancestor',
       (tester) async {
     await tester.pumpWidget(
-      const Center(
-        child: MetalPanel(
-          surface: TrampSurface.raisedButton,
-          child: SizedBox(width: 10, height: 10),
+      host(
+        const Center(
+          child: MetalPanel(
+            surface: TrampSurface.raisedButton,
+            child: SizedBox(width: 10, height: 10),
+          ),
         ),
       ),
     );
@@ -58,10 +68,12 @@ void main() {
   testWidgets('the fill carries no border so it can be rounded and painted',
       (tester) async {
     await tester.pumpWidget(
-      const Center(
-        child: MetalPanel(
-          surface: TrampSurface.raisedButton,
-          child: SizedBox(width: 10, height: 10),
+      host(
+        const Center(
+          child: MetalPanel(
+            surface: TrampSurface.raisedButton,
+            child: SizedBox(width: 10, height: 10),
+          ),
         ),
       ),
     );
@@ -72,10 +84,12 @@ void main() {
 
   testWidgets('padding wraps the child when supplied', (tester) async {
     await tester.pumpWidget(
-      const MetalPanel(
-        surface: TrampSurface.raisedButton,
-        padding: EdgeInsets.all(4),
-        child: SizedBox(width: 10, height: 10),
+      host(
+        const MetalPanel(
+          surface: TrampSurface.raisedButton,
+          padding: EdgeInsets.all(4),
+          child: SizedBox(width: 10, height: 10),
+        ),
       ),
     );
     expect(find.byType(Padding), findsOneWidget);

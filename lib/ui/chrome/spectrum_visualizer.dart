@@ -67,11 +67,14 @@ class _SpectrumVisualizerState extends State<SpectrumVisualizer> {
 
   @override
   Widget build(BuildContext context) {
+    final look = LookScope.of(context);
     return CustomPaint(
       painter: SpectrumPainter(
         bars: List<double>.unmodifiable(_bars),
         peaks: List<double>.unmodifiable(_peaks),
-        materials: LookScope.of(context).materials,
+        materials: look.materials,
+        phosphor: look.palette.phosphorDefault,
+        phosphorHot: look.palette.phosphorHot,
       ),
     );
   }
@@ -82,11 +85,15 @@ class SpectrumPainter extends CustomPainter {
     required this.bars,
     required this.peaks,
     required this.materials,
+    required this.phosphor,
+    required this.phosphorHot,
   });
 
   final List<double> bars;
   final List<double> peaks;
   final LookMaterials materials;
+  final Color phosphor;
+  final Color phosphorHot;
 
   static const _barWidth = 9.0;
   static const _gap = 3.0;
@@ -120,17 +127,21 @@ class SpectrumPainter extends CustomPainter {
         canvas.drawRect(
           barRect,
           Paint()
-            ..color = const Color(0x663DE7FF)
+            ..color = phosphor.withValues(alpha: 0x66 / 255)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.5),
         );
       }
       if (peakH > 2) {
         final cap = Rect.fromLTWH(left, size.height - peakH, _barWidth, 2);
-        canvas.drawRect(cap, Paint()..color = const Color(0xFFEAFFFF));
         canvas.drawRect(
           cap,
           Paint()
-            ..color = const Color(0xE63DE7FF)
+            ..color = Color.lerp(const Color(0xFFFFFFFF), phosphorHot, 0.2)!,
+        );
+        canvas.drawRect(
+          cap,
+          Paint()
+            ..color = phosphor.withValues(alpha: 0xE6 / 255)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
         );
       }
@@ -141,7 +152,9 @@ class SpectrumPainter extends CustomPainter {
   bool shouldRepaint(SpectrumPainter old) =>
       !_same(old.bars, bars) ||
       !_same(old.peaks, peaks) ||
-      old.materials != materials;
+      old.materials != materials ||
+      old.phosphor != phosphor ||
+      old.phosphorHot != phosphorHot;
 
   static bool _same(List<double> a, List<double> b) {
     if (a.length != b.length) return false;

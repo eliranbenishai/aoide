@@ -53,35 +53,55 @@ class SurfaceSpec {
 abstract final class TrampSurfaces {
   static const double buttonRadius = 2;
 
-  static SurfaceSpec raisedButton({double bevel = 1}) => SurfaceSpec(
-        decoration: const BoxDecoration(
-          borderRadius: BorderRadius.all(Radius.circular(buttonRadius)),
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [TrampColors.buttonTop, TrampColors.buttonBottom],
-          ),
+  static SurfaceSpec raisedButton({
+    double bevel = 1,
+    TrampColorSet? colors,
+  }) {
+    final c = colors;
+    final top = c?.buttonTop ?? TrampColors.buttonTop;
+    final bottom = c?.buttonBottom ?? TrampColors.buttonBottom;
+    final hi = c?.bevelHi ?? TrampColors.bevelHi;
+    final lo = c?.bevelLo ?? TrampColors.bevelLo;
+    return SurfaceSpec(
+      decoration: BoxDecoration(
+        borderRadius: const BorderRadius.all(Radius.circular(buttonRadius)),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [top, bottom],
         ),
-        highlight: TrampColors.bevelHi,
-        shadow: TrampColors.bevelLo,
-        radius: buttonRadius,
-        bevel: bevel,
-      );
+      ),
+      highlight: hi,
+      shadow: lo,
+      radius: buttonRadius,
+      bevel: bevel,
+    );
+  }
 
-  static SurfaceSpec pressedButton({double bevel = 1}) => SurfaceSpec(
-        decoration: const BoxDecoration(
-          borderRadius: BorderRadius.all(Radius.circular(buttonRadius)),
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [TrampColors.buttonBottom, TrampColors.buttonTop],
-          ),
+  static SurfaceSpec pressedButton({
+    double bevel = 1,
+    TrampColorSet? colors,
+  }) {
+    final c = colors;
+    final top = c?.buttonTop ?? TrampColors.buttonTop;
+    final bottom = c?.buttonBottom ?? TrampColors.buttonBottom;
+    final hi = c?.bevelHi ?? TrampColors.bevelHi;
+    final lo = c?.bevelLo ?? TrampColors.bevelLo;
+    return SurfaceSpec(
+      decoration: BoxDecoration(
+        borderRadius: const BorderRadius.all(Radius.circular(buttonRadius)),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [bottom, top],
         ),
-        highlight: TrampColors.bevelLo,
-        shadow: TrampColors.bevelHi,
-        radius: buttonRadius,
-        bevel: bevel,
-      );
+      ),
+      highlight: lo,
+      shadow: hi,
+      radius: buttonRadius,
+      bevel: bevel,
+    );
+  }
 
 }
 
