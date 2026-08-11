@@ -10,26 +10,42 @@ At the start of each user turn (and whenever intent becomes clear), **match the 
 ## Where to look
 
 1. Skills already listed in this session (agent_skills / available_skills)
-2. User skills under `~/.agents/skills/*/SKILL.md` (e.g. `to-spec`, `to-tickets`, `implement`, `tdd`, `triage`)
-3. Cursor / plugin skills (e.g. Superpowers brainstorming, writing-plans)
+2. User skills under `~/.agents/skills/*/SKILL.md` (Matt Pocock engineering skills; also symlinked from `~/.cursor/skills/`)
+3. Cursor built-ins under `~/.cursor/skills-cursor/` and plugin skills (e.g. Superpowers)
 4. Project guidance in `AGENTS.md` and `docs/agents/`
 
-If unsure a skill exists, use **find-skills** or read the skill’s `SKILL.md` before improvising the same workflow.
+## Preference when skills overlap
+
+This repo’s engineering flow is **Matt Pocock** (`ask-matt` is the router). When a Matt skill and a Superpowers (or other) skill cover the same step, **use the Matt skill**.
+
+| Step | Prefer (Matt) | Do not stack with |
+|------|---------------|-------------------|
+| Sharpen idea / design in a repo | `grill-with-docs` (+ `grilling`, `domain-modeling`) | Superpowers `brainstorming` |
+| Spec → tracker | `to-spec` | Writing a design under `docs/superpowers/specs/` by default |
+| Tickets / plan slices | `to-tickets` | Superpowers `writing-plans` for new work |
+| Implement | `implement` (+ `tdd`) | Superpowers `executing-plans` / `subagent-driven-development` unless the user points at an existing Superpowers plan |
+| Hard bugs | `diagnosing-bugs` | Superpowers `systematic-debugging` |
+| Review vs standards + spec | `code-review` | Superpowers `requesting-code-review` / `receiving-code-review` |
+| Authoring skills / AGENTS.md | `writing-for-agents` | Superpowers `writing-skills` |
+
+Superpowers remains useful where Matt has no counterpart (e.g. `using-git-worktrees`, `finishing-a-development-branch`, `verification-before-completion`, `dispatching-parallel-agents`). Existing docs under `docs/superpowers/` stay valid historical/design material; new tracker work goes through `docs/agents/issue-tracker.md` (`.scratch/`).
 
 ## How to apply
 
 - **Read** the matching skill file, announce briefly (“Using X to …”), then **follow it**.
-- Prefer **process** skills first when several apply (e.g. brainstorm → write plan → implement → review).
+- Prefer **process** skills first when several apply (Matt main flow: `grill-with-docs` → `to-spec` → `to-tickets` → `implement` → `code-review`).
 - **User override wins:** explicit `/skill` or “use X” / “skip X” beats auto-match.
 - Skills marked `disable-model-invocation: true` are still in scope here when the task clearly matches — that flag only means Cursor won’t auto-attach them; **this rule says to use them anyway**.
-- Do not stack redundant skills that solve the same step (pick the best fit).
+- Do not stack redundant skills that solve the same step (pick the best fit; Matt wins on overlap).
 
 ## When the match is unclear
 
-If it is **not clear** which skill (or flow) fits:
+If it is **not clear** which *installed* skill (or flow) fits:
 
 1. Use **`ask-matt`** (`~/.agents/skills/ask-matt/SKILL.md`) as the router — read it and follow its recommendation.
 2. If `ask-matt` yields **no appropriate skill**, proceed **without** a saved skill (normal agent judgment). Do not invent a fake skill workflow.
+
+Use **`find-skills`** only when the user wants to **discover or install** a skill from the ecosystem — not as the router for skills already installed.
 
 ```text
 ❌ BAD: Guess a skill, or stall forever when unsure
@@ -40,16 +56,17 @@ If it is **not clear** which skill (or flow) fits:
 
 | User intent | Prefer |
 |-------------|--------|
+| Sharpen a plan/design in this repo | `grill-with-docs` |
 | Turn discussion into a PRD/spec for the tracker | `to-spec` |
 | Break a spec/plan into tickets | `to-tickets` |
 | Implement from a spec/tickets | `implement` (+ `tdd` at seams) |
-| Creative feature / UI before coding | Superpowers `brainstorming` |
-| Multi-step plan after approved design | Superpowers `writing-plans` |
-| Bug / unexpected failure | `diagnosing-bugs` or Superpowers `systematic-debugging` |
+| Huge multi-session effort / foggy map | `wayfinder` |
+| Hard bug / unexpected failure | `diagnosing-bugs` |
 | Domain language / ADR | `domain-modeling` |
-| Review branch/PR vs standards+spec | `code-review` |
+| Review branch/PR vs standards + spec | `code-review` |
+| Which skill should I use? | `ask-matt` |
 
 ```text
-❌ BAD: Write a design/spec from scratch while ignoring to-spec / brainstorming
+❌ BAD: Write a design/spec from scratch while ignoring grill-with-docs / to-spec
 ✅ GOOD: Task matches → read skill → follow its process (tracker paths from docs/agents/)
 ```

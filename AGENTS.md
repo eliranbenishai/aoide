@@ -2,7 +2,7 @@
 
 ### Auto-apply
 
-Every session: match the task to installed skills and apply them (including user skills like `to-spec` / `implement` even when they disable model auto-invocation). If the match is unclear, use `ask-matt`; if that finds nothing appropriate, proceed without a saved skill. See `.cursor/rules/apply-skills.mdc`.
+Every session: match the task to installed skills and apply them (including user-invoked Matt skills like `to-spec` / `implement` even when they disable model auto-invocation). Prefer the Matt Pocock engineering flow over Superpowers when both cover the same step. If the match is unclear, use `ask-matt`; if that finds nothing appropriate, proceed without a saved skill. See `.cursor/rules/apply-skills.mdc`.
 
 ### Issue tracker
 
