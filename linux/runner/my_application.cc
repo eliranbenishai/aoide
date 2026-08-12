@@ -20,11 +20,42 @@ static void first_frame_cb(MyApplication* self, FlView* view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
 }
 
+// Prefer the bundled Tramp logo over the generic Flutter/GTK icon in the
+// taskbar and alt-tab switcher. Paths are relative to the relocatable bundle.
+static void tramp_apply_window_icon(GtkWindow* window) {
+  g_autofree gchar* exe = g_file_read_link("/proc/self/exe", nullptr);
+  if (exe == nullptr) {
+    return;
+  }
+  g_autofree gchar* dir = g_path_get_dirname(exe);
+  const gchar* candidates[] = {
+      "data/app_icon.png",
+      "data/flutter_assets/assets/branding/app_icon.png",
+      nullptr,
+  };
+  for (int i = 0; candidates[i] != nullptr; ++i) {
+    g_autofree gchar* path = g_build_filename(dir, candidates[i], nullptr);
+    if (!g_file_test(path, G_FILE_TEST_IS_REGULAR)) {
+      continue;
+    }
+    g_autoptr(GError) error = nullptr;
+    if (!gtk_window_set_icon_from_file(window, path, &error)) {
+      g_warning("Failed to set window icon from %s: %s", path,
+                error != nullptr ? error->message : "unknown");
+      continue;
+    }
+    gtk_window_set_default_icon_from_file(path, nullptr);
+    return;
+  }
+}
+
 // Implements GApplication::activate.
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
+
+  tramp_apply_window_icon(window);
 
   // Use a header bar when running in GNOME as this is the common style used
   // by applications and is the setup most users will be using (e.g. Ubuntu

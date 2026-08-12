@@ -15,8 +15,20 @@ Please replace these when you have a chance. Paths are relative to the repo root
 
 | # | Asset | Path(s) | Notes |
 |---|--------|---------|-------|
-| 4 | Windows app icon | `windows/runner/resources/app_icon.ico` | Export from `lib/ui/chrome/logo.svg` (multi-size ICO). |
-| 5 | macOS app icons | `macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_*.png` | Same source; sizes 16…1024. |
+| 4 | Windows app icon | `windows/runner/resources/app_icon.ico` | **Done** — exported from `lib/ui/chrome/logo.svg` (16…256 ICO). |
+| 5 | macOS app icons | `macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_*.png` | **Done** — same source; sizes 16…1024. |
+| 5b | Linux / runtime icon | `linux/icons/hicolor/*/apps/com.tramp.tramp.png`, `linux/runner/resources/app_icon.png`, `assets/branding/app_icon.png` | **Done** — desktop theme icons + bundle/runtime PNG for taskbar. |
+
+Regenerate from the SVG (ImageMagick + librsvg):
+
+```bash
+SRC=lib/ui/chrome/logo.svg
+for s in 16 32 48 64 128 256 512 1024; do
+  magick -background none -density 600 "$SRC" \
+    -resize ${s}x${s} -gravity center -extent ${s}x${s} -depth 8 \
+    PNG32:/tmp/tramp_icon_$s.png
+done
+```
 
 ## Priority 3 — nice if you have time
 

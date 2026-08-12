@@ -42,6 +42,7 @@ flutter:
   uses-material-design: true
   assets:
     - lib/ui/chrome/logo.svg
+    - assets/branding/app_icon.png
   fonts:
     - family: TrampCondensed
       fonts:

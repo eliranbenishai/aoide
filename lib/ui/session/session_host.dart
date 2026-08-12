@@ -212,6 +212,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     await windowManager.setBackgroundColor(const Color(0x00000000));
     await windowManager.setResizable(false);
     await windowManager.setTitle('Tramp — Main');
+    // Taskbar / alt-tab mark (Windows + Linux). macOS uses the .app icon set.
+    await windowManager.setIcon('assets/branding/app_icon.png');
 
     final settings = await _settingsStore.read();
     _applySettingsFields(settings);
