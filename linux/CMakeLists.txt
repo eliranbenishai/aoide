@@ -50,6 +50,43 @@ endfunction()
 set(FLUTTER_MANAGED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/flutter")
 add_subdirectory(${FLUTTER_MANAGED_DIR})
 
+# Distrobox flake: flutter_assemble often leaves ephemeral/flutter_linux/ empty.
+# Seed AFTER assemble (not before — assemble wipes the dir). Keep this in the
+# project CMakeLists so `flutter` tooling won't rewrite it.
+#
+# FLUTTER_ROOT is set in flutter/ephemeral/generated_config.cmake without
+# PARENT_SCOPE. Prefer the env Flutter passes into the build; else parse it.
+if(NOT FLUTTER_ROOT AND DEFINED ENV{FLUTTER_ROOT})
+  file(TO_CMAKE_PATH "$ENV{FLUTTER_ROOT}" FLUTTER_ROOT)
+endif()
+if(NOT FLUTTER_ROOT)
+  file(STRINGS "${FLUTTER_MANAGED_DIR}/ephemeral/generated_config.cmake"
+    _tramp_gen_cfg)
+  foreach(_tramp_line IN LISTS _tramp_gen_cfg)
+    if(_tramp_line MATCHES "TO_CMAKE_PATH \"([^\"]+)\" FLUTTER_ROOT")
+      set(FLUTTER_ROOT "${CMAKE_MATCH_1}")
+      break()
+    endif()
+  endforeach()
+  unset(_tramp_gen_cfg)
+  unset(_tramp_line)
+endif()
+if(NOT FLUTTER_ROOT)
+  message(FATAL_ERROR "FLUTTER_ROOT unset; cannot seed flutter_linux headers")
+endif()
+
+add_custom_target(tramp_seed_flutter_linux
+  COMMAND ${CMAKE_COMMAND}
+    -DFLUTTER_ROOT=${FLUTTER_ROOT}
+    -DEPHEMERAL_DIR=${FLUTTER_MANAGED_DIR}/ephemeral
+    -P "${FLUTTER_MANAGED_DIR}/seed_flutter_linux.cmake"
+  COMMENT "Seeding flutter_linux headers if missing"
+  VERBATIM
+)
+add_dependencies(tramp_seed_flutter_linux flutter_assemble)
+# Plugins + runner link `flutter`; wait for seed so includes exist.
+add_dependencies(flutter tramp_seed_flutter_linux)
+
 # System-level dependencies.
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)

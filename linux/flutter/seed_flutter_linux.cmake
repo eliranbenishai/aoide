@@ -1,6 +1,6 @@
 # Seed ephemeral/flutter_linux headers from the engine cache when missing.
-# Invoked at build time (Distrobox can leave an empty flutter_linux/ dir).
-if(NOT DEFINED FLUTTER_ROOT OR NOT DEFINED EPHEMERAL_DIR)
+# Invoked AFTER flutter_assemble (Distrobox often leaves an empty flutter_linux/).
+if(FLUTTER_ROOT STREQUAL "" OR EPHEMERAL_DIR STREQUAL "")
   message(FATAL_ERROR "seed_flutter_linux.cmake requires FLUTTER_ROOT and EPHEMERAL_DIR")
 endif()
 
@@ -12,10 +12,12 @@ if(EXISTS "${_hdr}")
 endif()
 
 if(NOT EXISTS "${_src}/flutter_linux.h")
-  message(WARNING "Engine flutter_linux headers missing at ${_src}")
-  return()
+  message(FATAL_ERROR "Engine flutter_linux headers missing at ${_src}")
 endif()
 
 file(MAKE_DIRECTORY "${EPHEMERAL_DIR}/flutter_linux")
 file(COPY "${_src}/" DESTINATION "${EPHEMERAL_DIR}/flutter_linux")
+if(NOT EXISTS "${_hdr}")
+  message(FATAL_ERROR "Failed to seed flutter_linux.h into ${EPHEMERAL_DIR}/flutter_linux")
+endif()
 message(STATUS "Seeded flutter_linux headers from engine cache")

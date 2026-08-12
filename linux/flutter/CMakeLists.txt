@@ -6,18 +6,6 @@ set(EPHEMERAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ephemeral")
 # Configuration provided via flutter tool.
 include(${EPHEMERAL_DIR}/generated_config.cmake)
 
-# Distrobox / interrupted-assemble flake: empty ephemeral/flutter_linux while
-# plugins compile. Seed headers at *build* time (configure-time COPY is skipped
-# on incremental builds). flutter_assemble still refreshes libs/headers.
-add_custom_target(tramp_seed_flutter_linux
-  COMMAND ${CMAKE_COMMAND}
-    -DFLUTTER_ROOT=${FLUTTER_ROOT}
-    -DEPHEMERAL_DIR=${EPHEMERAL_DIR}
-    -P "${CMAKE_CURRENT_LIST_DIR}/seed_flutter_linux.cmake"
-  COMMENT "Seeding flutter_linux headers if missing"
-  VERBATIM
-)
-
 # TODO: Move the rest of this into files in ephemeral. See
 # https://github.com/flutter/flutter/issues/57146.
 
@@ -98,4 +86,3 @@ add_custom_target(flutter_assemble DEPENDS
   "${FLUTTER_LIBRARY}"
   ${FLUTTER_LIBRARY_HEADERS}
 )
-add_dependencies(flutter_assemble tramp_seed_flutter_linux)
