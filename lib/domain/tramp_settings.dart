@@ -8,7 +8,16 @@ const double _defaultStackTop = 348;
 const double _defaultPlaylistTop = _defaultStackTop + 348;
 
 /// Identifies one of the product windows in dock / settings graphs.
-enum WindowId { main, equalizer, playlist, settings }
+enum WindowId {
+  main,
+  equalizer,
+  playlist,
+  settings,
+  about;
+
+  /// Freestanding windows move alone and never snap / never are snap targets.
+  bool get freestanding => this == settings || this == about;
+}
 
 /// Which edge of [DockEdge.a] touches [DockEdge.b].
 enum DockSide { left, right, top, bottom }
@@ -72,6 +81,13 @@ class WindowFrameState {
     shaded: false,
     left: 860,
     top: 40,
+  );
+
+  static const aboutDefault = WindowFrameState(
+    visible: false,
+    shaded: false,
+    left: 860,
+    top: 480,
   );
 
   final bool visible;
@@ -199,6 +215,7 @@ class TrampSettings {
     required this.equalizer,
     required this.playlist,
     required this.settings,
+    required this.about,
     required this.dockEdges,
     this.equalizerCurve = EqualizerSettings.flat,
     this.activeSkinId = 'builtin',
@@ -218,6 +235,7 @@ class TrampSettings {
     equalizer: WindowFrameState.equalizerDefault,
     playlist: WindowFrameState.playlistDefault,
     settings: WindowFrameState.settingsDefault,
+    about: WindowFrameState.aboutDefault,
     dockEdges: [],
   );
 
@@ -239,6 +257,7 @@ class TrampSettings {
   final WindowFrameState equalizer;
   final WindowFrameState playlist;
   final WindowFrameState settings;
+  final WindowFrameState about;
   final List<DockEdge> dockEdges;
   final EqualizerSettings equalizerCurve;
   final String activeSkinId;
@@ -257,6 +276,7 @@ class TrampSettings {
     WindowFrameState? equalizer,
     WindowFrameState? playlist,
     WindowFrameState? settings,
+    WindowFrameState? about,
     List<DockEdge>? dockEdges,
     EqualizerSettings? equalizerCurve,
     String? activeSkinId,
@@ -276,6 +296,7 @@ class TrampSettings {
       equalizer: equalizer ?? this.equalizer,
       playlist: playlist ?? this.playlist,
       settings: settings ?? this.settings,
+      about: about ?? this.about,
       dockEdges: dockEdges ?? this.dockEdges,
       equalizerCurve: equalizerCurve ?? this.equalizerCurve,
       activeSkinId: activeSkinId ?? this.activeSkinId,
@@ -298,6 +319,7 @@ class TrampSettings {
         'equalizer': equalizer.toJson(),
         'playlist': playlist.toJson(),
         'settings': settings.toJson(),
+        'about': about.toJson(),
         'dockEdges': dockEdges.map((e) => e.toJson()).toList(),
         'equalizerCurve': equalizerCurve.toJson(),
         'activeSkinId': activeSkinId,
@@ -317,6 +339,7 @@ class TrampSettings {
     var equalizer = WindowFrameState.equalizerDefault;
     var playlist = WindowFrameState.playlistDefault;
     var settings = WindowFrameState.settingsDefault;
+    var about = WindowFrameState.aboutDefault;
 
     final mainJson = json['main'];
     if (mainJson is Map<String, dynamic>) {
@@ -336,6 +359,11 @@ class TrampSettings {
     final settingsJson = json['settings'];
     if (settingsJson is Map<String, dynamic>) {
       settings = WindowFrameState.fromJson(settingsJson, fallback: settings);
+    }
+
+    final aboutJson = json['about'];
+    if (aboutJson is Map<String, dynamic>) {
+      about = WindowFrameState.fromJson(aboutJson, fallback: about);
     }
 
     // Legacy top-level playlist size → playlist frame.
@@ -372,6 +400,7 @@ class TrampSettings {
       equalizer: equalizer,
       playlist: playlist,
       settings: settings,
+      about: about,
       dockEdges: _parseDockEdges(json['dockEdges']),
       equalizerCurve: curve,
       activeSkinId: _parseActiveSkinId(
@@ -457,6 +486,7 @@ class TrampSettings {
       other.equalizer == equalizer &&
       other.playlist == playlist &&
       other.settings == settings &&
+      other.about == about &&
       _listEquals(other.dockEdges, dockEdges) &&
       other.equalizerCurve == equalizerCurve &&
       other.activeSkinId == activeSkinId &&
@@ -476,6 +506,7 @@ class TrampSettings {
         equalizer,
         playlist,
         settings,
+        about,
         Object.hashAll(dockEdges),
         equalizerCurve,
         activeSkinId,
@@ -493,7 +524,8 @@ class TrampSettings {
   String toString() =>
       'TrampSettings(zoomPercent: $zoomPercent, alwaysOnTop: $alwaysOnTop, '
       'forceMono: $forceMono, main: $main, equalizer: $equalizer, '
-      'playlist: $playlist, settings: $settings, dockEdges: $dockEdges, '
+      'playlist: $playlist, settings: $settings, about: $about, '
+      'dockEdges: $dockEdges, '
       'equalizerCurve: $equalizerCurve, activeSkinId: $activeSkinId, '
       'skinsDirectory: $skinsDirectory, resumeLastSession: $resumeLastSession, '
       'confirmBeforeQuit: $confirmBeforeQuit, scrollTitle: $scrollTitle, '

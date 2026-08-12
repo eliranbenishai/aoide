@@ -8,7 +8,7 @@ import '../../look/look_palette.dart';
 import '../../look/resolved_look.dart';
 
 /// Which Flutter engine / OS window this entrypoint owns.
-enum WindowRole { main, equalizer, playlist, settings }
+enum WindowRole { main, equalizer, playlist, settings, about }
 
 /// JSON arguments passed to [WindowController.create] / secondary engines.
 String encodeWindowArguments(WindowRole role) =>
@@ -27,6 +27,7 @@ WindowRole parseWindowRole(String arguments) {
   if (role == 'equalizer') return WindowRole.equalizer;
   if (role == 'playlist') return WindowRole.playlist;
   if (role == 'settings') return WindowRole.settings;
+  if (role == 'about') return WindowRole.about;
   throw FormatException('unknown window role: $role');
 }
 
@@ -266,6 +267,7 @@ final class DockSnapshotEvent extends SessionEvent {
     required this.equalizer,
     required this.playlist,
     required this.settings,
+    required this.about,
     required this.dockEdges,
     required this.zoomPercent,
   });
@@ -276,6 +278,7 @@ final class DockSnapshotEvent extends SessionEvent {
   final WindowFrameState equalizer;
   final WindowFrameState playlist;
   final WindowFrameState settings;
+  final WindowFrameState about;
   final List<DockEdge> dockEdges;
   final int zoomPercent;
 
@@ -288,6 +291,7 @@ final class DockSnapshotEvent extends SessionEvent {
         'equalizer': equalizer.toJson(),
         'playlist': playlist.toJson(),
         'settings': settings.toJson(),
+        'about': about.toJson(),
         'dockEdges': dockEdges.map((e) => e.toJson()).toList(),
         'zoomPercent': zoomPercent,
       };
@@ -309,6 +313,10 @@ final class DockSnapshotEvent extends SessionEvent {
       settings: WindowFrameState.fromJson(
         Map<String, dynamic>.from(json['settings'] as Map? ?? const {}),
         fallback: WindowFrameState.settingsDefault,
+      ),
+      about: WindowFrameState.fromJson(
+        Map<String, dynamic>.from(json['about'] as Map? ?? const {}),
+        fallback: WindowFrameState.aboutDefault,
       ),
       dockEdges: [
         for (final edge in (json['dockEdges'] as List? ?? const []))

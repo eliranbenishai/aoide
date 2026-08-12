@@ -25,7 +25,6 @@ import '../../playlist/playlist_sort.dart';
 import '../../playlist/playlist_store.dart';
 import '../../playlist/track_metadata_probe.dart';
 import '../../theme/tramp_metrics.dart';
-import '../chrome/about_dialog.dart';
 import '../docking/dock_layout.dart';
 import '../docking/dock_move_coalescer.dart';
 import '../docking/docking_coordinator.dart';
@@ -82,9 +81,11 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   WindowController? _equalizerWindow;
   WindowController? _playlistWindow;
   WindowController? _settingsWindow;
+  WindowController? _aboutWindow;
   bool _eqReady = false;
   bool _playlistReady = false;
   bool _settingsReady = false;
+  bool _aboutReady = false;
   bool _bootstrapped = false;
   final MinimizeGroupCycle _minimizeGroup = MinimizeGroupCycle();
   final DockMoveCoalescer _dockMoveCoalescer = DockMoveCoalescer();
@@ -283,6 +284,12 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         arguments: encodeWindowArguments(WindowRole.settings),
       ),
     );
+    _aboutWindow ??= await WindowController.create(
+      WindowConfiguration(
+        hiddenAtLaunch: true,
+        arguments: encodeWindowArguments(WindowRole.about),
+      ),
+    );
   }
 
   Future<void> _onCommand(SessionCommand command) async {
@@ -298,6 +305,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         } else if (role == WindowRole.settings) {
           _settingsReady = true;
           await _pushSettingsSnapshot(role);
+        } else if (role == WindowRole.about) {
+          _aboutReady = true;
         }
         await _pushLookSnapshot(role);
         await _applyRoleFrame(role);
@@ -310,6 +319,9 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         await _broadcastDockSnapshot();
         if (visible && window == WindowId.settings) {
           await _orderSettingsOnTop();
+        }
+        if (visible && window == WindowId.about) {
+          await _raiseAbout();
         }
         if (mounted) setState(() {});
       case SetShadedCommand(:final window, :final shaded):
@@ -628,6 +640,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       WindowRole.equalizer => _equalizerWindow,
       WindowRole.playlist => _playlistWindow,
       WindowRole.settings => _settingsWindow,
+      WindowRole.about => _aboutWindow,
       WindowRole.main => null,
     };
     if (controller == null) return;
@@ -660,6 +673,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       WindowRole.playlist => _playlistWindow,
       WindowRole.equalizer => _equalizerWindow,
       WindowRole.settings => _settingsWindow,
+      WindowRole.about => _aboutWindow,
       WindowRole.main => null,
     };
     if (controller == null) return;
@@ -691,6 +705,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       WindowRole.playlist => _playlistWindow,
       WindowRole.equalizer => _equalizerWindow,
       WindowRole.settings => _settingsWindow,
+      WindowRole.about => _aboutWindow,
       WindowRole.main => null,
     };
     if (controller == null) return;
@@ -727,6 +742,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         WindowId.equalizer => WindowRole.equalizer,
         WindowId.playlist => WindowRole.playlist,
         WindowId.settings => WindowRole.settings,
+        WindowId.about => WindowRole.about,
       };
 
   Future<void> _applyAllFrames() async {
@@ -734,6 +750,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     if (_eqReady) await _applyRoleFrame(WindowRole.equalizer);
     if (_playlistReady) await _applyRoleFrame(WindowRole.playlist);
     if (_settingsReady) await _applyRoleFrame(WindowRole.settings);
+    if (_aboutReady) await _applyRoleFrame(WindowRole.about);
   }
 
   Future<void> _applyMainFrame({bool positionOnly = false}) async {
@@ -770,12 +787,14 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       equalizerVisible: layout.equalizer.visible,
       playlistVisible: layout.playlist.visible,
       settingsVisible: layout.settings.visible,
+      aboutVisible: layout.about.visible,
     );
     await windowManager.setAlwaysOnTop(targets.contains(WindowId.main));
     // Secondaries apply AOT via apply_frame (visible ∩ global flag).
     if (_eqReady) await _applyRoleFrame(WindowRole.equalizer);
     if (_playlistReady) await _applyRoleFrame(WindowRole.playlist);
     if (_settingsReady) await _applyRoleFrame(WindowRole.settings);
+    if (_aboutReady) await _applyRoleFrame(WindowRole.about);
   }
 
   Future<void> _applyRoleFrame(
@@ -790,17 +809,20 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       WindowRole.equalizer => _equalizerWindow,
       WindowRole.playlist => _playlistWindow,
       WindowRole.settings => _settingsWindow,
+      WindowRole.about => _aboutWindow,
       WindowRole.main => null,
     };
     if (controller == null) return;
     if (role == WindowRole.equalizer && !_eqReady) return;
     if (role == WindowRole.playlist && !_playlistReady) return;
     if (role == WindowRole.settings && !_settingsReady) return;
+    if (role == WindowRole.about && !_aboutReady) return;
 
     final id = switch (role) {
       WindowRole.equalizer => WindowId.equalizer,
       WindowRole.playlist => WindowId.playlist,
       WindowRole.settings => WindowId.settings,
+      WindowRole.about => WindowId.about,
       WindowRole.main => WindowId.main,
     };
     final zoom = _zoomPercent / 100.0;
@@ -841,6 +863,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       equalizerVisible: layout.equalizer.visible,
       playlistVisible: layout.playlist.visible,
       settingsVisible: layout.settings.visible,
+      aboutVisible: layout.about.visible,
     );
     await _setSecondariesHidden(toHide, hidden: true);
   }
@@ -852,6 +875,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       equalizerVisible: layout.equalizer.visible,
       playlistVisible: layout.playlist.visible,
       settingsVisible: layout.settings.visible,
+      aboutVisible: layout.about.visible,
     );
     await _setSecondariesHidden(toShow, hidden: false);
   }
@@ -865,6 +889,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         WindowId.equalizer => _equalizerWindow,
         WindowId.playlist => _playlistWindow,
         WindowId.settings => _settingsWindow,
+        WindowId.about => _aboutWindow,
         WindowId.main => null,
       };
       if (controller == null) continue;
@@ -895,6 +920,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         equalizer: layout.equalizer,
         playlist: layout.playlist,
         settings: layout.settings,
+        about: layout.about,
         dockEdges: layout.dockEdges,
         resumeLastSession: _resumeLastSession,
         confirmBeforeQuit: _confirmBeforeQuit,
@@ -912,6 +938,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       equalizer: layout.equalizer,
       playlist: layout.playlist,
       settings: layout.settings,
+      about: layout.about,
       dockEdges: layout.dockEdges,
       zoomPercent: _zoomPercent,
     );
@@ -979,6 +1006,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         WindowRole.equalizer => _equalizerWindow,
         WindowRole.playlist => _playlistWindow,
         WindowRole.settings => _settingsWindow,
+        WindowRole.about => _aboutWindow,
         WindowRole.main => null,
       };
 
@@ -987,6 +1015,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       _equalizerWindow,
       _playlistWindow,
       _settingsWindow,
+      _aboutWindow,
     ]) {
       if (controller == null) continue;
       try {
@@ -1041,7 +1070,13 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       case 'info':
         await _showTrackInfo(context);
       case 'about':
-        await showTrampAboutDialog(context, version: '0.1.0');
+        if (_docking.layout.about.visible) {
+          await _raiseAbout();
+        } else {
+          await _onCommand(
+            ToggleWindowCommand(window: WindowId.about, visible: true),
+          );
+        }
       case 'quit':
         await _quit(context: context);
     }
@@ -1153,6 +1188,21 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     }
   }
 
+  Future<void> _raiseAbout() async {
+    final layout = _docking.layout;
+    if (!layout.about.visible ||
+        !_aboutReady ||
+        _aboutWindow == null ||
+        _minimizeGroup.shouldSuppressShow(WindowId.about)) {
+      return;
+    }
+    try {
+      await SessionBus.pushRaise(_aboutWindow!);
+    } catch (error, stack) {
+      debugPrint('SessionHost raise(about) failed: $error\n$stack');
+    }
+  }
+
   @override
   void onWindowMove() {
     // Tracker gates + arms quiet end; also resumes after a soft quiet finalize.
@@ -1222,6 +1272,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       _equalizerWindow,
       _playlistWindow,
       _settingsWindow,
+      _aboutWindow,
     ]) {
       if (controller == null) continue;
       try {

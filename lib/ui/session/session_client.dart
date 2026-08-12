@@ -20,6 +20,7 @@ import '../../theme/tramp_metrics.dart';
 import '../docking/dock_move_coalescer.dart';
 import '../docking/linux_drag_poll.dart';
 import '../docking/native_drag_tracker.dart';
+import '../windows/about_window.dart';
 import '../windows/equalizer_window.dart';
 import '../windows/playlist_window.dart';
 import '../windows/settings_window.dart';
@@ -27,7 +28,7 @@ import '../zoom/zoomed_canvas.dart';
 import 'session_bus.dart';
 import 'session_messages.dart';
 
-/// Secondary-engine shell (EQ / playlist / settings). Mockup chrome for all.
+/// Secondary-engine shell (EQ / playlist / settings / about). Mockup chrome.
 class SessionClientApp extends StatefulWidget {
   const SessionClientApp({
     super.key,
@@ -67,6 +68,7 @@ class _SessionClientAppState extends State<SessionClientApp>
   int _lookApplyGeneration = 0;
   bool _plShaded = false;
   bool _settingsShaded = false;
+  bool _aboutShaded = false;
   SettingsSnapshotEvent _settingsSnapshot = const SettingsSnapshotEvent(
     resumeLastSession: true,
     confirmBeforeQuit: false,
@@ -134,6 +136,7 @@ class _SessionClientAppState extends State<SessionClientApp>
       WindowRole.equalizer => 'Tramp — Equalizer',
       WindowRole.playlist => 'Tramp — Playlist',
       WindowRole.settings => 'Tramp — Settings',
+      WindowRole.about => 'Tramp — About',
       WindowRole.main => 'Tramp',
     };
     // waitUntilReadyToShow CoCreateInstances ITaskbarList; setSkipTaskbar
@@ -155,6 +158,7 @@ class _SessionClientAppState extends State<SessionClientApp>
       WindowRole.equalizer => TrampMetrics.equalizer,
       WindowRole.playlist => TrampMetrics.playlistDefault,
       WindowRole.settings => TrampMetrics.settings,
+      WindowRole.about => TrampMetrics.about,
       WindowRole.main => TrampMetrics.mainPlayer,
     };
     final seed = Size(seedLogical.width * zoom, seedLogical.height * zoom);
@@ -250,6 +254,7 @@ class _SessionClientAppState extends State<SessionClientApp>
             :final equalizer,
             :final playlist,
             :final settings,
+            :final about,
             :final zoomPercent,
           ):
           _zoomPercent = zoomPercent;
@@ -269,6 +274,10 @@ class _SessionClientAppState extends State<SessionClientApp>
             _settingsShaded = settings.shaded;
             _logicalLeft = settings.left;
             _logicalTop = settings.top;
+          } else if (widget.role == WindowRole.about) {
+            _aboutShaded = about.shaded;
+            _logicalLeft = about.left;
+            _logicalTop = about.top;
           }
         default:
           break;
@@ -405,6 +414,7 @@ class _SessionClientAppState extends State<SessionClientApp>
       WindowRole.equalizer => WindowId.equalizer,
       WindowRole.playlist => WindowId.playlist,
       WindowRole.settings => WindowId.settings,
+      WindowRole.about => WindowId.about,
       WindowRole.main => WindowId.main,
     };
     try {
@@ -430,6 +440,7 @@ class _SessionClientAppState extends State<SessionClientApp>
         WindowRole.equalizer => WindowId.equalizer,
         WindowRole.playlist => WindowId.playlist,
         WindowRole.settings => WindowId.settings,
+        WindowRole.about => WindowId.about,
         WindowRole.main => WindowId.main,
       };
 
@@ -555,6 +566,17 @@ class _SessionClientAppState extends State<SessionClientApp>
         SetShadedCommand(
           window: WindowId.settings,
           shaded: !_settingsShaded,
+        ),
+      ),
+    );
+  }
+
+  void _toggleAboutShade() {
+    unawaited(
+      _send(
+        SetShadedCommand(
+          window: WindowId.about,
+          shaded: !_aboutShaded,
         ),
       ),
     );
@@ -703,6 +725,33 @@ class _SessionClientAppState extends State<SessionClientApp>
               onNativeDragStarted: _onNativeDragStarted,
               onSessionCommand: (cmd) => unawaited(_send(cmd)),
               onCollapse: _toggleSettingsShade,
+              onClose: () => unawaited(_hideInsteadOfClose()),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (widget.role == WindowRole.about) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        color: const Color(0x00000000),
+        builder: (context, child) => LookScope(
+          look: _look,
+          child: child ?? const SizedBox.shrink(),
+        ),
+        home: ColoredBox(
+          color: const Color(0x00000000),
+          child: ZoomedCanvas(
+            factor: zoom,
+            logicalSize: TrampMetrics.about,
+            child: AboutWindow(
+              shaded: _aboutShaded,
+              zoom: zoom,
+              dockLogicalTopLeft: () => Offset(_logicalLeft, _logicalTop),
+              onDockMove: _onDockMove,
+              onNativeDragStarted: _onNativeDragStarted,
+              onCollapse: _toggleAboutShade,
               onClose: () => unawaited(_hideInsteadOfClose()),
             ),
           ),

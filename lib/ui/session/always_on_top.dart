@@ -16,6 +16,7 @@ List<WindowId> alwaysOnTopTargets({
   required bool equalizerVisible,
   required bool playlistVisible,
   bool settingsVisible = false,
+  bool aboutVisible = false,
 }) {
   if (!alwaysOnTop) return const [];
   return [
@@ -23,5 +24,6 @@ List<WindowId> alwaysOnTopTargets({
     if (equalizerVisible) WindowId.equalizer,
     if (playlistVisible) WindowId.playlist,
     if (settingsVisible) WindowId.settings,
+    if (aboutVisible) WindowId.about,
   ];
 }

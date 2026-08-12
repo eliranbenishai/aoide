@@ -4,23 +4,25 @@ import '../../domain/tramp_settings.dart';
 ///
 /// Design §2 / plan pins: main title-bar minimize applies to the visible
 /// docked group — implemented as every currently visible tramp window
-/// (secondaries lack an independent minimize API). Settings is included when
-/// [minimizeHidesSecondaries] is true (caller filters).
+/// (secondaries lack an independent minimize API). Settings/about are included
+/// when [minimizeHidesSecondaries] is true (caller filters).
 List<WindowId> minimizeGroupTargets({
   required bool mainVisible,
   required bool equalizerVisible,
   required bool playlistVisible,
   bool settingsVisible = false,
+  bool aboutVisible = false,
 }) {
   return [
     if (mainVisible) WindowId.main,
     if (equalizerVisible) WindowId.equalizer,
     if (playlistVisible) WindowId.playlist,
     if (settingsVisible) WindowId.settings,
+    if (aboutVisible) WindowId.about,
   ];
 }
 
-/// Bookkeeping for hiding/showing visible EQ/PL/settings with main minimize.
+/// Bookkeeping for hiding/showing visible secondaries with main minimize.
 ///
 /// Layout visibility flags are left unchanged — secondaries are only
 /// OS-hidden for the duration of the minimize cycle.
@@ -35,6 +37,7 @@ final class MinimizeGroupCycle {
     required bool equalizerVisible,
     required bool playlistVisible,
     bool settingsVisible = false,
+    bool aboutVisible = false,
   }) {
     if (_active) return Set.unmodifiable(_secondariesHidden);
     _active = true;
@@ -42,6 +45,7 @@ final class MinimizeGroupCycle {
       if (equalizerVisible) WindowId.equalizer,
       if (playlistVisible) WindowId.playlist,
       if (settingsVisible) WindowId.settings,
+      if (aboutVisible) WindowId.about,
     };
     return Set.unmodifiable(_secondariesHidden);
   }
@@ -51,6 +55,7 @@ final class MinimizeGroupCycle {
     required bool equalizerVisible,
     required bool playlistVisible,
     bool settingsVisible = false,
+    bool aboutVisible = false,
   }) {
     if (!_active) return const {};
     _active = false;
@@ -61,6 +66,8 @@ final class MinimizeGroupCycle {
         WindowId.playlist,
       if (_secondariesHidden.contains(WindowId.settings) && settingsVisible)
         WindowId.settings,
+      if (_secondariesHidden.contains(WindowId.about) && aboutVisible)
+        WindowId.about,
     };
     _secondariesHidden = {};
     return restore;

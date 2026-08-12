@@ -7,7 +7,7 @@ Approved 2026-08-10. Replaces main-player clutterbar **O / A / I** with a single
 - Remove the tall clutter rail from the main player body.
 - Place a small cog at the same top-left origin (`left: 22`, `top: 18`) with no rail behind it.
 - Cog opens a popup menu with: Always on top (✓), Look packs…, Track info, About Tramp, Quit.
-- Keep existing About and Look packs dialogs unchanged.
+- About opens a freestanding secondary window (like Settings); Look packs moved into Settings.
 - Menu / dialogs must use a context under `MaterialApp` (fix host-State context bug).
 
 ## Interaction
@@ -18,7 +18,7 @@ Approved 2026-08-10. Replaces main-player clutterbar **O / A / I** with a single
 | Always on top | Toggle via `AlwaysOnTopCommand` |
 | Look packs… | `showLookPackDialog` |
 | Track info | Existing track-info dialog |
-| About Tramp | `showTrampAboutDialog` |
+| About Tramp | Show `WindowId.about` (`AboutWindow`) |
 | Quit | Existing quit path |
 
 ## Wiring

@@ -29,6 +29,7 @@ void main() {
           top: 100,
         ),
         settings: WindowFrameState.settingsDefault,
+        about: WindowFrameState.aboutDefault,
         dockEdges: [],
         equalizerCurve: EqualizerSettings.flat,
       );
@@ -57,6 +58,7 @@ void main() {
         equalizer: WindowFrameState.equalizerDefault,
         playlist: WindowFrameState.playlistDefault,
         settings: WindowFrameState.settingsDefault,
+        about: WindowFrameState.aboutDefault,
         dockEdges: [
           DockEdge(
             a: WindowId.main,
@@ -289,6 +291,9 @@ void main() {
       expect(d.settings.left, 860);
       expect(d.settings.top, 40);
       expect(d.settings.shaded, isFalse);
+      expect(d.about.visible, isFalse);
+      expect(d.about.left, 860);
+      expect(d.about.top, 480);
       expect(d.resumeLastSession, isTrue);
       expect(d.confirmBeforeQuit, isFalse);
       expect(d.scrollTitle, isTrue);
