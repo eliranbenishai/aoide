@@ -54,36 +54,69 @@ List<Track> tracksFromPaths(List<String> paths) {
   return audioPaths.map((path) => Track(path: path)).toList();
 }
 
-Future<List<String>?> pickAudioFiles() async {
-  final result = await FilePicker.platform.pickFiles(
-    type: FileType.custom,
-    allowedExtensions: audioExtensions.map((ext) => ext.substring(1)).toList(),
-    allowMultiple: true,
-    dialogTitle: 'Add audio files',
+/// Maps [file_picker]'s missing-dialog-tool exception to a clearer [StateError].
+///
+/// Linux pickers shell out to `qarma`, `kdialog`, or `zenity`. Distrobox images
+/// often omit all three. Returns null when [error] is unrelated.
+StateError? linuxFileDialogMissingToolError(Object error) {
+  final text = error.toString();
+  if (!text.contains("Couldn't find the executable")) return null;
+  return StateError(
+    'Linux file dialogs need zenity or kdialog on PATH '
+    '(Fedora/Distrobox: sudo dnf install -y zenity). $error',
   );
-  if (result == null) return null;
-  return result.paths.whereType<String>().toList();
+}
+
+Future<T> _linuxFileDialog<T>(Future<T> Function() action) async {
+  try {
+    return await action();
+  } on Exception catch (error) {
+    if (!Platform.isLinux) rethrow;
+    final mapped = linuxFileDialogMissingToolError(error);
+    if (mapped == null) rethrow;
+    throw mapped;
+  }
+}
+
+Future<List<String>?> pickAudioFiles() async {
+  return _linuxFileDialog(() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions:
+          audioExtensions.map((ext) => ext.substring(1)).toList(),
+      allowMultiple: true,
+      dialogTitle: 'Add audio files',
+    );
+    if (result == null) return null;
+    return result.paths.whereType<String>().toList();
+  });
 }
 
 Future<String?> pickPlaylistFile() async {
-  final result = await FilePicker.platform.pickFiles(
-    type: FileType.custom,
-    allowedExtensions: ['m3u', 'm3u8'],
-    dialogTitle: 'Open playlist',
-  );
-  if (result == null || result.files.isEmpty) return null;
-  return result.files.first.path;
+  return _linuxFileDialog(() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['m3u', 'm3u8'],
+      dialogTitle: 'Open playlist',
+    );
+    if (result == null || result.files.isEmpty) return null;
+    return result.files.first.path;
+  });
 }
 
 Future<String?> pickSavePlaylistPath() async {
-  return FilePicker.platform.saveFile(
-    dialogTitle: 'Save playlist',
-    fileName: 'playlist.m3u',
-    type: FileType.custom,
-    allowedExtensions: ['m3u'],
+  return _linuxFileDialog(
+    () => FilePicker.platform.saveFile(
+      dialogTitle: 'Save playlist',
+      fileName: 'playlist.m3u',
+      type: FileType.custom,
+      allowedExtensions: ['m3u'],
+    ),
   );
 }
 
 Future<String?> pickFolder() async {
-  return FilePicker.platform.getDirectoryPath(dialogTitle: 'Open folder');
+  return _linuxFileDialog(
+    () => FilePicker.platform.getDirectoryPath(dialogTitle: 'Open folder'),
+  );
 }

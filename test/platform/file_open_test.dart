@@ -19,4 +19,19 @@ void main() {
     expect(tracks, hasLength(2));
     expect(tracks.map((t) => t.path), orderedEquals([mp3A, mp3B]));
   });
+
+  test('linuxFileDialogMissingToolError maps file_picker zenity miss', () {
+    final mapped = linuxFileDialogMissingToolError(
+      Exception("Couldn't find the executable zenity in the path."),
+    );
+    expect(mapped, isNotNull);
+    expect(mapped!.message, contains('sudo dnf install -y zenity'));
+  });
+
+  test('linuxFileDialogMissingToolError ignores unrelated errors', () {
+    expect(
+      linuxFileDialogMissingToolError(Exception('disk full')),
+      isNull,
+    );
+  });
 }

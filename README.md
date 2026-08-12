@@ -10,6 +10,13 @@ flutter run -d windows   # or macos / linux
 flutter test
 ```
 
+**Linux file dialogs:** OPEN / ADD / playlist load-save use `file_picker`, which
+needs `zenity` or `kdialog` on `PATH`. On a minimal Distrobox/Fedora image:
+
+```bash
+sudo dnf install -y zenity
+```
+
 ## Packaging
 
 Release builds per platform:
