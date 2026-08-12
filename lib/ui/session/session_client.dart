@@ -96,8 +96,9 @@ class _SessionClientAppState extends State<SessionClientApp>
     super.initState();
     _nativeDrag = NativeDragTracker(
       // Linux never emits onWindowMoved; quiet finalize is the real end.
+      // Arm only after motion (see LinuxDragPoll) — not on press.
       quietFinalizeDelay: Platform.isLinux
-          ? const Duration(milliseconds: 180)
+          ? const Duration(milliseconds: 400)
           : const Duration(milliseconds: 750),
       onQuietFinalize: () {
         _linuxDragPoll.stop();
@@ -109,7 +110,8 @@ class _SessionClientAppState extends State<SessionClientApp>
       },
     );
     _linuxDragPoll = LinuxDragPoll(
-      onTick: () {
+      getPosition: windowManager.getPosition,
+      onMotion: (_) {
         if (!_nativeDrag.onMoveEvent()) return;
         _nativeDragging = true;
         _nativeSyncCoalescer.schedule(() => _reportNativeDrag(ended: false));
@@ -491,10 +493,7 @@ class _SessionClientAppState extends State<SessionClientApp>
     if (ended) {
       _nativeDragging = false;
       _linuxDragPoll.stop();
-      // Linux soft-end is the real gesture end; clear softEnded so snap
-      // setPosition echoes cannot resume a phantom drag and peel edges.
-      if (softEnd && Platform.isLinux) {
-        _nativeDrag.endedConfirmed();
+      if (softEnd) {
         _suppressNativeMoves();
       }
     }
@@ -508,6 +507,10 @@ class _SessionClientAppState extends State<SessionClientApp>
     }
     if (!_nativeDrag.onMoveEvent()) return;
     _nativeDragging = true;
+    // Resume after soft-end if the OS is still dragging.
+    if (LinuxDragPoll.isNeeded && !_linuxDragPoll.isRunning) {
+      _linuxDragPoll.start();
+    }
     _nativeSyncCoalescer.schedule(() => _reportNativeDrag(ended: false));
   }
 

@@ -102,8 +102,9 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     super.initState();
     _mainNativeDrag = NativeDragTracker(
       // Linux never emits onWindowMoved; quiet finalize is the real end.
+      // Arm only after motion (see LinuxDragPoll) — not on press.
       quietFinalizeDelay: Platform.isLinux
-          ? const Duration(milliseconds: 180)
+          ? const Duration(milliseconds: 400)
           : const Duration(milliseconds: 750),
       onQuietFinalize: () {
         _mainLinuxDragPoll.stop();
@@ -116,7 +117,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       },
     );
     _mainLinuxDragPoll = LinuxDragPoll(
-      onTick: () {
+      getPosition: windowManager.getPosition,
+      onMotion: (_) {
         if (!_mainNativeDrag.onMoveEvent()) return;
         _nativeDragging = true;
         _dockDragWindow = WindowId.main;
@@ -542,10 +544,6 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     );
     if (ended) {
       _mainLinuxDragPoll.stop();
-      // Linux soft-end is the real gesture end (no onWindowMoved).
-      if (softEnd && Platform.isLinux) {
-        _mainNativeDrag.endedConfirmed();
-      }
     }
   }
 
@@ -1159,6 +1157,9 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     if (!_mainNativeDrag.onMoveEvent()) return;
     _nativeDragging = true;
     _dockDragWindow = WindowId.main;
+    if (LinuxDragPoll.isNeeded && !_mainLinuxDragPoll.isRunning) {
+      _mainLinuxDragPoll.start();
+    }
     _nativeSyncCoalescer.schedule(() => _syncNativeMainDrag(ended: false));
   }
 

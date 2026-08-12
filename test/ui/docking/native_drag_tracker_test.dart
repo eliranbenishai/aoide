@@ -31,13 +31,13 @@ void main() {
     fakeAsync((async) {
       var quietEnds = 0;
       final tracker = NativeDragTracker(
-        quietFinalizeDelay: const Duration(milliseconds: 180),
+        quietFinalizeDelay: const Duration(milliseconds: 400),
         onQuietFinalize: () => quietEnds++,
       );
 
       tracker.started();
       expect(tracker.onMoveEvent(), isTrue);
-      async.elapse(const Duration(milliseconds: 180));
+      async.elapse(const Duration(milliseconds: 400));
       expect(quietEnds, 1);
       expect(tracker.isActive, isFalse);
       expect(tracker.softEnded, isTrue);
@@ -52,7 +52,7 @@ void main() {
     });
   });
 
-  test('started arms quiet finalize even without move events', () {
+  test('started alone does not arm quiet finalize', () {
     fakeAsync((async) {
       var quietEnds = 0;
       final tracker = NativeDragTracker(
@@ -61,9 +61,9 @@ void main() {
       );
 
       tracker.started();
-      async.elapse(const Duration(milliseconds: 180));
-      expect(quietEnds, 1);
-      expect(tracker.softEnded, isTrue);
+      async.elapse(const Duration(milliseconds: 500));
+      expect(quietEnds, 0);
+      expect(tracker.isActive, isTrue);
       tracker.dispose();
     });
   });

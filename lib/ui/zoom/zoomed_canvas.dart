@@ -44,6 +44,11 @@ class ZoomedCanvas extends StatelessWidget {
           if (!maxW.isFinite || !maxH.isFinite || factor <= 0) {
             return child;
           }
+          // Distrobox/software-GL can report a 1×1 FlView before the real
+          // metrics arrive — skip layout to avoid RenderFlex exception spam.
+          if (maxW < 8 || maxH < 8) {
+            return const SizedBox.shrink();
+          }
           final logical = logicalSize ?? Size(maxW / factor, maxH / factor);
           return SizedBox(
             width: maxW,
