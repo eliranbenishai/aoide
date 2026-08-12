@@ -22,15 +22,16 @@ void main() {
       expect(LibmpvBundle.analyzeConfigString(full), isTrue);
     });
 
-    test('rejects strings missing equalizer or aresample', () {
-      expect(
-        LibmpvBundle.analyzeConfigString('lavfi equalizer only'),
-        isFalse,
-      );
+    test('accepts distro lavfi bridge without embedded filter names', () {
+      expect(LibmpvBundle.analyzeConfigString('lavfi f_lavfi bridge'), isTrue);
+    });
+
+    test('rejects strings with neither filter names nor lavfi', () {
       expect(
         LibmpvBundle.analyzeConfigString('aresample without eq name'),
         isFalse,
       );
+      expect(LibmpvBundle.analyzeConfigString('no markers here'), isFalse);
     });
   });
 
@@ -95,12 +96,16 @@ void main() {
     test('verify enforce:false returns hasFilters for fixture', () async {
       final dir = await Directory.systemTemp.createTemp('tramp_ver_');
       addTearDown(() => dir.delete(recursive: true));
-      final full = File(p.join(dir.path, 'libmpv-2.dll'));
+      // Use the platform-native library filename so resolve prefers this
+      // fixture over a distro libmpv on the host (e.g. /usr/lib64/libmpv.so).
+      final name = LibmpvBundle.expectedLibraryFileName();
+      final full = File(p.join(dir.path, name));
       await full.writeAsString('equalizer aresample ok');
 
       final info = await LibmpvBundle.verify(
-        executablePath: p.join(dir.path, 'tramp.exe'),
+        executablePath: p.join(dir.path, 'tramp'),
         enforce: false,
+        environment: const {},
       );
       expect(info.hasFilters, isTrue);
       expect(info.path, full.path);
@@ -109,13 +114,15 @@ void main() {
     test('verify enforce:true throws on slim', () async {
       final dir = await Directory.systemTemp.createTemp('tramp_slim_');
       addTearDown(() => dir.delete(recursive: true));
-      final slim = File(p.join(dir.path, 'libmpv-2.dll'));
+      final name = LibmpvBundle.expectedLibraryFileName();
+      final slim = File(p.join(dir.path, name));
       await slim.writeAsString('--disable-filters equalizer aresample');
 
       await expectLater(
         () => LibmpvBundle.verify(
-          executablePath: p.join(dir.path, 'tramp.exe'),
+          executablePath: p.join(dir.path, 'tramp'),
           enforce: true,
+          environment: const {},
         ),
         throwsA(isA<StateError>()),
       );

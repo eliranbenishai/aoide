@@ -27,11 +27,14 @@ class LibmpvBundle {
 
   /// Pure heuristic on a build/config/binary ASCII dump (unit-tested).
   ///
-  /// A build is full when it does **not** carry [slimMarker] and still exposes
-  /// equalizer + aresample support strings.
+  /// A build is full when it does **not** carry [slimMarker] and either:
+  /// - embeds equalizer + aresample (typical statically linked Windows builds), or
+  /// - exposes the lavfi bridge (typical distro Linux libmpv; filters live in
+  ///   libavfilter.so rather than inside libmpv.so).
   static bool analyzeConfigString(String text) {
     if (text.contains(slimMarker)) return false;
-    return text.contains('equalizer') && text.contains('aresample');
+    if (text.contains('equalizer') && text.contains('aresample')) return true;
+    return text.contains('lavfi');
   }
 
   /// Library file name expected next to the executable (platform-specific).
@@ -116,6 +119,18 @@ class LibmpvBundle {
         }
       }
     }
+
+    // Distro packages (Fedora/Bazzite Distrobox, Debian, etc.).
+    if (os == 'linux') {
+      for (final sys in const [
+        '/usr/lib64/libmpv.so',
+        '/usr/lib/x86_64-linux-gnu/libmpv.so',
+        '/usr/lib/libmpv.so',
+        '/lib64/libmpv.so',
+      ]) {
+        if (File(sys).existsSync()) return sys;
+      }
+    }
     return null;
   }
 
@@ -132,6 +147,7 @@ class LibmpvBundle {
     final slim = _bytes(slimMarker);
     final eq = _bytes('equalizer');
     final ar = _bytes('aresample');
+    final lavfi = _bytes('lavfi');
     const chunkSize = 2 * 1024 * 1024;
     final overlap = slim.length - 1;
     final raf = await file.open();
@@ -141,6 +157,7 @@ class LibmpvBundle {
       var sawSlim = false;
       var sawEq = false;
       var sawAr = false;
+      var sawLavfi = false;
       Uint8List carry = Uint8List(0);
       while (offset < length) {
         final toRead =
@@ -152,6 +169,9 @@ class LibmpvBundle {
         if (_contains(merged, slim)) sawSlim = true;
         if (_contains(chunk, eq) || _contains(merged, eq)) sawEq = true;
         if (_contains(chunk, ar) || _contains(merged, ar)) sawAr = true;
+        if (_contains(chunk, lavfi) || _contains(merged, lavfi)) {
+          sawLavfi = true;
+        }
         if (sawSlim) return false;
         offset += toRead;
         if (chunk.length >= overlap) {
@@ -160,7 +180,7 @@ class LibmpvBundle {
           carry = Uint8List.fromList(chunk);
         }
       }
-      return sawEq && sawAr;
+      return (sawEq && sawAr) || sawLavfi;
     } finally {
       await raf.close();
     }
@@ -174,10 +194,12 @@ class LibmpvBundle {
     String? executablePath,
     String? repoRoot,
     bool? enforce,
+    Map<String, String>? environment,
   }) async {
     final path = resolveLibraryPath(
       executablePath: executablePath,
       repoRoot: repoRoot,
+      environment: environment,
     );
     final inFlutterTest =
         const bool.fromEnvironment('FLUTTER_TEST', defaultValue: false);
