@@ -32,6 +32,23 @@ std::string GenerateWindowId() {
 
 WindowCreatedCallback _g_window_created_callback = nullptr;
 
+// 75% of TrampMetrics canvases, rounded — TrampMetrics.nativeUnmappedSeed.
+void tramp_secondary_seed_size(const std::string& arguments, int* width,
+                               int* height) {
+  *width = 619;
+  *height = 261;
+  if (arguments.find("\"role\":\"about\"") != std::string::npos) {
+    *width = 360;
+    *height = 270;
+  } else if (arguments.find("\"role\":\"settings\"") != std::string::npos) {
+    *width = 390;
+    *height = 315;
+  } else if (arguments.find("\"role\":\"playlist\"") != std::string::npos) {
+    *width = 619;
+    *height = 522;
+  }
+}
+
 }  // namespace
 
 // static
@@ -50,7 +67,10 @@ std::string MultiWindowManager::Create(const flutter::EncodableMap* args) {
 
   std::wstring title = L"";
   Win32Window::Point origin(10, 10);
-  Win32Window::Size size(800, 600);
+  int seed_w = 619;
+  int seed_h = 261;
+  tramp_secondary_seed_size(config.arguments, &seed_w, &seed_h);
+  Win32Window::Size size(seed_w, seed_h);
 
   if (!flutter_window->Create(title, origin, size)) {
     std::cerr << "Failed to create window." << std::endl;

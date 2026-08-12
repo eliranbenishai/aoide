@@ -18,10 +18,15 @@ void main() {
       expect(parseWindowRole('   '), WindowRole.main);
     });
 
-    test('round-trips equalizer and playlist roles', () {
-      for (final role in [WindowRole.equalizer, WindowRole.playlist]) {
+    test('round-trips secondary roles as compact JSON', () {
+      for (final role in [
+        WindowRole.equalizer,
+        WindowRole.playlist,
+        WindowRole.settings,
+        WindowRole.about,
+      ]) {
         final encoded = encodeWindowArguments(role);
-        expect(jsonDecode(encoded), {'role': role.name});
+        expect(encoded, '{"role":"${role.name}"}');
         expect(parseWindowRole(encoded), role);
       }
     });

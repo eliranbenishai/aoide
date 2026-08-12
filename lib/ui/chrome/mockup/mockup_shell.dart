@@ -15,11 +15,13 @@ class MockupShell extends StatelessWidget {
     super.key,
     required this.child,
     this.width = 825,
+    this.height,
     this.borderRadius = 6,
   });
 
   final Widget child;
   final double width;
+  final double? height;
   final double borderRadius;
 
   /// Prefetch the `.win::before` noise tile (call from golden `setUpAll`).
@@ -48,6 +50,7 @@ class MockupShell extends StatelessWidget {
 
     return SizedBox(
       width: width,
+      height: height,
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(borderRadius),

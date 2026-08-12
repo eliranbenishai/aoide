@@ -36,6 +36,25 @@ std::string GenerateWindowId() {
 
 WindowCreatedCallback _g_window_created_callback = nullptr;
 
+// 75% of TrampMetrics canvases, rounded — TrampMetrics.nativeUnmappedSeed.
+// About/settings are smaller than the EQ/main 619×261 seed; using that seed
+// for them leaves a black FlView rectangle around the chrome.
+void tramp_secondary_seed_size(const std::string& arguments, int* width,
+                               int* height) {
+  *width = 619;
+  *height = 261;
+  if (arguments.find("\"role\":\"about\"") != std::string::npos) {
+    *width = 360;
+    *height = 270;
+  } else if (arguments.find("\"role\":\"settings\"") != std::string::npos) {
+    *width = 390;
+    *height = 315;
+  } else if (arguments.find("\"role\":\"playlist\"") != std::string::npos) {
+    *width = 619;
+    *height = 522;
+  }
+}
+
 }  // namespace
 
 // static
@@ -61,7 +80,10 @@ std::string MultiWindowManager::Create(FlValue* args) {
   // and the template 1280×720 default — that left a huge black FlView with
   // chrome stuck in the corner when Dart setSize raced/flaked under Distrobox.
   gtk_window_set_title(window, "");
-  gtk_window_set_default_size(window, 619, 261);
+  int seed_w = 619;
+  int seed_h = 261;
+  tramp_secondary_seed_size(config.arguments, &seed_w, &seed_h);
+  gtk_window_set_default_size(window, seed_w, seed_h);
 
   gtk_window_set_title(window, "");
   if (config.hidden_at_launch) {
@@ -84,6 +106,11 @@ std::string MultiWindowManager::Create(FlValue* args) {
 
   // Create Flutter view
   auto fl_view = fl_view_new(project);
+  GdkRGBA background_color;
+  // Transparent so MockupShell rounded corners punch through (matches
+  // window_manager.setBackgroundColor / the main-window FlView).
+  gdk_rgba_parse(&background_color, "#00000000");
+  fl_view_set_background_color(fl_view, &background_color);
   gtk_widget_show(GTK_WIDGET(fl_view));
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(fl_view));
 

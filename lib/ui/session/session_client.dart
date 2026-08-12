@@ -6,12 +6,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../app.dart';
 import '../../domain/equalizer_settings.dart';
 import '../../domain/tramp_settings.dart';
 import '../../look/builtin_look.dart';
 import '../../look/look_font_loader.dart';
 import '../../look/resolved_look.dart';
 import '../../platform/file_open.dart';
+import '../../platform/open_url.dart';
 import '../../platform/tramp_window.dart';
 import '../../playlist/playlist_controller.dart';
 import '../../playlist/playlist_store.dart';
@@ -151,8 +153,8 @@ class _SessionClientAppState extends State<SessionClientApp>
     await windowManager.setSkipTaskbar(true);
     // Edge resize only on the playlist window.
     await windowManager.setResizable(widget.role == WindowRole.playlist);
-    // Shrink off the plugin's GTK default before the first host frame
-    // (avoids a flash of 1280×720 black with chrome in the corner).
+    // Shrink off the plugin's unmapped seed before the first host frame
+    // (avoids a flash of the wrong canvas with chrome in the corner).
     final zoom = (_zoomPercent / 100.0).clamp(0.5, 4.0);
     final seedLogical = switch (widget.role) {
       WindowRole.equalizer => TrampMetrics.equalizer,
@@ -161,7 +163,7 @@ class _SessionClientAppState extends State<SessionClientApp>
       WindowRole.about => TrampMetrics.about,
       WindowRole.main => TrampMetrics.mainPlayer,
     };
-    final seed = Size(seedLogical.width * zoom, seedLogical.height * zoom);
+    final seed = TrampMetrics.zoomed(seedLogical, _zoomPercent);
     if (widget.role == WindowRole.playlist) {
       await resizeTrampWindow(
         size: seed,
@@ -339,25 +341,29 @@ class _SessionClientAppState extends State<SessionClientApp>
     _applyingFrame = true;
     try {
       final size = Size(width, height);
-      if (widget.role == WindowRole.playlist) {
-        final zoom = _zoomPercent / 100.0;
-        await windowManager.setResizable(!_plShaded);
-        await resizeTrampWindow(
-          size: size,
-          minimumSize: Size(
-            TrampMetrics.playlistMin.width * zoom,
-            TrampMetrics.playlistMin.height * zoom,
-          ),
-          pinSize: false,
-        );
-      } else {
-        await windowManager.setResizable(false);
-        await resizeTrampWindow(
-          size: size,
-          minimumSize: size,
-          pinSize: true,
-        );
+      Future<void> applyPixelSize() async {
+        if (widget.role == WindowRole.playlist) {
+          final zoom = _zoomPercent / 100.0;
+          await windowManager.setResizable(!_plShaded);
+          await resizeTrampWindow(
+            size: size,
+            minimumSize: Size(
+              TrampMetrics.playlistMin.width * zoom,
+              TrampMetrics.playlistMin.height * zoom,
+            ),
+            pinSize: false,
+          );
+        } else {
+          await windowManager.setResizable(false);
+          await resizeTrampWindow(
+            size: size,
+            minimumSize: size,
+            pinSize: true,
+          );
+        }
       }
+
+      await applyPixelSize();
       _suppressNativeMoves();
       await windowManager.setPosition(Offset(left, top));
       await windowManager.setAlwaysOnTop(alwaysOnTop);
@@ -366,6 +372,9 @@ class _SessionClientAppState extends State<SessionClientApp>
         await windowManager.setSkipTaskbar(true);
         await windowManager.show();
         await widget.windowController.show();
+        // Mapping can restore the native unmapped default (EQ/main seed).
+        // Re-pin so about/settings do not keep a black FlView gutter.
+        await applyPixelSize();
       } else {
         await windowManager.hide();
         await widget.windowController.hide();
@@ -746,8 +755,10 @@ class _SessionClientAppState extends State<SessionClientApp>
             factor: zoom,
             logicalSize: TrampMetrics.about,
             child: AboutWindow(
+              version: trampAppVersion,
               shaded: _aboutShaded,
               zoom: zoom,
+              onOpenUrl: (uri) => unawaited(openExternalUrl(uri)),
               dockLogicalTopLeft: () => Offset(_logicalLeft, _logicalTop),
               onDockMove: _onDockMove,
               onNativeDragStarted: _onNativeDragStarted,

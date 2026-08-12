@@ -108,7 +108,8 @@ class MultiWindowManager: NSObject {
         project.dartEntrypointArguments = ["multi_window", windowId, config.arguments]
         let flutterViewController = FlutterViewController(project: project)
         window.contentViewController = flutterViewController
-        window.setFrame(NSRect(x: 0, y: 0, width: 800, height: 600), display: true)
+        let seed = trampSecondarySeedSize(arguments: config.arguments)
+        window.setFrame(NSRect(x: 0, y: 0, width: seed.width, height: seed.height), display: true)
 
         window.orderFront(nil)
         window.setIsVisible(!config.hiddenAtLaunch)

@@ -10,11 +10,26 @@ extension WindowId {
     }
 }
 
+/// 75% of TrampMetrics canvases, rounded — TrampMetrics.nativeUnmappedSeed.
+func trampSecondarySeedSize(arguments: String) -> NSSize {
+    if arguments.contains("\"role\":\"about\"") {
+        return NSSize(width: 360, height: 270)
+    }
+    if arguments.contains("\"role\":\"settings\"") {
+        return NSSize(width: 390, height: 315)
+    }
+    if arguments.contains("\"role\":\"playlist\"") {
+        return NSSize(width: 619, height: 522)
+    }
+    return NSSize(width: 619, height: 261)
+}
+
 class CustomWindow: NSWindow {
 
     init(configuration: WindowConfiguration) {
+        let seed = trampSecondarySeedSize(arguments: configuration.arguments)
         super.init(
-            contentRect: NSRect(x: 10, y: 10, width: 800, height: 600),
+            contentRect: NSRect(x: 10, y: 10, width: seed.width, height: seed.height),
             styleMask: [.miniaturizable, .closable, .titled, .resizable], backing: .buffered,
             defer: false)
 

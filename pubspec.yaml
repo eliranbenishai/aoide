@@ -15,7 +15,7 @@ dependencies:
       url: https://github.com/boyan01/window_manager.git
       path: packages/window_manager
       ref: 6fae92d21b4c80ce1b8f71c1190d7970cf722bd4
-  # Path override below: Linux secondaries default 619×261 (not 1280×720).
+  # Path override below: per-role 75% secondary seeds (not 1280×720).
   desktop_multi_window: 0.3.0
   media_kit: ^1.1.11
   media_kit_libs_audio: ^1.0.5
@@ -42,6 +42,7 @@ flutter:
   uses-material-design: true
   assets:
     - lib/ui/chrome/logo.svg
+    - assets/proximamagnifica.svg
     - assets/branding/app_icon.png
   fonts:
     - family: TrampCondensed
