@@ -88,6 +88,10 @@ One Flutter process; four frameless windows share playback, playlist, EQ, zoom, 
 
 `PlaybackController` keeps **`playingIndex`** (and path) separate from playlist **`selectedIndex`**. Transport title and OS media metadata follow the playing track; playlist row highlight follows selection. `playPause` opens the selected row when nothing is open or selection differs from the playing track. After **stop**, media is unloaded so resume re-opens the current track (media_kit unloads on stop; bare `play()` would ghost-play with no audio).
 
+## Release blockers
+
+- **Slow main-window quit (~5s)** — **must fix before release.** Main close runs `SessionHostApp._quit`, which **awaits** `session_shutdown` → `windowManager.destroy()` on EQ, playlist, and settings **serially**, then destroys main. On Linux (repro’d under `flutter run --release` as well as debug) that multi-engine teardown routinely takes **~4–5+ seconds**, with compositor/GL cleanup noise (`Failed to cleanup compositor shaders`, `RemoveWindow`, `g_mutex_clear` on uninitialised/locked mutex). This is a product defect, not a “debug only” quirk: the same sequential await path ships in release. Acceptable direction: parallel secondary teardown, or exit without awaiting full graceful destroy of each secondary engine (hide/kill then process exit), with a tight wall-clock budget so close feels instant. Tracker: [`.scratch/quit-latency/issues/01-fast-main-quit.md`](../.scratch/quit-latency/issues/01-fast-main-quit.md).
+
 ## Known v1 gaps
 
 - **Mockup goldens** — side-by-side mockup fidelity / platform golden sets still hardening; docking + 2026-08-09 polish (button bevel, dock rules, EQ fill, compact titles, taskbar) are implemented — see [`2026-08-09-ui-polish-docking-taskbar-design.md`](superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md).
