@@ -53,7 +53,10 @@ static void my_application_activate(GApplication* application) {
     gtk_window_set_title(window, "tramp");
   }
 
-  gtk_window_set_default_size(window, 1280, 720);
+  // Default product zoom is 75% of the main canvas (825×348). Avoid the
+  // Flutter template 1280×720 default — if Dart setSize is delayed or flakes
+  // on Linux, that leaves a huge black FlView with chrome only in the corner.
+  gtk_window_set_default_size(window, 619, 261);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
@@ -61,9 +64,9 @@ static void my_application_activate(GApplication* application) {
 
   FlView* view = fl_view_new(project);
   GdkRGBA background_color;
-  // Background defaults to black, override it here if necessary, e.g. #00000000
-  // for transparent.
-  gdk_rgba_parse(&background_color, "#000000");
+  // Transparent so MockupShell rounded corners punch through (matches
+  // window_manager.setBackgroundColor in SessionHostApp).
+  gdk_rgba_parse(&background_color, "#00000000");
   fl_view_set_background_color(view, &background_color);
   gtk_widget_show(GTK_WIDGET(view));
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));

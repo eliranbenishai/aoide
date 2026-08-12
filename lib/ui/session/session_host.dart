@@ -16,6 +16,7 @@ import '../../look/look_installer.dart';
 import '../../platform/file_open.dart';
 import '../../platform/session_resume_store.dart';
 import '../../platform/settings_store.dart';
+import '../../platform/tramp_window.dart';
 import '../../playback/media_kit_player_engine.dart';
 import '../../playback/playback_controller.dart';
 import '../../playback/player_engine.dart';
@@ -712,8 +713,11 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       return;
     }
     final visible = _docking.layout.main.visible;
-    await windowManager.setMinimumSize(rect.size);
-    await windowManager.setSize(rect.size);
+    await resizeTrampWindow(
+      size: rect.size,
+      minimumSize: rect.size,
+      pinSize: true,
+    );
     await windowManager.setPosition(rect.topLeft);
     await windowManager.setAlwaysOnTop(
       effectiveAlwaysOnTop(alwaysOnTop: _alwaysOnTop, visible: visible),

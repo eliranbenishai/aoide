@@ -12,6 +12,7 @@ import '../../look/builtin_look.dart';
 import '../../look/look_font_loader.dart';
 import '../../look/resolved_look.dart';
 import '../../platform/file_open.dart';
+import '../../platform/tramp_window.dart';
 import '../../playlist/playlist_controller.dart';
 import '../../playlist/playlist_store.dart';
 import '../../theme/look_scope.dart';
@@ -290,18 +291,26 @@ class _SessionClientAppState extends State<SessionClientApp>
 
     _applyingFrame = true;
     try {
+      final size = Size(width, height);
       if (widget.role == WindowRole.playlist) {
         final zoom = _zoomPercent / 100.0;
-        await windowManager.setMinimumSize(Size(
-          TrampMetrics.playlistMin.width * zoom,
-          TrampMetrics.playlistMin.height * zoom,
-        ));
         await windowManager.setResizable(!_plShaded);
+        await resizeTrampWindow(
+          size: size,
+          minimumSize: Size(
+            TrampMetrics.playlistMin.width * zoom,
+            TrampMetrics.playlistMin.height * zoom,
+          ),
+          pinSize: false,
+        );
       } else {
-        await windowManager.setMinimumSize(Size(width, height));
         await windowManager.setResizable(false);
+        await resizeTrampWindow(
+          size: size,
+          minimumSize: size,
+          pinSize: true,
+        );
       }
-      await windowManager.setSize(Size(width, height));
       await windowManager.setPosition(Offset(left, top));
       await windowManager.setAlwaysOnTop(alwaysOnTop);
       if (visible) {
