@@ -59,6 +59,7 @@ add_subdirectory("runner")
 
 # Run the Flutter tool portions of the build. This must not be removed.
 add_dependencies(${BINARY_NAME} flutter_assemble)
+add_dependencies(${BINARY_NAME} tramp_seed_flutter_linux)
 
 # Only the install-generated bundle's copy of the executable will launch
 # correctly, since the resources must in the right relative locations. To avoid
@@ -73,6 +74,19 @@ set_target_properties(${BINARY_NAME}
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
 include(flutter/generated_plugins.cmake)
+
+# Plugins compile flutter_linux headers; seed + assemble must finish first
+# (Distrobox builds have raced ahead of an empty ephemeral/flutter_linux).
+foreach(plugin ${FLUTTER_PLUGIN_LIST})
+  if(TARGET ${plugin}_plugin)
+    add_dependencies(${plugin}_plugin tramp_seed_flutter_linux flutter_assemble)
+  endif()
+endforeach()
+foreach(plugin ${FLUTTER_FFI_PLUGIN_LIST})
+  if(TARGET ${plugin}_plugin)
+    add_dependencies(${plugin}_plugin tramp_seed_flutter_linux flutter_assemble)
+  endif()
+endforeach()
 
 # Optional: bundle a full libmpv from third_party (see third_party/libmpv/README.md).
 # media_kit_libs_linux normally uses the system libmpv; when staged libs exist,
