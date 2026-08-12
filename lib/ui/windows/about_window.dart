@@ -144,7 +144,7 @@ class AboutWindow extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'A desktop music player — dense, playlist-centric, '
+                        'A desktop music player — playlist-centric, '
                         'with distinctive chrome.',
                         style: TrampText.lcd(look).copyWith(
                           color: colors.label,
@@ -163,17 +163,8 @@ class AboutWindow extends StatelessWidget {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const ProximaMagnificaLogo(size: 88),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    companyName,
-                                    style: TrampText.chromeLabel(look).copyWith(
-                                      fontSize: 13,
-                                      letterSpacing: 1.2,
-                                      color: colors.label,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
+                                  const ProximaMagnificaLogo(size: 96),
+                                  const SizedBox(height: 10),
                                   _AboutLink(
                                     url: websiteUrl,
                                     onTap: _openWebsite,

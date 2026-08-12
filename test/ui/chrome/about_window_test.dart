@@ -44,9 +44,18 @@ void main() {
     expect(find.byType(ProximaMagnificaLogo), findsOneWidget);
     expect(find.text('TRAMP'), findsOneWidget);
     expect(find.text('Version $trampAppVersion'), findsOneWidget);
-    expect(find.textContaining('$trampCopyrightYear'), findsOneWidget);
-    expect(find.text(trampCompanyName), findsWidgets);
+    expect(
+      find.text('© $trampCopyrightYear $trampCompanyName'),
+      findsOneWidget,
+    );
+    expect(find.text(trampCompanyName), findsNothing);
     expect(find.text(trampWebsiteUrl), findsOneWidget);
+    expect(
+      find.text(
+        'A desktop music player — playlist-centric, with distinctive chrome.',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('ABOUT'), findsOneWidget);
   });
 
