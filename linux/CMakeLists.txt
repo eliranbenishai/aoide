@@ -79,8 +79,9 @@ add_custom_target(tramp_seed_flutter_linux
   COMMAND ${CMAKE_COMMAND}
     -DFLUTTER_ROOT=${FLUTTER_ROOT}
     -DEPHEMERAL_DIR=${FLUTTER_MANAGED_DIR}/ephemeral
+    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
     -P "${FLUTTER_MANAGED_DIR}/seed_flutter_linux.cmake"
-  COMMENT "Seeding flutter_linux headers if missing"
+  COMMENT "Seeding flutter_linux headers/libs if missing"
   VERBATIM
 )
 add_dependencies(tramp_seed_flutter_linux flutter_assemble)
