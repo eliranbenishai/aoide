@@ -267,6 +267,11 @@ class _EqBands extends StatelessWidget {
     required this.onBand,
   });
 
+  /// Slightly shorter than the old full-column Expanded track (~170).
+  static const trackHeight = 148.0;
+  static const valueHeight = 18.0;
+  static const labelHeight = 26.0;
+
   final EqualizerSettings settings;
   final ValueChanged<double> onPreamp;
   final void Function(int band, double gain) onBand;
@@ -274,9 +279,13 @@ class _EqBands extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _EqScale(),
+        const _EqScale(
+          valueHeight: valueHeight,
+          trackHeight: trackHeight,
+          labelHeight: labelHeight,
+        ),
         _BandColumn(
           key: const Key('eq-preamp'),
           width: 62,
@@ -286,6 +295,9 @@ class _EqBands extends StatelessWidget {
           gain: settings.preamp,
           onChanged: onPreamp,
           semanticLabel: 'Preamp',
+          valueHeight: valueHeight,
+          trackHeight: trackHeight,
+          labelHeight: labelHeight,
         ),
         for (var i = 0; i < EqualizerSettings.bandFrequencies.length; i++)
           _BandColumn(
@@ -295,6 +307,9 @@ class _EqBands extends StatelessWidget {
             gain: settings.gains[i],
             onChanged: (gain) => onBand(i, gain),
             semanticLabel: '${MockupEqualizer.bandLabels[i]} hertz',
+            valueHeight: valueHeight,
+            trackHeight: trackHeight,
+            labelHeight: labelHeight,
           ),
       ],
     );
@@ -302,22 +317,33 @@ class _EqBands extends StatelessWidget {
 }
 
 class _EqScale extends StatelessWidget {
-  const _EqScale();
+  const _EqScale({
+    required this.valueHeight,
+    required this.trackHeight,
+    required this.labelHeight,
+  });
+
+  final double valueHeight;
+  final double trackHeight;
+  final double labelHeight;
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
+    return SizedBox(
       width: 44,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(0, 4, 8, 26),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            _ScaleLabel('+12'),
-            _ScaleLabel('0'),
-            _ScaleLabel('−12'),
-          ],
+        padding: EdgeInsets.fromLTRB(0, valueHeight, 8, labelHeight),
+        child: SizedBox(
+          height: trackHeight,
+          child: const Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _ScaleLabel('+12'),
+              _ScaleLabel('0'),
+              _ScaleLabel('−12'),
+            ],
+          ),
         ),
       ),
     );
@@ -344,6 +370,12 @@ class _ScaleLabel extends StatelessWidget {
   }
 }
 
+String _formatEqGain(double gain) {
+  if (gain.abs() < 0.05) return '0.0';
+  final sign = gain > 0 ? '+' : '−';
+  return '$sign${gain.abs().toStringAsFixed(1)}';
+}
+
 class _BandColumn extends StatelessWidget {
   const _BandColumn({
     super.key,
@@ -352,6 +384,9 @@ class _BandColumn extends StatelessWidget {
     required this.gain,
     required this.onChanged,
     required this.semanticLabel,
+    required this.valueHeight,
+    required this.trackHeight,
+    required this.labelHeight,
     this.marginRight = 0,
     this.preampStyle = false,
   });
@@ -362,16 +397,37 @@ class _BandColumn extends StatelessWidget {
   final double gain;
   final ValueChanged<double> onChanged;
   final String semanticLabel;
+  final double valueHeight;
+  final double trackHeight;
+  final double labelHeight;
   final bool preampStyle;
 
   @override
   Widget build(BuildContext context) {
+    final look = LookScope.of(context);
     return Container(
       width: width,
       margin: EdgeInsets.only(right: marginRight),
       child: Column(
         children: [
-          Expanded(
+          SizedBox(
+            height: valueHeight,
+            child: Center(
+              child: Text(
+                _formatEqGain(gain),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: look.lcdFamily,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 11,
+                  height: 1,
+                  color: look.palette.inkDefault,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(
+            height: trackHeight,
             child: _VerticalBandSlider(
               gain: gain,
               onChanged: onChanged,
@@ -379,20 +435,20 @@ class _BandColumn extends StatelessWidget {
             ),
           ),
           SizedBox(
-            height: 26,
+            height: labelHeight,
             child: Center(
               child: Text(
                 label,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontFamily: LookScope.of(context).chromeFamily,
+                  fontFamily: look.chromeFamily,
                   fontWeight: FontWeight.w700,
                   fontSize: 11,
                   height: 1,
                   letterSpacing: 11 * (preampStyle ? 0.18 : 0.1),
                   color: preampStyle
                       ? const Color(0x8C3DE7FF)
-                      : LookScope.of(context).palette.inkFaint,
+                      : look.palette.inkFaint,
                 ),
               ),
             ),
