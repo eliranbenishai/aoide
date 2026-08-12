@@ -270,26 +270,46 @@ void main() {
       expect(c.layout.playlist.top, 500);
     });
 
-    test('moving main translates all visible windows even when undocked', () {
+    test('moving main leaves undocked satellites in place', () {
       final c = DockingCoordinator(DockLayout.defaults);
       // Defaults: EQ + PL visible, no edges.
       expect(c.layout.dockEdges, isEmpty);
+      final eqLeft = c.layout.equalizer.left;
       final eqTop = c.layout.equalizer.top;
+      final plLeft = c.layout.playlist.left;
       final plTop = c.layout.playlist.top;
 
       c.move(WindowId.main, const Offset(50, 20), shiftUndock: false);
 
       expect(c.layout.main.left, 50);
       expect(c.layout.main.top, 20);
-      expect(c.layout.equalizer.left, 50);
-      expect(c.layout.equalizer.top, eqTop + 20);
+      expect(c.layout.equalizer.left, eqLeft);
+      expect(c.layout.equalizer.top, eqTop);
+      expect(c.layout.playlist.left, plLeft);
+      expect(c.layout.playlist.top, plTop);
+      expect(c.moveCohortOf(WindowId.main), equals({WindowId.main}));
+    });
+
+    test('moving main carries only docked satellites', () {
+      final c = DockingCoordinator(DockLayout.defaults);
+      c.move(WindowId.playlist, const Offset(0, 348 - 10), shiftUndock: false);
+      expect(c.groupOf(WindowId.main), contains(WindowId.playlist));
+      final eqLeft = c.layout.equalizer.left;
+      final eqTop = c.layout.equalizer.top;
+
+      c.move(WindowId.main, const Offset(50, 20), shiftUndock: false);
+
+      expect(c.layout.main.left, 50);
+      expect(c.layout.main.top, 20);
       expect(c.layout.playlist.left, 50);
-      expect(c.layout.playlist.top, plTop + 20);
-      expect(c.moveCohortOf(WindowId.main), containsAll([
-        WindowId.main,
-        WindowId.equalizer,
-        WindowId.playlist,
-      ]));
+      expect(c.layout.playlist.top, 348 + 20);
+      // EQ was never snapped — stays put.
+      expect(c.layout.equalizer.left, eqLeft);
+      expect(c.layout.equalizer.top, eqTop);
+      expect(
+        c.moveCohortOf(WindowId.main),
+        equals({WindowId.main, WindowId.playlist}),
+      );
     });
 
     test('moving main does not create snap edges', () {
@@ -304,7 +324,8 @@ void main() {
       c.move(WindowId.main, const Offset(0, 30), shiftUndock: false);
 
       expect(c.layout.dockEdges, isEmpty);
-      expect(c.layout.equalizer.top, 348 + 40 + 30);
+      // Undocked EQ is not carried.
+      expect(c.layout.equalizer.top, 348 + 40);
     });
 
     test('playlist does not snap to left/right side of main', () {
@@ -370,20 +391,32 @@ void main() {
       expect(c.groupOf(WindowId.equalizer), contains(WindowId.main));
     });
 
-    test('hidden windows are excluded from main move cohort', () {
+    test('hidden docked windows are excluded from main move cohort', () {
       final c = DockingCoordinator(DockLayout.defaults);
+      c.move(WindowId.playlist, const Offset(0, 348 - 10), shiftUndock: false);
+      c.move(
+        WindowId.equalizer,
+        const Offset(825 - 10, 0),
+        shiftUndock: false,
+      );
+      expect(c.groupOf(WindowId.main), containsAll([
+        WindowId.playlist,
+        WindowId.equalizer,
+      ]));
       c.setVisible(WindowId.equalizer, false);
-      final plTop = c.layout.playlist.top;
       final eqLeft = c.layout.equalizer.left;
       final eqTop = c.layout.equalizer.top;
 
       c.move(WindowId.main, const Offset(30, 10), shiftUndock: false);
 
       expect(c.layout.playlist.left, 30);
-      expect(c.layout.playlist.top, plTop + 10);
+      expect(c.layout.playlist.top, 348 + 10);
       expect(c.layout.equalizer.left, eqLeft);
       expect(c.layout.equalizer.top, eqTop);
-      expect(c.moveCohortOf(WindowId.main), equals({WindowId.main, WindowId.playlist}));
+      expect(
+        c.moveCohortOf(WindowId.main),
+        equals({WindowId.main, WindowId.playlist}),
+      );
     });
 
     test('settings is excluded from main move cohort even when visible', () {

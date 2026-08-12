@@ -20,9 +20,8 @@ class DockingCoordinator extends ChangeNotifier {
   /// Logical px within which edges snap. Set from [DockSnapStrength].
   double snapThreshold;
 
-  /// When true (default / Winamp), main title-bar drag translates visible
-  /// EQ/playlist satellites. When false (Linux), every window moves alone —
-  /// sticky carry is distracting without reliable snap finalize.
+  /// When true (default), main title-bar drag translates its dock-edge
+  /// cohort ([groupOf]). When false, every window moves alone.
   final bool stickyMoveGroups;
 
   static const double undockSeparation = 48.0;
@@ -48,7 +47,7 @@ class DockingCoordinator extends ChangeNotifier {
     var shouldUndock = shiftUndock;
 
     // EQ / playlist peel off dock edges as soon as the user drags them.
-    // Main never peels — it always translates all visible satellites.
+    // Main never peels — it translates its dock-edge cohort instead.
     if (!shouldUndock &&
         id != WindowId.main &&
         delta.distanceSquared > 0.25 &&
@@ -56,8 +55,8 @@ class DockingCoordinator extends ChangeNotifier {
       shouldUndock = true;
     }
 
-    // Separation undock: only EQ / playlist finalize (main always carries
-    // visible partners, so solo-vs-partner gap is not meaningful).
+    // Separation undock: only EQ / playlist finalize (main carries its
+    // docked cohort, so solo-vs-partner gap is not meaningful for main).
     if (!shouldUndock &&
         snap &&
         id != WindowId.main &&
@@ -121,8 +120,8 @@ class DockingCoordinator extends ChangeNotifier {
 
   /// Edge-connected dock component containing [id] (visible members only).
   ///
-  /// Used for snap partner exclusion and “is docked” checks. Main title-bar
-  /// drag uses [moveCohortOf] instead — visibility, not edges.
+  /// Used for snap partner exclusion, “is docked” checks, and main title-bar
+  /// drag cohorts ([moveCohortOf]).
   Set<WindowId> groupOf(WindowId id) {
     final edges = _layout.dockEdges;
     final group = <WindowId>{id};
@@ -152,8 +151,8 @@ class DockingCoordinator extends ChangeNotifier {
 
   /// Windows that move together when [id]'s title bar is dragged.
   ///
-  /// Main → every visible window except settings. Settings → self only.
-  /// EQ / playlist → edge [groupOf] (usually just self after peel).
+  /// Settings → self only. Main / EQ / playlist → edge [groupOf] (main alone
+  /// when nothing is docked; docked satellites follow; free windows do not).
   /// When [stickyMoveGroups] is false, always just [id].
   Set<WindowId> moveCohortOf(WindowId id) {
     if (!stickyMoveGroups) {
@@ -161,12 +160,6 @@ class DockingCoordinator extends ChangeNotifier {
     }
     if (id == WindowId.settings) {
       return {WindowId.settings};
-    }
-    if (id == WindowId.main) {
-      return {
-        for (final w in WindowId.values)
-          if (w != WindowId.settings && _layout.frameOf(w).visible) w,
-      };
     }
     return groupOf(id);
   }

@@ -1,7 +1,8 @@
 # 6. Multi-window host with Winamp-style docking
 
 Date: 2026-08-08  
-Revised: 2026-08-09 (move/snap ownership, playlist snap sides, taskbar)
+Revised: 2026-08-09 (move/snap ownership, playlist snap sides, taskbar);  
+2026-08-12 (main drag carries dock-edge cohort only)
 
 ## Status
 
@@ -27,10 +28,11 @@ behavior; see
   (825×348), Equalizer (825×348), Playlist Editor (default 825×696).
 - EQ and playlist may **both** be open. Main EQ/PL toggles show/hide those
   windows.
-- **Move ownership:** dragging the **main** title bar translates every
-  **visible** EQ/playlist window by the same delta (snap state irrelevant).
-  Dragging an EQ or playlist title bar moves **only** that window (peel dock
-  edges on drag). Hidden windows never follow.
+- **Move ownership:** dragging the **main** title bar translates its
+  **dock-edge cohort** (windows currently snapped to main, including
+  transitive links such as PL→EQ→main) by the same delta. Free / undocked
+  windows stay put. Dragging an EQ or playlist title bar moves **only** that
+  window (peel dock edges on drag). Hidden windows never follow.
 - **Snap:** only when finishing an EQ or playlist drag. EQ may snap to any
   side of any other visible window. Playlist may snap only **top/bottom**; on
   that snap, also flush left or right if that edge is already within the snap
@@ -51,8 +53,8 @@ behavior; see
 ## Consequences
 
 `DockingCoordinator` remains the pure layout seam; session host/client apply
-frames. Sticky dock edges record snap contact for persistence and peel, but
-**do not** gate whether main moves visible satellites — visibility does. The
+frames. Sticky dock edges record snap contact for persistence and peel, and
+**gate** whether main carries satellites (`moveCohortOf` → `groupOf`). The
 single `TrampShell` lower-region EQ/PL swap stays removed. ADR 0003’s zoom-only
 main/EQ and free-resize playlist *sizing intent* continues under this ADR and
 ADR 0002; its single-window framing does not.

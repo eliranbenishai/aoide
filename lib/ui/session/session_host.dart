@@ -382,10 +382,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     }
     if (command.dockSnapStrength != null) {
       _dockSnapStrength = command.dockSnapStrength!;
-      // Linux docking stays independent; ignore snap strength for threshold.
-      if (!Platform.isLinux) {
-        _docking.snapThreshold = _dockSnapStrength.snapPixels;
-      }
+      _docking.snapThreshold = _dockSnapStrength.snapPixels;
     }
     await _persistLayout();
     await _broadcastSettingsSnapshot();
@@ -426,22 +423,18 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     if (mounted) setState(() {});
   }
 
-  /// Linux: no sticky groups / snap (OS move finalize is unreliable).
   DockingCoordinator _createDocking(DockLayout layout) {
-    final linux = Platform.isLinux;
     return DockingCoordinator(
       layout,
-      snapThreshold: linux ? 0 : _dockSnapStrength.snapPixels,
-      stickyMoveGroups: !linux,
+      snapThreshold: _dockSnapStrength.snapPixels,
     );
   }
 
   /// Title-bar drag → [DockingCoordinator.move] → coalesce OS position applies.
   ///
   /// During a native OS drag the dragged HWND is owned by the system; we only
-  /// push **siblings** (latest-wins, position-only) and snap on pan-end.
-  /// On Linux [DockingCoordinator.stickyMoveGroups] is false so cohorts are
-  /// always a single window — no sibling position pushes.
+  /// push **docked siblings** (latest-wins, position-only) and snap on pan-end.
+  /// Main carries its dock-edge cohort only — free windows stay put.
   Future<void> _handleDockMove(
     WindowId id,
     Offset logicalTopLeft, {
@@ -454,7 +447,6 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       logicalTopLeft,
       shiftUndock: shiftUndock,
       // Quiet soft-end must not snap; confirmed onWindowMoved still does.
-      // Linux keeps snapThreshold at 0 so this is a no-op there.
       snap: ended && !softEnd,
     );
     _dockDragWindow = id;
