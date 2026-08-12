@@ -36,6 +36,7 @@ import 'always_on_top.dart';
 import 'minimize_group.dart';
 import 'session_bus.dart';
 import 'session_messages.dart';
+import 'session_quit.dart';
 import '../../look/look_controller.dart';
 import '../../theme/look_scope.dart';
 
@@ -238,6 +239,25 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     if (mounted) {
       setState(() => _bootstrapped = true);
     }
+    if (trampAutoQuitRequested()) {
+      unawaited(_autoQuitForHarness());
+    }
+  }
+
+  Future<void> _autoQuitForHarness() async {
+    final deadline = DateTime.now().add(const Duration(seconds: 20));
+    while (DateTime.now().isBefore(deadline)) {
+      if (_eqReady && _playlistReady && _settingsReady && _aboutReady) {
+        break;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    stderr.writeln(
+      'TRAMP_QUIT_BEGIN ${DateTime.now().microsecondsSinceEpoch} '
+      'eq=$_eqReady pl=$_playlistReady set=$_settingsReady about=$_aboutReady',
+    );
+    await stderr.flush();
+    await _quit();
   }
 
   void _applySettingsFields(TrampSettings settings) {
@@ -1267,7 +1287,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         if (ok != true) return;
       }
     }
-    await _persistResume();
+    // Conceal chrome immediately. Do not await engine destroy — that is the
+    // multi-second Linux hang. Persist, then `_exit` the whole process.
     for (final controller in [
       _equalizerWindow,
       _playlistWindow,
@@ -1275,16 +1296,18 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       _aboutWindow,
     ]) {
       if (controller == null) continue;
-      try {
-        await controller.invokeMethod('session_shutdown');
-      } catch (_) {
+      unawaited(() async {
         try {
           await controller.hide();
         } catch (_) {}
-      }
+      }());
     }
-    await windowManager.setPreventClose(false);
-    await windowManager.destroy();
+    unawaited(() async {
+      try {
+        await windowManager.hide();
+      } catch (_) {}
+    }());
+    await finishSessionQuit(persist: _persistResume);
   }
 
   @override

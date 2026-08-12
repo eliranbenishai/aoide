@@ -29,12 +29,6 @@ flutter build linux     # → build/linux/x64/release/bundle/
 
 macOS and Linux builds require those hosts (or CI). This repo was smoke-tested on **Windows** only; run the macOS/Linux commands on the matching OS before shipping.
 
-## Release blockers
-
-| Blocker | Notes |
-|---------|--------|
-| **Slow main quit (~5s)** | **Must fix before shipping.** Closing the main player awaits killing EQ / playlist / settings engines one-by-one (`SessionHostApp._quit` → `session_shutdown`). Reproduced on Linux in release, not debug-only. See [`docs/architecture.md`](docs/architecture.md#release-blockers) and [`.scratch/quit-latency/issues/01-fast-main-quit.md`](.scratch/quit-latency/issues/01-fast-main-quit.md). |
-
 ## Known v1 limits
 
 | Limit | Notes |

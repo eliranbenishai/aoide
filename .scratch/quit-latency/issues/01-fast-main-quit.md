@@ -1,6 +1,6 @@
 # Fast main-window quit
 
-Status: ready-for-agent
+Status: resolved
 
 Priority: **release blocker** — must ship with near-instant close.
 
@@ -35,9 +35,16 @@ Linux teardown of each secondary Flutter engine is slow/messy (compositor shader
 
 ## Docs
 
-- [`docs/architecture.md`](../../../docs/architecture.md#release-blockers)
-- [`README.md`](../../../README.md#release-blockers)
+- [`docs/architecture.md`](../../../docs/architecture.md#quit)
+- [`README.md`](../../../README.md)
+
+## Answer
+
+Quit no longer awaits per-engine GTK/GL destroy. After optional confirm + resume persist, the host calls `_exit` (`lib/ui/session/session_quit.dart`) so Flutter compositor teardown never runs. One process owns all five engines, so the OS reaps windows with the process — no orphans.
+
+Harness `TRAMP_AUTO_QUIT=1` + `tool/measure_quit_latency.sh`: serial destroy was **1176ms** (red vs 500ms); after `_exit`, **194–460ms** across runs (green, budget 500ms). Confirm-before-quit is unchanged (dialog still gates persist+exit).
 
 ## Comments
 
 - 2026-08-12: Observed ~5s close on Linux release; product owner marked release blocker.
+- 2026-08-12: Instrumented `_quit`; four serial `session_shutdown` calls were 267+477+225+10ms, each paired with `RemoveWindow` / compositor cleanup. Parallel destroy would still pay ~max(destroy). `dart:io` `exit` can still run `atexit` engine destructors; `_exit` skips them.
