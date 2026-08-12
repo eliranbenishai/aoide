@@ -130,12 +130,31 @@ class _SessionClientAppState extends State<SessionClientApp>
     await windowManager.setSkipTaskbar(true);
     // Edge resize only on the playlist window.
     await windowManager.setResizable(widget.role == WindowRole.playlist);
+    // Shrink off the plugin's GTK default before the first host frame
+    // (avoids a flash of 1280×720 black with chrome in the corner).
+    final zoom = (_zoomPercent / 100.0).clamp(0.5, 4.0);
+    final seedLogical = switch (widget.role) {
+      WindowRole.equalizer => TrampMetrics.equalizer,
+      WindowRole.playlist => TrampMetrics.playlistDefault,
+      WindowRole.settings => TrampMetrics.settings,
+      WindowRole.main => TrampMetrics.mainPlayer,
+    };
+    final seed = Size(seedLogical.width * zoom, seedLogical.height * zoom);
     if (widget.role == WindowRole.playlist) {
-      final zoom = _zoomPercent / 100.0;
-      await windowManager.setMinimumSize(Size(
-        TrampMetrics.playlistMin.width * zoom,
-        TrampMetrics.playlistMin.height * zoom,
-      ));
+      await resizeTrampWindow(
+        size: seed,
+        minimumSize: Size(
+          TrampMetrics.playlistMin.width * zoom,
+          TrampMetrics.playlistMin.height * zoom,
+        ),
+        pinSize: false,
+      );
+    } else {
+      await resizeTrampWindow(
+        size: seed,
+        minimumSize: seed,
+        pinSize: true,
+      );
     }
   }
 

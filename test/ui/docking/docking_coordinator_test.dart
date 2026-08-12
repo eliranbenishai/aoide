@@ -442,5 +442,27 @@ void main() {
       expect(c.layout.playlist.top, 348 - 10);
       expect(c.layout.dockEdges, isEmpty);
     });
+
+    test('stickyMoveGroups false: main drag does not carry satellites', () {
+      final c = DockingCoordinator(
+        DockLayout.defaults,
+        stickyMoveGroups: false,
+        snapThreshold: 0,
+      );
+      final eqLeft = c.layout.equalizer.left;
+      final eqTop = c.layout.equalizer.top;
+      final plLeft = c.layout.playlist.left;
+      final plTop = c.layout.playlist.top;
+
+      c.move(WindowId.main, const Offset(80, 40), shiftUndock: false);
+
+      expect(c.layout.main.left, 80);
+      expect(c.layout.main.top, 40);
+      expect(c.layout.equalizer.left, eqLeft);
+      expect(c.layout.equalizer.top, eqTop);
+      expect(c.layout.playlist.left, plLeft);
+      expect(c.layout.playlist.top, plTop);
+      expect(c.moveCohortOf(WindowId.main), equals({WindowId.main}));
+    });
   });
 }

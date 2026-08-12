@@ -13,11 +13,18 @@ class DockingCoordinator extends ChangeNotifier {
   DockingCoordinator(
     DockLayout initial, {
     double snapThreshold = 20.0,
+    this.stickyMoveGroups = true,
   })  : _layout = initial,
         snapThreshold = snapThreshold;
 
   /// Logical px within which edges snap. Set from [DockSnapStrength].
   double snapThreshold;
+
+  /// When true (default / Winamp), main title-bar drag translates visible
+  /// EQ/playlist satellites. When false (Linux), every window moves alone —
+  /// sticky carry is distracting without reliable snap finalize.
+  final bool stickyMoveGroups;
+
   static const double undockSeparation = 48.0;
 
   DockLayout _layout;
@@ -147,7 +154,11 @@ class DockingCoordinator extends ChangeNotifier {
   ///
   /// Main → every visible window except settings. Settings → self only.
   /// EQ / playlist → edge [groupOf] (usually just self after peel).
+  /// When [stickyMoveGroups] is false, always just [id].
   Set<WindowId> moveCohortOf(WindowId id) {
+    if (!stickyMoveGroups) {
+      return {id};
+    }
     if (id == WindowId.settings) {
       return {WindowId.settings};
     }

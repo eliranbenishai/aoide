@@ -119,7 +119,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     );
     _lookController.addListener(_onLookChanged);
     _bus = SessionBus();
-    _docking = DockingCoordinator(DockLayout.defaults);
+    _docking = _createDocking(DockLayout.defaults);
     _playlist = PlaylistController(
       store: widget.playlistStore ??
           FilePlaylistStore(supportDir: getApplicationSupportDirectory),
@@ -198,10 +198,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
 
     final settings = await _settingsStore.read();
     _applySettingsFields(settings);
-    _docking = DockingCoordinator(
-      DockLayout.fromSettings(settings),
-      snapThreshold: _dockSnapStrength.snapPixels,
-    );
+    _docking = _createDocking(DockLayout.fromSettings(settings));
 
     await _lookController.bootstrap(
       settings: settings,
@@ -385,7 +382,10 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     }
     if (command.dockSnapStrength != null) {
       _dockSnapStrength = command.dockSnapStrength!;
-      _docking.snapThreshold = _dockSnapStrength.snapPixels;
+      // Linux docking stays independent; ignore snap strength for threshold.
+      if (!Platform.isLinux) {
+        _docking.snapThreshold = _dockSnapStrength.snapPixels;
+      }
     }
     await _persistLayout();
     await _broadcastSettingsSnapshot();
@@ -412,10 +412,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     const next = TrampSettings.defaults;
     await _settingsStore.write(next);
     _applySettingsFields(next);
-    _docking = DockingCoordinator(
-      DockLayout.fromSettings(next),
-      snapThreshold: _dockSnapStrength.snapPixels,
-    );
+    _docking = _createDocking(DockLayout.fromSettings(next));
     await _lookController.bootstrap(
       settings: next,
       supportDir: getApplicationSupportDirectory,
@@ -429,10 +426,22 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     if (mounted) setState(() {});
   }
 
+  /// Linux: no sticky groups / snap (OS move finalize is unreliable).
+  DockingCoordinator _createDocking(DockLayout layout) {
+    final linux = Platform.isLinux;
+    return DockingCoordinator(
+      layout,
+      snapThreshold: linux ? 0 : _dockSnapStrength.snapPixels,
+      stickyMoveGroups: !linux,
+    );
+  }
+
   /// Title-bar drag → [DockingCoordinator.move] → coalesce OS position applies.
   ///
   /// During a native OS drag the dragged HWND is owned by the system; we only
   /// push **siblings** (latest-wins, position-only) and snap on pan-end.
+  /// On Linux [DockingCoordinator.stickyMoveGroups] is false so cohorts are
+  /// always a single window — no sibling position pushes.
   Future<void> _handleDockMove(
     WindowId id,
     Offset logicalTopLeft, {
@@ -445,6 +454,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       logicalTopLeft,
       shiftUndock: shiftUndock,
       // Quiet soft-end must not snap; confirmed onWindowMoved still does.
+      // Linux keeps snapThreshold at 0 so this is a no-op there.
       snap: ended && !softEnd,
     );
     _dockDragWindow = id;
