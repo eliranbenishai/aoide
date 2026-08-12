@@ -83,3 +83,11 @@ _Avoid_: LCD (alone), screen, display (when the inset glass region is meant)
 **Synthetic levels**:
 `AudioLevels` frames marked `synthetic: true` — a hard-fail / development signal when real spectrum cannot be measured. Not the product end-state; normal play must use real analyser levels.
 _Avoid_: treating synthetic levels as the shipped spectrum design, fake levels (pejorative), mock levels, placeholder spectrum (as a planned deliverable)
+
+**Spin**:
+One track played through to the end — the unit the About stats well counts.
+_Avoid_: play (ambiguous with the transport verb), listen, stream
+
+**Maker's plate**:
+The brushed strip along the bottom of the About window carrying the company mark, name, copyright, and website — named after the plate riveted to real hardware.
+_Avoid_: footer, credits bar, branding strip

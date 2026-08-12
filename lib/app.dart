@@ -7,3 +7,11 @@ const int trampCopyrightYear = 2026;
 const String trampCompanyName = 'Proxima Magnifica';
 
 const String trampWebsiteUrl = 'https://tramp.music';
+
+/// Backronym under the wordmark in About. Word initials must spell TRAMP —
+/// the window lights them to make the joke land.
+const String trampBackronym = 'The Ridiculously Attractive Music Player';
+
+/// One-line product description shown in About.
+const String trampTagline =
+    'Local files, honest tags, and chrome you can feel.';
