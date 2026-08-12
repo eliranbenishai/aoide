@@ -151,8 +151,10 @@ class DockingCoordinator extends ChangeNotifier {
 
   /// Windows that move together when [id]'s title bar is dragged.
   ///
-  /// Settings → self only. Main / EQ / playlist → edge [groupOf] (main alone
-  /// when nothing is docked; docked satellites follow; free windows do not).
+  /// Settings → self only. EQ / playlist → edge [groupOf].
+  /// Main → edge [groupOf], then any visible window currently flush to that
+  /// cohort within [snapThreshold] (covers Linux when dock edges were never
+  /// recorded because `onWindowMoved` is missing).
   /// When [stickyMoveGroups] is false, always just [id].
   Set<WindowId> moveCohortOf(WindowId id) {
     if (!stickyMoveGroups) {
@@ -161,7 +163,36 @@ class DockingCoordinator extends ChangeNotifier {
     if (id == WindowId.settings) {
       return {WindowId.settings};
     }
-    return groupOf(id);
+    if (id != WindowId.main) {
+      return groupOf(id);
+    }
+    return _mainMoveCohort();
+  }
+
+  /// Edge-connected group plus geometrically flush visible satellites.
+  Set<WindowId> _mainMoveCohort() {
+    final cohort = Set<WindowId>.from(groupOf(WindowId.main));
+    if (snapThreshold <= 0) return cohort;
+
+    var grew = true;
+    while (grew) {
+      grew = false;
+      for (final other in WindowId.values) {
+        if (other == WindowId.settings || cohort.contains(other)) continue;
+        if (!_layout.frameOf(other).visible) continue;
+        final otherRect = _rectFor(other);
+        for (final member in cohort) {
+          final memberRect = _rectFor(member);
+          if (_candidates(other, otherRect, member, memberRect).isNotEmpty ||
+              _candidates(member, memberRect, other, otherRect).isNotEmpty) {
+            cohort.add(other);
+            grew = true;
+            break;
+          }
+        }
+      }
+    }
+    return cohort;
   }
 
   void setVisible(WindowId id, bool visible) {

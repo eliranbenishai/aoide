@@ -29,6 +29,7 @@ import '../chrome/about_dialog.dart';
 import '../docking/dock_layout.dart';
 import '../docking/dock_move_coalescer.dart';
 import '../docking/docking_coordinator.dart';
+import '../docking/linux_drag_poll.dart';
 import '../docking/native_drag_tracker.dart';
 import '../windows/main_player_window.dart';
 import '../zoom/zoomed_canvas.dart';
@@ -92,6 +93,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   bool _nativeDragging = false;
   Timer? _resumeSaveTimer;
   late final NativeDragTracker _mainNativeDrag;
+  late final LinuxDragPoll _mainLinuxDragPoll;
   /// Guards [onWindowFocus] → raise → main [focus] from re-entering.
   bool _raisingFocusGroup = false;
 
@@ -104,12 +106,21 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
           ? const Duration(milliseconds: 180)
           : const Duration(milliseconds: 750),
       onQuietFinalize: () {
+        _mainLinuxDragPoll.stop();
         // Soft end: siblings only — do not fight the OS HWND if drag resumes.
         unawaited(
           _nativeSyncCoalescer.flush(
             () => _syncNativeMainDrag(ended: true, softEnd: true),
           ),
         );
+      },
+    );
+    _mainLinuxDragPoll = LinuxDragPoll(
+      onTick: () {
+        if (!_mainNativeDrag.onMoveEvent()) return;
+        _nativeDragging = true;
+        _dockDragWindow = WindowId.main;
+        _nativeSyncCoalescer.schedule(() => _syncNativeMainDrag(ended: false));
       },
     );
     _settingsStore = widget.settingsStore ??
@@ -507,6 +518,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     _dockDragWindow = id;
     if (id == WindowId.main) {
       _mainNativeDrag.started();
+      _mainLinuxDragPoll.start();
     }
   }
 
@@ -1148,6 +1160,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     if (!_nativeDragging && !_mainNativeDrag.isActive && !_mainNativeDrag.softEnded) {
       return;
     }
+    _mainLinuxDragPoll.stop();
     _mainNativeDrag.endedConfirmed();
     _nativeDragging = true;
     _dockDragWindow = WindowId.main;
@@ -1216,6 +1229,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   @override
   void dispose() {
     _resumeSaveTimer?.cancel();
+    _mainLinuxDragPoll.dispose();
     _mainNativeDrag.dispose();
     windowManager.removeListener(this);
     _lookController.removeListener(_onLookChanged);

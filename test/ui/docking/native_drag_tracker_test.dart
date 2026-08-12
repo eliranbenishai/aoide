@@ -52,6 +52,22 @@ void main() {
     });
   });
 
+  test('started arms quiet finalize even without move events', () {
+    fakeAsync((async) {
+      var quietEnds = 0;
+      final tracker = NativeDragTracker(
+        quietFinalizeDelay: const Duration(milliseconds: 180),
+        onQuietFinalize: () => quietEnds++,
+      );
+
+      tracker.started();
+      async.elapse(const Duration(milliseconds: 180));
+      expect(quietEnds, 1);
+      expect(tracker.softEnded, isTrue);
+      tracker.dispose();
+    });
+  });
+
   test('moves without started are ignored', () {
     final tracker = NativeDragTracker(onQuietFinalize: () {});
     expect(tracker.onMoveEvent(), isFalse);

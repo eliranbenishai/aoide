@@ -18,6 +18,7 @@ import '../../playlist/playlist_store.dart';
 import '../../theme/look_scope.dart';
 import '../../theme/tramp_metrics.dart';
 import '../docking/dock_move_coalescer.dart';
+import '../docking/linux_drag_poll.dart';
 import '../docking/native_drag_tracker.dart';
 import '../windows/equalizer_window.dart';
 import '../windows/playlist_window.dart';
@@ -86,6 +87,7 @@ class _SessionClientAppState extends State<SessionClientApp>
   final DockMoveCoalescer _nativeSyncCoalescer = DockMoveCoalescer();
   Timer? _resizeDebounce;
   late final NativeDragTracker _nativeDrag;
+  late final LinuxDragPoll _linuxDragPoll;
 
   @override
   void initState() {
@@ -96,11 +98,19 @@ class _SessionClientAppState extends State<SessionClientApp>
           ? const Duration(milliseconds: 180)
           : const Duration(milliseconds: 750),
       onQuietFinalize: () {
+        _linuxDragPoll.stop();
         unawaited(
           _nativeSyncCoalescer.flush(
             () => _reportNativeDrag(ended: true, softEnd: true),
           ),
         );
+      },
+    );
+    _linuxDragPoll = LinuxDragPoll(
+      onTick: () {
+        if (!_nativeDrag.onMoveEvent()) return;
+        _nativeDragging = true;
+        _nativeSyncCoalescer.schedule(() => _reportNativeDrag(ended: false));
       },
     );
     _playlist = PlaylistController(store: _MemoryPlaylistStore());
@@ -441,6 +451,7 @@ class _SessionClientAppState extends State<SessionClientApp>
   void _onNativeDragStarted() {
     _nativeDragging = true;
     _nativeDrag.started();
+    _linuxDragPoll.start();
   }
 
   Future<void> _reportNativeDrag({
@@ -485,6 +496,7 @@ class _SessionClientAppState extends State<SessionClientApp>
     if (!_nativeDragging && !_nativeDrag.isActive && !_nativeDrag.softEnded) {
       return;
     }
+    _linuxDragPoll.stop();
     _nativeDrag.endedConfirmed();
     _nativeDragging = true;
     unawaited(
@@ -559,6 +571,7 @@ class _SessionClientAppState extends State<SessionClientApp>
   @override
   void dispose() {
     _resizeDebounce?.cancel();
+    _linuxDragPoll.dispose();
     _nativeDrag.dispose();
     windowManager.removeListener(this);
     unawaited(widget.windowController.setWindowMethodHandler(null));

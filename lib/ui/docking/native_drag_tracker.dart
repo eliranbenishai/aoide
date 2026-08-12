@@ -27,7 +27,9 @@ class NativeDragTracker {
   void started() {
     _active = true;
     _softEnded = false;
-    _cancelQuiet();
+    // Arm immediately — Linux often emits no configure/move events during
+    // gtk_window_begin_move_drag, so waiting for onMoveEvent never finalizes.
+    _armQuiet();
   }
 
   /// Returns true when this move is part of an active drag (or a resume).
