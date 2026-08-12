@@ -219,6 +219,14 @@ void main() {
           shiftUndock: true,
           ended: true,
         ),
+        const MoveWindowCommand(
+          window: WindowId.equalizer,
+          left: 0,
+          top: 348,
+          shiftUndock: false,
+          ended: true,
+          softEnd: true,
+        ),
         const ZoomStepCommand(1),
         const AlwaysOnTopCommand(true),
       ];

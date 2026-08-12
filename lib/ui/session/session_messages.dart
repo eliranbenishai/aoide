@@ -1109,6 +1109,8 @@ final class ResizePlaylistCommand extends SessionCommand {
 /// Title-bar drag update — logical top-left for [DockingCoordinator.move].
 ///
 /// [ended] is true on pan-end so the host can persist layout once per gesture.
+/// [softEnd] is a quiet-timeout end (Linux never emits `onWindowMoved`); the
+/// host still snaps/persists but must not fight the OS-owned HWND.
 final class MoveWindowCommand extends SessionCommand {
   const MoveWindowCommand({
     required this.window,
@@ -1116,6 +1118,7 @@ final class MoveWindowCommand extends SessionCommand {
     required this.top,
     required this.shiftUndock,
     this.ended = false,
+    this.softEnd = false,
   });
 
   static const typeName = 'move_window';
@@ -1125,6 +1128,7 @@ final class MoveWindowCommand extends SessionCommand {
   final double top;
   final bool shiftUndock;
   final bool ended;
+  final bool softEnd;
 
   @override
   String get type => typeName;
@@ -1136,6 +1140,7 @@ final class MoveWindowCommand extends SessionCommand {
         'top': top,
         'shiftUndock': shiftUndock,
         'ended': ended,
+        'softEnd': softEnd,
       };
 
   factory MoveWindowCommand.fromPayload(Map<String, dynamic> json) {
@@ -1152,6 +1157,7 @@ final class MoveWindowCommand extends SessionCommand {
       top: top.toDouble(),
       shiftUndock: json['shiftUndock'] == true,
       ended: json['ended'] == true,
+      softEnd: json['softEnd'] == true,
     );
   }
 }

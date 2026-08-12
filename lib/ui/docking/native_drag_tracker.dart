@@ -2,10 +2,12 @@ import 'dart:async';
 
 /// End detection for OS `startDragging` gestures.
 ///
-/// Prefer [endedConfirmed] from `onWindowMoved`. A quiet timeout is only a
-/// last resort when WM_EXITSIZEMOVE is dropped — and must be long enough that
-/// brief pauses do not detach the dock cohort. If move events resume after a
-/// quiet finalize, [onMoveEvent] reports a resume so the host can reattach.
+/// Prefer [endedConfirmed] from `onWindowMoved` (Windows). On Linux the plugin
+/// never emits `moved`, so [onQuietFinalize] is the real gesture end — hosts
+/// should still snap / persist there. Keep the quiet delay long enough on
+/// Windows that brief pauses do not false-end; Linux uses a shorter delay.
+/// If move events resume after a quiet finalize, [onMoveEvent] reports a
+/// resume so the host can reattach.
 class NativeDragTracker {
   NativeDragTracker({
     this.quietFinalizeDelay = const Duration(milliseconds: 750),

@@ -99,6 +99,10 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   void initState() {
     super.initState();
     _mainNativeDrag = NativeDragTracker(
+      // Linux never emits onWindowMoved; quiet finalize is the real end.
+      quietFinalizeDelay: Platform.isLinux
+          ? const Duration(milliseconds: 180)
+          : const Duration(milliseconds: 750),
       onQuietFinalize: () {
         // Soft end: siblings only — do not fight the OS HWND if drag resumes.
         unawaited(
@@ -353,6 +357,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
           :final top,
           :final shiftUndock,
           :final ended,
+          :final softEnd,
         ):
         // Non-ended moves return immediately so IPC is not blocked on OS moves.
         final future = _handleDockMove(
@@ -360,6 +365,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
           Offset(left, top),
           shiftUndock: shiftUndock,
           ended: ended,
+          softEnd: softEnd,
         );
         if (ended) await future;
     }
@@ -446,18 +452,22 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       id,
       logicalTopLeft,
       shiftUndock: shiftUndock,
-      // Quiet soft-end must not snap; confirmed onWindowMoved still does.
-      snap: ended && !softEnd,
+      // Snap on every gesture end — including quiet softEnd. Linux
+      // window_manager never emits onWindowMoved, so softEnd is the only
+      // finalize path that can create dock edges for main-drag cohorts.
+      snap: ended,
     );
     _dockDragWindow = id;
 
     if (ended) {
       await _dockMoveCoalescer.flush(() async {
-        // Soft end: never setPosition the OS-owned HWND (drag may resume).
+        // Soft end on main: never fight the OS-owned HWND (drag may resume).
+        // Soft end on EQ/PL: must apply snap setPosition — Linux has no
+        // onWindowMoved, so this is how dock edges and HWNDs stay aligned.
         await _applyDockGroupFrames(
           id,
           positionOnly: softEnd,
-          skip: softEnd ? id : null,
+          skip: softEnd && id == WindowId.main ? id : null,
         );
       });
       _dockDragWindow = null;

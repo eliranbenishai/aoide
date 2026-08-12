@@ -91,6 +91,10 @@ class _SessionClientAppState extends State<SessionClientApp>
   void initState() {
     super.initState();
     _nativeDrag = NativeDragTracker(
+      // Linux never emits onWindowMoved; quiet finalize is the real end.
+      quietFinalizeDelay: Platform.isLinux
+          ? const Duration(milliseconds: 180)
+          : const Duration(milliseconds: 750),
       onQuietFinalize: () {
         unawaited(
           _nativeSyncCoalescer.flush(
@@ -458,8 +462,10 @@ class _SessionClientAppState extends State<SessionClientApp>
         left: logical.dx,
         top: logical.dy,
         shiftUndock: HardwareKeyboard.instance.isShiftPressed,
-        // Soft quiet-end: do not snap yet — drag may resume.
-        ended: ended && !softEnd,
+        // Linux never emits onWindowMoved — quiet softEnd is the real end and
+        // must still report ended so the host can snap / record dock edges.
+        ended: ended,
+        softEnd: softEnd,
       ),
     );
     if (ended) {

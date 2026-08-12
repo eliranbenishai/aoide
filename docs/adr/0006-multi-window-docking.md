@@ -37,7 +37,9 @@ behavior; see
   side of any other visible window. Playlist may snap only **top/bottom**; on
   that snap, also flush left or right if that edge is already within the snap
   threshold. Main never initiates snap. Thresholds live in the coordinator /
-  polish design.
+  polish design. On Linux, `window_manager` never emits `onWindowMoved`, so
+  quiet soft-end finalize must still snap (and apply the snapped frame) or
+  dock edges never form and main cannot carry satellites.
 - Undock via peel-on-EQ/PL-drag, break-threshold separation, and/or Shift.
 - **Zoom-only** sizing for main and EQ; **free resize** for playlist (logical
   size persisted, scaled by global zoom) — see [ADR 0002](0002-fixed-canvas-zoom.md).
