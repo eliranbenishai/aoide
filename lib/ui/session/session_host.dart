@@ -540,6 +540,13 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       ended: ended,
       softEnd: softEnd,
     );
+    if (ended) {
+      _mainLinuxDragPoll.stop();
+      // Linux soft-end is the real gesture end (no onWindowMoved).
+      if (softEnd && Platform.isLinux) {
+        _mainNativeDrag.endedConfirmed();
+      }
+    }
   }
 
   Future<void> _handleTransport(String action) async {

@@ -84,6 +84,8 @@ class _SessionClientAppState extends State<SessionClientApp>
   double _logicalTop = 0;
   bool _applyingFrame = false;
   bool _nativeDragging = false;
+  /// Ignore configure-event move echoes after host/OS setPosition (Linux).
+  DateTime? _suppressNativeMoveUntil;
   final DockMoveCoalescer _nativeSyncCoalescer = DockMoveCoalescer();
   Timer? _resizeDebounce;
   late final NativeDragTracker _nativeDrag;
@@ -314,9 +316,10 @@ class _SessionClientAppState extends State<SessionClientApp>
     _logicalTop = top / zoom;
 
     if (positionOnly) {
-      // During native drag the OS owns this HWND — never fight it with
-      // host setPosition echoes (host should skip us; this is a safeguard).
-      if (!_nativeDragging) {
+      // Only skip while THIS window's OS drag is active — not after soft-end
+      // or setPosition echoes that flip [_nativeDragging] without a real drag.
+      if (!_nativeDrag.isActive) {
+        _suppressNativeMoves();
         await windowManager.setPosition(Offset(left, top));
       }
       return;
@@ -344,6 +347,7 @@ class _SessionClientAppState extends State<SessionClientApp>
           pinSize: true,
         );
       }
+      _suppressNativeMoves();
       await windowManager.setPosition(Offset(left, top));
       await windowManager.setAlwaysOnTop(alwaysOnTop);
       if (visible) {
@@ -454,6 +458,11 @@ class _SessionClientAppState extends State<SessionClientApp>
     _linuxDragPoll.start();
   }
 
+  void _suppressNativeMoves() {
+    _suppressNativeMoveUntil =
+        DateTime.now().add(const Duration(milliseconds: 200));
+  }
+
   Future<void> _reportNativeDrag({
     required bool ended,
     bool softEnd = false,
@@ -481,11 +490,22 @@ class _SessionClientAppState extends State<SessionClientApp>
     );
     if (ended) {
       _nativeDragging = false;
+      _linuxDragPoll.stop();
+      // Linux soft-end is the real gesture end; clear softEnded so snap
+      // setPosition echoes cannot resume a phantom drag and peel edges.
+      if (softEnd && Platform.isLinux) {
+        _nativeDrag.endedConfirmed();
+        _suppressNativeMoves();
+      }
     }
   }
 
   @override
   void onWindowMove() {
+    final until = _suppressNativeMoveUntil;
+    if (until != null && DateTime.now().isBefore(until)) {
+      return;
+    }
     if (!_nativeDrag.onMoveEvent()) return;
     _nativeDragging = true;
     _nativeSyncCoalescer.schedule(() => _reportNativeDrag(ended: false));

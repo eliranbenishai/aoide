@@ -270,6 +270,48 @@ void main() {
       expect(c.layout.playlist.top, 500);
     });
 
+    test('sub-peelDelta move after snap does not sever dock edges', () {
+      final c = DockingCoordinator(DockLayout.defaults);
+      c.move(WindowId.equalizer, const Offset(2000, 2000), shiftUndock: true);
+      c.move(WindowId.playlist, const Offset(0, 348 - 10), shiftUndock: false);
+      expect(c.layout.dockEdges, isNotEmpty);
+
+      // Linux setPosition echo after snap finalize — must not peel.
+      c.move(
+        WindowId.playlist,
+        Offset(0, 348 + DockingCoordinator.peelDelta / 2),
+        shiftUndock: false,
+        snap: false,
+      );
+
+      expect(c.layout.dockEdges, isNotEmpty);
+      expect(c.groupOf(WindowId.main), contains(WindowId.playlist));
+      c.move(WindowId.main, const Offset(30, 0), shiftUndock: false);
+      expect(c.layout.playlist.left, 30);
+    });
+
+    test('peel then resnap restores main-drag carry', () {
+      final c = DockingCoordinator(DockLayout.defaults);
+      c.move(WindowId.equalizer, const Offset(2000, 2000), shiftUndock: true);
+      c.move(WindowId.playlist, const Offset(0, 348 - 10), shiftUndock: false);
+      expect(c.groupOf(WindowId.main), contains(WindowId.playlist));
+
+      c.move(
+        WindowId.playlist,
+        const Offset(40, 500),
+        shiftUndock: false,
+        snap: false,
+      );
+      expect(c.layout.dockEdges, isEmpty);
+
+      c.move(WindowId.playlist, const Offset(0, 348 - 10), shiftUndock: false);
+      expect(c.groupOf(WindowId.main), contains(WindowId.playlist));
+
+      c.move(WindowId.main, const Offset(60, 15), shiftUndock: false);
+      expect(c.layout.playlist.left, 60);
+      expect(c.layout.playlist.top, 348 + 15);
+    });
+
     test('moving main leaves far undocked satellites in place', () {
       final c = DockingCoordinator(DockLayout.defaults);
       // Defaults stack EQ/PL flush under main; park them far away.

@@ -26,6 +26,13 @@ class DockingCoordinator extends ChangeNotifier {
 
   static const double undockSeparation = 48.0;
 
+  /// Minimum logical drag distance before EQ/PL peel dock edges.
+  ///
+  /// Must stay above setPosition / configure-event jitter — Linux snap
+  /// finalize applies a frame that echoes a sub-pixel `move` with
+  /// `snap: false`, which used to clear edges and sever main-drag carry.
+  static const double peelDelta = 8.0;
+
   DockLayout _layout;
   DockLayout get layout => _layout;
 
@@ -46,11 +53,11 @@ class DockingCoordinator extends ChangeNotifier {
     var edges = List<DockEdge>.from(_layout.dockEdges);
     var shouldUndock = shiftUndock;
 
-    // EQ / playlist peel off dock edges as soon as the user drags them.
+    // EQ / playlist peel off dock edges once the user clearly drags them.
     // Main never peels — it translates its dock-edge cohort instead.
     if (!shouldUndock &&
         id != WindowId.main &&
-        delta.distanceSquared > 0.25 &&
+        delta.distanceSquared > peelDelta * peelDelta &&
         _hasEdge(id, edges)) {
       shouldUndock = true;
     }
