@@ -93,7 +93,7 @@ class MainFlutterWindow: NSWindow {
     let flutterViewController = FlutterViewController()
     let windowFrame = self.frame
     self.contentViewController = flutterViewController
-    self.setFrame(windowFrame, display: true)
+    self.setFrame(windowFrame, display: false)
 
     RegisterGeneratedPlugins(registry: flutterViewController)
 
@@ -104,5 +104,7 @@ class MainFlutterWindow: NSWindow {
     OsMediaControlsHandler.register(with: flutterViewController.engine.binaryMessenger)
 
     super.awakeFromNib()
+    // Dart shows the window after session chrome is ready.
+    self.orderOut(nil)
   }
 }

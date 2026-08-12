@@ -37,6 +37,7 @@ import 'minimize_group.dart';
 import 'session_bus.dart';
 import 'session_messages.dart';
 import 'session_quit.dart';
+import 'session_visibility.dart';
 import '../../look/look_controller.dart';
 import '../../theme/look_scope.dart';
 
@@ -88,6 +89,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   bool _settingsReady = false;
   bool _aboutReady = false;
   bool _bootstrapped = false;
+  /// OS mapping is delayed until chrome has painted (not merely bootstrapped).
+  bool _revealWindows = false;
   final MinimizeGroupCycle _minimizeGroup = MinimizeGroupCycle();
   final DockMoveCoalescer _dockMoveCoalescer = DockMoveCoalescer();
   final DockMoveCoalescer _nativeSyncCoalescer = DockMoveCoalescer();
@@ -209,6 +212,12 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     await _bus.bindHost(_onCommand);
     // Main close quits the process after tearing down secondary engines.
     await windowManager.setPreventClose(true);
+    // Stay unmapped until chrome is ready — native runners no longer show on
+    // first Flutter frame (that was the black "starting session…" rectangle).
+    try {
+      await windowManager.hide();
+      await windowManager.setSkipTaskbar(true);
+    } catch (_) {}
     await windowManager.setAsFrameless();
     // Let MockupShell rounded corners punch through to the desktop.
     await windowManager.setBackgroundColor(const Color(0x00000000));
@@ -239,6 +248,11 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     if (mounted) {
       setState(() => _bootstrapped = true);
     }
+    await WidgetsBinding.instance.endOfFrame;
+    await WidgetsBinding.instance.endOfFrame;
+    _revealWindows = true;
+    await _applyAllFrames();
+    await _applyAlwaysOnTop();
     if (trampAutoQuitRequested()) {
       unawaited(_autoQuitForHarness());
     }
@@ -780,7 +794,10 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       await windowManager.setPosition(rect.topLeft);
       return;
     }
-    final visible = _docking.layout.main.visible;
+    final visible = sessionWindowShouldShow(
+      sessionReady: _revealWindows,
+      layoutVisible: _docking.layout.main.visible,
+    );
     await resizeTrampWindow(
       size: rect.size,
       minimumSize: rect.size,
@@ -788,9 +805,13 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     );
     await windowManager.setPosition(rect.topLeft);
     await windowManager.setAlwaysOnTop(
-      effectiveAlwaysOnTop(alwaysOnTop: _alwaysOnTop, visible: visible),
+      effectiveAlwaysOnTop(
+        alwaysOnTop: _alwaysOnTop,
+        visible: visible,
+      ),
     );
     if (visible) {
+      await windowManager.setSkipTaskbar(false);
       await windowManager.show();
       await windowManager.focus();
     } else {
@@ -848,7 +869,11 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     final zoom = _zoomPercent / 100.0;
     final rect = _docking.frameFor(id, zoom);
     final visible = _docking.layout.frameOf(id).visible;
-    final show = visible && !_minimizeGroup.shouldSuppressShow(id);
+    final show = sessionWindowShouldShow(
+      sessionReady: _revealWindows,
+      layoutVisible: visible,
+      minimizeSuppressed: _minimizeGroup.shouldSuppressShow(id),
+    );
     try {
       await SessionBus.pushFrame(
         controller,
@@ -1347,18 +1372,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       home: ColoredBox(
         color: const Color(0x00000000),
         child: !_bootstrapped
-            ? ListenableBuilder(
-                listenable: _lookController,
-                builder: (context, _) => Center(
-                  child: Text(
-                    'starting session…',
-                    style: TextStyle(
-                      color: _lookController.resolved.palette.inkDim,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              )
+            ? const SizedBox.shrink()
             : ZoomedCanvas(
                 factor: zoom,
                 logicalSize: TrampMetrics.mainPlayer,

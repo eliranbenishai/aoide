@@ -15,11 +15,6 @@ struct _MyApplication {
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
-// Called when first Flutter frame received.
-static void first_frame_cb(MyApplication* self, FlView* view) {
-  gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
-}
-
 // Prefer the bundled Tramp logo over the generic Flutter/GTK icon in the
 // taskbar and alt-tab switcher. Paths are relative to the relocatable bundle.
 static void tramp_apply_window_icon(GtkWindow* window) {
@@ -88,6 +83,7 @@ static void my_application_activate(GApplication* application) {
   // Flutter template 1280×720 default — if Dart setSize is delayed or flakes
   // on Linux, that leaves a huge black FlView with chrome only in the corner.
   gtk_window_set_default_size(window, 619, 261);
+  gtk_widget_hide(GTK_WIDGET(window));
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
@@ -102,10 +98,8 @@ static void my_application_activate(GApplication* application) {
   gtk_widget_show(GTK_WIDGET(view));
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
 
-  // Show the window when Flutter renders.
-  // Requires the view to be realized so we can start rendering.
-  g_signal_connect_swapped(view, "first-frame", G_CALLBACK(first_frame_cb),
-                           self);
+  // Realize so Flutter can render into a hidden window. Dart shows the
+  // toplevel after session chrome is ready (do not map on first-frame).
   gtk_widget_realize(GTK_WIDGET(view));
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
