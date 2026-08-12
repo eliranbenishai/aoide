@@ -206,7 +206,48 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/icons/hicolor"
   COMPONENT Runtime)
 
 # Install the AOT library on non-Debug builds only.
+# Distrobox exposes the same tree as /run/media/... and /run/host/run/media/...;
+# Flutter may stamp one path while cmake_install still references the other, or
+# linux_aot_bundle may leave libapp.so missing while app.so exists under
+# .dart_tool/flutter_build. Resolve at install time.
 if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
-  install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
-    COMPONENT Runtime)
+  install(CODE "
+    set(_tramp_aot \"${AOT_LIBRARY}\")
+    if(NOT EXISTS \"\${_tramp_aot}\")
+      get_filename_component(_tramp_aot_alt
+        \"${CMAKE_CURRENT_SOURCE_DIR}/../build/lib/libapp.so\" ABSOLUTE)
+      if(EXISTS \"\${_tramp_aot_alt}\")
+        set(_tramp_aot \"\${_tramp_aot_alt}\")
+      endif()
+    endif()
+    if(NOT EXISTS \"\${_tramp_aot}\")
+      file(GLOB _tramp_app_sos
+        \"${CMAKE_CURRENT_SOURCE_DIR}/../.dart_tool/flutter_build/*/app.so\")
+      if(_tramp_app_sos)
+        list(SORT _tramp_app_sos)
+        list(REVERSE _tramp_app_sos)
+        list(GET _tramp_app_sos 0 _tramp_app_so)
+        get_filename_component(_tramp_aot_dir
+          \"${CMAKE_CURRENT_SOURCE_DIR}/../build/lib\" ABSOLUTE)
+        file(MAKE_DIRECTORY \"\${_tramp_aot_dir}\")
+        set(_tramp_aot \"\${_tramp_aot_dir}/libapp.so\")
+        execute_process(
+          COMMAND \"${CMAKE_COMMAND}\" -E copy
+            \"\${_tramp_app_so}\" \"\${_tramp_aot}\"
+          RESULT_VARIABLE _tramp_copy_rc)
+        if(NOT _tramp_copy_rc EQUAL 0 OR NOT EXISTS \"\${_tramp_aot}\")
+          message(FATAL_ERROR
+            \"Failed to seed libapp.so from \${_tramp_app_so}\")
+        endif()
+        message(STATUS \"Tramp: seeded libapp.so from \${_tramp_app_so}\")
+      endif()
+    endif()
+    if(NOT EXISTS \"\${_tramp_aot}\")
+      message(FATAL_ERROR
+        \"AOT library missing (tried ${AOT_LIBRARY} and build/lib/libapp.so). \"
+        \"From Distrobox, prefer: cd /run/media/.../tramp && flutter clean && \"
+        \"flutter run -d linux --release\")
+    endif()
+    file(INSTALL DESTINATION \"${INSTALL_BUNDLE_LIB_DIR}\" TYPE FILE FILES \"\${_tramp_aot}\")
+  " COMPONENT Runtime)
 endif()
