@@ -14,7 +14,6 @@ class MockupTitleBar extends StatelessWidget {
     super.key,
     required this.windowName,
     this.wordmarkSize = 24,
-    this.showVersion = true,
     this.showZoom = true,
     this.showBrand = true,
     this.onMinimize,
@@ -27,7 +26,6 @@ class MockupTitleBar extends StatelessWidget {
 
   final String windowName;
   final double wordmarkSize;
-  final bool showVersion;
   final bool showZoom;
 
   /// When false (EQ / playlist), omit logo + TRAMP wordmark — role title only.
@@ -94,10 +92,7 @@ class MockupTitleBar extends StatelessWidget {
                             if (showBrand) ...[
                               _TitleLogo(accent: palette.accentDefault),
                               const SizedBox(width: 12),
-                              _Wordmark(
-                                size: wordmarkSize,
-                                showVersion: showVersion,
-                              ),
+                              _Wordmark(size: wordmarkSize),
                               const SizedBox(width: 12),
                             ],
                             const Expanded(child: _Grip()),
@@ -252,59 +247,34 @@ class _TitleLogoInsetPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
+/// The TRAMP wordmark. No version rides along with it — the About window's
+/// readout is where the version belongs.
 class _Wordmark extends StatelessWidget {
-  const _Wordmark({required this.size, required this.showVersion});
+  const _Wordmark({required this.size});
 
   final double size;
-  final bool showVersion;
 
   @override
   Widget build(BuildContext context) {
     final look = LookScope.of(context);
     final palette = look.palette;
-    final phosphor = palette.phosphorDefault;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'TRAMP',
-          style: TextStyle(
-            fontFamily: look.chromeFamily,
-            fontWeight: FontWeight.w700,
-            fontSize: size,
-            height: 1,
-            letterSpacing: size * 0.2,
-            decoration: TextDecoration.none,
-            color: LookPaint.wordmark(palette),
-            shadows: [
-              Shadow(offset: const Offset(0, -1), color: LookPaint.hoverLiftTarget(palette).withValues(alpha: 0x4D / 255)),
-              const Shadow(offset: Offset(0, 1), color: Color(0xD9000000)),
-              // CSS `0 0 14px` phosphor — Skia blur reads hotter.
-              Shadow(color: phosphor.withValues(alpha: 0x4D / 255), blurRadius: 5),
-            ],
-          ),
-        ),
-        if (showVersion)
-          Padding(
-            padding: const EdgeInsets.only(left: 4, top: 2),
-            child: Text(
-              '1.0',
-              style: TextStyle(
-                fontFamily: look.chromeFamily,
-                fontWeight: FontWeight.w700,
-                fontSize: 11,
-                height: 1,
-                letterSpacing: 11 * 0.06,
-                decoration: TextDecoration.none,
-                color: phosphor.withValues(alpha: 0.85),
-                shadows: [
-                  Shadow(color: phosphor.withValues(alpha: 0x80 / 255), blurRadius: 8),
-                ],
-              ),
-            ),
-          ),
-      ],
+    return Text(
+      'TRAMP',
+      style: TextStyle(
+        fontFamily: look.chromeFamily,
+        fontWeight: FontWeight.w700,
+        fontSize: size,
+        height: 1,
+        letterSpacing: size * 0.2,
+        decoration: TextDecoration.none,
+        color: LookPaint.wordmark(palette),
+        shadows: [
+          Shadow(offset: const Offset(0, -1), color: LookPaint.hoverLiftTarget(palette).withValues(alpha: 0x4D / 255)),
+          const Shadow(offset: Offset(0, 1), color: Color(0xD9000000)),
+          // CSS `0 0 14px` phosphor — Skia blur reads hotter.
+          Shadow(color: palette.phosphorDefault.withValues(alpha: 0x4D / 255), blurRadius: 5),
+        ],
+      ),
     );
   }
 }
