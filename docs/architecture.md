@@ -112,7 +112,6 @@ OS windows stay unmapped until `SessionHostApp` has mounted chrome and one frame
 
 ## Known v1 gaps
 
-- **Playlist goldens are host-guarded** — the set is authored on Windows and the two-panel Playlist Manager invalidates it outright, so `mockup_playlist_golden_test.dart` skips off Windows. Regenerating it and dropping the guard is [ticket 14](../.scratch/playlist-manager/issues/14-regenerate-playlist-goldens.md).
 - **Mockup goldens** — side-by-side mockup fidelity / platform golden sets still hardening; docking + 2026-08-09 polish (button bevel, dock rules, EQ fill, compact titles, taskbar) are implemented — see [`2026-08-09-ui-polish-docking-taskbar-design.md`](superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md).
 - **Full libmpv on macOS/Linux** — Windows fetch + CMake load override are the verified path; macOS/Linux full-binary packaging and release smoke are not yet at the same bar ([ADR 0005](adr/0005-full-libmpv.md)).
 - **Linux MPRIS** — session D-Bus player not registered; in-app shortcuts/media keys when focused still work.
@@ -127,7 +126,7 @@ These cost real time and will bite again:
 - **No PNG graphite faces** — `GraphiteSkin` / `assets/skin/graphite/` removed; chrome is mockup code only.
 - **Panel stack / Material ancestor** — Flutter debug builds still expect a `Material` ancestor for text underlines where Material widgets remain.
 - **Tests that assert text must load Tramp fonts** (Condensed / Mono per mockup). Harness fallback faces have different metrics.
-- **Flutter goldens are platform-specific.** Prefer mockup screenshot diffs for chrome; CI on another OS needs its own golden set or tolerance-based comparison.
+- **Flutter goldens are platform-specific, and the reference platform is Linux.** The whole set is baselined on the Linux development host; Windows is only used to test builds in a VM. A golden that fails there is font rasterisation until proven otherwise, and must not be rebaselined on that host — that is what left the chrome and main-player references stale (and still carrying a removed `1.0` version pill) through the whole Playlist Manager overhaul. Regenerate with `flutter test --update-goldens <file>` on Linux, and read the new image before committing it: a reference nobody looked at is a defect with a checkmark. CI on another OS needs its own set or tolerance-based comparison. The set is 17: 7 chrome + 2 main player + 2 equalizer + 5 playlist + 1 about; `test/**/failures/` mismatch dumps are gitignored.
 
 ## Stack
 

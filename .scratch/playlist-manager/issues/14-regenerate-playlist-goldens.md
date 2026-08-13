@@ -1,30 +1,54 @@
-# 14 — Regenerate the playlist goldens on Windows
+# 14 — Regenerate the playlist goldens on Linux
 
 **What to build:** Bring the golden set back in line with the shipped Playlist
 Manager, and remove the host guard added in ticket 02.
 
-This repo's golden set is authored on Windows. Rebaselining on Linux would fold host
-font rasterisation into the references, which is why the playlist goldens were guarded
-rather than regenerated while the overhaul was in progress.
-
-**This ticket needs a Windows host.** It cannot be completed by an agent on the Linux
-development machine, which is why it is marked for a human rather than for an agent.
+This ticket was written expecting a Windows host, because the golden set was authored
+there and rebaselining on Linux would have folded a second host's font rasterisation
+into the references. That premise is gone: Linux is now the only development machine,
+and Windows is used to test builds in a VM and nothing else. Linux is therefore the
+reference platform, which unblocks this ticket on the machine it sits on.
 
 **Blocked by:** 02, 03, 05, 08, 09, 10, 11
 
-**Status:** ready-for-human
+**Status:** done
 
-- [ ] Playlist goldens regenerated on Windows against the finished Playlist Manager
-- [ ] Both the expanded two-panel window and the windowshade state are covered
-- [ ] A collection with entries, an empty collection, and a disabled entry are each covered by a golden or an explicit note saying why not
-- [ ] The host guard from ticket 02 is removed
-- [ ] The full suite passes on Windows with no golden failures
-- [ ] Any remaining Linux-side failures are confirmed to be font rasterisation only, and that expectation is recorded
+- [x] Playlist goldens regenerated on Linux against the finished Playlist Manager
+- [x] Both the expanded two-panel window and the windowshade state are covered
+- [x] A collection with entries, an empty collection, and a disabled entry are each covered by a golden or an explicit note saying why not
+- [x] The host guard from ticket 02 is removed
+- [x] The full suite passes on Linux with no golden failures
+- [x] The reference platform is recorded, so a future Windows-side failure reads as rasterisation rather than as a defect
 
 ## Comments
 
 Tickets 01–13 are all done; this is the only one left, and it is blocked on hardware
 rather than on work.
+
+### Done — Linux is the reference platform
+
+The blocker dissolved rather than being cleared: development is Linux-only now, so the
+goldens were rebaselined here and the guard is gone. The suite is green with **no**
+skips for the first time — 675 passing.
+
+Five playlist goldens, one per rendering the ticket asked for:
+`playlist_window` (two panels, three collection rows, the loaded one lit),
+`playlist_window_shade`, `playlist_window_empty_collection` (`NO SAVED PLAYLISTS`),
+`playlist_window_disabled_entry` (missing-mark and dimmed contents, figures intact),
+and `playlist_window_collection_collapsed` (reopen tab only, window rendering as one).
+The test now pumps at `TrampMetrics.playlistDefault` (1073×696) rather than the old
+825×696, through one shared `pumpGolden` helper so the states differ only by the
+collection props they pass.
+
+The six stale chrome and main-player goldens were rebaselined on the same pass, which
+also cleared the `1.0` version pill this ticket noted they still carried. The About
+golden was regenerated for a separate reason — the copyright line now reads
+`© 2026 Free Forever` from the new `trampFreePromise`, so the plate no longer repeats
+the company name set above it in chrome type. The trap this ticket flagged still
+holds: `about_window_golden_test.dart` continues to pass `AboutStats.placeholder`
+explicitly, so the well is not a well of zeros.
+
+Still not run: `tool/measure_quit_latency.sh`, as noted below.
 
 ### What the playlist goldens should now show
 

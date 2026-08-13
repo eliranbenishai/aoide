@@ -1,15 +1,17 @@
-// Golden: mockup-faithful playlist at 100% (825×696) + shade.
+// Goldens: the two-panel Playlist Manager at 100% (1073×696), its windowshade,
+// and the three collection states that each render differently — an empty
+// collection, a disabled entry, and a collapsed panel.
 @Tags(['golden'])
 library;
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tramp/domain/saved_playlist.dart';
 import 'package:tramp/domain/track.dart';
 import 'package:tramp/playlist/playlist_controller.dart';
 import 'package:tramp/playlist/playlist_store.dart';
 import 'package:tramp/theme/mockup_tokens.dart';
+import 'package:tramp/theme/tramp_metrics.dart';
 import 'package:tramp/ui/chrome/mockup/mockup_shell.dart';
 import 'package:tramp/ui/windows/playlist_window.dart';
 
@@ -113,11 +115,27 @@ PlaylistController _mockupPlaylist() {
   return c;
 }
 
-/// This golden set is authored on Windows. On any other host the images differ
-/// on font rasterisation alone, so they fail without telling anyone anything —
-/// and a permanently red suite is a suite nobody reads. Ticket 14 regenerates
-/// them on Windows against the two-panel Playlist Manager and drops this guard.
-final _goldensAuthoredHere = Platform.isWindows;
+/// A collection the panel can paint rows for: an override name, a filename-only
+/// entry, and figures that exercise the count and duration columns.
+List<SavedPlaylist> _collection() => [
+      SavedPlaylist(
+        path: '/music/lists/copper rain — night set.m3u8',
+        name: 'Copper Rain EP',
+        trackCount: 13,
+        totalDuration: const Duration(minutes: 55, seconds: 34),
+      ),
+      SavedPlaylist(
+        path: '/music/lists/analogue ghosts.m3u',
+        trackCount: 24,
+        totalDuration: const Duration(hours: 1, minutes: 47),
+      ),
+      SavedPlaylist(
+        path: '/music/lists/nightbus.m3u',
+        name: 'Nightbus Choir — Live',
+        trackCount: 8,
+        totalDuration: const Duration(minutes: 38, seconds: 12),
+      ),
+    ];
 
 void main() {
   setUpAll(() async {
@@ -125,8 +143,20 @@ void main() {
     await MockupShell.ensureNoiseReady();
   });
 
-  testWidgets('playlist window matches mockup layout at 100%', (tester) async {
-    const size = Size(825, 696);
+  /// Pumps the window at [size] and matches [goldenName].
+  ///
+  /// Every golden here is the same window under a different collection state,
+  /// so the shell, the fixture playlist, and the surface handling live once.
+  Future<void> pumpGolden(
+    WidgetTester tester, {
+    required Size size,
+    required String goldenName,
+    bool shaded = false,
+    List<SavedPlaylist> collection = const [],
+    String? selectedCollectionPath,
+    Set<String> disabledCollectionPaths = const {},
+    bool collectionCollapsed = false,
+  }) async {
     await tester.binding.setSurfaceSize(size);
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -140,10 +170,18 @@ void main() {
             child: wrapWithLook(
               PlaylistWindow(
                 playlist: _mockupPlaylist(),
-                playingIndex: 2,
-                // Mockup transport shows Play (not Pause); row 3 still uses play style.
+                size: size,
+                shaded: shaded,
+                playingIndex: shaded ? null : 2,
+                // Mockup transport shows Play (not Pause); row 3 still uses
+                // play style.
                 playing: false,
+                collection: collection,
+                selectedCollectionPath: selectedCollectionPath,
+                disabledCollectionPaths: disabledCollectionPaths,
+                collectionCollapsed: collectionCollapsed,
                 draggableTitle: false,
+                showResizeGrip: false,
               ),
             ),
           ),
@@ -154,38 +192,62 @@ void main() {
 
     await expectLater(
       find.byType(PlaylistWindow),
-      matchesGoldenFile('goldens/playlist_window.png'),
+      matchesGoldenFile('goldens/$goldenName'),
     );
-  }, skip: !_goldensAuthoredHere);
+  }
+
+  testWidgets('playlist window matches mockup layout at 100%', (tester) async {
+    final collection = _collection();
+    await pumpGolden(
+      tester,
+      size: TrampMetrics.playlistDefault,
+      goldenName: 'playlist_window.png',
+      collection: collection,
+      selectedCollectionPath: collection.first.path,
+    );
+  });
 
   testWidgets('playlist shade matches title-bar chrome', (tester) async {
-    const size = Size(825, 42);
-    await tester.binding.setSurfaceSize(size);
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    await tester.pumpWidget(
-      MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: Align(
-          alignment: Alignment.topLeft,
-          child: ColoredBox(
-            color: MockupTokens.shellDeep,
-            child: wrapWithLook(
-              PlaylistWindow(
-                playlist: _mockupPlaylist(),
-                shaded: true,
-                draggableTitle: false,
-              ),
-            ),
-          ),
-        ),
-      ),
+    await pumpGolden(
+      tester,
+      size: Size(TrampMetrics.playlistDefault.width, TrampMetrics.titleBar),
+      goldenName: 'playlist_window_shade.png',
+      shaded: true,
     );
-    await tester.pumpAndSettle();
+  });
 
-    await expectLater(
-      find.byType(PlaylistWindow),
-      matchesGoldenFile('goldens/playlist_window_shade.png'),
+  testWidgets('an empty collection reads as empty, not as broken',
+      (tester) async {
+    await pumpGolden(
+      tester,
+      size: TrampMetrics.playlistDefault,
+      goldenName: 'playlist_window_empty_collection.png',
     );
-  }, skip: !_goldensAuthoredHere);
+  });
+
+  testWidgets('a disabled entry keeps its figures and reads unavailable',
+      (tester) async {
+    final collection = _collection();
+    await pumpGolden(
+      tester,
+      size: TrampMetrics.playlistDefault,
+      goldenName: 'playlist_window_disabled_entry.png',
+      collection: collection,
+      selectedCollectionPath: collection.first.path,
+      disabledCollectionPaths: {collection[1].path},
+    );
+  });
+
+  testWidgets('a collapsed panel leaves the window rendering as one',
+      (tester) async {
+    final collection = _collection();
+    await pumpGolden(
+      tester,
+      size: TrampMetrics.playlistDefault,
+      goldenName: 'playlist_window_collection_collapsed.png',
+      collection: collection,
+      selectedCollectionPath: collection.first.path,
+      collectionCollapsed: true,
+    );
+  });
 }
