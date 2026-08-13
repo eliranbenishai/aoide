@@ -719,8 +719,12 @@ sealed class SessionCommand {
         return RemoveSavedPlaylistCommand.fromPayload(payload);
       case SelectSavedPlaylistCommand.typeName:
         return SelectSavedPlaylistCommand.fromPayload(payload);
+      case RenameSavedPlaylistCommand.typeName:
+        return RenameSavedPlaylistCommand.fromPayload(payload);
       case CreatePlaylistFromCurrentCommand.typeName:
         return CreatePlaylistFromCurrentCommand.fromPayload(payload);
+      case CreatePlaylistFromSelectionCommand.typeName:
+        return CreatePlaylistFromSelectionCommand.fromPayload(payload);
       case LoadSavedPlaylistCommand.typeName:
         return LoadSavedPlaylistCommand.fromPayload(payload);
       case MoveWindowCommand.typeName:
@@ -1152,6 +1156,7 @@ final class PlaylistOpCommand extends SessionCommand {
   const PlaylistOpCommand(
     this.op, {
     this.index,
+    this.toIndex,
     this.path,
     this.paths,
     this.sortKey,
@@ -1161,13 +1166,18 @@ final class PlaylistOpCommand extends SessionCommand {
 
   /// Ops: playIndex, select, selectRange, toggleSelect, removeSelected, clear,
   /// selectAll, invertSelection, addPaths, openPlaylist, savePlaylist, sort,
-  /// reverse.
+  /// reverse, move.
   ///
   /// `selectRange` and `toggleSelect` carry the row the listener clicked, not
   /// the resulting selection: the host works it out from the same anchor the
   /// window did, so a snapshot in flight cannot make the two disagree.
   final String op;
   final int? index;
+
+  /// Where a `move` drops the row [index] was picked up from, in
+  /// insert-before terms — the convention `PlaylistController.move` and
+  /// Flutter's own reorderable list both speak, so nothing has to translate.
+  final int? toIndex;
   final String? path;
   final List<String>? paths;
   final String? sortKey;
@@ -1179,6 +1189,7 @@ final class PlaylistOpCommand extends SessionCommand {
   Map<String, dynamic> toJson() => {
         'op': op,
         'index': index,
+        'toIndex': toIndex,
         'path': path,
         'paths': paths,
         'sortKey': sortKey,
@@ -1200,6 +1211,7 @@ final class PlaylistOpCommand extends SessionCommand {
     return PlaylistOpCommand(
       op,
       index: (json['index'] as num?)?.toInt(),
+      toIndex: (json['toIndex'] as num?)?.toInt(),
       path: json['path'] as String?,
       paths: paths,
       sortKey: json['sortKey'] as String?,
@@ -1345,6 +1357,39 @@ final class SelectSavedPlaylistCommand extends SessionCommand {
   }
 }
 
+/// Retitle a **saved playlist** to [name], or back to its filename when [name]
+/// is null or blank.
+///
+/// Carries the entry's path because a path *is* an entry's identity — two rows
+/// may read the same name without either being the other. The playlist file
+/// itself is never renamed: see
+/// `docs/adr/0008-playlist-collection-stores-references.md`.
+final class RenameSavedPlaylistCommand extends SessionCommand {
+  const RenameSavedPlaylistCommand(this.path, this.name);
+
+  static const typeName = 'rename_saved_playlist';
+
+  final String path;
+
+  /// Null means "read the filename again" — the row must never go blank.
+  final String? name;
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {'path': path, 'name': name};
+
+  factory RenameSavedPlaylistCommand.fromPayload(Map<String, dynamic> json) {
+    final path = json['path'];
+    if (path is! String || path.isEmpty) {
+      throw const FormatException('RenameSavedPlaylistCommand.path');
+    }
+    final name = json['name'];
+    return RenameSavedPlaylistCommand(path, name is String ? name : null);
+  }
+}
+
 /// Make a **saved playlist** out of every track in the current playlist, at the
 /// path the listener chose in the save dialog.
 ///
@@ -1375,6 +1420,43 @@ final class CreatePlaylistFromCurrentCommand extends SessionCommand {
       throw const FormatException('CreatePlaylistFromCurrentCommand.path');
     }
     return CreatePlaylistFromCurrentCommand(path);
+  }
+}
+
+/// Make a **saved playlist** out of only the tracks the listener has selected,
+/// at the path they chose in the save dialog.
+///
+/// A sibling of [CreatePlaylistFromCurrentCommand] rather than a flag on it,
+/// because the two differ in the one thing that matters: only *some* of the
+/// current tracks are being written here, so the rest are still unsaved. The
+/// current playlist keeps its tracks, its origin, and its **altered state**,
+/// and nothing is loaded or navigated to — the host never reaches
+/// `PlaylistController` at all, which is what makes that guarantee structural
+/// rather than a branch someone has to remember.
+///
+/// The selection is not carried: the host holds the same selection this window
+/// is painting, and reads it at the moment the command lands.
+final class CreatePlaylistFromSelectionCommand extends SessionCommand {
+  const CreatePlaylistFromSelectionCommand(this.path);
+
+  static const typeName = 'create_playlist_from_selection';
+
+  final String path;
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {'path': path};
+
+  factory CreatePlaylistFromSelectionCommand.fromPayload(
+    Map<String, dynamic> json,
+  ) {
+    final path = json['path'];
+    if (path is! String || path.isEmpty) {
+      throw const FormatException('CreatePlaylistFromSelectionCommand.path');
+    }
+    return CreatePlaylistFromSelectionCommand(path);
   }
 }
 

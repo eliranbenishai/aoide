@@ -475,8 +475,12 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         await _collection.remove(path);
       case SelectSavedPlaylistCommand(:final path):
         _collection.select(path);
+      case RenameSavedPlaylistCommand(:final path, :final name):
+        await _collection.rename(path, name);
       case CreatePlaylistFromCurrentCommand(:final path):
         await _handleCreatePlaylistFromCurrent(path);
+      case CreatePlaylistFromSelectionCommand(:final path):
+        await _handleCreatePlaylistFromSelection(path);
       case LoadSavedPlaylistCommand(:final path):
         await _handleLoadSavedPlaylist(path);
       case MoveWindowCommand(
@@ -734,6 +738,10 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         if (key != null) _playlist.sortBy(key);
       case 'reverse':
         _playlist.reverseTracks();
+      case 'move':
+        final from = command.index;
+        final to = command.toIndex;
+        if (from != null && to != null) _playlist.move(from, to);
     }
   }
 
@@ -772,6 +780,27 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     if (_playlist.playlist.tracks.isEmpty) return;
     await _playlist.savePlaylistFile(path);
     await _collection.addWritten(path);
+  }
+
+  /// Pulls the selected tracks out into a **saved playlist** at [path].
+  ///
+  /// Deliberately the whole handler: the collection module writes the file and
+  /// keeps the reference, and [_playlist] is only *read*. Nothing here can
+  /// change the current playlist's tracks, its origin, or its altered state,
+  /// which is the difference between this and create-from-current — the rest of
+  /// the current playlist is still unsaved, so it must stay protected.
+  ///
+  /// Nothing is loaded either. The new entry is highlighted by `addWritten` and
+  /// the listener stays exactly where they were.
+  Future<void> _handleCreatePlaylistFromSelection(String path) async {
+    // No selection, nothing to pull out. The window's control is already
+    // disabled; this is the same answer from the host.
+    if (_playlist.selectedIndices.isEmpty) return;
+    await _collection.createFromSelection(
+      path,
+      _playlist.playlist.tracks,
+      _playlist.selectedIndices,
+    );
   }
 
   Future<void> _handlePlaylistResize(double width, double height) async {

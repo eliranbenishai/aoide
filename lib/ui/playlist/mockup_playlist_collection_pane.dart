@@ -7,6 +7,7 @@ import '../../theme/tramp_metrics.dart';
 import '../chrome/mockup/mockup_button.dart';
 import '../chrome/mockup/mockup_hover.dart';
 import '../chrome/mockup/mockup_icons.dart';
+import '../chrome/mockup/mockup_popup_menu.dart';
 import '../chrome/mockup/mockup_screen.dart';
 
 /// The playlist collection half of the Playlist Manager body: the playlists the
@@ -14,7 +15,7 @@ import '../chrome/mockup/mockup_screen.dart';
 ///
 /// Rows are references to files where the listener put them — selecting one
 /// loads it, and removing one only ever drops the reference.
-class MockupPlaylistCollectionPane extends StatelessWidget {
+class MockupPlaylistCollectionPane extends StatefulWidget {
   const MockupPlaylistCollectionPane({
     super.key,
     this.playlists = const [],
@@ -23,7 +24,9 @@ class MockupPlaylistCollectionPane extends StatelessWidget {
     this.onCollapse,
     this.onSelect,
     this.onAdd,
-    this.onCreate,
+    this.onCreateFromCurrent,
+    this.onCreateFromSelection,
+    this.onRename,
     this.onRemove,
   });
 
@@ -55,20 +58,104 @@ class MockupPlaylistCollectionPane extends StatelessWidget {
   final ValueChanged<SavedPlaylist>? onSelect;
   final VoidCallback? onAdd;
 
-  /// Makes a new saved playlist out of the current playlist's tracks. Null
-  /// disables the control — which is how an empty current playlist is refused,
-  /// since there is nothing there to keep.
-  final VoidCallback? onCreate;
+  /// Makes a new saved playlist out of **every** track in the current playlist.
+  /// Null greys the menu item — which is how an empty current playlist is
+  /// refused, since there is nothing there to keep.
+  final VoidCallback? onCreateFromCurrent;
+
+  /// Makes a new saved playlist out of only the **selected** tracks, leaving
+  /// the current playlist and its altered state alone. Null greys the menu
+  /// item, which is what no selection looks like.
+  final VoidCallback? onCreateFromSelection;
+
+  /// Retitles the entry passed back — the selected one, like [onRemove]. The
+  /// playlist file's own name is never involved.
+  final ValueChanged<SavedPlaylist>? onRename;
 
   /// Removes the entry passed back — the selected one, matching how the
   /// footer's track remove acts on the track selection.
   final ValueChanged<SavedPlaylist>? onRemove;
 
+  @override
+  State<MockupPlaylistCollectionPane> createState() =>
+      _MockupPlaylistCollectionPaneState();
+}
+
+class _MockupPlaylistCollectionPaneState
+    extends State<MockupPlaylistCollectionPane> {
+  bool _createMenuOpen = false;
+
   SavedPlaylist? get _selected {
-    for (final entry in playlists) {
-      if (entry.path == selectedPath) return entry;
+    for (final entry in widget.playlists) {
+      if (entry.path == widget.selectedPath) return entry;
     }
     return null;
+  }
+
+  /// The two ways to make a playlist, folded into one control.
+  ///
+  /// They are the same verb with two different objects, and five equal-weight
+  /// glyphs do not fit the narrowest panel this window allows — the strip has
+  /// room for four. A menu also lets each half say *why* it is unavailable in
+  /// words, which a greyed icon cannot: an empty current playlist and an empty
+  /// selection are different refusals.
+  Future<void> _openCreateMenu(BuildContext context) async {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    // Capture styles — popup routes sit above the local LookScope in tests.
+    final look = LookScope.of(context);
+    TextStyle labelStyle({required bool enabled}) => TextStyle(
+          color: enabled
+              ? look.palette.inkDefault
+              : look.palette.inkDefault.withValues(
+                  alpha: MockupHoverTokens.disabledOpacity,
+                ),
+          fontFamily: look.chromeFamily,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+          letterSpacing: 12 * 0.1,
+        );
+    final fromCurrent = widget.onCreateFromCurrent;
+    final fromSelection = widget.onCreateFromSelection;
+
+    setState(() => _createMenuOpen = true);
+    String? chosen;
+    try {
+      chosen = await showMockupMenu<String>(
+        context: context,
+        anchor: box,
+        placement: MockupMenuPlacement.above,
+        color: look.palette.shellMid,
+        items: [
+          PopupMenuItem(
+            value: 'current',
+            enabled: fromCurrent != null,
+            child: Text(
+              'From current playlist',
+              key: const Key('pl-create-from-current'),
+              style: labelStyle(enabled: fromCurrent != null),
+            ),
+          ),
+          PopupMenuItem(
+            value: 'selection',
+            enabled: fromSelection != null,
+            child: Text(
+              'From selected tracks',
+              key: const Key('pl-create-from-selection'),
+              style: labelStyle(enabled: fromSelection != null),
+            ),
+          ),
+        ],
+      );
+    } finally {
+      if (mounted) setState(() => _createMenuOpen = false);
+    }
+    switch (chosen) {
+      case 'current':
+        fromCurrent?.call();
+      case 'selection':
+        fromSelection?.call();
+    }
   }
 
   @override
@@ -76,8 +163,10 @@ class MockupPlaylistCollectionPane extends StatelessWidget {
     final look = LookScope.of(context);
     final palette = look.palette;
     final selected = _selected;
-    final rows = List<SavedPlaylist>.of(playlists)
+    final rows = List<SavedPlaylist>.of(widget.playlists)
       ..sort(SavedPlaylist.compareByDisplayName);
+    final canCreate = widget.onCreateFromCurrent != null ||
+        widget.onCreateFromSelection != null;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 6, 12),
@@ -106,7 +195,7 @@ class MockupPlaylistCollectionPane extends StatelessWidget {
                 width: 24,
                 height: 20,
                 semanticLabel: 'Collapse playlist collection',
-                onPressed: onCollapse,
+                onPressed: widget.onCollapse,
                 child: PlaylistCollectionChevron(
                   pointsLeft: true,
                   color: MockupIcons.inkOf(context),
@@ -118,22 +207,26 @@ class MockupPlaylistCollectionPane extends StatelessWidget {
           Expanded(
             child: MockupScreen(
               child: rows.isEmpty
-                  ? _EmptyCollection(emptyKey: emptyKey)
+                  ? _EmptyCollection(
+                      emptyKey: MockupPlaylistCollectionPane.emptyKey,
+                    )
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       itemCount: rows.length,
-                      itemExtent: rowHeight,
+                      itemExtent: MockupPlaylistCollectionPane.rowHeight,
                       itemBuilder: (context, index) {
                         final entry = rows[index];
+                        final onSelect = widget.onSelect;
                         return _CollectionRow(
                           key: Key('pl-collection-row-$index'),
                           entry: entry,
-                          selected: entry.path == selectedPath,
-                          disabled: disabledPaths.contains(entry.path),
-                          missingKey: missingKeyFor(index),
-                          onTap: onSelect == null
-                              ? null
-                              : () => onSelect!(entry),
+                          selected: entry.path == widget.selectedPath,
+                          disabled:
+                              widget.disabledPaths.contains(entry.path),
+                          missingKey:
+                              MockupPlaylistCollectionPane.missingKeyFor(index),
+                          onTap:
+                              onSelect == null ? null : () => onSelect(entry),
                         );
                       },
                     ),
@@ -150,20 +243,37 @@ class MockupPlaylistCollectionPane extends StatelessWidget {
                 width: 30,
                 height: 24,
                 semanticLabel: 'Add playlist to collection',
-                onPressed: onAdd,
+                onPressed: widget.onAdd,
                 child: MockupIcons.add(
                   size: 13,
                   color: MockupIcons.inkOf(context),
                 ),
               ),
               const SizedBox(width: 6),
+              Builder(
+                builder: (ctx) => MockupButton(
+                  key: const Key('pl-collection-create'),
+                  width: 30,
+                  height: 24,
+                  menu: true,
+                  on: _createMenuOpen,
+                  semanticLabel: 'Create playlist',
+                  onPressed: canCreate ? () => _openCreateMenu(ctx) : null,
+                  child: PlaylistCollectionCreateMark(
+                    color: MockupIcons.inkOf(context),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
               MockupButton(
-                key: const Key('pl-collection-create'),
+                key: const Key('pl-collection-rename'),
                 width: 30,
                 height: 24,
-                semanticLabel: 'Create playlist from current playlist',
-                onPressed: onCreate,
-                child: PlaylistCollectionCreateMark(
+                semanticLabel: 'Rename playlist',
+                onPressed: selected == null || widget.onRename == null
+                    ? null
+                    : () => widget.onRename!(selected),
+                child: PlaylistCollectionRenameMark(
                   color: MockupIcons.inkOf(context),
                 ),
               ),
@@ -173,9 +283,9 @@ class MockupPlaylistCollectionPane extends StatelessWidget {
                 width: 30,
                 height: 24,
                 semanticLabel: 'Remove playlist from collection',
-                onPressed: selected == null || onRemove == null
+                onPressed: selected == null || widget.onRemove == null
                     ? null
-                    : () => onRemove!(selected),
+                    : () => widget.onRemove!(selected),
                 child: MockupIcons.remove(
                   size: 13,
                   color: MockupIcons.inkOf(context),
@@ -449,6 +559,61 @@ class _CreateMarkPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _CreateMarkPainter oldDelegate) =>
+      color != oldDelegate.color;
+}
+
+/// The mark on the panel's rename control: a nib on a shaft over a baseline —
+/// writing on the row, not on the file.
+///
+/// Stroked in the same idiom as [PlaylistCollectionChevron], and drawn here for
+/// the same reason [PlaylistCollectionCreateMark] is: the mockup's icon set has
+/// no glyph for an action the window did not used to have.
+class PlaylistCollectionRenameMark extends StatelessWidget {
+  const PlaylistCollectionRenameMark({
+    super.key,
+    required this.color,
+    this.size = 12,
+  });
+
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size.square(size),
+      painter: _RenameMarkPainter(color: color),
+    );
+  }
+}
+
+class _RenameMarkPainter extends CustomPainter {
+  const _RenameMarkPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = color;
+    final w = size.width;
+    final h = size.height;
+    void stroke(Offset from, Offset to) => canvas.drawLine(from, to, paint);
+    // Shaft, running bottom-left to top-right…
+    stroke(Offset(w * 0.2, h * 0.68), Offset(w * 0.84, h * 0.06));
+    // …its nib, closed off across the low end…
+    stroke(Offset(w * 0.2, h * 0.68), Offset(w * 0.36, h * 0.8));
+    stroke(Offset(w * 0.36, h * 0.8), Offset(w * 0.86, h * 0.28));
+    // …and the line being written on.
+    stroke(Offset(w * 0.06, h * 0.96), Offset(w * 0.94, h * 0.96));
+  }
+
+  @override
+  bool shouldRepaint(covariant _RenameMarkPainter oldDelegate) =>
       color != oldDelegate.color;
 }
 

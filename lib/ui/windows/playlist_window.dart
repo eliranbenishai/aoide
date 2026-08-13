@@ -15,6 +15,7 @@ import '../docking/dock_drag_area.dart';
 import '../playlist/altered_playlist_dialog.dart';
 import '../playlist/mockup_playlist.dart';
 import '../playlist/mockup_playlist_collection_pane.dart';
+import '../playlist/rename_playlist_dialog.dart';
 import '../session/session_messages.dart';
 
 /// Full Playlist Manager window: mockup shell + title bar + two-panel body —
@@ -238,6 +239,42 @@ class _PlaylistWindowState extends State<PlaylistWindow> {
     _emit(CreatePlaylistFromCurrentCommand(path));
   }
 
+  /// Pulls the selected tracks out into a playlist of their own.
+  ///
+  /// Deliberately **not** the same action as create-from-current. Only some of
+  /// the current tracks are being kept, so the rest are still unsaved: the
+  /// current playlist's tracks, its origin, and its altered state all stay
+  /// exactly as they are, and nothing is loaded. Navigating would either
+  /// discard the current playlist or raise the very prompt that avoids — so
+  /// this creates the entry, the host highlights it, and the listener does not
+  /// move.
+  ///
+  /// Cancelling the save dialog changes nothing at all: no command leaves the
+  /// window, so there is no file and no entry.
+  ///
+  /// An **empty selection** never reaches here — the menu item that calls this
+  /// is greyed while there is nothing selected to pull out.
+  Future<void> _createPlaylistFromSelectedTracks() async {
+    final path = await widget.pickSavePlaylistPath?.call();
+    if (!mounted || path == null || path.isEmpty) return;
+    _emit(CreatePlaylistFromSelectionCommand(path));
+  }
+
+  /// Retitles a saved playlist to whatever the listener types, or back to its
+  /// filename when they clear the field.
+  ///
+  /// The name lives in Tramp's index and nowhere else: the playlist file keeps
+  /// the name the listener gave it in their own file manager. Backing out of
+  /// the dialog emits nothing.
+  Future<void> _renameSavedPlaylist(SavedPlaylist entry) async {
+    final name = await showRenamePlaylistDialog(
+      context,
+      currentName: entry.displayName,
+    );
+    if (!mounted || name == null) return;
+    _emit(RenameSavedPlaylistCommand(entry.path, name));
+  }
+
   /// Writes the whole current playlist to the file that becomes its origin:
   /// straight to the origin it already has, or wherever the save dialog says.
   ///
@@ -343,7 +380,8 @@ class _PlaylistWindowState extends State<PlaylistWindow> {
           SizedBox(
             width: _renderedCollectionWidth,
             // Listens to the current playlist as well as the collection: the
-            // create control has to go dead the moment the last track leaves,
+            // create control has to go dead the moment the last track leaves —
+            // and its from-selection half the moment the selection empties —
             // not when the host's next snapshot says so.
             child: ListenableBuilder(
               listenable: widget.playlist,
@@ -354,9 +392,14 @@ class _PlaylistWindowState extends State<PlaylistWindow> {
                 onCollapse: () => _setCollapsed(true),
                 onSelect: (entry) => unawaited(_selectSavedPlaylist(entry)),
                 onAdd: widget.onAddSavedPlaylist,
-                onCreate: widget.playlist.playlist.tracks.isEmpty
+                onCreateFromCurrent: widget.playlist.playlist.tracks.isEmpty
                     ? null
                     : () => unawaited(_createPlaylistFromCurrentTracks()),
+                onCreateFromSelection:
+                    widget.playlist.selectedIndices.isEmpty
+                        ? null
+                        : () => unawaited(_createPlaylistFromSelectedTracks()),
+                onRename: (entry) => unawaited(_renameSavedPlaylist(entry)),
                 onRemove: (entry) =>
                     _emit(RemoveSavedPlaylistCommand(entry.path)),
               ),

@@ -222,6 +222,10 @@ void main() {
         // works the range out from the anchor it already shares.
         const PlaylistOpCommand('selectRange', index: 4),
         const PlaylistOpCommand('toggleSelect', index: 0),
+        // A reorder carries both ends, in the insert-before terms the
+        // controller reads at each of them.
+        const PlaylistOpCommand('move', index: 4, toIndex: 1),
+        const PlaylistOpCommand('move', index: 0, toIndex: 5),
         const ResizePlaylistCommand(width: 900, height: 500),
         const ResizePlaylistCollectionCommand(width: 220.5, collapsed: false),
         const ResizePlaylistCollectionCommand(width: 240, collapsed: true),
@@ -231,6 +235,17 @@ void main() {
         const LoadSavedPlaylistCommand(r'D:\music\driving.m3u'),
         const CreatePlaylistFromCurrentCommand('/music/new pile.m3u'),
         const CreatePlaylistFromCurrentCommand(r'D:\music\new pile.m3u'),
+        const CreatePlaylistFromSelectionCommand('/music/a few.m3u'),
+        const CreatePlaylistFromSelectionCommand(r'D:\music\a few.m3u'),
+        const RenameSavedPlaylistCommand(
+          '/music/dt-2019-03.m3u',
+          'Driving Tunes',
+        ),
+        const RenameSavedPlaylistCommand(r'D:\music\dt.m3u', 'Driving Tunes'),
+        // Empty and null both mean "read the filename again", and both have to
+        // survive the trip or a cleared name would come back as a rename.
+        const RenameSavedPlaylistCommand('/music/dt-2019-03.m3u', ''),
+        const RenameSavedPlaylistCommand('/music/dt-2019-03.m3u', null),
         const MoveWindowCommand(
           window: WindowId.playlist,
           left: 12.5,
@@ -263,7 +278,9 @@ void main() {
         RemoveSavedPlaylistCommand.typeName,
         SelectSavedPlaylistCommand.typeName,
         LoadSavedPlaylistCommand.typeName,
+        RenameSavedPlaylistCommand.typeName,
         CreatePlaylistFromCurrentCommand.typeName,
+        CreatePlaylistFromSelectionCommand.typeName,
       ]) {
         expect(
           () => SessionCommand.fromJson({

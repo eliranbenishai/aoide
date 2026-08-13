@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import '../domain/saved_playlist.dart';
+import '../domain/track.dart';
 import 'm3u_codec.dart';
 import 'playlist_collection_store.dart';
 
@@ -10,12 +11,15 @@ import 'playlist_collection_store.dart';
 /// references to the files where the listener put them.
 ///
 /// A plain [ChangeNotifier] over an injected store, sibling to
-/// `PlaylistController`, so every collection decision is exercisable without the
-/// session host widget — which is bound to the multi-window and window-manager
-/// plugins and cannot be pumped by a test.
+/// `PlaylistController`, so every collection decision is exercisable without
+/// the session host widget — which is bound to the multi-window and
+/// window-manager plugins and cannot be pumped by a test.
 ///
-/// Nothing here writes, moves, or rewrites a playlist file. Files are only ever
-/// read, to count their tracks.
+/// Nothing here copies, moves, or renames a file the listener owns. A
+/// referenced file is only ever *read*, to count its tracks, and [rename]
+/// touches the index alone. The single write is [createFromSelection], which
+/// makes a **new** playlist at a path the listener chose in a save dialog —
+/// authoring a file, not rewriting the location of one that already existed.
 class PlaylistCollectionController extends ChangeNotifier {
   PlaylistCollectionController({
     required PlaylistCollectionStore store,
@@ -99,6 +103,78 @@ class PlaylistCollectionController extends ChangeNotifier {
   /// because an entry's identity is its normalized path.
   Future<SavedPlaylist?> addWritten(String path) =>
       _keepReference(path, rewritten: true);
+
+  /// Pulls a shorter playlist out of a longer one: writes the tracks the
+  /// listener has selected to [path] and keeps a reference to the result.
+  ///
+  /// [selectedIndices] index into [tracks] and arrive as an unordered, possibly
+  /// gapped set — the platform modifier click builds selections that are not
+  /// ranges. They are **sorted** here so the file reads in the running order
+  /// the listener is looking at, rather than in whatever order the set happens
+  /// to iterate in. Indices outside [tracks] are ignored, the way every other
+  /// selection method in this codebase ignores them.
+  ///
+  /// An empty selection is refused with no file written and no entry kept, the
+  /// same answer an empty current playlist gets from create-from-current: the
+  /// listener asked to keep something and there is nothing there.
+  ///
+  /// Deliberately *not* routed through `PlaylistController.savePlaylistFile`.
+  /// That method exists to write the **whole** current track list to the file
+  /// that becomes its origin, which is the one thing that lowers the altered
+  /// state; only some of these tracks are being kept, so the current playlist —
+  /// its tracks, its origin, and its altered state — must come out of this
+  /// untouched. Nothing here can reach it.
+  Future<SavedPlaylist?> createFromSelection(
+    String path,
+    List<Track> tracks,
+    Set<int> selectedIndices,
+  ) async {
+    final picked = [
+      for (final index in selectedIndices.toList()..sort())
+        if (index >= 0 && index < tracks.length) tracks[index],
+    ];
+    if (picked.isEmpty) return null;
+    try {
+      await File(path).writeAsString(_codec.encode(picked));
+    } catch (error) {
+      _lastError = 'Could not write playlist: ${_shortError(error)}';
+      notifyListeners();
+      return null;
+    }
+    return addWritten(path);
+  }
+
+  /// Renames the entry for [path] to [name], or back to its filename when
+  /// [name] is null or blank.
+  ///
+  /// **The file on disk is never touched** — see
+  /// `docs/adr/0008-playlist-collection-stores-references.md`. A saved playlist
+  /// is a reference to a document the listener also manages in their file
+  /// manager and their other players; reaching into their folders because they
+  /// retitled a row would break the promise the reference model makes. Only
+  /// Tramp's own index moves, which is why this reads no file and so works
+  /// perfectly well on a **disabled playlist**.
+  ///
+  /// Two entries may end up reading the same name. Neither is lost or merged:
+  /// an entry's identity is its normalized path, and the display name is only
+  /// what the panel paints.
+  Future<void> rename(String path, String? name) async {
+    final normalized = normalizePlaylistPath(path);
+    final at = _entries.indexWhere((entry) => entry.path == normalized);
+    if (at < 0) return;
+    final trimmed = name?.trim();
+    final cleared = trimmed == null || trimmed.isEmpty;
+    if ((cleared ? null : trimmed) == _entries[at].name) return;
+    _entries[at] = _entries[at].copyWith(
+      name: cleared ? null : trimmed,
+      clearName: cleared,
+    );
+    // Alphabetical by what the listener reads, so a renamed row moves to where
+    // its new name belongs rather than staying under its old one.
+    _sort();
+    await _store.writeIndex(_entries);
+    notifyListeners();
+  }
 
   Future<SavedPlaylist?> _keepReference(
     String path, {

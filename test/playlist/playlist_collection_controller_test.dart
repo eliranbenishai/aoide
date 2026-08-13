@@ -368,6 +368,256 @@ void main() {
     });
   });
 
+  group('createFromSelection', () {
+    /// Five tracks a listener could pull a shorter playlist out of.
+    List<Track> fiveTracks() => [
+          for (final title in ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo'])
+            Track(
+              path: p.join(dir.path, '${title.toLowerCase()}.mp3'),
+              title: title,
+              duration: const Duration(seconds: 30),
+            ),
+        ];
+
+    /// The track titles the file at [path] ended up holding, in file order.
+    Future<List<String?>> writtenTitles(String path) async {
+      final contents = await File(path).readAsString();
+      return const M3uCodec()
+          .parse(contents, playlistFilePath: path)
+          .map((t) => t.title)
+          .toList();
+    }
+
+    test('writes the selected tracks in the order the listener sees them',
+        () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = p.join(dir.path, 'a few.m3u');
+
+      // Deliberately gapped and deliberately out of order: the modifier click
+      // builds selections that are neither a range nor sorted.
+      final entry = await controller.createFromSelection(
+        path,
+        fiveTracks(),
+        {3, 0, 2},
+      );
+
+      expect(await writtenTitles(path), ['Alpha', 'Charlie', 'Delta']);
+      expect(entry, isNotNull);
+      expect(entry!.trackCount, 3);
+      expect(entry.displayName, 'a few');
+      expect(controller.entries, hasLength(1));
+      expect(controller.selectedPath, entry.path);
+      expect(
+        (await controller.readTrackSets())[entry.path],
+        hasLength(3),
+        reason: 'the About figures need the new entry\'s track set too',
+      );
+    });
+
+    test('an empty selection writes nothing and keeps nothing', () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = p.join(dir.path, 'nothing.m3u');
+
+      final entry = await controller.createFromSelection(
+        path,
+        fiveTracks(),
+        const {},
+      );
+
+      expect(entry, isNull);
+      expect(File(path).existsSync(), isFalse);
+      expect(controller.entries, isEmpty);
+      expect(store.indexWrites, 0);
+    });
+
+    test('rows the selection outran are ignored, not written as gaps',
+        () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = p.join(dir.path, 'stale.m3u');
+
+      await controller.createFromSelection(path, fiveTracks(), {1, 9, -1});
+
+      expect(await writtenTitles(path), ['Bravo']);
+    });
+
+    test('writing over a kept playlist updates that entry, never twins it',
+        () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = await writeTwoTrackPlaylist('driving.m3u');
+      await controller.add(path, name: 'Driving Tunes');
+      expect(controller.entries.single.trackCount, 2);
+
+      await controller.createFromSelection(path, fiveTracks(), {0, 1, 2, 3});
+
+      expect(controller.entries, hasLength(1), reason: 'one file, one row');
+      final entry = controller.entries.single;
+      expect(entry.trackCount, 4, reason: 'the figures moved with the file');
+      expect(entry.displayName, 'Driving Tunes', reason: 'not a rename');
+    });
+
+    test('a path that cannot be written is reported, not kept', () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+
+      final entry = await controller.createFromSelection(
+        p.join(dir.path, 'no such folder', 'out.m3u'),
+        fiveTracks(),
+        {0},
+      );
+
+      expect(entry, isNull);
+      expect(controller.entries, isEmpty);
+      expect(controller.lastError, isNotNull);
+      expect(store.indexWrites, 0);
+    });
+  });
+
+  group('rename', () {
+    test('the row reads the new name and the file keeps its own', () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = await writeTwoTrackPlaylist('dt-2019-03.m3u');
+      final contentsBefore = await File(path).readAsString();
+      await controller.add(path);
+      expect(controller.entries.single.displayName, 'dt-2019-03');
+
+      await controller.rename(path, 'Driving Tunes');
+
+      expect(controller.entries.single.displayName, 'Driving Tunes');
+      // The listener's file is exactly where it was, called what they called
+      // it, with what they put in it — this is the whole promise of ADR 0008.
+      expect(File(path).existsSync(), isTrue);
+      expect(await File(path).readAsString(), contentsBefore);
+      expect(
+        dir.listSync().whereType<File>().map((f) => p.basename(f.path)),
+        ['dt-2019-03.m3u'],
+        reason: 'no second file, and no renamed one either',
+      );
+      expect(controller.entries.single.path, normalizePlaylistPath(path));
+    });
+
+    test('the collection re-sorts under the name the listener chose', () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      await controller.add(await writeTwoTrackPlaylist('anthems.m3u'));
+      await controller.add(await writeTwoTrackPlaylist('work.m3u'));
+      expect(
+        controller.entries.map((e) => e.displayName),
+        ['anthems', 'work'],
+      );
+
+      await controller.rename(p.join(dir.path, 'anthems.m3u'), 'Zed Songs');
+
+      expect(
+        controller.entries.map((e) => e.displayName),
+        ['work', 'Zed Songs'],
+      );
+    });
+
+    test('it survives a restart', () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = await writeTwoTrackPlaylist('dt-2019-03.m3u');
+      await controller.add(path);
+      await controller.rename(path, 'Driving Tunes');
+
+      final reopened = PlaylistCollectionController(store: store);
+      await reopened.bootstrap();
+
+      expect(reopened.entries.single.displayName, 'Driving Tunes');
+    });
+
+    test('clearing it falls back to the filename rather than a blank row',
+        () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = await writeTwoTrackPlaylist('dt-2019-03.m3u');
+      await controller.add(path, name: 'Driving Tunes');
+
+      await controller.rename(path, '');
+
+      expect(controller.entries.single.displayName, 'dt-2019-03');
+      expect(controller.entries.single.name, isNull);
+
+      // Whitespace is not a name either, and neither is null.
+      await controller.rename(path, 'Driving Tunes');
+      await controller.rename(path, '   ');
+      expect(controller.entries.single.displayName, 'dt-2019-03');
+      await controller.rename(path, 'Driving Tunes');
+      await controller.rename(path, null);
+      expect(controller.entries.single.displayName, 'dt-2019-03');
+    });
+
+    test('two entries may read the same name without either being lost',
+        () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final first = await writeTwoTrackPlaylist('dt-2019-03.m3u');
+      final second = await writeTwoTrackPlaylist('dt-2021-08.m3u');
+      await controller.add(first);
+      await controller.add(second);
+
+      await controller.rename(first, 'Driving Tunes');
+      await controller.rename(second, 'Driving Tunes');
+
+      // Identity is the path, so a shared display name merges nothing.
+      expect(controller.entries, hasLength(2));
+      expect(
+        controller.entries.map((e) => e.displayName),
+        ['Driving Tunes', 'Driving Tunes'],
+      );
+      expect(
+        controller.entries.map((e) => e.path),
+        [normalizePlaylistPath(first), normalizePlaylistPath(second)],
+        reason: 'the tie is broken by path, so the order is still stable',
+      );
+      await controller.remove(first);
+      expect(controller.entries.single.path, normalizePlaylistPath(second));
+    });
+
+    test('a disabled entry can be renamed without reading its file', () async {
+      final store = MemoryCollectionStore();
+      final codec = CountingM3uCodec();
+      final controller =
+          PlaylistCollectionController(store: store, codec: codec);
+      final path = await writeTwoTrackPlaylist('gone.m3u');
+      await controller.add(path);
+      await File(path).delete();
+      await controller.validateReferences();
+      expect(controller.isDisabled(path), isTrue);
+      final parsesBefore = codec.parses;
+
+      await controller.rename(path, 'Still Mine');
+
+      expect(controller.entries.single.displayName, 'Still Mine');
+      expect(controller.isDisabled(path), isTrue, reason: 'still missing');
+      expect(
+        codec.parses,
+        parsesBefore,
+        reason: 'renaming a row never opens the playlist file',
+      );
+    });
+
+    test('renaming an entry the collection does not hold changes nothing',
+        () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      await controller.add(await writeTwoTrackPlaylist('driving.m3u'));
+      final writesBefore = store.indexWrites;
+
+      await controller.rename(p.join(dir.path, 'never-kept.m3u'), 'Nope');
+      // And a rename to the name it already has is not a change either.
+      await controller.rename(p.join(dir.path, 'driving.m3u'), null);
+
+      expect(store.indexWrites, writesBefore);
+      expect(controller.entries.single.displayName, 'driving');
+    });
+  });
+
   group('remove', () {
     test('drops the entry and never touches disk', () async {
       final store = MemoryCollectionStore();

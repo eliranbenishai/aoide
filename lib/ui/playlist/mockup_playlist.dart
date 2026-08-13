@@ -71,6 +71,25 @@ class MockupPlaylist extends StatelessWidget {
                     playlist.select(index);
                     _emit(PlaylistOpCommand('playIndex', index: index));
                   },
+                  onReorder: (oldIndex, newIndex) {
+                    // A drag carries the row it started on and nothing else,
+                    // even out of a multi-selection — the list can only show
+                    // one row in flight, so a preview of several moving would
+                    // be a promise it cannot keep. `move` remaps the selection
+                    // across the reorder, so every highlighted row stays on
+                    // the track it was highlighting.
+                    playlist.move(oldIndex, newIndex);
+                    // Emitted whichever way it lands: the controller is the
+                    // single place that judges what counts as a reorder, and
+                    // it makes that judgement identically at both ends, so a
+                    // row dropped back where it came from is a no-op twice
+                    // over rather than a rule written down twice.
+                    _emit(PlaylistOpCommand(
+                      'move',
+                      index: oldIndex,
+                      toIndex: newIndex,
+                    ));
+                  },
                 ),
               ),
               const SizedBox(height: 10),

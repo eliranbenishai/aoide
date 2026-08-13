@@ -710,6 +710,117 @@ void main() {
     });
   });
 
+  // What drag-to-reorder leans on. The gesture only ever calls [move], so
+  // everything a listener notices across a reorder is decided here.
+  group('reorder', () {
+    const five = [
+      Track(path: '/a.mp3', title: 'Alpha'),
+      Track(path: '/b.mp3', title: 'Bravo'),
+      Track(path: '/c.mp3', title: 'Charlie'),
+      Track(path: '/d.mp3', title: 'Delta'),
+      Track(path: '/e.mp3', title: 'Echo'),
+    ];
+
+    PlaylistController loaded() {
+      final c = PlaylistController(store: MemoryStore());
+      c.setTracks(five, sourcePath: '/music/list.m3u');
+      return c;
+    }
+
+    List<String?> titles(PlaylistController c) =>
+        c.playlist.tracks.map((t) => t.title).toList();
+
+    test('a row dropped further down lands there and the rest close up', () {
+      final c = loaded();
+
+      // Insert-before: picked up at 0, dropped before what was index 3.
+      c.move(0, 3);
+
+      expect(titles(c), ['Bravo', 'Charlie', 'Alpha', 'Delta', 'Echo']);
+    });
+
+    test('a row dropped further up lands there too', () {
+      final c = loaded();
+
+      c.move(3, 1);
+
+      expect(titles(c), ['Alpha', 'Delta', 'Bravo', 'Charlie', 'Echo']);
+    });
+
+    test('every selected row still marks the track it was marking', () {
+      final c = loaded();
+      // Gapped, the way the modifier click leaves it.
+      c.setSelectedIndices(const [1, 2, 4], primary: 2);
+
+      c.move(1, 5); // Bravo to the end
+
+      expect(titles(c), ['Alpha', 'Charlie', 'Delta', 'Echo', 'Bravo']);
+      expect(
+        {for (final i in c.selectedIndices) c.playlist.tracks[i].title},
+        {'Bravo', 'Charlie', 'Echo'},
+        reason: 'the same three tracks, at their new rows',
+      );
+      expect(c.playlist.tracks[c.selectedIndex!].title, 'Charlie');
+    });
+
+    test('the dragged row keeps its own highlight and stays the anchor', () {
+      final c = loaded();
+      c.select(4);
+
+      c.move(4, 0);
+
+      expect(c.selectedIndex, 0);
+      expect(c.selectedIndices, {0});
+      expect(c.playlist.tracks[0].title, 'Echo');
+    });
+
+    test('a row dropped where it was picked up changes nothing at all', () {
+      final c = loaded();
+      c.select(2);
+
+      c.move(2, 3); // insert-before 3 is where index 2 already sits
+      c.move(2, 2);
+
+      expect(titles(c), ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo']);
+      expect(c.selectedIndices, {2});
+      expect(c.altered, isFalse);
+    });
+
+    test('a row index the list does not have is ignored', () {
+      final c = loaded();
+
+      c.move(-1, 2);
+      c.move(9, 2);
+      c.move(0, 9);
+      c.move(0, -1);
+
+      expect(titles(c), ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo']);
+      expect(c.altered, isFalse);
+    });
+
+    test('a reordered playlist is kept, so it comes back after a restart',
+        () async {
+      final kept = MemoryAlteredStore();
+      final c = PlaylistController(
+        store: MemoryStore(),
+        alteredStore: kept,
+        alteredPersistDebounce: Duration.zero,
+      );
+      c.setTracks(five, sourcePath: '/music/list.m3u');
+
+      c.move(0, 3);
+      await Future<void>.delayed(Duration.zero);
+
+      // Reordering earns the same protection as tracks the listener added.
+      expect(c.altered, isTrue);
+      expect(
+        kept.kept!.tracks.map((t) => t.title),
+        ['Bravo', 'Charlie', 'Alpha', 'Delta', 'Echo'],
+      );
+      expect(kept.kept!.sourcePath, '/music/list.m3u');
+    });
+  });
+
   group('an altered current playlist survives a restart', () {
     const tracks = [
       Track(path: '/a.mp3', title: 'Alpha'),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../domain/track.dart';
+import '../../look/resolved_look.dart';
 import '../../playlist/playlist_controller.dart';
 import '../../theme/look_scope.dart';
 import '../../ui/format.dart';
@@ -47,6 +48,18 @@ TrackRowSelection trackRowSelectionFromKeyboard() {
   return TrackRowSelection.replace;
 }
 
+/// Turns the index a reordered row comes to rest at into the insert-before
+/// index `PlaylistController.move` speaks.
+///
+/// Flutter's `onReorderItem` answers with the row's final position, having
+/// already accounted for the hole it left behind; `move` accounts for that
+/// hole itself. A row that travelled *down* the list is therefore one greater
+/// in insert-before terms, and one that travelled up is unchanged. Converted
+/// once, here, so the controller keeps one convention on both sides of the
+/// session bus.
+int insertBeforeIndex(int oldIndex, int restingIndex) =>
+    oldIndex < restingIndex ? restingIndex + 1 : restingIndex;
+
 /// The track list half of the playlist body: list well, rows, and the custom
 /// scrollbar beside it.
 ///
@@ -59,6 +72,7 @@ class MockupPlaylistTrackPane extends StatefulWidget {
     required this.playingIndex,
     required this.onSelect,
     required this.onActivate,
+    required this.onReorder,
   });
 
   /// Height of one track row. The stripe pattern painted behind the list has to
@@ -72,6 +86,11 @@ class MockupPlaylistTrackPane extends StatefulWidget {
   /// keyboard so the owner only ever decides what each gesture *means*.
   final void Function(int index, TrackRowSelection how) onSelect;
   final ValueChanged<int> onActivate;
+
+  /// A row dragged from `oldIndex` and dropped before `newIndex` — Flutter's
+  /// own reorder convention, which is also `PlaylistController.move`'s, so
+  /// nothing between the gesture and the host has to translate it.
+  final void Function(int oldIndex, int newIndex) onReorder;
 
   @override
   State<MockupPlaylistTrackPane> createState() =>
@@ -87,10 +106,25 @@ class _MockupPlaylistTrackPaneState extends State<MockupPlaylistTrackPane> {
     super.dispose();
   }
 
+  /// The row the listener is carrying, painted over the gap it will drop into.
+  ///
+  /// Two things have to be put back that the framework takes away. The proxy is
+  /// built in the app's [Overlay], which is above the window's [LookScope], so
+  /// the row is handed the look again or it cannot paint at all. And Material's
+  /// own decorator floats the row on an elevated card, which is the wrong idiom
+  /// here — the row has the list well behind it and no surface of its own — so
+  /// a transparent Material replaces it and the row in flight looks exactly
+  /// like the row that will land.
+  Widget _rowInFlight(ResolvedLook look, Widget child) => LookScope(
+        look: look,
+        child: Material(type: MaterialType.transparency, child: child),
+      );
+
   @override
   Widget build(BuildContext context) {
     final tracks = widget.playlist.playlist.tracks;
     final selected = widget.playlist.selectedIndices;
+    final look = LookScope.of(context);
 
     // List well + 10px gutter + 14px scrollbar (mockup: track outside `.list`).
     return Row(
@@ -136,24 +170,42 @@ class _MockupPlaylistTrackPaneState extends State<MockupPlaylistTrackPane> {
                         trackColor: const Color(0x00000000),
                         trackVisibility: true,
                         thumbVisibility: true,
-                        child: ListView.builder(
-                          controller: _scrollController,
+                        child: ReorderableListView.builder(
+                          scrollController: _scrollController,
                           padding: const EdgeInsets.symmetric(vertical: 6),
                           itemCount: tracks.length,
                           itemExtent: MockupPlaylistTrackPane.rowHeight,
+                          onReorderItem: (oldIndex, restingIndex) {
+                            widget.onReorder(
+                              oldIndex,
+                              insertBeforeIndex(oldIndex, restingIndex),
+                            );
+                          },
+                          // No handle column: the whole row is the grip, the
+                          // way the classic playlist behaved. A tap has to
+                          // survive that, which it does — the drag recognizer
+                          // only claims the pointer once it has moved past the
+                          // hit slop, so a click (and its modifiers) still
+                          // reaches the row's own tap handler.
+                          buildDefaultDragHandles: false,
+                          proxyDecorator: (child, _, __) =>
+                              _rowInFlight(look, child),
                           itemBuilder: (context, index) {
                             final track = tracks[index];
-                            return _PlaylistRow(
+                            return ReorderableDragStartListener(
                               key: Key('pl-row-$index'),
                               index: index,
-                              track: track,
-                              selected: selected.contains(index),
-                              playing: widget.playingIndex == index,
-                              onSelect: () => widget.onSelect(
-                                index,
-                                trackRowSelectionFromKeyboard(),
+                              child: _PlaylistRow(
+                                index: index,
+                                track: track,
+                                selected: selected.contains(index),
+                                playing: widget.playingIndex == index,
+                                onSelect: () => widget.onSelect(
+                                  index,
+                                  trackRowSelectionFromKeyboard(),
+                                ),
+                                onActivate: () => widget.onActivate(index),
                               ),
-                              onActivate: () => widget.onActivate(index),
                             );
                           },
                         ),
@@ -193,7 +245,6 @@ class _MockupPlaylistTrackPaneState extends State<MockupPlaylistTrackPane> {
 
 class _PlaylistRow extends StatelessWidget {
   const _PlaylistRow({
-    super.key,
     required this.index,
     required this.track,
     required this.selected,

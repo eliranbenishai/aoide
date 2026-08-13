@@ -118,6 +118,35 @@ void main() {
     expect(playback.playing, isFalse);
   });
 
+  test('reordering under the playing track never interrupts it', () async {
+    await playback.playIndex(1);
+    final openedBefore = engine.openCount;
+
+    playlist.move(1, 3); // drag B to the end
+    await Future<void>.delayed(Duration.zero);
+
+    expect(playback.currentTrack?.path, '/b.mp3');
+    expect(playback.playing, isTrue);
+    expect(
+      engine.openCount,
+      openedBefore,
+      reason: 'nothing is re-opened, so the audio does not so much as stutter',
+    );
+    // The playing mark follows the track to its new row.
+    expect(playback.playingIndex, 2);
+  });
+
+  test('reordering around the playing track moves its mark too', () async {
+    await playback.playIndex(2);
+
+    playlist.move(0, 3); // A to the end, C slides up
+    await Future<void>.delayed(Duration.zero);
+
+    expect(playback.currentTrack?.path, '/c.mp3');
+    expect(playback.playingIndex, 1);
+    expect(playback.playing, isTrue);
+  });
+
   test('formatInfo returns to unknown when switching tracks', () async {
     await playback.playIndex(0);
     engine.emitFormat(const AudioFormatInfo(

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart' show debugDefaultTargetPlatformOverride;
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +12,8 @@ import 'package:tramp/theme/tramp_metrics.dart';
 import 'package:tramp/ui/chrome/mockup/mockup_hover.dart';
 import 'package:tramp/ui/playlist/mockup_playlist.dart';
 import 'package:tramp/ui/playlist/mockup_playlist_collection_pane.dart';
+import 'package:tramp/ui/playlist/mockup_playlist_scrollbar.dart';
+import 'package:tramp/ui/playlist/mockup_playlist_track_pane.dart';
 import 'package:tramp/ui/session/session_messages.dart';
 import 'package:tramp/ui/windows/playlist_window.dart';
 
@@ -951,6 +954,17 @@ void main() {
       });
     });
 
+    /// The two creates share one control. Opens it and picks [item].
+    Future<void> pickCreate(WidgetTester tester, Key item) async {
+      await tester.tap(find.byKey(const Key('pl-collection-create')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(item));
+      await tester.pumpAndSettle();
+    }
+
+    const fromCurrent = Key('pl-create-from-current');
+    const fromSelection = Key('pl-create-from-selection');
+
     group('creating a playlist from every track', () {
       Iterable<CreatePlaylistFromCurrentCommand> creates(
         List<SessionCommand> commands,
@@ -972,8 +986,7 @@ void main() {
           },
         );
 
-        await tester.tap(find.byKey(const Key('pl-collection-create')));
-        await tester.pumpAndSettle();
+        await pickCreate(tester, fromCurrent);
 
         expect(pickerOpened, 1);
         // One command, because the write and the reference are one action —
@@ -997,8 +1010,7 @@ void main() {
           },
         );
 
-        await tester.tap(find.byKey(const Key('pl-collection-create')));
-        await tester.pumpAndSettle();
+        await pickCreate(tester, fromCurrent);
 
         expect(pickerOpened, 1);
         expect(commands, isEmpty);
@@ -1026,7 +1038,9 @@ void main() {
         await tester.tap(find.byKey(const Key('pl-collection-create')));
         await tester.pumpAndSettle();
 
-        // Refused outright: no dialog to back out of, and nothing emitted.
+        // Refused outright: with nothing to keep and nothing selected the
+        // control is dead, so there is not even a menu to back out of.
+        expect(find.byKey(fromCurrent), findsNothing);
         expect(pickerOpened, 0);
         expect(commands, isEmpty);
       });
@@ -1046,8 +1060,7 @@ void main() {
         playlist.addTracks(const [Track(path: '/dropped.mp3')]);
         await tester.pump();
 
-        await tester.tap(find.byKey(const Key('pl-collection-create')));
-        await tester.pumpAndSettle();
+        await pickCreate(tester, fromCurrent);
 
         expect(creates(commands).single.path, '/music/kept.m3u');
       });
@@ -1063,15 +1076,287 @@ void main() {
         );
 
         expect(find.byKey(const Key('pl-collection-create')), findsOneWidget);
-        expect(
-          find.bySemanticsLabel('Create playlist from current playlist'),
-          findsOneWidget,
-        );
+        expect(find.bySemanticsLabel('Create playlist'), findsOneWidget);
         expect(
           tester.takeException(),
           isNull,
-          reason: 'three controls still fit the narrowest panel',
+          reason: 'four controls still fit the narrowest panel',
         );
+      });
+    });
+
+    group('creating a playlist from the selected tracks', () {
+      Iterable<CreatePlaylistFromSelectionCommand> creates(
+        List<SessionCommand> commands,
+      ) =>
+          commands.whereType<CreatePlaylistFromSelectionCommand>();
+
+      testWidgets('asks where to save, then keeps only what was selected',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        var pickerOpened = 0;
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving],
+          pickSavePlaylistPath: () async {
+            pickerOpened++;
+            return '/music/a few.m3u';
+          },
+        );
+        playlist.setSelectedIndices(const [0, 2], primary: 0);
+        await tester.pump();
+
+        await pickCreate(tester, fromSelection);
+
+        expect(pickerOpened, 1);
+        expect(creates(commands).single.path, '/music/a few.m3u');
+        // Its own command, not the from-current one wearing a flag.
+        expect(commands.whereType<CreatePlaylistFromCurrentCommand>(), isEmpty);
+      });
+
+      testWidgets('the current playlist and its altered state are untouched',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving],
+          selectedCollectionPath: driving.path,
+          altered: true,
+          pickSavePlaylistPath: () async => '/music/a few.m3u',
+        );
+        // Altered the way a listener alters it, in this window's own mirror.
+        playlist.addTracks(const [Track(path: '/dropped.mp3', title: 'Delta')]);
+        playlist.setSelectedIndices(const [1, 3], primary: 1);
+        await tester.pump();
+        final before = playlist.playlist.tracks.map((t) => t.path).toList();
+
+        await pickCreate(tester, fromSelection);
+
+        // Nothing loaded, nothing asked, nothing lowered: the rest of the
+        // current playlist is still unsaved and still protected.
+        expect(find.byKey(const Key('pl-altered-dialog')), findsNothing);
+        expect(commands.whereType<LoadSavedPlaylistCommand>(), isEmpty);
+        expect(playlist.playlist.tracks.map((t) => t.path), before);
+        expect(playlist.playlist.sourcePath, isNull);
+        expect(playlist.altered, isTrue);
+      });
+
+      testWidgets('an unaltered playlist is still unaltered afterwards',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving],
+          pickSavePlaylistPath: () async => '/music/a few.m3u',
+        );
+        playlist.select(1);
+        await tester.pump();
+
+        await pickCreate(tester, fromSelection);
+
+        expect(creates(commands), hasLength(1));
+        expect(playlist.altered, isFalse);
+      });
+
+      testWidgets('with nothing selected it is inert, and opens no dialog',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        var pickerOpened = 0;
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving],
+          pickSavePlaylistPath: () async {
+            pickerOpened++;
+            return '/music/nothing.m3u';
+          },
+        );
+        expect(playlist.selectedIndices, isEmpty);
+
+        await pickCreate(tester, fromSelection);
+
+        expect(pickerOpened, 0);
+        expect(commands, isEmpty);
+      });
+
+      testWidgets('cancelling the save dialog changes nothing at all',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        var pickerOpened = 0;
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving],
+          pickSavePlaylistPath: () async {
+            pickerOpened++;
+            return null;
+          },
+        );
+        playlist.select(2);
+        await tester.pump();
+
+        await pickCreate(tester, fromSelection);
+
+        expect(pickerOpened, 1);
+        expect(commands, isEmpty);
+        expect(playlist.selectedIndices, {2});
+        expect(playlist.altered, isFalse);
+      });
+    });
+
+    group('renaming a saved playlist', () {
+      Iterable<RenameSavedPlaylistCommand> renames(
+        List<SessionCommand> commands,
+      ) =>
+          commands.whereType<RenameSavedPlaylistCommand>();
+
+      /// Opens the rename dialog on the highlighted row and types [name].
+      Future<void> renameTo(WidgetTester tester, String name) async {
+        await tester.tap(find.byKey(const Key('pl-collection-rename')));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byKey(const Key('pl-rename-field')), name);
+        await tester.tap(find.byKey(const Key('pl-rename-confirm')));
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('the panel renames the highlighted entry', (tester) async {
+        final commands = <SessionCommand>[];
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving, sunday],
+          selectedCollectionPath: driving.path,
+        );
+
+        await renameTo(tester, 'Long Way Round');
+
+        expect(renames(commands).single.path, driving.path);
+        expect(renames(commands).single.name, 'Long Way Round');
+      });
+
+      testWidgets('the dialog opens on the name the row is reading',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving, sunday],
+          selectedCollectionPath: sunday.path,
+        );
+
+        await tester.tap(find.byKey(const Key('pl-collection-rename')));
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.widget<TextField>(find.byKey(const Key('pl-rename-field')))
+              .controller!
+              .text,
+          sunday.displayName,
+        );
+      });
+
+      testWidgets('clearing the field asks for the filename back',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [sunday],
+          selectedCollectionPath: sunday.path,
+        );
+
+        await renameTo(tester, '');
+
+        // Empty is an answer, not a cancel: the host reads it as "drop the
+        // override" and the row falls back to the file's own name.
+        expect(renames(commands).single.name, isEmpty);
+      });
+
+      testWidgets('backing out of the dialog emits nothing', (tester) async {
+        final commands = <SessionCommand>[];
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving],
+          selectedCollectionPath: driving.path,
+        );
+
+        await tester.tap(find.byKey(const Key('pl-collection-rename')));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('pl-rename-field')),
+          'Never Mind',
+        );
+        await tester.tap(find.byKey(const Key('pl-rename-cancel')));
+        await tester.pumpAndSettle();
+
+        expect(commands, isEmpty);
+      });
+
+      testWidgets('rename does nothing with no row selected', (tester) async {
+        final commands = <SessionCommand>[];
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving, sunday],
+        );
+
+        await tester.tap(find.byKey(const Key('pl-collection-rename')));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('pl-rename-dialog')), findsNothing);
+        expect(commands, isEmpty);
+      });
+
+      testWidgets('a disabled entry can still be renamed', (tester) async {
+        final commands = <SessionCommand>[];
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving],
+          selectedCollectionPath: driving.path,
+          disabledCollectionPaths: {driving.path},
+        );
+
+        await renameTo(tester, 'Gone Missing');
+
+        // Renaming reads no file, so a missing one is no obstacle.
+        expect(renames(commands).single.name, 'Gone Missing');
+      });
+
+      testWidgets('the renamed row shows its new name and re-sorts under it',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        final renamed = SavedPlaylist(
+          path: '/music/driving.m3u',
+          name: 'Aaa Long Way Round',
+          trackCount: 12,
+        );
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [renamed, sunday],
+        );
+
+        // Row 0 was 'driving' before the override; alphabetically the new name
+        // puts it first, and the panel paints what the listener chose.
+        expect(rowText(0, 'AAA LONG WAY ROUND'), findsOneWidget);
+        expect(find.text('DRIVING'), findsNothing);
       });
     });
 
@@ -1099,7 +1384,9 @@ void main() {
     });
   });
 
-  group('multi-select', () {
+  // Selection and reorder share the row, and each other's helpers with it —
+  // which is exactly why they are exercised side by side.
+  group('track rows', () {
     /// Five rows, so a range has an inside as well as two ends.
     void fiveTracks() {
       playlist.setTracks(const [
@@ -1286,6 +1573,186 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('pl-altered-dialog')), findsNothing);
       expect(commands.whereType<LoadSavedPlaylistCommand>(), hasLength(1));
+    });
+
+    /// Drags row [from] by [rows] whole rows and lets go.
+    ///
+    /// Moved a row at a time with a pump between, the way a hand moves a
+    /// mouse: the list works out where the gap belongs on each update, and a
+    /// single teleporting jump is not what it is built to read. [rows] of zero
+    /// still travels — out one row and back — so a drop where the row started
+    /// is a real drag rather than a press that never crossed the hit slop.
+    ///
+    /// A mouse, because this window is only ever driven by one: a touch
+    /// pointer spends 18px of the first row's travel on the touch slop, so a
+    /// row-height move would land the proxy short of its neighbour.
+    Future<void> dragRow(WidgetTester tester, int from, int rows) async {
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(Key('pl-row-$from'))),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+
+      Future<void> step(int direction) async {
+        await gesture.moveBy(
+          Offset(0, direction * MockupPlaylistTrackPane.rowHeight),
+        );
+        await tester.pump(const Duration(milliseconds: 120));
+      }
+
+      if (rows == 0) {
+        await step(1);
+        await step(-1);
+      } else {
+        final direction = rows.isNegative ? -1 : 1;
+        for (var moved = 0; moved != rows; moved += direction) {
+          await step(direction);
+        }
+        // The list reads the drop slot off the proxy's leading edge, and whole
+        // rows of travel put that edge exactly on a row boundary — where the
+        // answer is a coin toss. Settling a few pixels inside the slot is what
+        // a hand does anyway, and it is the same nudge either way: short of
+        // the boundary going down, past it going up.
+        await gesture.moveBy(const Offset(0, -9));
+        await tester.pump(const Duration(milliseconds: 120));
+      }
+      await tester.pumpAndSettle();
+      await gesture.up();
+      await tester.pumpAndSettle();
+    }
+
+    List<String> rowTitles(WidgetTester tester) => [
+          for (var i = 0; i < 5; i++)
+            (tester
+                    .widgetList<Text>(
+                      find.descendant(
+                        of: find.byKey(Key('pl-row-$i')),
+                        matching: find.byType(Text),
+                      ),
+                    )
+                    .toList()[1])
+                .data!,
+        ];
+
+    testWidgets('drag: a track moves where it is dropped, the rest close up',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      fiveTracks();
+      await pumpPl(tester, commands: commands, size: const Size(1000, 700));
+
+      await dragRow(tester, 0, 2);
+
+      expect(
+        playlist.playlist.tracks.map((t) => t.title),
+        ['Bravo', 'Charlie', 'Alpha', 'Delta', 'Echo'],
+      );
+      // And on screen, not just in the controller.
+      expect(
+        rowTitles(tester),
+        ['Bravo', 'Charlie', 'Alpha', 'Delta', 'Echo'],
+      );
+    });
+
+    testWidgets('drag: a reorder marks the current playlist altered',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      fiveTracks();
+      await pumpPl(tester, commands: commands, size: const Size(1000, 700));
+      expect(playlist.altered, isFalse);
+
+      await dragRow(tester, 3, -2);
+
+      expect(
+        playlist.playlist.tracks.map((t) => t.title),
+        ['Alpha', 'Delta', 'Bravo', 'Charlie', 'Echo'],
+      );
+      expect(playlist.altered, isTrue);
+    });
+
+    testWidgets('drag: a reorder reaches the host as a move command',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      fiveTracks();
+      await pumpPl(tester, commands: commands, size: const Size(1000, 700));
+
+      await dragRow(tester, 1, 2);
+
+      final move = commands
+          .whereType<PlaylistOpCommand>()
+          .singleWhere((c) => c.op == 'move');
+      expect(move.index, 1);
+      // Insert-before, the convention the controller reads at both ends: the
+      // row started at 1 and comes to rest at 3, which is before 4.
+      expect(move.toIndex, 4);
+    });
+
+    testWidgets('drag: dropping a row where it was picked up changes nothing',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      fiveTracks();
+      await pumpPl(tester, commands: commands, size: const Size(1000, 700));
+
+      await dragRow(tester, 2, 0);
+
+      expect(
+        playlist.playlist.tracks.map((t) => t.title),
+        ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo'],
+      );
+      expect(playlist.altered, isFalse);
+    });
+
+    testWidgets('drag: the recognizer does not swallow the shift-click',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      fiveTracks();
+      await pumpPl(tester, commands: commands, size: const Size(1000, 700));
+
+      await clickRow(tester, 1);
+      await clickRow(tester, 3, holding: [LogicalKeyboardKey.shiftLeft]);
+
+      expect(rowsReadingSelected(tester), {1, 2, 3});
+      expect(selectionOps(commands), ['select:1', 'selectRange:3']);
+    });
+
+    testWidgets('drag: one row out of a selection keeps every highlight',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      fiveTracks();
+      await pumpPl(tester, commands: commands, size: const Size(1000, 700));
+
+      await clickRow(tester, 1);
+      await clickRow(tester, 3, holding: [LogicalKeyboardKey.shiftLeft]);
+      expect(rowsReadingSelected(tester), {1, 2, 3});
+
+      // The drag carries the row it started on, deliberately — but `move`
+      // remaps the selection, so every highlighted row follows its track.
+      await dragRow(tester, 1, 3);
+
+      expect(
+        playlist.playlist.tracks.map((t) => t.title),
+        ['Alpha', 'Charlie', 'Delta', 'Echo', 'Bravo'],
+      );
+      expect(
+        rowsReadingSelected(tester),
+        {1, 2, 4},
+        reason: 'Bravo, Charlie and Delta are still the selected tracks',
+      );
+    });
+
+    testWidgets('drag: past the bottom of the list it behaves sanely',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      fiveTracks();
+      // Short enough that five 37px rows do not fit, so the list scrolls and
+      // the custom scrollbar is live while the drag runs.
+      await pumpPl(tester, commands: commands, size: const Size(1000, 400));
+
+      await dragRow(tester, 0, 6);
+
+      expect(tester.takeException(), isNull);
+      expect(playlist.playlist.tracks, hasLength(5));
+      expect(playlist.playlist.tracks.first.title, 'Bravo');
+      expect(find.byType(MockupPlaylistScrollbar), findsOneWidget);
     });
 
     testWidgets('double-tap still plays the row it landed on', (tester) async {
