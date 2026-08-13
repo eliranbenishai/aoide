@@ -273,6 +273,7 @@ final class PlaylistCollectionSnapshotEvent extends SessionEvent {
   const PlaylistCollectionSnapshotEvent({
     required this.playlists,
     this.selectedPath,
+    this.disabledPaths = const [],
     this.lastError,
   });
 
@@ -283,6 +284,14 @@ final class PlaylistCollectionSnapshotEvent extends SessionEvent {
 
   /// Normalized path of the loaded / highlighted entry, if any.
   final String? selectedPath;
+
+  /// Normalized paths of the **disabled playlists** — entries whose file was
+  /// missing at the host's last check.
+  ///
+  /// Rides beside [playlists] rather than inside a [SavedPlaylist] field,
+  /// because disabled is derived from that check and never stored: the entries
+  /// here are exactly what the index on disk holds.
+  final List<String> disabledPaths;
   final String? lastError;
 
   @override
@@ -292,6 +301,7 @@ final class PlaylistCollectionSnapshotEvent extends SessionEvent {
   Map<String, dynamic> toJson() => {
         'playlists': [for (final entry in playlists) entry.toJson()],
         'selectedPath': selectedPath,
+        'disabledPaths': disabledPaths,
         'lastError': lastError,
       };
 
@@ -310,10 +320,16 @@ final class PlaylistCollectionSnapshotEvent extends SessionEvent {
       }
     }
     final selected = json['selectedPath'];
+    final disabled = json['disabledPaths'];
     return PlaylistCollectionSnapshotEvent(
       playlists: playlists,
       selectedPath:
           selected is String && selected.isNotEmpty ? selected : null,
+      disabledPaths: [
+        if (disabled is List)
+          for (final path in disabled)
+            if (path is String && path.isNotEmpty) path,
+      ],
       lastError: json['lastError'] as String?,
     );
   }
@@ -690,6 +706,8 @@ sealed class SessionCommand {
         return AddSavedPlaylistCommand.fromPayload(payload);
       case RemoveSavedPlaylistCommand.typeName:
         return RemoveSavedPlaylistCommand.fromPayload(payload);
+      case SelectSavedPlaylistCommand.typeName:
+        return SelectSavedPlaylistCommand.fromPayload(payload);
       case LoadSavedPlaylistCommand.typeName:
         return LoadSavedPlaylistCommand.fromPayload(payload);
       case MoveWindowCommand.typeName:
@@ -1279,6 +1297,33 @@ final class RemoveSavedPlaylistCommand extends SessionCommand {
       throw const FormatException('RemoveSavedPlaylistCommand.path');
     }
     return RemoveSavedPlaylistCommand(path);
+  }
+}
+
+/// Highlight a saved playlist without loading it.
+///
+/// What the panel sends for a **disabled playlist**: the listener can still
+/// reach the row — so the panel's remove control can act on it — while the load
+/// that would fail never starts.
+final class SelectSavedPlaylistCommand extends SessionCommand {
+  const SelectSavedPlaylistCommand(this.path);
+
+  static const typeName = 'select_saved_playlist';
+
+  final String path;
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {'path': path};
+
+  factory SelectSavedPlaylistCommand.fromPayload(Map<String, dynamic> json) {
+    final path = json['path'];
+    if (path is! String || path.isEmpty) {
+      throw const FormatException('SelectSavedPlaylistCommand.path');
+    }
+    return SelectSavedPlaylistCommand(path);
   }
 }
 

@@ -5,6 +5,7 @@ import '../../theme/look_paint.dart';
 import '../../theme/look_scope.dart';
 import '../../theme/tramp_metrics.dart';
 import '../chrome/mockup/mockup_button.dart';
+import '../chrome/mockup/mockup_hover.dart';
 import '../chrome/mockup/mockup_icons.dart';
 import '../chrome/mockup/mockup_screen.dart';
 
@@ -18,6 +19,7 @@ class MockupPlaylistCollectionPane extends StatelessWidget {
     super.key,
     this.playlists = const [],
     this.selectedPath,
+    this.disabledPaths = const {},
     this.onCollapse,
     this.onSelect,
     this.onAdd,
@@ -27,6 +29,9 @@ class MockupPlaylistCollectionPane extends StatelessWidget {
   /// Key on the empty state, so tests can tell "nothing kept yet" apart from
   /// "panel did not render".
   static const emptyKey = Key('pl-collection-empty');
+
+  /// Key on a row's missing-file mark, per row index.
+  static Key missingKeyFor(int index) => Key('pl-collection-missing-$index');
 
   /// Height of one collection row — compact beside the 37px track rows, so the
   /// two lists never read as one.
@@ -39,6 +44,11 @@ class MockupPlaylistCollectionPane extends StatelessWidget {
 
   /// Normalized path of the loaded entry, so its row reads as such.
   final String? selectedPath;
+
+  /// Normalized paths of the **disabled playlists**: entries whose file was
+  /// missing at the last check, painted dimmed and marked. Not a field on the
+  /// entry, because the state is derived rather than kept.
+  final Set<String> disabledPaths;
 
   final VoidCallback? onCollapse;
   final ValueChanged<SavedPlaylist>? onSelect;
@@ -113,6 +123,8 @@ class MockupPlaylistCollectionPane extends StatelessWidget {
                           key: Key('pl-collection-row-$index'),
                           entry: entry,
                           selected: entry.path == selectedPath,
+                          disabled: disabledPaths.contains(entry.path),
+                          missingKey: missingKeyFor(index),
                           onTap: onSelect == null
                               ? null
                               : () => onSelect!(entry),
@@ -210,16 +222,27 @@ class _EmptyCollection extends StatelessWidget {
 /// One saved playlist: the name the listener reads, and how many tracks it
 /// holds. Styled off the track row but quieter, and uppercased like the
 /// footer's status line so a Windows-case-folded path still reads as chrome.
+///
+/// A **disabled playlist** — one whose file was missing at the last check —
+/// keeps its figures, because a disabled playlist still counts toward the About
+/// stats, but reads as unavailable: marked with a struck ring and dimmed by the
+/// same [MockupHoverTokens.disabledOpacity] every disabled control in this
+/// chrome uses. It stays tappable, because selecting it is how the panel's
+/// remove control reaches it; what the tap means is the caller's to decide.
 class _CollectionRow extends StatelessWidget {
   const _CollectionRow({
     super.key,
     required this.entry,
     required this.selected,
+    required this.disabled,
+    required this.missingKey,
     this.onTap,
   });
 
   final SavedPlaylist entry;
   final bool selected;
+  final bool disabled;
+  final Key missingKey;
   final VoidCallback? onTap;
 
   @override
@@ -228,12 +251,59 @@ class _CollectionRow extends StatelessWidget {
     final palette = look.palette;
     final ink = selected ? palette.phosphorHot : palette.inkDim;
 
+    Widget content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: Row(
+        children: [
+          if (disabled) ...[
+            PlaylistCollectionMissingMark(key: missingKey, color: ink),
+            const SizedBox(width: 6),
+          ],
+          Expanded(
+            child: Text(
+              entry.displayName.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: look.chromeFamily,
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+                letterSpacing: 11 * 0.1,
+                color: ink,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '${entry.trackCount}',
+            style: TextStyle(
+              fontFamily: look.lcdFamily,
+              fontWeight: FontWeight.w500,
+              fontSize: 12,
+              color: selected ? palette.phosphorDefault : palette.phosphorDim,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (disabled) {
+      // Only the contents dim. A disabled row can still be the highlighted one
+      // — that is how it gets removed — and that highlight must stay readable.
+      content = Opacity(
+        opacity: MockupHoverTokens.disabledOpacity,
+        child: content,
+      );
+    }
+
     return SizedBox(
       height: MockupPlaylistCollectionPane.rowHeight,
       child: Semantics(
         selected: selected,
         button: true,
-        label: '${entry.displayName}, ${entry.trackCount} tracks',
+        label: disabled
+            ? '${entry.displayName}, ${entry.trackCount} tracks, file missing'
+            : '${entry.displayName}, ${entry.trackCount} tracks',
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
@@ -250,44 +320,62 @@ class _CollectionRow extends StatelessWidget {
                     )
                   : null,
             ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      entry.displayName.toUpperCase(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: look.chromeFamily,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
-                        letterSpacing: 11 * 0.1,
-                        color: ink,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${entry.trackCount}',
-                    style: TextStyle(
-                      fontFamily: look.lcdFamily,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 12,
-                      color: selected
-                          ? palette.phosphorDefault
-                          : palette.phosphorDim,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            child: content,
           ),
         ),
       ),
     );
   }
+}
+
+/// The mark on a **disabled playlist**'s row: a struck ring, in the same
+/// stroked idiom as [PlaylistCollectionChevron]. It says the file behind the
+/// entry was not there at the last check — not that anything was deleted.
+class PlaylistCollectionMissingMark extends StatelessWidget {
+  const PlaylistCollectionMissingMark({
+    super.key,
+    required this.color,
+    this.size = 9,
+  });
+
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size.square(size),
+      painter: _MissingMarkPainter(color: color),
+    );
+  }
+}
+
+class _MissingMarkPainter extends CustomPainter {
+  const _MissingMarkPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round
+      ..color = color;
+    final centre = Offset(size.width / 2, size.height / 2);
+    final radius = size.shortestSide / 2 - 0.7;
+    canvas.drawCircle(centre, radius, paint);
+    final reach = radius * 0.7;
+    canvas.drawLine(
+      centre + Offset(-reach, reach),
+      centre + Offset(reach, -reach),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _MissingMarkPainter oldDelegate) =>
+      color != oldDelegate.color;
 }
 
 /// The draggable divider between the collection panel and the track list.

@@ -88,6 +88,7 @@ class _SessionClientAppState extends State<SessionClientApp>
   bool _playing = false;
   List<SavedPlaylist> _collection = const [];
   String? _collectionSelectedPath;
+  Set<String> _collectionDisabledPaths = const {};
   Size _playlistSize = TrampMetrics.playlistDefault;
   double _plCollectionWidth = TrampSettings.defaultPlaylistCollectionWidth;
   bool _plCollectionCollapsed = false;
@@ -262,9 +263,11 @@ class _SessionClientAppState extends State<SessionClientApp>
         case PlaylistCollectionSnapshotEvent(
             :final playlists,
             :final selectedPath,
+            :final disabledPaths,
           ):
           _collection = playlists;
           _collectionSelectedPath = selectedPath;
+          _collectionDisabledPaths = disabledPaths.toSet();
         case PlaybackSnapshotEvent(:final playing, :final playingPath):
           _playing = playing;
           if (playingPath != null) {
@@ -780,6 +783,7 @@ class _SessionClientAppState extends State<SessionClientApp>
                   onCollectionCollapsedChanged: _onCollectionCollapsedChanged,
                   collection: _collection,
                   selectedCollectionPath: _collectionSelectedPath,
+                  disabledCollectionPaths: _collectionDisabledPaths,
                   onAddSavedPlaylist: () => unawaited(_addSavedPlaylist()),
                   zoom: zoom,
                   dockLogicalTopLeft: () => Offset(_logicalLeft, _logicalTop),

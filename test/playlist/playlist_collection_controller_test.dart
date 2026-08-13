@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:tramp/domain/saved_playlist.dart';
+import 'package:tramp/domain/track.dart';
+import 'package:tramp/playlist/m3u_codec.dart';
 import 'package:tramp/playlist/playlist_collection_controller.dart';
 import 'package:tramp/playlist/playlist_collection_store.dart';
 
@@ -49,6 +51,20 @@ class UnreadableCollectionStore extends MemoryCollectionStore {
   }
 }
 
+/// Records which playlist files were read. The controller parses exactly once
+/// per read, so this is how a test proves the validation pass left a file alone.
+class CountingM3uCodec extends M3uCodec {
+  final List<String> parsed = [];
+
+  int get parses => parsed.length;
+
+  @override
+  List<Track> parse(String contents, {required String playlistFilePath}) {
+    parsed.add(playlistFilePath);
+    return super.parse(contents, playlistFilePath: playlistFilePath);
+  }
+}
+
 void main() {
   late Directory dir;
 
@@ -79,6 +95,25 @@ void main() {
           p.join(dir.path, 'b.mp3'),
         ],
       );
+
+  /// Rewrites a playlist the way another program would, and moves its
+  /// modification time on. Explicit, because a rewrite inside the same
+  /// millisecond leaves the stamp where it was and Tramp would rightly see no
+  /// edit at all.
+  Future<void> editPlaylistElsewhere(
+    String path, {
+    List<String> lines = const [],
+  }) async {
+    final file = File(path);
+    final before = await file.lastModified();
+    await file.writeAsString(['#EXTM3U', ...lines].join('\n'));
+    await file.setLastModified(before.add(const Duration(seconds: 2)));
+  }
+
+  /// A support directory of its own, so a file-backed store can be pointed at it
+  /// without seeing the listener's playlists.
+  Future<Directory> supportDir() =>
+      Directory(p.join(dir.path, 'support')).create(recursive: true);
 
   group('add', () {
     test('keeps a reference with the figures the panel paints', () async {
@@ -322,6 +357,311 @@ void main() {
       controller.select(p.join(dir.path, 'stranger.m3u'));
 
       expect(controller.selectedPath, isNull);
+    });
+  });
+
+  group('validation', () {
+    test('a missing file makes its entry a disabled playlist', () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = await writeTwoTrackPlaylist('driving.m3u');
+      await controller.add(path);
+
+      await File(path).delete();
+      await controller.validateReferences();
+
+      expect(controller.isDisabled(path), isTrue);
+      expect(controller.disabledPaths, {normalizePlaylistPath(path)});
+      expect(
+        controller.entries,
+        hasLength(1),
+        reason: 'the entry survives; the file is what is gone',
+      );
+      expect(
+        controller.entries.single.trackCount,
+        2,
+        reason: 'figures are kept — a disabled playlist still counts',
+      );
+    });
+
+    test('a file that comes back re-enables its entry', () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = await writeTwoTrackPlaylist('driving.m3u');
+      await controller.add(path);
+      await File(path).delete();
+      await controller.validateReferences();
+      expect(controller.isDisabled(path), isTrue);
+
+      // The drive is remounted. Nothing else happens: no add, no select, no
+      // remove — only the next pass.
+      await writeTwoTrackPlaylist('driving.m3u');
+      await controller.validateReferences();
+
+      expect(controller.isDisabled(path), isFalse);
+      expect(controller.disabledPaths, isEmpty);
+    });
+
+    test('a collection where every file is missing still lists every entry',
+        () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final paths = [
+        await writeTwoTrackPlaylist('driving.m3u'),
+        await writeTwoTrackPlaylist('sunday.m3u'),
+        await writeTwoTrackPlaylist('work.m3u'),
+      ];
+      for (final path in paths) {
+        await controller.add(path);
+      }
+
+      for (final path in paths) {
+        await File(path).delete();
+      }
+      await controller.validateReferences();
+
+      expect(
+        controller.entries.map((e) => e.displayName),
+        ['driving', 'sunday', 'work'],
+      );
+      expect(controller.disabledPaths, hasLength(3));
+      expect(
+        store.index,
+        hasLength(3),
+        reason: 'nor is anything dropped on disk',
+      );
+    });
+
+    test('an edit elsewhere refreshes count, duration, and track set',
+        () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = await writeTwoTrackPlaylist('work.m3u');
+      await controller.add(path);
+      expect(controller.entries.single.trackCount, 2);
+
+      await editPlaylistElsewhere(
+        path,
+        lines: ['#EXTINF:30,Artist C - Charlie', p.join(dir.path, 'c.mp3')],
+      );
+      await controller.validateReferences();
+
+      final entry = controller.entries.single;
+      expect(entry.trackCount, 1);
+      expect(entry.totalDuration, const Duration(seconds: 30));
+      expect(
+        await controller.readTrackSets(),
+        {
+          normalizePlaylistPath(path): [
+            normalizePlaylistPath(p.join(dir.path, 'c.mp3')),
+          ],
+        },
+      );
+      expect(
+        store.index.single.trackCount,
+        1,
+        reason: 'the refreshed figures are what a restart reads back',
+      );
+    });
+
+    test('only entries whose files actually changed are re-read', () async {
+      final codec = CountingM3uCodec();
+      final store = MemoryCollectionStore();
+      final controller =
+          PlaylistCollectionController(store: store, codec: codec);
+      final untouched = await writeTwoTrackPlaylist('untouched.m3u');
+      final edited = await writeTwoTrackPlaylist('edited.m3u');
+      await controller.add(untouched);
+      await controller.add(edited);
+      final readsOnAdd = codec.parses;
+
+      await editPlaylistElsewhere(edited, lines: [p.join(dir.path, 'c.mp3')]);
+      await controller.validateReferences();
+
+      expect(
+        codec.parsed.skip(readsOnAdd),
+        [normalizePlaylistPath(edited)],
+        reason: 'the untouched playlist is never opened',
+      );
+    });
+
+    test('a pass over an unchanged collection recomputes nothing', () async {
+      final codec = CountingM3uCodec();
+      final store = MemoryCollectionStore();
+      final controller =
+          PlaylistCollectionController(store: store, codec: codec);
+      await controller.add(await writeTwoTrackPlaylist('driving.m3u'));
+      await controller.add(await writeTwoTrackPlaylist('work.m3u'));
+      final reads = codec.parses;
+      final indexWrites = store.indexWrites;
+      final trackSetWrites = store.trackSetWrites;
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      await controller.validateReferences();
+      await controller.validateReferences();
+
+      expect(
+        codec.parses,
+        reads,
+        reason: 'a stamp read back must compare equal to the one stored',
+      );
+      expect(store.indexWrites, indexWrites);
+      expect(store.trackSetWrites, trackSetWrites);
+      expect(
+        notifications,
+        0,
+        reason: 'nothing changed, so the host has nothing to broadcast',
+      );
+    });
+
+    test('a pass on the launch after a restart reads no playlist file',
+        () async {
+      final support = await supportDir();
+      final store = FilePlaylistCollectionStore(
+        supportDir: () async => support,
+      );
+      final kept = PlaylistCollectionController(store: store);
+      await kept.add(await writeTwoTrackPlaylist('driving.m3u'));
+
+      // Next launch: the stamps have been through playlists.json, which is the
+      // only place millisecond precision could have been lost.
+      final codec = CountingM3uCodec();
+      final relaunched =
+          PlaylistCollectionController(store: store, codec: codec);
+      await relaunched.bootstrap();
+      await relaunched.validateReferences();
+
+      expect(
+        codec.parses,
+        0,
+        reason: 'a launch must not read every playlist as an external edit',
+      );
+      expect(
+        relaunched.entries.single.modified,
+        kept.entries.single.modified,
+        reason: 'the stamp the index can hold is the only stamp Tramp keeps',
+      );
+      expect(relaunched.disabledPaths, isEmpty);
+      expect(relaunched.entries.single.trackCount, 2);
+    });
+
+    test('a file that is there but unreadable keeps its figures', () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = await writeTwoTrackPlaylist('driving.m3u');
+      await controller.add(path);
+
+      // Something took the name and is not a playlist any more.
+      await File(path).delete();
+      await Directory(path).create();
+      await controller.validateReferences();
+
+      expect(
+        controller.isDisabled(path),
+        isFalse,
+        reason: 'the path is not gone',
+      );
+      expect(controller.entries.single.trackCount, 2);
+      expect(controller.lastError, isNotNull);
+    });
+
+    test('disabled state never reaches the index on disk', () async {
+      final support = await supportDir();
+      final store = FilePlaylistCollectionStore(
+        supportDir: () async => support,
+      );
+      final controller = PlaylistCollectionController(store: store);
+      final path = await writeTwoTrackPlaylist('driving.m3u');
+      await controller.add(path);
+      await File(path).delete();
+      await controller.validateReferences();
+      expect(controller.isDisabled(path), isTrue);
+
+      final index = File(
+        p.join(support.path, FilePlaylistCollectionStore.indexFileName),
+      );
+      final raw = await index.readAsString();
+      expect(raw, isNot(contains('disabled')));
+      expect(raw, isNot(contains('missing')));
+
+      final reopened = PlaylistCollectionController(store: store);
+      await reopened.bootstrap();
+      expect(reopened.entries, hasLength(1));
+      expect(
+        reopened.disabledPaths,
+        isEmpty,
+        reason: 'nothing is disabled until a pass has looked',
+      );
+
+      await reopened.validateReferences();
+      expect(reopened.isDisabled(path), isTrue);
+    });
+  });
+
+  group('loading a reference', () {
+    test('a disabled entry does nothing and does not throw', () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = await writeTwoTrackPlaylist('driving.m3u');
+      await controller.add(path);
+      await File(path).delete();
+      await controller.validateReferences();
+
+      await expectLater(controller.resolveForLoad(path), completion(isNull));
+
+      expect(controller.entries, hasLength(1));
+      expect(controller.isDisabled(path), isTrue);
+      expect(
+        store.indexWrites,
+        1,
+        reason: 'a load that cannot happen writes nothing',
+      );
+    });
+
+    test('a file that vanished since the last pass disables its entry',
+        () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = await writeTwoTrackPlaylist('driving.m3u');
+      await controller.add(path);
+      await controller.validateReferences();
+      expect(controller.isDisabled(path), isFalse);
+
+      await File(path).delete();
+
+      expect(await controller.resolveForLoad(path), isNull);
+      expect(controller.isDisabled(path), isTrue);
+    });
+
+    test('a live entry resolves to itself', () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = await writeTwoTrackPlaylist('driving.m3u');
+      await controller.add(path);
+
+      final entry = await controller.resolveForLoad(path);
+
+      expect(entry, isNotNull);
+      expect(entry!.path, normalizePlaylistPath(path));
+      expect(await controller.resolveForLoad(p.join(dir.path, 'never.m3u')),
+          isNull);
+    });
+
+    test('a re-add of a file that came back re-enables its entry', () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = await writeTwoTrackPlaylist('driving.m3u');
+      await controller.add(path);
+      await File(path).delete();
+      await controller.validateReferences();
+      expect(controller.isDisabled(path), isTrue);
+
+      await writeTwoTrackPlaylist('driving.m3u');
+      await controller.add(path);
+
+      expect(controller.entries, hasLength(1));
+      expect(controller.isDisabled(path), isFalse);
     });
   });
 

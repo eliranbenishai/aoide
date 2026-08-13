@@ -223,6 +223,7 @@ void main() {
         const ResizePlaylistCollectionCommand(width: 240, collapsed: true),
         const AddSavedPlaylistCommand('/music/driving.m3u'),
         const RemoveSavedPlaylistCommand('/music/driving.m3u'),
+        const SelectSavedPlaylistCommand('/music/driving.m3u'),
         const LoadSavedPlaylistCommand(r'D:\music\driving.m3u'),
         const MoveWindowCommand(
           window: WindowId.playlist,
@@ -254,6 +255,7 @@ void main() {
       for (final type in [
         AddSavedPlaylistCommand.typeName,
         RemoveSavedPlaylistCommand.typeName,
+        SelectSavedPlaylistCommand.typeName,
         LoadSavedPlaylistCommand.typeName,
       ]) {
         expect(
@@ -312,7 +314,40 @@ void main() {
 
       expect(decoded.playlists, isEmpty);
       expect(decoded.selectedPath, isNull);
+      expect(decoded.disabledPaths, isEmpty);
       expect(decoded.lastError, 'Could not read playlist: no such file');
+    });
+
+    test('carries which entries are disabled playlists', () {
+      final event = PlaylistCollectionSnapshotEvent(
+        playlists: [
+          SavedPlaylist(path: '/music/driving.m3u', trackCount: 12),
+          SavedPlaylist(path: '/music/sun.m3u', trackCount: 7),
+        ],
+        disabledPaths: [normalizePlaylistPath('/music/sun.m3u')],
+      );
+
+      final decoded = SessionEvent.fromJson(
+        SessionEvent.decodeEnvelope(jsonEncode(event.toEnvelope())),
+      ) as PlaylistCollectionSnapshotEvent;
+
+      expect(decoded.disabledPaths, [normalizePlaylistPath('/music/sun.m3u')]);
+      expect(
+        decoded.playlists.map((e) => e.toJson().keys).expand((keys) => keys),
+        isNot(contains('disabled')),
+        reason: 'disabled is derived per snapshot, never a field on the entry',
+      );
+    });
+
+    test('a snapshot from before disabled paths existed decodes as none', () {
+      final decoded = PlaylistCollectionSnapshotEvent.fromPayload({
+        'playlists': [
+          SavedPlaylist(path: '/music/driving.m3u').toJson(),
+        ],
+      });
+
+      expect(decoded.playlists, hasLength(1));
+      expect(decoded.disabledPaths, isEmpty);
     });
   });
 

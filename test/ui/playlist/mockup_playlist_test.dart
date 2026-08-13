@@ -6,6 +6,7 @@ import 'package:tramp/playlist/playlist_controller.dart';
 import 'package:tramp/playlist/playlist_store.dart';
 import 'package:tramp/domain/tramp_settings.dart';
 import 'package:tramp/theme/tramp_metrics.dart';
+import 'package:tramp/ui/chrome/mockup/mockup_hover.dart';
 import 'package:tramp/ui/playlist/mockup_playlist.dart';
 import 'package:tramp/ui/playlist/mockup_playlist_collection_pane.dart';
 import 'package:tramp/ui/session/session_messages.dart';
@@ -66,6 +67,7 @@ void main() {
     ValueChanged<bool>? onCollectionCollapsedChanged,
     List<SavedPlaylist> collection = const [],
     String? selectedCollectionPath,
+    Set<String> disabledCollectionPaths = const {},
     VoidCallback? onAddSavedPlaylist,
   }) async {
     await tester.binding.setSurfaceSize(Size(size.width + 40, size.height + 40));
@@ -89,6 +91,7 @@ void main() {
               onCollectionCollapsedChanged: onCollectionCollapsedChanged,
               collection: collection,
               selectedCollectionPath: selectedCollectionPath,
+              disabledCollectionPaths: disabledCollectionPaths,
               onAddSavedPlaylist: onAddSavedPlaylist,
             ),
           ),
@@ -579,6 +582,123 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.byKey(const Key('pl-collection-row-0')), findsOneWidget);
       expect(find.text('TOTAL'), findsOneWidget);
+    });
+
+    group('disabled playlists', () {
+      Finder markIn(int index) => find.descendant(
+            of: find.byKey(Key('pl-collection-row-$index')),
+            matching: find.byType(PlaylistCollectionMissingMark),
+          );
+
+      testWidgets('a row whose file is missing reads as disabled',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving, sunday],
+          disabledCollectionPaths: {driving.path},
+        );
+
+        expect(markIn(0), findsOneWidget);
+        expect(markIn(1), findsNothing);
+        expect(
+          tester
+              .widget<Opacity>(
+                find.descendant(
+                  of: find.byKey(const Key('pl-collection-row-0')),
+                  matching: find.byType(Opacity),
+                ),
+              )
+              .opacity,
+          MockupHoverTokens.disabledOpacity,
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('pl-collection-row-1')),
+            matching: find.byType(Opacity),
+          ),
+          findsNothing,
+        );
+        // The listener can still read which playlist it is, and how much of it
+        // there was — a disabled playlist still counts toward the About stats.
+        expect(rowText(0, 'DRIVING'), findsOneWidget);
+        expect(rowText(0, '12'), findsOneWidget);
+        String labelOf(int index) => tester
+            .getSemantics(find.byKey(Key('pl-collection-row-$index')))
+            .label;
+        expect(labelOf(0), contains('driving, 12 tracks, file missing'));
+        expect(labelOf(1), contains('Sunday Morning, 7 tracks'));
+        expect(labelOf(1), isNot(contains('missing')));
+      });
+
+      testWidgets('tapping a disabled row never asks the host to load it',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving, sunday],
+          disabledCollectionPaths: {driving.path},
+        );
+
+        await tester.tap(find.byKey(const Key('pl-collection-row-0')));
+        await tester.pump();
+
+        expect(commands.whereType<LoadSavedPlaylistCommand>(), isEmpty);
+        // It is highlighted instead — how the remove control reaches it.
+        expect(
+          commands.whereType<SelectSavedPlaylistCommand>().single.path,
+          driving.path,
+        );
+
+        await tester.tap(find.byKey(const Key('pl-collection-row-1')));
+        await tester.pump();
+        expect(
+          commands.whereType<LoadSavedPlaylistCommand>().single.path,
+          sunday.path,
+        );
+      });
+
+      testWidgets('a disabled row can still be removed', (tester) async {
+        final commands = <SessionCommand>[];
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving, sunday],
+          selectedCollectionPath: driving.path,
+          disabledCollectionPaths: {driving.path},
+        );
+
+        await tester.tap(find.byKey(const Key('pl-collection-remove')));
+        await tester.pump();
+
+        expect(
+          commands.whereType<RemoveSavedPlaylistCommand>().single.path,
+          driving.path,
+        );
+      });
+
+      testWidgets('every file missing still paints every row', (tester) async {
+        final commands = <SessionCommand>[];
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving, sunday, work],
+          disabledCollectionPaths: {driving.path, sunday.path, work.path},
+        );
+
+        expect(find.byKey(MockupPlaylistCollectionPane.emptyKey), findsNothing);
+        for (var index = 0; index < 3; index++) {
+          expect(markIn(index), findsOneWidget);
+        }
+        expect(rowText(2, 'WORK'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
     });
 
     testWidgets('a collection snapshot mid-drag does not undo the drag',

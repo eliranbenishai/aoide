@@ -290,6 +290,11 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     _revealWindows = true;
     await _applyAllFrames();
     await _applyAlwaysOnTop();
+    // The session is up and the windows are mapped: now, and only now, check the
+    // listener's playlist files. Unawaited so a collection on a sleeping drive
+    // cannot hold up anything that follows, and last so nothing waits on it.
+    // Its result reaches the Playlist Manager the usual way, as a snapshot.
+    unawaited(_collection.validateReferences());
     if (trampAutoQuitRequested()) {
       unawaited(_autoQuitForHarness());
     }
@@ -462,6 +467,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         await _collection.add(path);
       case RemoveSavedPlaylistCommand(:final path):
         await _collection.remove(path);
+      case SelectSavedPlaylistCommand(:final path):
+        _collection.select(path);
       case LoadSavedPlaylistCommand(:final path):
         await _handleLoadSavedPlaylist(path);
       case MoveWindowCommand(
@@ -721,13 +728,13 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   /// so the current playlist gets its origin and the last-playlist path is
   /// persisted. Replacing the current playlist is unguarded here, matching
   /// today's behaviour for opening any playlist file.
+  ///
+  /// A **disabled playlist** resolves to null and the click does nothing at all
+  /// — the collection module owns that judgement, and it re-checks the file so a
+  /// row that has just gone missing is marked as such on the way past.
   Future<void> _handleLoadSavedPlaylist(String path) async {
-    final entry = _collection.entryFor(path);
+    final entry = await _collection.resolveForLoad(path);
     if (entry == null) return;
-    // A file that has gone missing since it was kept cannot be loaded. Telling
-    // the listener why, and marking the entry disabled, is ticket 06's job; for
-    // now the only wrong answer would be throwing out of the command handler.
-    if (!await File(entry.path).exists()) return;
     await _playlist.openPlaylistFile(entry.path);
     unawaited(_enrichMissingTrackMetadata());
   }
@@ -826,6 +833,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     return PlaylistCollectionSnapshotEvent(
       playlists: _collection.entries,
       selectedPath: _collection.selectedPath,
+      disabledPaths: _collection.disabledPaths.toList(),
       lastError: _collection.lastError,
     );
   }

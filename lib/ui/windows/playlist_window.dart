@@ -40,6 +40,7 @@ class PlaylistWindow extends StatefulWidget {
     this.onCollectionCollapsedChanged,
     this.collection = const [],
     this.selectedCollectionPath,
+    this.disabledCollectionPaths = const {},
     this.onAddSavedPlaylist,
     this.zoom = 1.0,
     this.dockLogicalTopLeft,
@@ -77,6 +78,10 @@ class PlaylistWindow extends StatefulWidget {
   /// second copy behind the divider's `didUpdateWidget` rule.
   final List<SavedPlaylist> collection;
   final String? selectedCollectionPath;
+
+  /// Normalized paths of the **disabled playlists**, from the same snapshot —
+  /// the host derives them from its last check rather than storing them.
+  final Set<String> disabledCollectionPaths;
 
   /// Opens the playlist-file picker; the client sends the add command.
   final VoidCallback? onAddSavedPlaylist;
@@ -165,6 +170,17 @@ class _PlaylistWindowState extends State<PlaylistWindow> {
     if (_collectionCollapsed == collapsed) return;
     setState(() => _collectionCollapsed = collapsed);
     widget.onCollectionCollapsedChanged?.call(collapsed);
+  }
+
+  /// A row tap loads the playlist — unless it is a **disabled playlist**, which
+  /// is only highlighted, so the panel's remove control can reach it while the
+  /// load that would fail never starts.
+  void _selectSavedPlaylist(SavedPlaylist entry) {
+    widget.onSessionCommand?.call(
+      widget.disabledCollectionPaths.contains(entry.path)
+          ? SelectSavedPlaylistCommand(entry.path)
+          : LoadSavedPlaylistCommand(entry.path),
+    );
   }
 
   @override
@@ -256,9 +272,9 @@ class _PlaylistWindowState extends State<PlaylistWindow> {
             child: MockupPlaylistCollectionPane(
               playlists: widget.collection,
               selectedPath: widget.selectedCollectionPath,
+              disabledPaths: widget.disabledCollectionPaths,
               onCollapse: () => _setCollapsed(true),
-              onSelect: (entry) => widget.onSessionCommand
-                  ?.call(LoadSavedPlaylistCommand(entry.path)),
+              onSelect: _selectSavedPlaylist,
               onAdd: widget.onAddSavedPlaylist,
               onRemove: (entry) => widget.onSessionCommand
                   ?.call(RemoveSavedPlaylistCommand(entry.path)),
