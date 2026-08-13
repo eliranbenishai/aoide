@@ -38,6 +38,16 @@ class MockupPlaylist extends StatelessWidget {
 
   void _emit(SessionCommand command) => onSessionCommand?.call(command);
 
+  /// Selects every track, from the options menu or the keyboard chord.
+  ///
+  /// Both routes go through here so the two cannot drift into applying the same
+  /// op differently — and neither guards on an empty list, because selecting
+  /// nothing is already a no-op at both ends of the bus.
+  void _selectAll() {
+    playlist.selectAll();
+    _emit(const PlaylistOpCommand('selectAll'));
+  }
+
   @override
   Widget build(BuildContext context) {
     Widget body = ListenableBuilder(
@@ -124,8 +134,7 @@ class MockupPlaylist extends StatelessWidget {
                       playlist.clear();
                       _emit(const PlaylistOpCommand('clear'));
                     case 'selectAll':
-                      playlist.selectAll();
-                      _emit(const PlaylistOpCommand('selectAll'));
+                      _selectAll();
                     case 'invertSelection':
                       playlist.invertSelection();
                       _emit(const PlaylistOpCommand('invertSelection'));
@@ -154,6 +163,14 @@ class MockupPlaylist extends StatelessWidget {
       );
     }
 
-    return body;
+    // The chord is bound to the current-playlist panel rather than the window,
+    // so it always means "select all *tracks*" — the collection panel beside it
+    // holds a different kind of row and is free to claim the chord for its own
+    // later. `CallbackShortcuts` cannot take focus itself, hence the node: the
+    // panel is this window's subject, so it is the right thing to focus on open.
+    return CallbackShortcuts(
+      bindings: {selectAllActivator(): _selectAll},
+      child: Focus(autofocus: true, child: body),
+    );
   }
 }

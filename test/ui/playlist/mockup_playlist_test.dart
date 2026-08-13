@@ -197,6 +197,53 @@ void main() {
     expect(playlist.selectedIndices, isEmpty);
   });
 
+  group('select all from the keyboard', () {
+    Future<void> pressSelectAll(
+      WidgetTester tester, {
+      LogicalKeyboardKey modifier = LogicalKeyboardKey.controlLeft,
+    }) async {
+      await tester.sendKeyDownEvent(modifier);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(modifier);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the chord selects every track and echoes the op',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      await pumpPl(tester, commands: commands);
+
+      await pressSelectAll(tester);
+
+      expect(playlist.selectedIndices, {0, 1, 2});
+      expect(
+        commands.whereType<PlaylistOpCommand>().map((c) => c.op),
+        contains('selectAll'),
+      );
+    });
+
+    testWidgets('on macOS it is Command that selects all, and Control that does not',
+        (tester) async {
+      // Reset inside the body: the framework checks for a leaked debug
+      // override before tear-downs run.
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final commands = <SessionCommand>[];
+        await pumpPl(tester, commands: commands);
+
+        await pressSelectAll(tester, modifier: LogicalKeyboardKey.controlLeft);
+
+        expect(playlist.selectedIndices, isEmpty);
+
+        await pressSelectAll(tester, modifier: LogicalKeyboardKey.metaLeft);
+
+        expect(playlist.selectedIndices, {0, 1, 2});
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  });
+
   testWidgets('sort menu emits sort and reorders rows', (tester) async {
     final commands = <SessionCommand>[];
     await pumpPl(tester, commands: commands);

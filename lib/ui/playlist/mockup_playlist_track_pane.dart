@@ -38,6 +38,15 @@ bool trackRowToggleModifierPressed() {
       : keyboard.isControlPressed;
 }
 
+/// The select-all chord: **Cmd+A** on macOS, **Ctrl+A** on Windows and Linux.
+///
+/// Reads the same platform convention as [trackRowToggleModifierPressed], so
+/// the panel's keyboard and its mouse agree on which key modifies a selection.
+ShortcutActivator selectAllActivator() =>
+    defaultTargetPlatform == TargetPlatform.macOS
+        ? const SingleActivator(LogicalKeyboardKey.keyA, meta: true)
+        : const SingleActivator(LogicalKeyboardKey.keyA, control: true);
+
 /// What the modifiers held at this moment mean for a row tap.
 ///
 /// Shift wins over the toggle modifier when both are down: a range is the more
