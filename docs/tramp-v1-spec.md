@@ -29,7 +29,7 @@ Tramp is a multi-platform desktop music player — a spiritual successor to Wina
 
 ## Window and chrome
 
-- **Three detachable windows** — Main Player, Equalizer, and Playlist Editor — with **Winamp-style docking**. EQ and playlist may both be open; main EQ/PL toggles show/hide those windows ([ADR 0006](adr/0006-multi-window-docking.md)).
+- **Three detachable windows** — Main Player, Equalizer, and Playlist Manager — with **Winamp-style docking**. EQ and playlist may both be open; main EQ/PL toggles show/hide those windows ([ADR 0006](adr/0006-multi-window-docking.md)). The playlist window holds the **playlist collection** beside the current playlist ([ADR 0008](adr/0008-playlist-collection-stores-references.md)); its default canvas is 1073×696.
 - **Move / snap ownership** — main title-bar drag moves every **visible** EQ/playlist window (whether snapped or not). EQ/playlist title-bar drag moves only that window. Snap only from EQ/playlist: EQ any side of any window; playlist **top/bottom only**, with left/right flush when already within threshold. Details: [`2026-08-09-ui-polish-docking-taskbar-design.md`](superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md).
 - **App chrome** — no OS title bar or standard window frame; the visible UI is the app surface. Title-bar window buttons match mockup `.wbtn` bevel chrome. Main title bar shows logo + TRAMP wordmark; EQ/playlist title bars show **role title only**.
 - **No version in the title bar** — the mockup's `TRAMP<sup>1.0</sup>` superscript is dropped (approved delta). The version belongs to the About window's readout, where it is real and comes from `trampAppVersion`.
