@@ -110,6 +110,41 @@ void main() {
     expect((commands.single as MonoCommand).enabled, isTrue);
   });
 
+  testWidgets('the abbreviated buttons spell themselves out on hover',
+      (tester) async {
+    // EQ, PL and Mono are the faces that say least, so their tooltips carry
+    // the whole explanation — including which way the toggle will go.
+    await pumpPlayer(
+      tester,
+      commands: <SessionCommand>[],
+      equalizerVisible: false,
+      playlistVisible: true,
+      forceMono: false,
+    );
+
+    // One pointer, moved between targets — adding a second without removing
+    // the first trips the mouse tracker.
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: Offset.zero);
+    addTearDown(gesture.removePointer);
+    await tester.pump();
+
+    Future<void> hover(Key key) async {
+      await gesture.moveTo(tester.getCenter(find.byKey(key)));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+    }
+
+    await hover(const Key('player-eq'));
+    expect(find.text('Show equalizer'), findsOneWidget);
+
+    await hover(const Key('player-pl'));
+    expect(find.text('Hide Playlist Manager'), findsOneWidget);
+
+    await hover(const Key('player-mono'));
+    expect(find.text('Fold both channels to mono'), findsOneWidget);
+  });
+
   testWidgets('options menu Always on top sends AlwaysOnTopCommand',
       (tester) async {
     final commands = <SessionCommand>[];

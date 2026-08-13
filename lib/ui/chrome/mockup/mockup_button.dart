@@ -4,6 +4,7 @@ import '../../../look/look_palette.dart';
 import '../../../theme/look_paint.dart';
 import '../../../theme/look_scope.dart';
 import 'mockup_hover.dart';
+import 'mockup_tooltip.dart';
 
 /// Raised control matching mockup `.btn` / `.btn--on` / `.btn--label`.
 class MockupButton extends StatefulWidget {
@@ -18,6 +19,7 @@ class MockupButton extends StatefulWidget {
     this.height,
     this.padding,
     this.semanticLabel,
+    this.tooltip,
   }) : assert(child != null || label != null);
 
   final VoidCallback? onPressed;
@@ -30,7 +32,14 @@ class MockupButton extends StatefulWidget {
   final EdgeInsetsGeometry? padding;
   final String? semanticLabel;
 
+  /// Hover label. Defaults to the name the button already answers to, so a
+  /// control only spells this out when the tip should say more than the
+  /// accessible name — an abbreviated face like EQ or PL.
+  final String? tooltip;
+
   bool get isEnabled => onPressed != null;
+
+  String? get _tooltip => tooltip ?? semanticLabel ?? label;
 
   @override
   State<MockupButton> createState() => _MockupButtonState();
@@ -60,7 +69,9 @@ class _MockupButtonState extends State<MockupButton> {
       button: true,
       enabled: widget.isEnabled,
       label: widget.semanticLabel ?? widget.label,
-      child: MockupHover(
+      child: MockupTooltip(
+        message: widget._tooltip,
+        child: MockupHover(
         enabled: widget.isEnabled,
         builder: (context, hover) {
           final look = LookScope.of(context);
@@ -162,7 +173,8 @@ class _MockupButtonState extends State<MockupButton> {
             onTap: widget.onPressed,
             child: button,
           );
-        },
+          },
+        ),
       ),
     );
   }

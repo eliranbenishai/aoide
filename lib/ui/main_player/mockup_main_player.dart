@@ -1052,9 +1052,14 @@ class _VolumeRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 14),
+        // These three name themselves too tersely to go untooltipped: two are
+        // abbreviations, and all three toggle, so the tip says which way.
         MockupButton(
           key: const Key('player-mono'),
           label: 'Mono',
+          tooltip: forceMono
+              ? 'Play in stereo'
+              : 'Fold both channels to mono',
           on: forceMono,
           width: 86,
           height: 38,
@@ -1064,6 +1069,7 @@ class _VolumeRow extends StatelessWidget {
         MockupButton(
           key: const Key('player-eq'),
           label: 'EQ',
+          tooltip: equalizerVisible ? 'Hide equalizer' : 'Show equalizer',
           on: equalizerVisible,
           width: 74,
           height: 38,
@@ -1073,6 +1079,9 @@ class _VolumeRow extends StatelessWidget {
         MockupButton(
           key: const Key('player-pl'),
           label: 'PL',
+          tooltip: playlistVisible
+              ? 'Hide Playlist Manager'
+              : 'Show Playlist Manager',
           on: playlistVisible,
           width: 74,
           height: 38,

@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../logo.dart';
 import 'mockup_hover.dart';
 import 'mockup_icons.dart';
+import 'mockup_tooltip.dart';
 import '../../../look/look_materials.dart';
 import '../../../look/look_palette.dart';
 import '../../../theme/look_paint.dart';
@@ -467,7 +468,9 @@ class _WinBtnState extends State<_WinBtn> {
       button: true,
       enabled: _enabled,
       label: widget.semanticLabel,
-      child: MockupHover(
+      child: MockupTooltip(
+        message: widget.semanticLabel,
+        child: MockupHover(
         enabled: _enabled,
         builder: (context, hover) {
           Widget face = CustomPaint(
@@ -500,6 +503,7 @@ class _WinBtnState extends State<_WinBtn> {
             child: face,
           );
         },
+        ),
       ),
     );
   }

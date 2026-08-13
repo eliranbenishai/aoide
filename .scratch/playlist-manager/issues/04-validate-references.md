@@ -150,3 +150,20 @@ it keeps the tests honest about what Tramp actually watches.
 - `mockup_playlist_track_pane.dart` and `mockup_playlist_footer.dart` were **not**
   touched. Ticket 14's golden regeneration now also has to account for a
   missing-file mark being possible on collection rows.
+
+### Known flake (spotted 2026-08-13, after this ticket landed)
+
+`validation a file that is there but unreadable keeps its figures` fails
+intermittently in **full-suite** runs and passes 3/3 in isolation. Seen once in
+roughly six consecutive full runs; the same run showed no other change.
+
+The case makes a file unreadable and asserts the entry keeps its cached figures
+rather than zeroing them. The likely culprit is that unreadability is simulated
+through filesystem permissions, which is not a reliable lever under a parallel
+runner — and is a no-op entirely for a privileged user or on a mount that does
+not honour POSIX modes.
+
+Worth reworking to make the failure deterministic — an injected store or codec
+that throws on read would test the same behaviour without depending on the
+filesystem. Not urgent, but a flaky test in a suite whose whole job is to prove
+"nothing else moved" costs more than it looks.
