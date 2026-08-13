@@ -240,7 +240,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Always on top'), findsOneWidget);
-    expect(find.text('Look packs…'), findsOneWidget);
+    expect(find.text('Settings…'), findsOneWidget);
     expect(find.text('Track info'), findsOneWidget);
     expect(find.text('About Tramp'), findsOneWidget);
     expect(find.text('Quit'), findsOneWidget);
