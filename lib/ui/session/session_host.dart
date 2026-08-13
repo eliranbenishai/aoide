@@ -6,7 +6,6 @@ import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart' hide Track;
-import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../domain/collection_figures.dart';
@@ -15,6 +14,7 @@ import '../../domain/tramp_settings.dart';
 import '../../eq/equalizer_controller.dart';
 import '../../eq/mpv_equalizer_sink.dart';
 import '../../look/look_installer.dart';
+import '../../platform/app_support_dir.dart';
 import '../../platform/file_open.dart';
 import '../../platform/session_resume_store.dart';
 import '../../platform/settings_store.dart';
@@ -152,30 +152,30 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       },
     );
     _settingsStore = widget.settingsStore ??
-        FileSettingsStore(supportDir: getApplicationSupportDirectory);
+        FileSettingsStore(supportDir: trampSupportDirectory);
     _resumeStore = FileSessionResumeStore(
-      supportDir: getApplicationSupportDirectory,
+      supportDir: trampSupportDirectory,
     );
     _lookController = LookController(
       settingsStore: _settingsStore,
-      supportDir: getApplicationSupportDirectory,
+      supportDir: trampSupportDirectory,
     );
     _lookController.addListener(_onLookChanged);
     _bus = SessionBus();
     _docking = _createDocking(DockLayout.defaults);
     _playlist = PlaylistController(
       store: widget.playlistStore ??
-          FilePlaylistStore(supportDir: getApplicationSupportDirectory),
+          FilePlaylistStore(supportDir: trampSupportDirectory),
       // An altered current playlist is kept continuously while the session
       // runs, so quitting can go on writing nothing at all.
       alteredStore: FileAlteredPlaylistStore(
-        supportDir: getApplicationSupportDirectory,
+        supportDir: trampSupportDirectory,
       ),
     );
     _collection = PlaylistCollectionController(
       store: widget.playlistCollectionStore ??
           FilePlaylistCollectionStore(
-            supportDir: getApplicationSupportDirectory,
+            supportDir: trampSupportDirectory,
           ),
     );
     // Share one media_kit Player so EQ `af` and transport hit the same libmpv.
@@ -190,7 +190,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
           ),
       // Lifetime spins are history, so they keep their own small file rather
       // than riding on settings — resetting a preference must not erase them.
-      usageStore: FileUsageStore(supportDir: getApplicationSupportDirectory),
+      usageStore: FileUsageStore(supportDir: trampSupportDirectory),
     );
     _equalizer = EqualizerController(
       store: _settingsStore,
@@ -294,7 +294,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
 
     await _lookController.bootstrap(
       settings: settings,
-      supportDir: getApplicationSupportDirectory,
+      supportDir: trampSupportDirectory,
     );
     await _equalizer.load();
     // The collection index holds only what the left panel paints, so this stays
@@ -590,7 +590,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     _docking = _createDocking(DockLayout.fromSettings(next));
     await _lookController.bootstrap(
       settings: next,
-      supportDir: getApplicationSupportDirectory,
+      supportDir: trampSupportDirectory,
     );
     await _playback.setForceMono(_forceMono);
     await _applyAllFrames();
