@@ -48,7 +48,11 @@ the company name set above it in chrome type. The trap this ticket flagged still
 holds: `about_window_golden_test.dart` continues to pass `AboutStats.placeholder`
 explicitly, so the well is not a well of zeros.
 
-Still not run: `tool/measure_quit_latency.sh`, as noted below.
+The `tool/measure_quit_latency.sh` run this ticket asked for is now done: **72–79ms**
+across five runs on a fresh Linux release build, against a 500ms budget. Recorded in
+[ticket 13](13-count-spins.md) and the
+[quit-latency ticket](../../quit-latency/issues/01-fast-main-quit.md). Nothing is
+left outstanding here.
 
 ### What the playlist goldens should now show
 

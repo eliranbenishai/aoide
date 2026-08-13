@@ -76,6 +76,19 @@ unaffected — but without it a listener who closes Tramp within the debounce
 would lose the track that just finished, and a lifetime total that drops the
 last one is not a lifetime total.
 
+**Measured, 2026-08-13.** "The quit budget is unaffected" was reasoning, not a
+number, and the [quit-latency blocker](../../quit-latency/issues/01-fast-main-quit.md)
+had been cleared *before* this second write existed. `tool/measure_quit_latency.sh`
+on a fresh Linux release build now reports **72, 74, 74, 75, 79 ms** across five
+runs against the 500ms budget — inside the 200ms stretch target, and faster than
+the 194–460ms the blocker was closed on. The extra write costs nothing findable.
+
+Unverified hypothesis for the *improvement*, offered for whoever next touches
+this path: `_persistOnQuit` resolves the support directory to write, and commit
+13cb01c stopped resolving it through `path_provider`'s FFI lookup into libgio on
+every call. That would make both quit-path writes cheaper. Nobody has bisected
+it, so treat it as a lead rather than a finding.
+
 ### Anything a later ticket should know
 
 - `usage.json` is **history**. Anything added to it inherits the Reset Settings

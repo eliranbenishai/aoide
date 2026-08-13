@@ -102,7 +102,7 @@ One Flutter process; five frameless windows share playback, playlist, EQ, zoom, 
 
 ## Quit
 
-Main close (`SessionHostApp._quit`) runs optional confirm, persists the resume snapshot and flushes the pending spin count, then `_exit`s the process (`lib/ui/session/session_quit.dart`). It does **not** await per-window `session_shutdown` / GTK FlView destroy — that compositor teardown is multi-second on Linux. Regression harness: `TRAMP_AUTO_QUIT=1` + [`tool/measure_quit_latency.sh`](../tool/measure_quit_latency.sh) (budget 500ms from quit start to process death).
+Main close (`SessionHostApp._quit`) runs optional confirm, persists the resume snapshot and flushes the pending spin count, then `_exit`s the process (`lib/ui/session/session_quit.dart`). It does **not** await per-window `session_shutdown` / GTK FlView destroy — that compositor teardown is multi-second on Linux. Regression harness: `TRAMP_AUTO_QUIT=1` + [`tool/measure_quit_latency.sh`](../tool/measure_quit_latency.sh) (budget 500ms from quit start to process death; runs against the **release** bundle in a throwaway `HOME`, so it never reads the listener's own data). Last measured **72–79ms** across five runs on Linux release — well inside the stretch target of 200ms, and tighter than the 194–460ms spread recorded when the blocker was first cleared. Re-measure after anything new lands on the quit path; the budget exists because closing once took 4–5s.
 
 Nothing else may be added here. Anything that has to outlive a session is persisted **during** it, debounced — that is why an altered current playlist is kept continuously rather than saved or prompted for on the way out.
 

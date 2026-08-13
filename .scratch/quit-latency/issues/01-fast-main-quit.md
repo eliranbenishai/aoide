@@ -48,3 +48,4 @@ Harness `TRAMP_AUTO_QUIT=1` + `tool/measure_quit_latency.sh`: serial destroy was
 
 - 2026-08-12: Observed ~5s close on Linux release; product owner marked release blocker.
 - 2026-08-12: Instrumented `_quit`; four serial `session_shutdown` calls were 267+477+225+10ms, each paired with `RemoveWindow` / compositor cleanup. Parallel destroy would still pay ~max(destroy). `dart:io` `exit` can still run `atexit` engine destructors; `_exit` skips them.
+- 2026-08-13: Re-measured, because this was resolved *before* [ticket 13](../../playlist-manager/issues/13-count-spins.md) added the spin-count flush beside the resume write and nothing had run the harness since. Fresh Linux release build: **72, 74, 74, 75, 79 ms** over five runs, all PASS. The second write is free, and quit is now well inside the &lt;200ms stretch rather than merely inside the 500ms budget. Stays **resolved**; recorded so the next person on this path has a current baseline rather than the 194–460ms one.
