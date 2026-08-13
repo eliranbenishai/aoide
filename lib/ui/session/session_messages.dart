@@ -205,6 +205,7 @@ final class PlaylistSnapshotEvent extends SessionEvent {
     this.sourcePath,
     this.playingIndex,
     this.playing = false,
+    this.altered = false,
   });
 
   static const typeName = 'playlist_snapshot';
@@ -215,6 +216,12 @@ final class PlaylistSnapshotEvent extends SessionEvent {
   final String? sourcePath;
   final int? playingIndex;
   final bool playing;
+
+  /// Whether this is an **altered current playlist**. Rides the playlist
+  /// snapshot because the altered state lives with the current playlist on the
+  /// host, and the Playlist Manager that has to ask about it before replacing it
+  /// is a separate engine.
+  final bool altered;
 
   int get trackCount => tracks.length;
 
@@ -230,6 +237,7 @@ final class PlaylistSnapshotEvent extends SessionEvent {
         'sourcePath': sourcePath,
         'playingIndex': playingIndex,
         'playing': playing,
+        'altered': altered,
       };
 
   factory PlaylistSnapshotEvent.fromPayload(Map<String, dynamic> json) {
@@ -260,6 +268,9 @@ final class PlaylistSnapshotEvent extends SessionEvent {
       sourcePath: json['sourcePath'] as String?,
       playingIndex: (json['playingIndex'] as num?)?.toInt(),
       playing: json['playing'] == true,
+      // A snapshot from before this field decodes as unaltered, which is the
+      // safe way round: it can only cost a prompt, never a playlist.
+      altered: json['altered'] == true,
     );
   }
 }

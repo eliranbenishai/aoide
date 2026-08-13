@@ -807,6 +807,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       sourcePath: _playlist.playlist.sourcePath,
       playingIndex: _playback.playingIndex,
       playing: _playback.playing,
+      altered: _playlist.altered,
     );
   }
 

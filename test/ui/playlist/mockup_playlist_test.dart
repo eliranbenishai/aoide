@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tramp/domain/saved_playlist.dart';
 import 'package:tramp/domain/track.dart';
@@ -32,7 +33,9 @@ void main() {
 
   setUp(() {
     playlist = PlaylistController(store: MemoryStore());
-    playlist.addTracks(const [
+    // Loaded, not built up track by track: in the client this mirror is only
+    // ever filled from a host snapshot, and that leaves it unaltered.
+    playlist.setTracks(const [
       Track(
         path: '/a.mp3',
         title: 'Alpha',
@@ -69,6 +72,8 @@ void main() {
     String? selectedCollectionPath,
     Set<String> disabledCollectionPaths = const {},
     VoidCallback? onAddSavedPlaylist,
+    bool altered = false,
+    Future<String?> Function()? pickSavePlaylistPath,
   }) async {
     await tester.binding.setSurfaceSize(Size(size.width + 40, size.height + 40));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -93,6 +98,8 @@ void main() {
               selectedCollectionPath: selectedCollectionPath,
               disabledCollectionPaths: disabledCollectionPaths,
               onAddSavedPlaylist: onAddSavedPlaylist,
+              altered: altered,
+              pickSavePlaylistPath: pickSavePlaylistPath,
             ),
           ),
         ),
@@ -698,6 +705,248 @@ void main() {
         }
         expect(rowText(2, 'WORK'), findsOneWidget);
         expect(tester.takeException(), isNull);
+      });
+    });
+
+    group('altered current playlist', () {
+      const dialogKey = Key('pl-altered-dialog');
+      const cancelKey = Key('pl-altered-cancel');
+      const discardKey = Key('pl-altered-discard');
+      const saveKey = Key('pl-altered-save');
+
+      Iterable<LoadSavedPlaylistCommand> loads(List<SessionCommand> commands) =>
+          commands.whereType<LoadSavedPlaylistCommand>();
+
+      Iterable<PlaylistOpCommand> saves(List<SessionCommand> commands) =>
+          commands.whereType<PlaylistOpCommand>().where(
+                (c) => c.op == 'savePlaylist',
+              );
+
+      Future<void> tapSunday(WidgetTester tester) async {
+        await tester.tap(find.byKey(const Key('pl-collection-row-1')));
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('an unaltered playlist is replaced without asking',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving, sunday],
+        );
+
+        await tapSunday(tester);
+
+        expect(find.byKey(dialogKey), findsNothing);
+        expect(loads(commands).single.path, sunday.path);
+      });
+
+      testWidgets('an altered playlist offers save, discard, and cancel',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving, sunday],
+          altered: true,
+        );
+
+        await tapSunday(tester);
+
+        expect(find.byKey(dialogKey), findsOneWidget);
+        expect(find.byKey(saveKey), findsOneWidget);
+        expect(find.byKey(discardKey), findsOneWidget);
+        expect(find.byKey(cancelKey), findsOneWidget);
+        expect(find.text('Save and load'), findsOneWidget);
+        expect(find.text('Discard and load'), findsOneWidget);
+        expect(find.text('Cancel'), findsOneWidget);
+        // Nothing has happened yet — the listener has not answered.
+        expect(commands, isEmpty);
+      });
+
+      testWidgets('cancel keeps the current playlist and loads nothing',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving, sunday],
+          altered: true,
+        );
+
+        await tapSunday(tester);
+        await tester.tap(find.byKey(cancelKey));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(dialogKey), findsNothing);
+        expect(commands, isEmpty);
+        expect(find.textContaining('Alpha'), findsOneWidget);
+      });
+
+      testWidgets('an idle Return keypress cannot discard anything',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving, sunday],
+          altered: true,
+        );
+
+        await tapSunday(tester);
+        // Cancel holds the default focus, so Return answers with it.
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(dialogKey), findsNothing);
+        expect(commands, isEmpty);
+      });
+
+      testWidgets('discard loads the new playlist', (tester) async {
+        final commands = <SessionCommand>[];
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving, sunday],
+          altered: true,
+        );
+
+        await tapSunday(tester);
+        await tester.tap(find.byKey(discardKey));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(dialogKey), findsNothing);
+        expect(loads(commands).single.path, sunday.path);
+        expect(saves(commands), isEmpty);
+      });
+
+      testWidgets('save writes straight to the origin, then loads',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        var pickerOpened = 0;
+        playlist.setTracks(
+          playlist.playlist.tracks,
+          sourcePath: '/music/current.m3u',
+        );
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving, sunday],
+          altered: true,
+          pickSavePlaylistPath: () async {
+            pickerOpened++;
+            return '/music/elsewhere.m3u';
+          },
+        );
+
+        await tapSunday(tester);
+        await tester.tap(find.byKey(saveKey));
+        await tester.pumpAndSettle();
+
+        // Straight to the origin: no save dialog, and the save lands first.
+        expect(pickerOpened, 0);
+        expect(commands, hasLength(2));
+        expect((commands[0] as PlaylistOpCommand).op, 'savePlaylist');
+        expect((commands[0] as PlaylistOpCommand).path, '/music/current.m3u');
+        expect((commands[1] as LoadSavedPlaylistCommand).path, sunday.path);
+      });
+
+      testWidgets('save with no origin opens the save dialog, then loads',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        var pickerOpened = 0;
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving, sunday],
+          altered: true,
+          pickSavePlaylistPath: () async {
+            pickerOpened++;
+            return '/music/kept.m3u';
+          },
+        );
+
+        expect(playlist.playlist.sourcePath, isNull);
+
+        await tapSunday(tester);
+        await tester.tap(find.byKey(saveKey));
+        await tester.pumpAndSettle();
+
+        expect(pickerOpened, 1);
+        expect(commands, hasLength(2));
+        expect((commands[0] as PlaylistOpCommand).op, 'savePlaylist');
+        expect((commands[0] as PlaylistOpCommand).path, '/music/kept.m3u');
+        expect((commands[1] as LoadSavedPlaylistCommand).path, sunday.path);
+      });
+
+      testWidgets(
+          'cancelling that save dialog keeps the current playlist, still '
+          'altered', (tester) async {
+        final commands = <SessionCommand>[];
+        var pickerOpened = 0;
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving, sunday],
+          altered: true,
+          // The listener backs out of the save dialog.
+          pickSavePlaylistPath: () async {
+            pickerOpened++;
+            return null;
+          },
+        );
+
+        await tapSunday(tester);
+        await tester.tap(find.byKey(saveKey));
+        await tester.pumpAndSettle();
+
+        // Neither half happened: nothing was written, and nothing was loaded.
+        expect(pickerOpened, 1);
+        expect(saves(commands), isEmpty);
+        expect(loads(commands), isEmpty);
+        expect(commands, isEmpty);
+        expect(find.textContaining('Alpha'), findsOneWidget);
+
+        // Still protected: the next click asks again rather than falling
+        // through to the load.
+        await tapSunday(tester);
+        expect(find.byKey(dialogKey), findsOneWidget);
+        await tester.tap(find.byKey(cancelKey));
+        await tester.pumpAndSettle();
+        expect(loads(commands), isEmpty);
+      });
+
+      testWidgets('a change the host has not confirmed yet still asks',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving, sunday],
+        );
+
+        // Sorting here mutates this window's own mirror; the host's snapshot
+        // saying so has not arrived yet.
+        await tester.tap(find.byKey(const Key('pl-sort')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Duration').last);
+        await tester.pumpAndSettle();
+        expect(playlist.altered, isTrue);
+
+        await tapSunday(tester);
+
+        expect(find.byKey(dialogKey), findsOneWidget);
+        expect(loads(commands), isEmpty);
       });
     });
 

@@ -214,6 +214,208 @@ void main() {
     });
   });
 
+  group('altered current playlist', () {
+    const tracks = [
+      Track(path: '/a.mp3', title: 'Alpha', duration: Duration(seconds: 10)),
+      Track(path: '/b.mp3', title: 'Bravo', duration: Duration(seconds: 20)),
+      Track(path: '/c.mp3', title: 'Charlie', duration: Duration(seconds: 30)),
+    ];
+
+    /// A playlist as a load leaves it: three tracks, an origin, unaltered.
+    PlaylistController loaded({String origin = '/music/list.m3u'}) {
+      final c = PlaylistController(store: MemoryStore());
+      c.setTracks(tracks, sourcePath: origin);
+      expect(c.altered, isFalse, reason: 'a load sets the baseline');
+      return c;
+    }
+
+    Future<String> writePlaylistFile(
+      String prefix, {
+      List<Track> contents = tracks,
+    }) async {
+      final dir = await Directory.systemTemp.createTemp(prefix);
+      final path = p.join(dir.path, 'list.m3u');
+      await File(path).writeAsString(const M3uCodec().encode(contents));
+      return path;
+    }
+
+    test('adding tracks raises it', () {
+      final c = loaded();
+      c.addTracks(const [Track(path: '/d.mp3')]);
+      expect(c.altered, isTrue);
+    });
+
+    test('removing one track raises it', () {
+      final c = loaded();
+      c.removeAt(1);
+      expect(c.altered, isTrue);
+    });
+
+    test('removing the selection raises it', () {
+      final c = loaded();
+      c.select(0);
+      expect(c.altered, isFalse);
+      c.removeSelected();
+      expect(c.altered, isTrue);
+    });
+
+    test('reordering raises it', () {
+      final c = loaded();
+      c.move(0, 3);
+      expect(c.playlist.tracks.map((t) => t.path), [
+        '/b.mp3',
+        '/c.mp3',
+        '/a.mp3',
+      ]);
+      expect(c.altered, isTrue);
+    });
+
+    test('sorting raises it', () {
+      final c = loaded();
+      c.sortBy(PlaylistSortKey.duration);
+      expect(c.altered, isFalse, reason: 'already in duration order');
+
+      c.reverseTracks();
+      expect(c.altered, isTrue);
+
+      final other = loaded();
+      other.sortBy(PlaylistSortKey.title);
+      expect(other.altered, isFalse, reason: 'already in title order');
+      other.move(0, 3);
+      other.sortBy(PlaylistSortKey.title);
+      expect(other.altered, isTrue);
+    });
+
+    test('reversing raises it', () {
+      final c = loaded();
+      c.reverseTracks();
+      expect(c.altered, isTrue);
+    });
+
+    test('clearing tracks raises it', () {
+      final c = loaded();
+      c.clear();
+      expect(c.altered, isTrue);
+    });
+
+    test('a clear leaves no origin, so there is nowhere to save straight to',
+        () {
+      final c = loaded();
+      c.clear();
+      // Clear starts a new, empty current playlist rather than emptying the
+      // file the listener loaded: the confirmation's save has to ask where.
+      expect(c.playlist.sourcePath, isNull);
+      expect(c.playlist.tracks, isEmpty);
+      expect(c.altered, isTrue);
+    });
+
+    test('nothing changed means nothing raised', () {
+      final c = loaded();
+
+      c.addTracks(const []);
+      c.removeAt(9);
+      c.removeSelected(); // nothing selected
+      c.move(1, 2); // dropped back where it was picked up
+      c.sortBy(PlaylistSortKey.path); // already in path order
+      expect(c.altered, isFalse);
+      expect(c.playlist.tracks.map((t) => t.path), [
+        '/a.mp3',
+        '/b.mp3',
+        '/c.mp3',
+      ]);
+
+      final empty = PlaylistController(store: MemoryStore());
+      empty.clear();
+      empty.reverseTracks();
+      expect(empty.altered, isFalse);
+    });
+
+    test('selecting never raises it', () {
+      final c = loaded();
+
+      c.select(1);
+      c.selectAll();
+      c.invertSelection();
+      c.setSelectedIndices(const [0, 2], primary: 2);
+
+      expect(c.selectedIndices, {0, 2});
+      expect(c.altered, isFalse);
+    });
+
+    test('patching a track from a metadata probe never raises it', () {
+      final c = loaded();
+
+      expect(
+        c.updateTrackByPath(
+          '/b.mp3',
+          (t) => t.copyWith(duration: const Duration(seconds: 90)),
+        ),
+        isTrue,
+      );
+
+      // Durations are filled in after every load; raising here would mark a
+      // freshly loaded playlist as changed.
+      expect(c.playlist.tracks[1].duration, const Duration(seconds: 90));
+      expect(c.altered, isFalse);
+    });
+
+    test('opening a playlist file leaves it unaltered, however many times',
+        () async {
+      final first = await writePlaylistFile('tramp_altered_open_');
+      final second = await writePlaylistFile('tramp_altered_open2_');
+      final c = PlaylistController(store: MemoryStore());
+
+      await c.openPlaylistFile(first);
+      expect(c.altered, isFalse);
+      await c.openPlaylistFile(second);
+      expect(c.altered, isFalse);
+      await c.openPlaylistFile(first);
+      expect(c.altered, isFalse);
+    });
+
+    test('loading a playlist over an altered one sets a fresh baseline',
+        () async {
+      final path = await writePlaylistFile('tramp_altered_reload_');
+      final c = PlaylistController(store: MemoryStore());
+      c.addTracks(const [Track(path: '/ad-hoc.mp3')]);
+      expect(c.altered, isTrue);
+
+      await c.openPlaylistFile(path);
+
+      expect(c.altered, isFalse);
+      expect(c.playlist.sourcePath, path);
+    });
+
+    test('restoring the last playlist leaves it unaltered', () async {
+      final path = await writePlaylistFile('tramp_altered_restore_');
+      final c = PlaylistController(store: MemoryStore()..last = path);
+
+      await c.restoreLastPlaylist();
+
+      expect(c.playlist.tracks, hasLength(3));
+      expect(c.altered, isFalse);
+    });
+
+    test('writing the whole list to a file lowers it', () async {
+      final dir = await Directory.systemTemp.createTemp('tramp_altered_save_');
+      final path = p.join(dir.path, 'out.m3u');
+      final c = PlaylistController(store: MemoryStore());
+      c.addTracks(tracks);
+      expect(c.altered, isTrue);
+
+      await c.savePlaylistFile(path);
+
+      expect(c.altered, isFalse);
+      expect(c.playlist.sourcePath, path);
+
+      // And it goes straight back up on the next change.
+      c.removeAt(0);
+      expect(c.altered, isTrue);
+      await c.savePlaylistFile(path);
+      expect(c.altered, isFalse);
+    });
+  });
+
   group('restoreLastPlaylist', () {
     test('loads tracks from stored path when file exists', () async {
       final dir = await Directory.systemTemp.createTemp('tramp_restore_');

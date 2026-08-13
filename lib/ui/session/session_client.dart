@@ -86,6 +86,10 @@ class _SessionClientAppState extends State<SessionClientApp>
   );
   int? _playingIndex;
   bool _playing = false;
+
+  /// Whether the host's current playlist is an **altered current playlist** —
+  /// what the Playlist Manager has to ask about before replacing it.
+  bool _playlistAltered = false;
   List<SavedPlaylist> _collection = const [];
   String? _collectionSelectedPath;
   Set<String> _collectionDisabledPaths = const {};
@@ -252,6 +256,7 @@ class _SessionClientAppState extends State<SessionClientApp>
             :final sourcePath,
             :final playingIndex,
             :final playing,
+            :final altered,
           ):
           _playlist.setTracks(tracks, sourcePath: sourcePath);
           _playlist.setSelectedIndices(
@@ -260,6 +265,9 @@ class _SessionClientAppState extends State<SessionClientApp>
           );
           _playingIndex = playingIndex;
           _playing = playing;
+          // The host owns the altered state; applying the snapshot above has
+          // just reset this mirror's own, so carry the host's answer beside it.
+          _playlistAltered = altered;
         case PlaylistCollectionSnapshotEvent(
             :final playlists,
             :final selectedPath,
@@ -785,6 +793,8 @@ class _SessionClientAppState extends State<SessionClientApp>
                   selectedCollectionPath: _collectionSelectedPath,
                   disabledCollectionPaths: _collectionDisabledPaths,
                   onAddSavedPlaylist: () => unawaited(_addSavedPlaylist()),
+                  altered: _playlistAltered,
+                  pickSavePlaylistPath: pickSavePlaylistPath,
                   zoom: zoom,
                   dockLogicalTopLeft: () => Offset(_logicalLeft, _logicalTop),
                   onDockMove: _onDockMove,

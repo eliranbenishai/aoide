@@ -413,5 +413,26 @@ void main() {
       expect(decoded.playing, isTrue);
       expect(decoded.sourcePath, '/list.m3u');
     });
+
+    test('altered rides the snapshot both ways', () {
+      for (final altered in [true, false]) {
+        final event = PlaylistSnapshotEvent(
+          tracks: const [Track(path: '/a.mp3')],
+          selectedIndices: const [0],
+          sourcePath: '/list.m3u',
+          altered: altered,
+        );
+        final decoded =
+            SessionEvent.fromJson(event.toEnvelope()) as PlaylistSnapshotEvent;
+        expect(decoded.altered, altered, reason: 'altered $altered');
+      }
+    });
+
+    test('a snapshot without the field decodes as unaltered', () {
+      final decoded = PlaylistSnapshotEvent.fromPayload({
+        'tracks': [const Track(path: '/a.mp3').toJson()],
+      });
+      expect(decoded.altered, isFalse);
+    });
   });
 }

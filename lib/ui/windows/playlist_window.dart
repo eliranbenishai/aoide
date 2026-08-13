@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import '../chrome/mockup/mockup_shell.dart';
 import '../chrome/mockup/mockup_title_bar.dart';
 import '../chrome/window_resize_grip.dart';
 import '../docking/dock_drag_area.dart';
+import '../playlist/altered_playlist_dialog.dart';
 import '../playlist/mockup_playlist.dart';
 import '../playlist/mockup_playlist_collection_pane.dart';
 import '../session/session_messages.dart';
@@ -42,6 +44,8 @@ class PlaylistWindow extends StatefulWidget {
     this.selectedCollectionPath,
     this.disabledCollectionPaths = const {},
     this.onAddSavedPlaylist,
+    this.altered = false,
+    this.pickSavePlaylistPath,
     this.zoom = 1.0,
     this.dockLogicalTopLeft,
     this.onDockMove,
@@ -85,6 +89,15 @@ class PlaylistWindow extends StatefulWidget {
 
   /// Opens the playlist-file picker; the client sends the add command.
   final VoidCallback? onAddSavedPlaylist;
+
+  /// Whether the host's current playlist is an **altered current playlist**,
+  /// from the playlist snapshot. Navigating to a saved playlist asks first.
+  final bool altered;
+
+  /// Opens the save dialog and answers with the chosen path, or null when the
+  /// listener cancelled it. Only reached by the confirmation's save when the
+  /// current playlist has no origin to write straight to.
+  final Future<String?> Function()? pickSavePlaylistPath;
 
   /// Global zoom factor for docking drag → logical conversion.
   final double zoom;
@@ -172,15 +185,59 @@ class _PlaylistWindowState extends State<PlaylistWindow> {
     widget.onCollectionCollapsedChanged?.call(collapsed);
   }
 
+  void _emit(SessionCommand command) => widget.onSessionCommand?.call(command);
+
+  /// True when the **altered current playlist** needs protecting: what the host
+  /// broadcast, or a mutation this window has made that the host has not echoed
+  /// back yet, so a click in that gap still asks. Applying any snapshot resets
+  /// the mirror's own flag, so this can never read stale-true.
+  bool get _altered => widget.altered || widget.playlist.altered;
+
   /// A row tap loads the playlist — unless it is a **disabled playlist**, which
   /// is only highlighted, so the panel's remove control can reach it while the
   /// load that would fail never starts.
-  void _selectSavedPlaylist(SavedPlaylist entry) {
-    widget.onSessionCommand?.call(
-      widget.disabledCollectionPaths.contains(entry.path)
-          ? SelectSavedPlaylistCommand(entry.path)
-          : LoadSavedPlaylistCommand(entry.path),
-    );
+  ///
+  /// While the current playlist is altered the load is put to the listener
+  /// first, and every answer but discard can end with no load at all.
+  Future<void> _selectSavedPlaylist(SavedPlaylist entry) async {
+    if (widget.disabledCollectionPaths.contains(entry.path)) {
+      _emit(SelectSavedPlaylistCommand(entry.path));
+      return;
+    }
+    if (!_altered) {
+      _emit(LoadSavedPlaylistCommand(entry.path));
+      return;
+    }
+    final choice = await showAlteredPlaylistDialog(context);
+    if (!mounted) return;
+    switch (choice) {
+      case AlteredPlaylistChoice.cancel:
+        // Everything stays exactly as it was: no save, no load, still altered.
+        return;
+      case AlteredPlaylistChoice.discard:
+        _emit(LoadSavedPlaylistCommand(entry.path));
+      case AlteredPlaylistChoice.save:
+        if (!await _saveWholeCurrentPlaylist()) return;
+        _emit(LoadSavedPlaylistCommand(entry.path));
+    }
+  }
+
+  /// Writes the whole current playlist to the file that becomes its origin:
+  /// straight to the origin it already has, or wherever the save dialog says.
+  ///
+  /// Returns false when nothing was written — which is the sharp edge of the
+  /// confirmation. A cancelled save dialog goes back to the current playlist
+  /// with the altered state still raised; it must not fall through to the load.
+  Future<bool> _saveWholeCurrentPlaylist() async {
+    final origin = widget.playlist.playlist.sourcePath;
+    if (origin != null && origin.isNotEmpty) {
+      _emit(PlaylistOpCommand('savePlaylist', path: origin));
+      return true;
+    }
+    final path = await widget.pickSavePlaylistPath?.call();
+    if (!mounted || path == null || path.isEmpty) return false;
+    _emit(PlaylistOpCommand('savePlaylist', path: path));
+    return true;
   }
 
   @override
@@ -274,10 +331,9 @@ class _PlaylistWindowState extends State<PlaylistWindow> {
               selectedPath: widget.selectedCollectionPath,
               disabledPaths: widget.disabledCollectionPaths,
               onCollapse: () => _setCollapsed(true),
-              onSelect: _selectSavedPlaylist,
+              onSelect: (entry) => unawaited(_selectSavedPlaylist(entry)),
               onAdd: widget.onAddSavedPlaylist,
-              onRemove: (entry) => widget.onSessionCommand
-                  ?.call(RemoveSavedPlaylistCommand(entry.path)),
+              onRemove: (entry) => _emit(RemoveSavedPlaylistCommand(entry.path)),
             ),
           ),
           PlaylistCollectionDivider(
