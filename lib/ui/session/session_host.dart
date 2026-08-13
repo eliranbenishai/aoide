@@ -40,6 +40,7 @@ import '../windows/main_player_window.dart';
 import '../zoom/zoomed_canvas.dart';
 import 'always_on_top.dart';
 import 'minimize_group.dart';
+import 'session_broadcast.dart';
 import 'session_bus.dart';
 import 'session_messages.dart';
 import 'session_quit.dart';
@@ -1329,13 +1330,28 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         WindowRole.main => null,
       };
 
+  /// Secondary roles whose OS window has been created.
+  Set<WindowRole> get _createdRoles => {
+        if (_equalizerWindow != null) WindowRole.equalizer,
+        if (_playlistWindow != null) WindowRole.playlist,
+        if (_settingsWindow != null) WindowRole.settings,
+        if (_aboutWindow != null) WindowRole.about,
+      };
+
+  /// Secondary roles that have completed the [ClientReadyCommand] handshake.
+  Set<WindowRole> get _readyRoles => {
+        if (_eqReady) WindowRole.equalizer,
+        if (_playlistReady) WindowRole.playlist,
+        if (_settingsReady) WindowRole.settings,
+        if (_aboutReady) WindowRole.about,
+      };
+
   Future<void> _broadcast(SessionEvent event) async {
-    for (final controller in [
-      _equalizerWindow,
-      _playlistWindow,
-      _settingsWindow,
-      _aboutWindow,
-    ]) {
+    for (final role in secondaryBroadcastRoles(
+      created: _createdRoles,
+      ready: _readyRoles,
+    )) {
+      final controller = _controllerFor(role);
       if (controller == null) continue;
       try {
         await SessionBus.pushEvent(controller, event);
