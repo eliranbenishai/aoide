@@ -5,7 +5,7 @@ Path override via `pubspec.yaml` `dependency_overrides`.
 Linux `MultiWindowManager::Create` changes vs upstream:
 
 - No GTK header bar (Tramp secondaries are frameless via `window_manager`)
-- Per-role 75% seed instead of **1280×720** (EQ **619×261**, playlist **619×522**,
+- Per-role 75% seed instead of **1280×720** (EQ **619×261**, playlist **805×522**,
   settings **390×315**, about **360×270**)
 - Transparent `FlView` background so MockupShell rounded corners punch through
 

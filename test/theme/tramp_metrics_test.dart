@@ -1,13 +1,35 @@
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tramp/domain/tramp_settings.dart';
 import 'package:tramp/theme/tramp_metrics.dart';
 
 void main() {
   test('mockup canvases are classic×3', () {
     expect(TrampMetrics.mainPlayer, const Size(825, 348));
     expect(TrampMetrics.equalizer, const Size(825, 348));
-    expect(TrampMetrics.playlistDefault, const Size(825, 696));
     expect(TrampMetrics.titleBar, 42.0);
+  });
+
+  test('playlist default leaves the track side a classic×3 width', () {
+    // The Playlist Manager sets the collection panel beside the track list, so
+    // the window is wider than classic×3 by the panel and its divider. The
+    // right panel keeps 825 — the width the mockup footer was authored against.
+    expect(
+      TrampMetrics.playlistDefault.width -
+          TrampSettings.defaultPlaylistCollectionWidth -
+          TrampMetrics.playlistDividerWidth,
+      825,
+    );
+    expect(TrampMetrics.playlistDefault, const Size(1073, 696));
+  });
+
+  test('collection panel never squeezes the footer below its minimum', () {
+    expect(
+      TrampMetrics.playlistMinWithCollection.width -
+          TrampMetrics.playlistCollectionMinWidth -
+          TrampMetrics.playlistDividerWidth,
+      TrampMetrics.playlistMin.width,
+    );
   });
 
   test('about canvas fits credits without matching the EQ/main seed', () {
@@ -38,7 +60,7 @@ void main() {
     );
     expect(
       TrampMetrics.nativeUnmappedSeed(TrampMetrics.playlistDefault),
-      const Size(619, 522),
+      const Size(805, 522),
     );
   });
 }

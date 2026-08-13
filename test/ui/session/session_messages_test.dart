@@ -218,6 +218,8 @@ void main() {
         ),
         const PlaylistOpCommand('sort', sortKey: 'title'),
         const ResizePlaylistCommand(width: 900, height: 500),
+        const ResizePlaylistCollectionCommand(width: 220.5, collapsed: false),
+        const ResizePlaylistCollectionCommand(width: 240, collapsed: true),
         const MoveWindowCommand(
           window: WindowId.playlist,
           left: 12.5,
@@ -241,6 +243,42 @@ void main() {
           SessionCommand.fromJson(command.toEnvelope()).toEnvelope(),
           command.toEnvelope(),
         );
+      }
+    });
+  });
+
+  group('SettingsSnapshotEvent', () {
+    test('carries the playlist collection layout across the bus', () {
+      const event = SettingsSnapshotEvent(
+        resumeLastSession: true,
+        confirmBeforeQuit: false,
+        scrollTitle: true,
+        minimizeHidesSecondaries: true,
+        dockSnapStrength: DockSnapStrength.strong,
+        skins: [],
+        activeSkinId: 'builtin',
+        playlistCollectionWidth: 312.5,
+        playlistCollectionCollapsed: true,
+      );
+      final decoded =
+          SessionEvent.fromJson(event.toEnvelope()) as SettingsSnapshotEvent;
+      expect(decoded.playlistCollectionWidth, 312.5);
+      expect(decoded.playlistCollectionCollapsed, isTrue);
+      expect(decoded.dockSnapStrength, DockSnapStrength.strong);
+    });
+
+    test('absent or unusable collection width falls back to the default', () {
+      for (final raw in <Object?>[null, 0, -20, 'wide', double.nan]) {
+        final decoded = SettingsSnapshotEvent.fromPayload({
+          'activeSkinId': 'builtin',
+          'playlistCollectionWidth': raw,
+        });
+        expect(
+          decoded.playlistCollectionWidth,
+          TrampSettings.defaultPlaylistCollectionWidth,
+          reason: 'width $raw should fall back',
+        );
+        expect(decoded.playlistCollectionCollapsed, isFalse);
       }
     });
   });

@@ -8,7 +8,11 @@ import 'package:flutter/painting.dart';
 abstract final class TrampMetrics {
   static const mainPlayer = Size(825, 348);
   static const equalizer = Size(825, 348);
-  static const playlistDefault = Size(825, 696);
+  /// Wider than the mockup's 825 because the Playlist Manager sets the
+  /// collection panel *beside* the track list rather than inside its budget:
+  /// 240 panel + 8 divider + 825 leaves the right panel at the width the
+  /// mockup footer was authored against.
+  static const playlistDefault = Size(1073, 696);
   static const settings = Size(520, 420);
   static const about = Size(480, 360);
 
@@ -30,6 +34,24 @@ abstract final class TrampMetrics {
   /// Narrowest playlist window that still fits the footer chrome (buttons +
   /// TOTAL) without horizontal overflow. Spacing may collapse; controls do not.
   static const playlistMin = Size(640, 280);
+
+  /// Narrowest the listener may drag the playlist collection panel.
+  static const playlistCollectionMinWidth = 180.0;
+
+  /// The draggable divider between the collection panel and the track list.
+  static const playlistDividerWidth = 8.0;
+
+  /// Narrowest playlist window while the collection panel is shown.
+  ///
+  /// Derived, not authored: [playlistMin] is the narrowest the *footer chrome*
+  /// fits, and the footer now lives in the right panel. The collection panel
+  /// and the divider are therefore added on top of that budget rather than
+  /// sharing it — squeezing the track list below [playlistMin] would overflow
+  /// the footer buttons.
+  static final playlistMinWithCollection = Size(
+    playlistMin.width + playlistDividerWidth + playlistCollectionMinWidth,
+    playlistMin.height,
+  );
 
   /// Black gutter between stacked panels (legacy single-window chrome).
   static const gutter = 6.0;

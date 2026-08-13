@@ -225,7 +225,16 @@ class TrampSettings {
     this.scrollTitle = true,
     this.minimizeHidesSecondaries = true,
     this.dockSnapStrength = DockSnapStrength.normal,
+    this.playlistCollectionWidth = defaultPlaylistCollectionWidth,
+    this.playlistCollectionCollapsed = false,
   });
+
+  /// Width the playlist collection panel opens at when nothing is persisted.
+  ///
+  /// Lives here rather than with the panel geometry in `TrampMetrics` because
+  /// it is the default of a persisted preference, and settings must not depend
+  /// on the theme layer.
+  static const defaultPlaylistCollectionWidth = 240.0;
 
   static const defaults = TrampSettings(
     zoomPercent: 75,
@@ -268,6 +277,11 @@ class TrampSettings {
   final bool minimizeHidesSecondaries;
   final DockSnapStrength dockSnapStrength;
 
+  /// Playlist Manager collection panel width, in logical pixels so global zoom
+  /// scales it like the rest of the canvas.
+  final double playlistCollectionWidth;
+  final bool playlistCollectionCollapsed;
+
   TrampSettings copyWith({
     int? zoomPercent,
     bool? alwaysOnTop,
@@ -287,6 +301,8 @@ class TrampSettings {
     bool? scrollTitle,
     bool? minimizeHidesSecondaries,
     DockSnapStrength? dockSnapStrength,
+    double? playlistCollectionWidth,
+    bool? playlistCollectionCollapsed,
   }) {
     return TrampSettings(
       zoomPercent: zoomPercent ?? this.zoomPercent,
@@ -308,6 +324,10 @@ class TrampSettings {
       minimizeHidesSecondaries:
           minimizeHidesSecondaries ?? this.minimizeHidesSecondaries,
       dockSnapStrength: dockSnapStrength ?? this.dockSnapStrength,
+      playlistCollectionWidth:
+          playlistCollectionWidth ?? this.playlistCollectionWidth,
+      playlistCollectionCollapsed:
+          playlistCollectionCollapsed ?? this.playlistCollectionCollapsed,
     );
   }
 
@@ -329,6 +349,8 @@ class TrampSettings {
         'scrollTitle': scrollTitle,
         'minimizeHidesSecondaries': minimizeHidesSecondaries,
         'dockSnapStrength': dockSnapStrength.name,
+        'playlistCollectionWidth': playlistCollectionWidth,
+        'playlistCollectionCollapsed': playlistCollectionCollapsed,
       };
 
   factory TrampSettings.fromJson(Map<String, dynamic> json) {
@@ -424,6 +446,11 @@ class TrampSettings {
       dockSnapStrength:
           DockSnapStrength.tryParse(json['dockSnapStrength']) ??
               defaults.dockSnapStrength,
+      playlistCollectionWidth: _positiveDouble(json['playlistCollectionWidth']) ??
+          defaults.playlistCollectionWidth,
+      playlistCollectionCollapsed: json['playlistCollectionCollapsed'] is bool
+          ? json['playlistCollectionCollapsed'] as bool
+          : defaults.playlistCollectionCollapsed,
     );
   }
 
@@ -495,7 +522,9 @@ class TrampSettings {
       other.confirmBeforeQuit == confirmBeforeQuit &&
       other.scrollTitle == scrollTitle &&
       other.minimizeHidesSecondaries == minimizeHidesSecondaries &&
-      other.dockSnapStrength == dockSnapStrength;
+      other.dockSnapStrength == dockSnapStrength &&
+      other.playlistCollectionWidth == playlistCollectionWidth &&
+      other.playlistCollectionCollapsed == playlistCollectionCollapsed;
 
   @override
   int get hashCode => Object.hash(
@@ -517,6 +546,8 @@ class TrampSettings {
           scrollTitle,
           minimizeHidesSecondaries,
           dockSnapStrength,
+          playlistCollectionWidth,
+          playlistCollectionCollapsed,
         ),
       );
 
@@ -530,7 +561,9 @@ class TrampSettings {
       'skinsDirectory: $skinsDirectory, resumeLastSession: $resumeLastSession, '
       'confirmBeforeQuit: $confirmBeforeQuit, scrollTitle: $scrollTitle, '
       'minimizeHidesSecondaries: $minimizeHidesSecondaries, '
-      'dockSnapStrength: $dockSnapStrength)';
+      'dockSnapStrength: $dockSnapStrength, '
+      'playlistCollectionWidth: $playlistCollectionWidth, '
+      'playlistCollectionCollapsed: $playlistCollectionCollapsed)';
 }
 
 WindowId? _windowId(Object? value) {

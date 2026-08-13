@@ -19,7 +19,7 @@ func trampSecondarySeedSize(arguments: String) -> NSSize {
         return NSSize(width: 390, height: 315)
     }
     if arguments.contains("\"role\":\"playlist\"") {
-        return NSSize(width: 619, height: 522)
+        return NSSize(width: 805, height: 522)
     }
     return NSSize(width: 619, height: 261)
 }

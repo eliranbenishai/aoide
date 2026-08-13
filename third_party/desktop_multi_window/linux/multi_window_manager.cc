@@ -50,7 +50,7 @@ void tramp_secondary_seed_size(const std::string& arguments, int* width,
     *width = 390;
     *height = 315;
   } else if (arguments.find("\"role\":\"playlist\"") != std::string::npos) {
-    *width = 619;
+    *width = 805;
     *height = 522;
   }
 }

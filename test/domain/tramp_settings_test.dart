@@ -328,6 +328,55 @@ void main() {
     });
   });
 
+  group('TrampSettings playlist collection panel', () {
+    test('defaults open the panel at the default divider position', () {
+      final d = TrampSettings.defaults;
+      expect(
+        d.playlistCollectionWidth,
+        TrampSettings.defaultPlaylistCollectionWidth,
+      );
+      expect(d.playlistCollectionCollapsed, isFalse);
+    });
+
+    test('divider position and collapsed state round-trip', () {
+      final settings = TrampSettings.defaults.copyWith(
+        playlistCollectionWidth: 312.5,
+        playlistCollectionCollapsed: true,
+      );
+      final again = TrampSettings.fromJson(settings.toJson());
+      expect(again.playlistCollectionWidth, 312.5);
+      expect(again.playlistCollectionCollapsed, isTrue);
+      expect(again, settings);
+      expect(again.hashCode, settings.hashCode);
+    });
+
+    test('a settings file written before the panel existed opens it', () {
+      final settings = TrampSettings.fromJson({'zoomPercent': 100});
+      expect(
+        settings.playlistCollectionWidth,
+        TrampSettings.defaultPlaylistCollectionWidth,
+      );
+      expect(settings.playlistCollectionCollapsed, isFalse);
+    });
+
+    test('unusable divider positions fall back to the default', () {
+      for (final raw in <Object?>[0, -240, '240', 'garbage', double.infinity]) {
+        final settings = TrampSettings.fromJson({
+          'zoomPercent': 100,
+          'playlistCollectionWidth': raw,
+          'playlistCollectionCollapsed': 'yes',
+        });
+        expect(
+          settings.playlistCollectionWidth,
+          TrampSettings.defaultPlaylistCollectionWidth,
+          reason: 'width $raw should fall back',
+        );
+        // Non-boolean collapsed is equally unusable.
+        expect(settings.playlistCollectionCollapsed, isFalse);
+      }
+    });
+  });
+
   group('TrampSettings value semantics', () {
     test('copyWith updates layout and flags', () {
       final updated = TrampSettings.defaults.copyWith(

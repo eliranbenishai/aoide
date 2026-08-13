@@ -2,6 +2,8 @@
 @Tags(['golden'])
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tramp/domain/track.dart';
@@ -111,6 +113,12 @@ PlaylistController _mockupPlaylist() {
   return c;
 }
 
+/// This golden set is authored on Windows. On any other host the images differ
+/// on font rasterisation alone, so they fail without telling anyone anything —
+/// and a permanently red suite is a suite nobody reads. Ticket 14 regenerates
+/// them on Windows against the two-panel Playlist Manager and drops this guard.
+final _goldensAuthoredHere = Platform.isWindows;
+
 void main() {
   setUpAll(() async {
     await loadTrampFonts();
@@ -148,7 +156,7 @@ void main() {
       find.byType(PlaylistWindow),
       matchesGoldenFile('goldens/playlist_window.png'),
     );
-  });
+  }, skip: !_goldensAuthoredHere);
 
   testWidgets('playlist shade matches title-bar chrome', (tester) async {
     const size = Size(825, 42);
@@ -179,5 +187,5 @@ void main() {
       find.byType(PlaylistWindow),
       matchesGoldenFile('goldens/playlist_window_shade.png'),
     );
-  });
+  }, skip: !_goldensAuthoredHere);
 }

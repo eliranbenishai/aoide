@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
@@ -79,10 +80,14 @@ class _SessionClientAppState extends State<SessionClientApp>
     dockSnapStrength: DockSnapStrength.normal,
     skins: [],
     activeSkinId: 'builtin',
+    playlistCollectionWidth: TrampSettings.defaultPlaylistCollectionWidth,
+    playlistCollectionCollapsed: false,
   );
   int? _playingIndex;
   bool _playing = false;
   Size _playlistSize = TrampMetrics.playlistDefault;
+  double _plCollectionWidth = TrampSettings.defaultPlaylistCollectionWidth;
+  bool _plCollectionCollapsed = false;
   int _zoomPercent = TrampSettings.defaults.zoomPercent;
   double _logicalLeft = 0;
   double _logicalTop = 0;
@@ -92,6 +97,8 @@ class _SessionClientAppState extends State<SessionClientApp>
   DateTime? _suppressNativeMoveUntil;
   final DockMoveCoalescer _nativeSyncCoalescer = DockMoveCoalescer();
   Timer? _resizeDebounce;
+  Timer? _collectionResizeDebounce;
+  double? _pendingCollectionWidth;
   late final NativeDragTracker _nativeDrag;
   late final LinuxDragPoll _linuxDragPoll;
 
@@ -167,10 +174,7 @@ class _SessionClientAppState extends State<SessionClientApp>
     if (widget.role == WindowRole.playlist) {
       await resizeTrampWindow(
         size: seed,
-        minimumSize: Size(
-          TrampMetrics.playlistMin.width * zoom,
-          TrampMetrics.playlistMin.height * zoom,
-        ),
+        minimumSize: _playlistMinimumSize(zoom),
         pinSize: false,
       );
     } else {
@@ -229,7 +233,14 @@ class _SessionClientAppState extends State<SessionClientApp>
         case EqSnapshotEvent(:final settings):
           _eqSettings = settings;
         case SettingsSnapshotEvent():
+          final collapseChanged =
+              _plCollectionCollapsed != event.playlistCollectionCollapsed;
           _settingsSnapshot = event;
+          _plCollectionWidth = event.playlistCollectionWidth;
+          _plCollectionCollapsed = event.playlistCollectionCollapsed;
+          if (collapseChanged && widget.role == WindowRole.playlist) {
+            unawaited(_applyPlaylistMinimumSize());
+          }
         case PlaylistSnapshotEvent(
             :final tracks,
             :final selectedIndices,
@@ -347,10 +358,7 @@ class _SessionClientAppState extends State<SessionClientApp>
           await windowManager.setResizable(!_plShaded);
           await resizeTrampWindow(
             size: size,
-            minimumSize: Size(
-              TrampMetrics.playlistMin.width * zoom,
-              TrampMetrics.playlistMin.height * zoom,
-            ),
+            minimumSize: _playlistMinimumSize(zoom),
             pinSize: false,
           );
         } else {
@@ -415,6 +423,61 @@ class _SessionClientAppState extends State<SessionClientApp>
     _playlistSize = logical;
     await _send(
       ResizePlaylistCommand(width: logical.width, height: logical.height),
+    );
+  }
+
+  /// Playlist window floor: the collection panel and the divider are added on
+  /// top of the track list's own minimum while the panel is shown, and the
+  /// floor drops back to today's when it is collapsed.
+  Size _playlistMinimumSize(double zoom) {
+    final logical = _plCollectionCollapsed
+        ? TrampMetrics.playlistMin
+        : TrampMetrics.playlistMinWithCollection;
+    return Size(logical.width * zoom, logical.height * zoom);
+  }
+
+  Future<void> _applyPlaylistMinimumSize() async {
+    if (widget.role != WindowRole.playlist || _plShaded) return;
+    final zoom = (_zoomPercent / 100.0).clamp(0.5, 4.0);
+    final minimum = _playlistMinimumSize(zoom);
+    final current = await windowManager.getSize();
+    await resizeTrampWindow(
+      size: Size(
+        math.max(current.width, minimum.width),
+        math.max(current.height, minimum.height),
+      ),
+      minimumSize: minimum,
+      pinSize: false,
+    );
+  }
+
+  /// Divider drags fire every frame; only where the listener lets go needs to
+  /// reach the host, so this debounces exactly like window resize does.
+  void _onCollectionWidthChanged(double width) {
+    _pendingCollectionWidth = width;
+    _collectionResizeDebounce?.cancel();
+    _collectionResizeDebounce = Timer(
+      const Duration(milliseconds: 120),
+      () => unawaited(_sendCollectionLayout()),
+    );
+  }
+
+  void _onCollectionCollapsedChanged(bool collapsed) {
+    if (_plCollectionCollapsed == collapsed) return;
+    setState(() => _plCollectionCollapsed = collapsed);
+    // A collapse is one deliberate action, not a stream of frames — report it
+    // at once so the window floor moves with it.
+    unawaited(_sendCollectionLayout());
+    unawaited(_applyPlaylistMinimumSize());
+  }
+
+  Future<void> _sendCollectionLayout() async {
+    _collectionResizeDebounce?.cancel();
+    await _send(
+      ResizePlaylistCollectionCommand(
+        width: _pendingCollectionWidth ?? _plCollectionWidth,
+        collapsed: _plCollectionCollapsed,
+      ),
     );
   }
 
@@ -625,6 +688,7 @@ class _SessionClientAppState extends State<SessionClientApp>
   @override
   void dispose() {
     _resizeDebounce?.cancel();
+    _collectionResizeDebounce?.cancel();
     _linuxDragPoll.dispose();
     _nativeDrag.dispose();
     windowManager.removeListener(this);
@@ -693,6 +757,10 @@ class _SessionClientAppState extends State<SessionClientApp>
                   shaded: _plShaded,
                   playingIndex: _playingIndex,
                   playing: _playing,
+                  collectionWidth: _plCollectionWidth,
+                  collectionCollapsed: _plCollectionCollapsed,
+                  onCollectionWidthChanged: _onCollectionWidthChanged,
+                  onCollectionCollapsedChanged: _onCollectionCollapsedChanged,
                   zoom: zoom,
                   dockLogicalTopLeft: () => Offset(_logicalLeft, _logicalTop),
                   onDockMove: _onDockMove,

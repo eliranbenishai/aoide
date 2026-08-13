@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
@@ -79,6 +80,10 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   bool _minimizeHidesSecondaries =
       TrampSettings.defaults.minimizeHidesSecondaries;
   DockSnapStrength _dockSnapStrength = TrampSettings.defaults.dockSnapStrength;
+  double _playlistCollectionWidth =
+      TrampSettings.defaults.playlistCollectionWidth;
+  bool _playlistCollectionCollapsed =
+      TrampSettings.defaults.playlistCollectionCollapsed;
 
   WindowController? _equalizerWindow;
   WindowController? _playlistWindow;
@@ -283,6 +288,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     _scrollTitle = settings.scrollTitle;
     _minimizeHidesSecondaries = settings.minimizeHidesSecondaries;
     _dockSnapStrength = settings.dockSnapStrength;
+    _playlistCollectionWidth = settings.playlistCollectionWidth;
+    _playlistCollectionCollapsed = settings.playlistCollectionCollapsed;
   }
 
   Future<void> _restorePlaybackResume() async {
@@ -336,6 +343,10 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
           _playlistReady = true;
           await _pushPlaylistSnapshot(role);
           await _pushPlaybackSnapshot(role);
+          // The Playlist Manager reads its collection panel layout from the
+          // settings snapshot; without this push it paints the default width
+          // until some unrelated broadcast happens to arrive.
+          await _pushSettingsSnapshot(role);
         } else if (role == WindowRole.settings) {
           _settingsReady = true;
           await _pushSettingsSnapshot(role);
@@ -412,6 +423,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         await _handlePlaylistOp(command);
       case ResizePlaylistCommand(:final width, :final height):
         await _handlePlaylistResize(width, height);
+      case ResizePlaylistCollectionCommand(:final width, :final collapsed):
+        await _handlePlaylistCollectionResize(width, collapsed: collapsed);
       case MoveWindowCommand(
           :final window,
           :final left,
@@ -667,6 +680,32 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     _docking.resizePlaylist(Size(w, logicalH));
     await _persistLayout();
     // Do not re-push the playlist frame — the OS window already has this size.
+  }
+
+  /// Divider drag / collapse toggle for the Playlist Manager collection panel.
+  ///
+  /// The panel keeps [TrampMetrics.playlistCollectionMinWidth] and the track
+  /// list keeps [TrampMetrics.playlistMin] width, so the footer controls can
+  /// never be squeezed into overflow.
+  Future<void> _handlePlaylistCollectionResize(
+    double width, {
+    required bool collapsed,
+  }) async {
+    final frame = _docking.layout.playlist;
+    final windowWidth = frame.width ?? TrampMetrics.playlistDefault.width;
+    final widest = math.max(
+      TrampMetrics.playlistCollectionMinWidth,
+      windowWidth -
+          TrampMetrics.playlistDividerWidth -
+          TrampMetrics.playlistMin.width,
+    );
+    _playlistCollectionWidth = width.clamp(
+      TrampMetrics.playlistCollectionMinWidth,
+      widest,
+    );
+    _playlistCollectionCollapsed = collapsed;
+    await _persistLayout();
+    await _broadcastSettingsSnapshot();
   }
 
   Future<void> _pushEqSnapshot(WindowRole role) async {
@@ -972,6 +1011,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         scrollTitle: _scrollTitle,
         minimizeHidesSecondaries: _minimizeHidesSecondaries,
         dockSnapStrength: _dockSnapStrength,
+        playlistCollectionWidth: _playlistCollectionWidth,
+        playlistCollectionCollapsed: _playlistCollectionCollapsed,
       ),
     );
   }
@@ -1031,6 +1072,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       ],
       activeSkinId: _lookController.activeSkinId,
       lastSkinError: _lookController.lastError,
+      playlistCollectionWidth: _playlistCollectionWidth,
+      playlistCollectionCollapsed: _playlistCollectionCollapsed,
     );
   }
 

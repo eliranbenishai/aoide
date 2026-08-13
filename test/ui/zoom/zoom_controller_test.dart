@@ -154,7 +154,10 @@ void main() {
   test('metrics match the locked canvases', () {
     expect(TrampMetrics.mainPlayer, const Size(825, 348));
     expect(TrampMetrics.equalizer, const Size(825, 348));
-    expect(TrampMetrics.playlistDefault, const Size(825, 696));
+    // The playlist is the one window that is not a locked canvas — it resizes
+    // freely, and its default widened for the collection panel. See
+    // tramp_metrics_test.dart for the derivation.
+    expect(TrampMetrics.playlistDefault, const Size(1073, 696));
     expect(TrampMetrics.gutter, 6.0);
   });
 }

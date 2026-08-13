@@ -374,6 +374,8 @@ final class SettingsSnapshotEvent extends SessionEvent {
     required this.skins,
     required this.activeSkinId,
     this.lastSkinError,
+    this.playlistCollectionWidth = TrampSettings.defaultPlaylistCollectionWidth,
+    this.playlistCollectionCollapsed = false,
   });
 
   static const typeName = 'settings_snapshot';
@@ -386,6 +388,11 @@ final class SettingsSnapshotEvent extends SessionEvent {
   final List<SkinCatalogEntry> skins;
   final String activeSkinId;
   final String? lastSkinError;
+
+  /// Playlist Manager collection panel layout, so the playlist window paints
+  /// the persisted divider position instead of the default.
+  final double playlistCollectionWidth;
+  final bool playlistCollectionCollapsed;
 
   @override
   String get type => typeName;
@@ -400,6 +407,8 @@ final class SettingsSnapshotEvent extends SessionEvent {
         'skins': [for (final s in skins) s.toJson()],
         'activeSkinId': activeSkinId,
         'lastSkinError': lastSkinError,
+        'playlistCollectionWidth': playlistCollectionWidth,
+        'playlistCollectionCollapsed': playlistCollectionCollapsed,
       };
 
   factory SettingsSnapshotEvent.fromPayload(Map<String, dynamic> json) {
@@ -424,7 +433,17 @@ final class SettingsSnapshotEvent extends SessionEvent {
       skins: skins,
       activeSkinId: active is String && active.isNotEmpty ? active : 'builtin',
       lastSkinError: json['lastSkinError'] as String?,
+      playlistCollectionWidth: _positiveWidth(json['playlistCollectionWidth']) ??
+          TrampSettings.defaultPlaylistCollectionWidth,
+      playlistCollectionCollapsed: json['playlistCollectionCollapsed'] == true,
     );
+  }
+
+  static double? _positiveWidth(Object? raw) {
+    if (raw is! num) return null;
+    final value = raw.toDouble();
+    if (!value.isFinite || value <= 0) return null;
+    return value;
   }
 }
 
@@ -607,6 +626,8 @@ sealed class SessionCommand {
         return PlaylistOpCommand.fromPayload(payload);
       case ResizePlaylistCommand.typeName:
         return ResizePlaylistCommand.fromPayload(payload);
+      case ResizePlaylistCollectionCommand.typeName:
+        return ResizePlaylistCollectionCommand.fromPayload(payload);
       case MoveWindowCommand.typeName:
         return MoveWindowCommand.fromPayload(payload);
       case ZoomStepCommand.typeName:
@@ -1110,6 +1131,42 @@ final class ResizePlaylistCommand extends SessionCommand {
     return ResizePlaylistCommand(
       width: width.toDouble(),
       height: height.toDouble(),
+    );
+  }
+}
+
+/// Listener moved the Playlist Manager divider or collapsed the collection
+/// panel — width is logical, so global zoom does not distort it.
+final class ResizePlaylistCollectionCommand extends SessionCommand {
+  const ResizePlaylistCollectionCommand({
+    required this.width,
+    required this.collapsed,
+  });
+
+  static const typeName = 'resize_playlist_collection';
+
+  final double width;
+  final bool collapsed;
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'width': width,
+        'collapsed': collapsed,
+      };
+
+  factory ResizePlaylistCollectionCommand.fromPayload(
+    Map<String, dynamic> json,
+  ) {
+    final width = json['width'];
+    if (width is! num) {
+      throw const FormatException('ResizePlaylistCollectionCommand.width');
+    }
+    return ResizePlaylistCollectionCommand(
+      width: width.toDouble(),
+      collapsed: json['collapsed'] == true,
     );
   }
 }
