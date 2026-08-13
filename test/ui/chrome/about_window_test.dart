@@ -60,10 +60,13 @@ void main() {
     expect(find.byType(ProximaMagnificaMark), findsOneWidget);
     expect(find.byType(ProximaMagnificaLogo), findsNothing);
     expect(find.text(trampCompanyName.toUpperCase()), findsOneWidget);
+    // The © line carries the pledge, not the company name again: the plate sets
+    // that above in chrome type, and repeating it there read as a doubled logo.
     expect(
-      find.text('© $trampCopyrightYear $trampCompanyName'),
+      find.text('© $trampCopyrightYear $trampFreePromise'),
       findsOneWidget,
     );
+    expect(find.textContaining(trampCompanyName), findsNothing);
   });
 
   testWidgets('stats well reads out the usage counters', (tester) async {

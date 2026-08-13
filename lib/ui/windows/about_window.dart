@@ -31,6 +31,7 @@ class AboutWindow extends StatelessWidget {
     this.version = trampAppVersion,
     this.copyrightYear = trampCopyrightYear,
     this.companyName = trampCompanyName,
+    this.freePromise = trampFreePromise,
     this.websiteUrl = trampWebsiteUrl,
     this.stats = AboutStats.unmeasured,
     this.shaded = false,
@@ -49,6 +50,9 @@ class AboutWindow extends StatelessWidget {
   final String version;
   final int copyrightYear;
   final String companyName;
+
+  /// Sits under the © year in place of the company name — see [trampFreePromise].
+  final String freePromise;
   final String websiteUrl;
 
   /// Measured usage counters for the stats well, pushed by the host over the
@@ -151,6 +155,7 @@ class AboutWindow extends StatelessWidget {
                       const SizedBox(height: 12),
                       _MakerPlate(
                         companyName: companyName,
+                        freePromise: freePromise,
                         copyrightYear: copyrightYear,
                         websiteUrl: websiteUrl,
                         onOpenWebsite: _openWebsite,
@@ -479,12 +484,14 @@ class _Kicker extends StatelessWidget {
 class _MakerPlate extends StatelessWidget {
   const _MakerPlate({
     required this.companyName,
+    required this.freePromise,
     required this.copyrightYear,
     required this.websiteUrl,
     required this.onOpenWebsite,
   });
 
   final String companyName;
+  final String freePromise;
   final int copyrightYear;
   final String websiteUrl;
   final VoidCallback onOpenWebsite;
@@ -532,7 +539,7 @@ class _MakerPlate extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '© $copyrightYear $companyName',
+                      '© $copyrightYear $freePromise',
                       style: TrampText.lcd(look).copyWith(
                         fontSize: 9,
                         color: palette.inkDim,
