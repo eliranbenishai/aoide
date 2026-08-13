@@ -72,10 +72,15 @@ void main() {
   setUpAll(loadTrampFonts);
 
   setUp(() {
+    // These cases assert command wiring, not debouncing; zero debounce keeps
+    // the controller from leaving timers pending past the widget tree.
     controller = EqualizerController(
       store: MemorySettingsStore(),
       sink: const NoopEqualizerSink(),
+      applyDebounce: Duration.zero,
+      persistDebounce: Duration.zero,
     );
+    addTearDown(controller.dispose);
   });
 
   Future<void> pumpEq(

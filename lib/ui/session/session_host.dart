@@ -1343,6 +1343,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     windowManager.removeListener(this);
     _lookController.removeListener(_onLookChanged);
     _lookController.dispose();
+    _equalizer.dispose();
     _playlist.removeListener(_onPlaylistChanged);
     _playback.removeListener(_onPlaybackChanged);
     final probe = _trackProbe;

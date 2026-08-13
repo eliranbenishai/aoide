@@ -116,4 +116,14 @@ class EqualizerController extends ChangeNotifier {
     final current = await _store.read();
     await _store.write(current.copyWith(equalizerCurve: _settings));
   }
+
+  /// Drops pending debounces. Call [flush] first to keep an in-flight edit.
+  @override
+  void dispose() {
+    _applyTimer?.cancel();
+    _applyTimer = null;
+    _persistTimer?.cancel();
+    _persistTimer = null;
+    super.dispose();
+  }
 }
