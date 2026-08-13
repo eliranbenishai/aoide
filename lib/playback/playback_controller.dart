@@ -8,6 +8,7 @@ import '../platform/usage_store.dart';
 import '../playlist/playlist_controller.dart';
 import 'audio_format_info.dart';
 import 'audio_levels.dart';
+import 'playback_failure.dart';
 import 'player_engine.dart';
 
 class PlaybackController extends ChangeNotifier {
@@ -48,6 +49,7 @@ class PlaybackController extends ChangeNotifier {
         notifyListeners();
       }),
     );
+    _subscriptions.add(_engine.errorStream.listen(_onEngineError));
     _previousTrackCount = _playlist.playlist.tracks.length;
     _playlist.addListener(_onPlaylistChanged);
   }
@@ -79,6 +81,7 @@ class PlaybackController extends ChangeNotifier {
   bool _mediaOpen = false;
   int _previousTrackCount = 0;
   AudioFormatInfo _formatInfo = AudioFormatInfo.unknown;
+  PlaybackFailure? _failure;
   int _spins = 0;
   Timer? _spinPersistTimer;
 
@@ -93,6 +96,12 @@ class PlaybackController extends ChangeNotifier {
   bool get shuffle => _shuffle;
   RepeatMode get repeatMode => _repeatMode;
   AudioFormatInfo get formatInfo => _formatInfo;
+
+  /// The last track the engine refused, or null while playback is healthy.
+  ///
+  /// Cleared by the next [playIndex], so it always describes the track the
+  /// transport is pointed at now rather than something older.
+  PlaybackFailure? get failure => _failure;
 
   /// Lifetime **spins**: tracks played through to the end.
   ///
@@ -202,11 +211,28 @@ class PlaybackController extends ChangeNotifier {
     _playingIndex = index;
     _playingPath = tracks[index].path;
     _formatInfo = AudioFormatInfo.unknown;
+    _failure = null;
     _playlist.select(index);
     final track = tracks[index];
     await _engine.open(track);
     _mediaOpen = true;
     await _engine.play();
+    notifyListeners();
+  }
+
+  /// Takes the engine's word that the open track will not play.
+  ///
+  /// The engine leaves its own state alone, so this is where the transport
+  /// stops describing itself as playing. Media is marked closed as well as
+  /// stopped, which keeps [paused] down — a track that never started is not
+  /// paused, and a later resume must re-open rather than press play on
+  /// nothing.
+  void _onEngineError(String message) {
+    final path = _playingPath;
+    if (path == null) return;
+    _failure = PlaybackFailure(path: path, message: message);
+    _playing = false;
+    _mediaOpen = false;
     notifyListeners();
   }
 

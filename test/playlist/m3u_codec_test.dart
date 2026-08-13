@@ -33,6 +33,73 @@ other.flac
     );
   });
 
+  group('track lines written by another platform', () {
+    final albumDir =
+        p.join(p.separator, 'mnt', 'share', 'Enigma', '1990 - MCMXC a.D');
+    final playlistFile = p.join(albumDir, 'Enigma - M C M X C a. D.m3u');
+    final realTrack = p.join(albumDir, '01 - The Voice Of Enigma.flac');
+
+    test('a Windows UNC line finds the file beside the playlist', () {
+      final raw = '#EXTM3U\n'
+          '#EXTINF:141,Enigma - The Voice Of Enigma\n'
+          r'\\eliranas\NAS\Media\Music\Enigma\1990 - MCMXC a.D\01 - The Voice Of Enigma.flac'
+          '\n';
+      final codec = M3uCodec(exists: {realTrack}.contains);
+
+      final tracks = codec.parse(raw, playlistFilePath: playlistFile);
+
+      expect(tracks.single.path, realTrack);
+    });
+
+    test('a line under a subfolder keeps that subfolder', () {
+      final discTrack = p.join(albumDir, 'Disc 2', '03 - Callas Went Away.flac');
+      final raw = '#EXTM3U\n'
+          r'\\eliranas\NAS\Music\Enigma\1990 - MCMXC a.D\Disc 2\03 - Callas Went Away.flac'
+          '\n';
+      final codec = M3uCodec(exists: {discTrack}.contains);
+
+      final tracks = codec.parse(raw, playlistFilePath: playlistFile);
+
+      expect(tracks.single.path, discTrack);
+    });
+
+    test('an absolute line whose mount has moved finds the track again', () {
+      final stale = p.join(p.separator, 'run', 'user', '1000', 'kio-fuse-XkqMpT',
+          'Enigma', '1990 - MCMXC a.D', '01 - The Voice Of Enigma.flac');
+      final raw = '#EXTM3U\n$stale\n';
+      final codec = M3uCodec(exists: {realTrack}.contains);
+
+      final tracks = codec.parse(raw, playlistFilePath: playlistFile);
+
+      expect(tracks.single.path, realTrack);
+    });
+
+    test('an absolute line that exists is left where it points', () {
+      final elsewhere = p.join(
+          p.separator, 'music', 'singles', '01 - The Voice Of Enigma.flac');
+      final raw = '#EXTM3U\n$elsewhere\n';
+      final codec = M3uCodec(exists: {elsewhere, realTrack}.contains);
+
+      final tracks = codec.parse(raw, playlistFilePath: playlistFile);
+
+      expect(tracks.single.path, elsewhere);
+    });
+
+    test('a line that resolves nowhere still yields a track', () {
+      final raw = '#EXTM3U\n'
+          '#EXTINF:141,Enigma - The Voice Of Enigma\n'
+          r'\\eliranas\NAS\Media\gone.flac'
+          '\n';
+      final codec = M3uCodec(exists: (_) => false);
+
+      final tracks = codec.parse(raw, playlistFilePath: playlistFile);
+
+      expect(tracks, hasLength(1));
+      expect(tracks.single.path, contains('gone.flac'));
+      expect(tracks.single.title, 'The Voice Of Enigma');
+    });
+  });
+
   test('encode round-trips absolute paths', () {
     final absolutePath = p.normalize(p.join(p.current, 'a.mp3'));
     final out = codec.encode([

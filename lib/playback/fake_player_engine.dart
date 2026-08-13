@@ -28,6 +28,7 @@ class FakePlayerEngine implements PlayerEngine {
   final _durationController = StreamController<Duration>.broadcast();
   final _playingController = StreamController<bool>.broadcast();
   final _completedController = StreamController<void>.broadcast();
+  final _errorController = StreamController<String>.broadcast();
   final _levelsController = StreamController<AudioLevels>.broadcast();
   final _formatController = StreamController<AudioFormatInfo>.broadcast();
 
@@ -54,6 +55,16 @@ class FakePlayerEngine implements PlayerEngine {
 
   @override
   Stream<void> get completedStream => _completedController.stream;
+
+  @override
+  Stream<String> get errorStream => _errorController.stream;
+
+  /// Reports a failure the way libmpv does: after [open] and [play] have both
+  /// already succeeded, leaving this engine's own state untouched. Correcting
+  /// that state is the controller's job, which is what tests here assert.
+  Future<void> emitError(String message) async {
+    _errorController.add(message);
+  }
 
   @override
   Stream<AudioLevels> get levelsStream => _levelsController.stream;
@@ -139,6 +150,7 @@ class FakePlayerEngine implements PlayerEngine {
     await _durationController.close();
     await _playingController.close();
     await _completedController.close();
+    await _errorController.close();
     await _levelsController.close();
     await _formatController.close();
   }

@@ -58,6 +58,27 @@ void main() {
     expect(engine.lastOpenedPath, '/b.mp3');
   });
 
+  test('a track the engine cannot play stops reading as playing', () async {
+    await playback.playIndex(1);
+    expect(playback.playing, isTrue);
+
+    await engine.emitError('Failed to open /b.mp3.');
+
+    expect(playback.playing, isFalse);
+    expect(playback.paused, isFalse);
+    expect(playback.failure?.path, '/b.mp3');
+  });
+
+  test('playing another track clears the failure', () async {
+    await playback.playIndex(1);
+    await engine.emitError('Failed to open /b.mp3.');
+
+    await playback.playIndex(0);
+
+    expect(playback.failure, isNull);
+    expect(playback.playing, isTrue);
+  });
+
   test('repeat one replays same track on completion', () async {
     playback.cycleRepeatMode(); // all
     playback.cycleRepeatMode(); // one

@@ -41,8 +41,8 @@ An ordered list of playable tracks the user can manage (add, remove, reorder, pl
 _Avoid_: queue (unless a separate now-playing queue is later distinguished), library (the collection of known media)
 
 **Playlist file**:
-A saved playlist on disk (v1: M3U/M3U8) that Tramp can open and write.
-_Avoid_: playlist document, playlist export (unless meaning a one-way share)
+A saved playlist on disk (v1: M3U/M3U8) that Tramp can open and write. Its track lines are **hints, not addresses**: the same album is `\\server\share` on Windows and a mount point on Linux, and a mount point that moves leaves every absolute line stale, so a line that lands on nothing is re-read against the folder the playlist itself sits in. Tramp resolves on load and never rewrites the listener's file to suit this machine — that would break it for the machine that wrote it ([ADR 0008](docs/adr/0008-playlist-collection-stores-references.md)).
+_Avoid_: playlist document, playlist export (unless meaning a one-way share), fixing / correcting a playlist file (Tramp reinterprets, it does not edit)
 
 **Playlist collection**:
 The set of playlists Tramp keeps for the listener — *references* to playlist files at the paths the listener chose, never copies. Shown in the Playlist Manager's left panel.
@@ -67,6 +67,10 @@ _Avoid_: broken playlist, orphaned playlist, deleted playlist (the entry survive
 **Track**:
 A single local audio file Tramp can play; v1 supported kinds are MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, and Opus.
 _Avoid_: song (when meaning the file), media item, clip
+
+**Unplayable track**:
+A track the transport was told to play and the engine then refused — the file has moved, the share dropped, the codec is absent. The transport stops reading as playing rather than sitting silently on it, and says which track and what the engine said. The listener's counterpart concept for a whole playlist is a **disabled playlist**.
+_Avoid_: missing track (the file may be present and still unplayable), broken track, dead track, failed playback (as a state name)
 
 **Library** *(reserved — deliberately unused)*:
 A persisted, browsable catalog of known tracks on disk, built by indexing designated folders. Out of scope for v1 — music enters via open, drag-and-drop, and playlists only. The word stays parked rather than repurposed: what Tramp stores is the **playlist collection**, which is not a track catalog.

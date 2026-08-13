@@ -8,6 +8,14 @@ abstract class PlayerEngine {
   Stream<bool> get playingStream;
   Stream<void> get completedStream;
 
+  /// Playback failures, as the engine words them.
+  ///
+  /// Opening a file the engine cannot play is not an error at the call site —
+  /// [open] and [play] both accept it and return — so this is the only place
+  /// the failure surfaces. A consumer that ignores it will show a silent
+  /// transport as a playing one.
+  Stream<String> get errorStream;
+
   /// Analyser frames for the spectrum display.
   ///
   /// Normal play must publish measured frames (`synthetic: false`). Fabricated

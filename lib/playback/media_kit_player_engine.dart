@@ -105,6 +105,9 @@ class MediaKitPlayerEngine implements PlayerEngine {
   Stream<bool> get playingStream => _player.stream.playing;
 
   @override
+  Stream<String> get errorStream => _player.stream.error;
+
+  @override
   Stream<void> get completedStream => _player.stream.completed
       .where((completed) => completed)
       .map((_) {});
