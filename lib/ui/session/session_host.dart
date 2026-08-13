@@ -21,6 +21,8 @@ import '../../platform/tramp_window.dart';
 import '../../playback/media_kit_player_engine.dart';
 import '../../playback/playback_controller.dart';
 import '../../playback/player_engine.dart';
+import '../../playlist/playlist_collection_controller.dart';
+import '../../playlist/playlist_collection_store.dart';
 import '../../playlist/playlist_controller.dart';
 import '../../playlist/playlist_sort.dart';
 import '../../playlist/playlist_store.dart';
@@ -50,12 +52,14 @@ class SessionHostApp extends StatefulWidget {
     this.settingsStore,
     this.engine,
     this.playlistStore,
+    this.playlistCollectionStore,
   });
 
   final List<String> launchArgs;
   final SettingsStore? settingsStore;
   final PlayerEngine? engine;
   final PlaylistStore? playlistStore;
+  final PlaylistCollectionStore? playlistCollectionStore;
 
   @override
   State<SessionHostApp> createState() => _SessionHostAppState();
@@ -66,6 +70,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   late final LookController _lookController;
   late final SessionBus _bus;
   late final PlaylistController _playlist;
+  late final PlaylistCollectionController _collection;
   late final PlaybackController _playback;
   late final EqualizerController _equalizer;
   late final TrackMetadataProbe _trackProbe;
@@ -100,6 +105,9 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   final DockMoveCoalescer _dockMoveCoalescer = DockMoveCoalescer();
   final DockMoveCoalescer _nativeSyncCoalescer = DockMoveCoalescer();
   WindowId? _dockDragWindow;
+  /// Last seen current-playlist origin, so the collection highlight moves only
+  /// when the current playlist is actually loaded from somewhere else.
+  String? _lastPlaylistSource;
   bool _nativeDragging = false;
   Timer? _resumeSaveTimer;
   late final NativeDragTracker _mainNativeDrag;
@@ -151,6 +159,12 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       store: widget.playlistStore ??
           FilePlaylistStore(supportDir: getApplicationSupportDirectory),
     );
+    _collection = PlaylistCollectionController(
+      store: widget.playlistCollectionStore ??
+          FilePlaylistCollectionStore(
+            supportDir: getApplicationSupportDirectory,
+          ),
+    );
     // Share one media_kit Player so EQ `af` and transport hit the same libmpv.
     final Player? sharedPlayer =
         widget.engine == null ? Player() : null;
@@ -170,6 +184,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     );
     _trackProbe = MediaKitTrackMetadataProbe();
     _playlist.addListener(_onPlaylistChanged);
+    _collection.addListener(_onCollectionChanged);
     _playback.addListener(_onPlaybackChanged);
     windowManager.addListener(this);
     unawaited(_bootstrap());
@@ -180,8 +195,21 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   }
 
   void _onPlaylistChanged() {
+    // The highlighted row follows where the current playlist came *from*, and
+    // only when that actually changes: adding an entry highlights it without
+    // loading it, and an unrelated edit (a track selection, say) must not then
+    // drag the highlight back. An origin outside the collection clears it.
+    final source = _playlist.playlist.sourcePath;
+    if (source != _lastPlaylistSource) {
+      _lastPlaylistSource = source;
+      _collection.select(source);
+    }
     unawaited(_broadcastPlaylistSnapshot());
     if (mounted) setState(() {});
+  }
+
+  void _onCollectionChanged() {
+    unawaited(_broadcastCollectionSnapshot());
   }
 
   void _onPlaybackChanged() {
@@ -240,6 +268,10 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       supportDir: getApplicationSupportDirectory,
     );
     await _equalizer.load();
+    // The collection index holds only what the left panel paints, so this stays
+    // a small read even for a large collection. Validating the references it
+    // points at is deliberately *not* here — that waits until after launch.
+    await _collection.bootstrap();
     if (_resumeLastSession) {
       await _playlist.restoreLastPlaylist();
       unawaited(_enrichMissingTrackMetadata());
@@ -347,6 +379,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
           // settings snapshot; without this push it paints the default width
           // until some unrelated broadcast happens to arrive.
           await _pushSettingsSnapshot(role);
+          await _pushCollectionSnapshot(role);
         } else if (role == WindowRole.settings) {
           _settingsReady = true;
           await _pushSettingsSnapshot(role);
@@ -425,6 +458,12 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         await _handlePlaylistResize(width, height);
       case ResizePlaylistCollectionCommand(:final width, :final collapsed):
         await _handlePlaylistCollectionResize(width, collapsed: collapsed);
+      case AddSavedPlaylistCommand(:final path):
+        await _collection.add(path);
+      case RemoveSavedPlaylistCommand(:final path):
+        await _collection.remove(path);
+      case LoadSavedPlaylistCommand(:final path):
+        await _handleLoadSavedPlaylist(path);
       case MoveWindowCommand(
           :final window,
           :final left,
@@ -485,6 +524,12 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     await _broadcastSettingsSnapshot();
   }
 
+  /// Preferences reset; content survives.
+  ///
+  /// Only `settings.json` is rewritten. Installed skins, the playlist
+  /// collection index and its companion track sets, and the resume snapshot all
+  /// live in their own files and are deliberately left alone — a listener fixing
+  /// a preference must not lose what they keep.
   Future<void> _handleResetSettings() async {
     const next = TrampSettings.defaults;
     await _settingsStore.write(next);
@@ -670,6 +715,23 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     }
   }
 
+  /// Clicking a saved playlist loads it into the current playlist.
+  ///
+  /// Goes through [PlaylistController.openPlaylistFile] like every other load,
+  /// so the current playlist gets its origin and the last-playlist path is
+  /// persisted. Replacing the current playlist is unguarded here, matching
+  /// today's behaviour for opening any playlist file.
+  Future<void> _handleLoadSavedPlaylist(String path) async {
+    final entry = _collection.entryFor(path);
+    if (entry == null) return;
+    // A file that has gone missing since it was kept cannot be loaded. Telling
+    // the listener why, and marking the entry disabled, is ticket 06's job; for
+    // now the only wrong answer would be throwing out of the command handler.
+    if (!await File(entry.path).exists()) return;
+    await _playlist.openPlaylistFile(entry.path);
+    unawaited(_enrichMissingTrackMetadata());
+  }
+
   Future<void> _handlePlaylistResize(double width, double height) async {
     final w = width.clamp(TrampMetrics.playlistMin.width, 4000.0);
     final h = height.clamp(TrampMetrics.playlistMin.height, 4000.0);
@@ -759,6 +821,27 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
 
   Future<void> _broadcastPlaylistSnapshot() =>
       _broadcast(_playlistSnapshot());
+
+  PlaylistCollectionSnapshotEvent _collectionSnapshot() {
+    return PlaylistCollectionSnapshotEvent(
+      playlists: _collection.entries,
+      selectedPath: _collection.selectedPath,
+      lastError: _collection.lastError,
+    );
+  }
+
+  Future<void> _pushCollectionSnapshot(WindowRole role) async {
+    final controller = _controllerFor(role);
+    if (controller == null) return;
+    try {
+      await SessionBus.pushEvent(controller, _collectionSnapshot());
+    } catch (error, stack) {
+      debugPrint('SessionHost pushCollection($role) failed: $error\n$stack');
+    }
+  }
+
+  Future<void> _broadcastCollectionSnapshot() =>
+      _broadcast(_collectionSnapshot());
 
   PlaybackSnapshotEvent _playbackSnapshot() {
     return PlaybackSnapshotEvent(
@@ -1388,6 +1471,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     _lookController.dispose();
     _equalizer.dispose();
     _playlist.removeListener(_onPlaylistChanged);
+    _collection.removeListener(_onCollectionChanged);
+    _collection.dispose();
     _playback.removeListener(_onPlaybackChanged);
     final probe = _trackProbe;
     if (probe is MediaKitTrackMetadataProbe) {

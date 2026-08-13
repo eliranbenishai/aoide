@@ -9,6 +9,7 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../app.dart';
 import '../../domain/equalizer_settings.dart';
+import '../../domain/saved_playlist.dart';
 import '../../domain/tramp_settings.dart';
 import '../../look/builtin_look.dart';
 import '../../look/look_font_loader.dart';
@@ -85,6 +86,8 @@ class _SessionClientAppState extends State<SessionClientApp>
   );
   int? _playingIndex;
   bool _playing = false;
+  List<SavedPlaylist> _collection = const [];
+  String? _collectionSelectedPath;
   Size _playlistSize = TrampMetrics.playlistDefault;
   double _plCollectionWidth = TrampSettings.defaultPlaylistCollectionWidth;
   bool _plCollectionCollapsed = false;
@@ -256,6 +259,12 @@ class _SessionClientAppState extends State<SessionClientApp>
           );
           _playingIndex = playingIndex;
           _playing = playing;
+        case PlaylistCollectionSnapshotEvent(
+            :final playlists,
+            :final selectedPath,
+          ):
+          _collection = playlists;
+          _collectionSelectedPath = selectedPath;
         case PlaybackSnapshotEvent(:final playing, :final playingPath):
           _playing = playing;
           if (playingPath != null) {
@@ -666,6 +675,14 @@ class _SessionClientAppState extends State<SessionClientApp>
     await _send(PlaylistOpCommand('openPlaylist', path: path));
   }
 
+  /// The collection panel's add control: pick a playlist file the listener
+  /// already has, and keep a reference to it where it is.
+  Future<void> _addSavedPlaylist() async {
+    final path = await pickPlaylistFile();
+    if (path == null || path.isEmpty) return;
+    await _send(AddSavedPlaylistCommand(path));
+  }
+
   Future<void> _savePlaylist() async {
     final path = await pickSavePlaylistPath();
     if (path == null || path.isEmpty) return;
@@ -761,6 +778,9 @@ class _SessionClientAppState extends State<SessionClientApp>
                   collectionCollapsed: _plCollectionCollapsed,
                   onCollectionWidthChanged: _onCollectionWidthChanged,
                   onCollectionCollapsedChanged: _onCollectionCollapsedChanged,
+                  collection: _collection,
+                  selectedCollectionPath: _collectionSelectedPath,
+                  onAddSavedPlaylist: () => unawaited(_addSavedPlaylist()),
                   zoom: zoom,
                   dockLogicalTopLeft: () => Offset(_logicalLeft, _logicalTop),
                   onDockMove: _onDockMove,

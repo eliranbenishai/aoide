@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tramp/domain/saved_playlist.dart';
 import 'package:tramp/domain/track.dart';
 import 'package:tramp/playlist/playlist_controller.dart';
 import 'package:tramp/playlist/playlist_store.dart';
@@ -63,6 +64,9 @@ void main() {
     bool collectionCollapsed = false,
     ValueChanged<double>? onCollectionWidthChanged,
     ValueChanged<bool>? onCollectionCollapsedChanged,
+    List<SavedPlaylist> collection = const [],
+    String? selectedCollectionPath,
+    VoidCallback? onAddSavedPlaylist,
   }) async {
     await tester.binding.setSurfaceSize(Size(size.width + 40, size.height + 40));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -83,6 +87,9 @@ void main() {
               collectionCollapsed: collectionCollapsed,
               onCollectionWidthChanged: onCollectionWidthChanged,
               onCollectionCollapsedChanged: onCollectionCollapsedChanged,
+              collection: collection,
+              selectedCollectionPath: selectedCollectionPath,
+              onAddSavedPlaylist: onAddSavedPlaylist,
             ),
           ),
         ),
@@ -363,6 +370,239 @@ void main() {
     final tracksAfter = tester.getSize(find.byType(MockupPlaylist));
     expect(tracksAfter.width, tracksBefore.width + 200);
     expect(tracksAfter.height, tracksBefore.height + 120);
+  });
+
+  group('playlist collection', () {
+    final driving = SavedPlaylist(
+      path: '/music/driving.m3u',
+      trackCount: 12,
+    );
+    final sunday = SavedPlaylist(
+      path: '/music/sun.m3u',
+      name: 'Sunday Morning',
+      trackCount: 7,
+    );
+    final work = SavedPlaylist(path: '/music/work.m3u', trackCount: 41);
+
+    Finder rowText(int index, String text) => find.descendant(
+          of: find.byKey(Key('pl-collection-row-$index')),
+          matching: find.text(text),
+        );
+
+    testWidgets('rows show a display name and a track count', (tester) async {
+      final commands = <SessionCommand>[];
+      await pumpPl(
+        tester,
+        commands: commands,
+        size: const Size(1000, 700),
+        collection: [driving, sunday],
+      );
+
+      expect(find.byKey(MockupPlaylistCollectionPane.emptyKey), findsNothing);
+      expect(rowText(0, 'DRIVING'), findsOneWidget);
+      expect(rowText(0, '12'), findsOneWidget);
+      expect(rowText(1, 'SUNDAY MORNING'), findsOneWidget);
+      expect(rowText(1, '7'), findsOneWidget);
+    });
+
+    testWidgets('rows read alphabetically by display name', (tester) async {
+      final commands = <SessionCommand>[];
+      await pumpPl(
+        tester,
+        commands: commands,
+        size: const Size(1000, 700),
+        // Deliberately out of order: the panel is alphabetical whatever the
+        // host sent.
+        collection: [work, sunday, driving],
+      );
+
+      expect(rowText(0, 'DRIVING'), findsOneWidget);
+      expect(rowText(1, 'SUNDAY MORNING'), findsOneWidget);
+      expect(rowText(2, 'WORK'), findsOneWidget);
+      expect(
+        tester.getRect(find.byKey(const Key('pl-collection-row-0'))).top,
+        lessThan(
+          tester.getRect(find.byKey(const Key('pl-collection-row-2'))).top,
+        ),
+      );
+    });
+
+    testWidgets('tapping a row asks the host to load it', (tester) async {
+      final commands = <SessionCommand>[];
+      await pumpPl(
+        tester,
+        commands: commands,
+        size: const Size(1000, 700),
+        collection: [driving, sunday],
+      );
+
+      await tester.tap(find.byKey(const Key('pl-collection-row-1')));
+      await tester.pump();
+
+      final load = commands.whereType<LoadSavedPlaylistCommand>().single;
+      expect(load.path, sunday.path);
+    });
+
+    testWidgets('the loaded row reads as the loaded one', (tester) async {
+      final commands = <SessionCommand>[];
+      await pumpPl(
+        tester,
+        commands: commands,
+        size: const Size(1000, 700),
+        collection: [driving, sunday],
+        selectedCollectionPath: sunday.path,
+      );
+
+      BoxDecoration decorationOf(int index) => tester
+          .widget<DecoratedBox>(
+            find.descendant(
+              of: find.byKey(Key('pl-collection-row-$index')),
+              matching: find.byType(DecoratedBox),
+            ),
+          )
+          .decoration as BoxDecoration;
+
+      expect(decorationOf(1).gradient, isNotNull);
+      expect(decorationOf(0).gradient, isNull);
+      expect(
+        tester.widget<Text>(rowText(1, 'SUNDAY MORNING')).style!.color,
+        isNot(tester.widget<Text>(rowText(0, 'DRIVING')).style!.color),
+      );
+    });
+
+    testWidgets('the panel remove control drops the selected entry',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      await pumpPl(
+        tester,
+        commands: commands,
+        size: const Size(1000, 700),
+        collection: [driving, sunday],
+        selectedCollectionPath: driving.path,
+      );
+
+      await tester.tap(find.byKey(const Key('pl-collection-remove')));
+      await tester.pump();
+
+      final remove = commands.whereType<RemoveSavedPlaylistCommand>().single;
+      expect(remove.path, driving.path);
+    });
+
+    testWidgets('remove does nothing with no row selected', (tester) async {
+      final commands = <SessionCommand>[];
+      await pumpPl(
+        tester,
+        commands: commands,
+        size: const Size(1000, 700),
+        collection: [driving, sunday],
+      );
+
+      await tester.tap(find.byKey(const Key('pl-collection-remove')));
+      await tester.pump();
+
+      expect(commands, isEmpty);
+    });
+
+    testWidgets('the panel add control opens the listener\'s file picker',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      var adds = 0;
+      await pumpPl(
+        tester,
+        commands: commands,
+        size: const Size(1000, 700),
+        onAddSavedPlaylist: () => adds++,
+      );
+
+      await tester.tap(find.byKey(const Key('pl-collection-add')));
+      await tester.pump();
+
+      expect(adds, 1);
+    });
+
+    testWidgets('panel controls are not the footer\'s track controls',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      await pumpPl(
+        tester,
+        commands: commands,
+        size: const Size(1000, 700),
+        collection: [driving],
+      );
+
+      expect(find.byKey(const Key('pl-collection-add')), findsOneWidget);
+      expect(find.byKey(const Key('pl-collection-remove')), findsOneWidget);
+      expect(find.byKey(const Key('pl-add')), findsOneWidget);
+      expect(find.byKey(const Key('pl-remove')), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Add playlist to collection'),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel('Add tracks'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Remove playlist from collection'),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel('Remove selected tracks'), findsOneWidget);
+    });
+
+    testWidgets('the empty state shows only while nothing is kept',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      await pumpPl(tester, commands: commands, size: const Size(1000, 700));
+
+      expect(find.byKey(MockupPlaylistCollectionPane.emptyKey), findsOneWidget);
+      expect(find.byKey(const Key('pl-collection-row-0')), findsNothing);
+
+      await pumpPl(
+        tester,
+        commands: commands,
+        size: const Size(1000, 700),
+        collection: [driving],
+      );
+
+      expect(find.byKey(MockupPlaylistCollectionPane.emptyKey), findsNothing);
+      expect(find.byKey(const Key('pl-collection-row-0')), findsOneWidget);
+    });
+
+    testWidgets('rows still fit at the minimum width with the panel shown',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      await pumpPl(
+        tester,
+        commands: commands,
+        size: TrampMetrics.playlistMinWithCollection,
+        collection: [driving, sunday, work],
+        selectedCollectionPath: work.path,
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const Key('pl-collection-row-0')), findsOneWidget);
+      expect(find.text('TOTAL'), findsOneWidget);
+    });
+
+    testWidgets('a collection snapshot mid-drag does not undo the drag',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      await pumpPl(tester, commands: commands, size: const Size(1000, 700));
+
+      await tester.drag(
+        find.byKey(const Key('pl-divider')),
+        const Offset(60, 0),
+      );
+      await tester.pump();
+      final dragged = collectionPaneWidth(tester);
+
+      // Same width prop, new collection — the rebuild a host broadcast causes.
+      await pumpPl(
+        tester,
+        commands: commands,
+        size: const Size(1000, 700),
+        collection: [driving],
+      );
+
+      expect(collectionPaneWidth(tester), dragged);
+    });
   });
 
   testWidgets('collapse invokes shade callback', (tester) async {

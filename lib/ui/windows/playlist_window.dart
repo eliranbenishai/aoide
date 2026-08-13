@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../playlist/playlist_controller.dart';
+import '../../domain/saved_playlist.dart';
 import '../../domain/tramp_settings.dart';
 import '../../theme/tramp_metrics.dart';
 import '../chrome/mockup/mockup_shell.dart';
@@ -37,6 +38,9 @@ class PlaylistWindow extends StatefulWidget {
     this.collectionCollapsed = false,
     this.onCollectionWidthChanged,
     this.onCollectionCollapsedChanged,
+    this.collection = const [],
+    this.selectedCollectionPath,
+    this.onAddSavedPlaylist,
     this.zoom = 1.0,
     this.dockLogicalTopLeft,
     this.onDockMove,
@@ -67,6 +71,15 @@ class PlaylistWindow extends StatefulWidget {
   final bool collectionCollapsed;
   final ValueChanged<double>? onCollectionWidthChanged;
   final ValueChanged<bool>? onCollectionCollapsedChanged;
+
+  /// The listener's playlist collection, from the host snapshot. Held as a prop
+  /// rather than in state: the host owns it, and mirroring it here would put a
+  /// second copy behind the divider's `didUpdateWidget` rule.
+  final List<SavedPlaylist> collection;
+  final String? selectedCollectionPath;
+
+  /// Opens the playlist-file picker; the client sends the add command.
+  final VoidCallback? onAddSavedPlaylist;
 
   /// Global zoom factor for docking drag → logical conversion.
   final double zoom;
@@ -241,7 +254,14 @@ class _PlaylistWindowState extends State<PlaylistWindow> {
           SizedBox(
             width: _renderedCollectionWidth,
             child: MockupPlaylistCollectionPane(
+              playlists: widget.collection,
+              selectedPath: widget.selectedCollectionPath,
               onCollapse: () => _setCollapsed(true),
+              onSelect: (entry) => widget.onSessionCommand
+                  ?.call(LoadSavedPlaylistCommand(entry.path)),
+              onAdd: widget.onAddSavedPlaylist,
+              onRemove: (entry) => widget.onSessionCommand
+                  ?.call(RemoveSavedPlaylistCommand(entry.path)),
             ),
           ),
           PlaylistCollectionDivider(

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../domain/equalizer_settings.dart';
+import '../../domain/saved_playlist.dart';
 import '../../domain/track.dart';
 import '../../domain/tramp_settings.dart';
 import '../../look/look_materials.dart';
@@ -66,6 +67,8 @@ sealed class SessionEvent {
         return EqSnapshotEvent.fromPayload(payload);
       case PlaylistSnapshotEvent.typeName:
         return PlaylistSnapshotEvent.fromPayload(payload);
+      case PlaylistCollectionSnapshotEvent.typeName:
+        return PlaylistCollectionSnapshotEvent.fromPayload(payload);
       case DockSnapshotEvent.typeName:
         return DockSnapshotEvent.fromPayload(payload);
       case LookSnapshotEvent.typeName:
@@ -257,6 +260,61 @@ final class PlaylistSnapshotEvent extends SessionEvent {
       sourcePath: json['sourcePath'] as String?,
       playingIndex: (json['playingIndex'] as num?)?.toInt(),
       playing: json['playing'] == true,
+    );
+  }
+}
+
+/// The listener's playlist collection, for the Playlist Manager's left panel.
+///
+/// Deliberately its own event rather than a widening of [SettingsSnapshotEvent]:
+/// the collection is content the listener keeps, not a preference, and it
+/// changes on a different cadence.
+final class PlaylistCollectionSnapshotEvent extends SessionEvent {
+  const PlaylistCollectionSnapshotEvent({
+    required this.playlists,
+    this.selectedPath,
+    this.lastError,
+  });
+
+  static const typeName = 'playlist_collection_snapshot';
+
+  /// Saved playlists in the order the panel paints them.
+  final List<SavedPlaylist> playlists;
+
+  /// Normalized path of the loaded / highlighted entry, if any.
+  final String? selectedPath;
+  final String? lastError;
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'playlists': [for (final entry in playlists) entry.toJson()],
+        'selectedPath': selectedPath,
+        'lastError': lastError,
+      };
+
+  factory PlaylistCollectionSnapshotEvent.fromPayload(
+    Map<String, dynamic> json,
+  ) {
+    final raw = json['playlists'];
+    final playlists = <SavedPlaylist>[];
+    if (raw is List) {
+      for (final item in raw) {
+        if (item is Map) {
+          playlists.add(
+            SavedPlaylist.fromJson(Map<String, dynamic>.from(item)),
+          );
+        }
+      }
+    }
+    final selected = json['selectedPath'];
+    return PlaylistCollectionSnapshotEvent(
+      playlists: playlists,
+      selectedPath:
+          selected is String && selected.isNotEmpty ? selected : null,
+      lastError: json['lastError'] as String?,
     );
   }
 }
@@ -628,6 +686,12 @@ sealed class SessionCommand {
         return ResizePlaylistCommand.fromPayload(payload);
       case ResizePlaylistCollectionCommand.typeName:
         return ResizePlaylistCollectionCommand.fromPayload(payload);
+      case AddSavedPlaylistCommand.typeName:
+        return AddSavedPlaylistCommand.fromPayload(payload);
+      case RemoveSavedPlaylistCommand.typeName:
+        return RemoveSavedPlaylistCommand.fromPayload(payload);
+      case LoadSavedPlaylistCommand.typeName:
+        return LoadSavedPlaylistCommand.fromPayload(payload);
       case MoveWindowCommand.typeName:
         return MoveWindowCommand.fromPayload(payload);
       case ZoomStepCommand.typeName:
@@ -1168,6 +1232,76 @@ final class ResizePlaylistCollectionCommand extends SessionCommand {
       width: width.toDouble(),
       collapsed: json['collapsed'] == true,
     );
+  }
+}
+
+/// Keep a playlist file the listener already has: adds a **reference** to it at
+/// the path given. A path already in the collection selects its existing entry.
+final class AddSavedPlaylistCommand extends SessionCommand {
+  const AddSavedPlaylistCommand(this.path);
+
+  static const typeName = 'add_saved_playlist';
+
+  final String path;
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {'path': path};
+
+  factory AddSavedPlaylistCommand.fromPayload(Map<String, dynamic> json) {
+    final path = json['path'];
+    if (path is! String || path.isEmpty) {
+      throw const FormatException('AddSavedPlaylistCommand.path');
+    }
+    return AddSavedPlaylistCommand(path);
+  }
+}
+
+/// Drop a saved playlist from the collection. The file on disk is never touched.
+final class RemoveSavedPlaylistCommand extends SessionCommand {
+  const RemoveSavedPlaylistCommand(this.path);
+
+  static const typeName = 'remove_saved_playlist';
+
+  final String path;
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {'path': path};
+
+  factory RemoveSavedPlaylistCommand.fromPayload(Map<String, dynamic> json) {
+    final path = json['path'];
+    if (path is! String || path.isEmpty) {
+      throw const FormatException('RemoveSavedPlaylistCommand.path');
+    }
+    return RemoveSavedPlaylistCommand(path);
+  }
+}
+
+/// Load a saved playlist's tracks into the current playlist.
+final class LoadSavedPlaylistCommand extends SessionCommand {
+  const LoadSavedPlaylistCommand(this.path);
+
+  static const typeName = 'load_saved_playlist';
+
+  final String path;
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {'path': path};
+
+  factory LoadSavedPlaylistCommand.fromPayload(Map<String, dynamic> json) {
+    final path = json['path'];
+    if (path is! String || path.isEmpty) {
+      throw const FormatException('LoadSavedPlaylistCommand.path');
+    }
+    return LoadSavedPlaylistCommand(path);
   }
 }
 

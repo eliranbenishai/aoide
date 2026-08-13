@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/painting.dart';
 import 'package:tramp/domain/equalizer_settings.dart';
+import 'package:tramp/domain/saved_playlist.dart';
 import 'package:tramp/domain/track.dart';
 import 'package:tramp/domain/tramp_settings.dart';
 import 'package:tramp/look/builtin_look.dart';
@@ -220,6 +221,9 @@ void main() {
         const ResizePlaylistCommand(width: 900, height: 500),
         const ResizePlaylistCollectionCommand(width: 220.5, collapsed: false),
         const ResizePlaylistCollectionCommand(width: 240, collapsed: true),
+        const AddSavedPlaylistCommand('/music/driving.m3u'),
+        const RemoveSavedPlaylistCommand('/music/driving.m3u'),
+        const LoadSavedPlaylistCommand(r'D:\music\driving.m3u'),
         const MoveWindowCommand(
           window: WindowId.playlist,
           left: 12.5,
@@ -244,6 +248,71 @@ void main() {
           command.toEnvelope(),
         );
       }
+    });
+
+    test('saved-playlist commands reject an empty path', () {
+      for (final type in [
+        AddSavedPlaylistCommand.typeName,
+        RemoveSavedPlaylistCommand.typeName,
+        LoadSavedPlaylistCommand.typeName,
+      ]) {
+        expect(
+          () => SessionCommand.fromJson({
+            'type': type,
+            'payload': {'path': ''},
+          }),
+          throwsFormatException,
+          reason: '$type with no path',
+        );
+      }
+    });
+  });
+
+  group('PlaylistCollectionSnapshotEvent', () {
+    test('round-trips the collection and the loaded entry', () {
+      final event = PlaylistCollectionSnapshotEvent(
+        playlists: [
+          SavedPlaylist(
+            path: '/music/driving.m3u',
+            trackCount: 12,
+            totalDuration: const Duration(minutes: 47, seconds: 5),
+            modified: DateTime.fromMillisecondsSinceEpoch(1723000000000),
+          ),
+          SavedPlaylist(
+            path: '/music/sun.m3u',
+            name: 'Sunday Morning',
+            trackCount: 7,
+          ),
+        ],
+        selectedPath: normalizePlaylistPath('/music/sun.m3u'),
+      );
+
+      final decoded = SessionEvent.fromJson(event.toEnvelope())
+          as PlaylistCollectionSnapshotEvent;
+
+      expect(decoded.playlists, event.playlists);
+      expect(decoded.playlists.first.trackCount, 12);
+      expect(
+        decoded.playlists.first.totalDuration,
+        const Duration(minutes: 47, seconds: 5),
+      );
+      expect(decoded.playlists.last.displayName, 'Sunday Morning');
+      expect(decoded.selectedPath, normalizePlaylistPath('/music/sun.m3u'));
+      expect(decoded.lastError, isNull);
+    });
+
+    test('an empty collection round-trips as empty, not as absent', () {
+      const event = PlaylistCollectionSnapshotEvent(
+        playlists: [],
+        lastError: 'Could not read playlist: no such file',
+      );
+      final decoded = SessionEvent.fromJson(
+        SessionEvent.decodeEnvelope(jsonEncode(event.toEnvelope())),
+      ) as PlaylistCollectionSnapshotEvent;
+
+      expect(decoded.playlists, isEmpty);
+      expect(decoded.selectedPath, isNull);
+      expect(decoded.lastError, 'Could not read playlist: no such file');
     });
   });
 
