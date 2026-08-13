@@ -1,9 +1,11 @@
 # Wire real usage counters into the About stats well
 
-Status: needs-triage
+Status: done
 
-Blocked by: playlist-manager overhaul (no ticket yet — this issue exists so the
-placeholder does not ship unnoticed).
+Closed by the playlist-manager overhaul:
+[ticket 12](../../playlist-manager/issues/12-about-collection-figures.md)
+(playlists, tracks, total time) and
+[ticket 13](../../playlist-manager/issues/13-count-spins.md) (spins).
 
 ## Problem
 
@@ -18,16 +20,22 @@ the real counters must land — or the well must be hidden — before v1 ships.
 
 ## Acceptance
 
-- `AboutWindow` receives an `AboutStats` built from real data, with
+- [x] `AboutWindow` receives an `AboutStats` built from real data, with
   `measured` true.
-- Playlists / tracks / total time come from the playlist manager; spins come
+- [x] Playlists / tracks / total time come from the playlist manager; spins come
   from playback (a track played to the end).
-- The About window is a secondary engine, so the numbers arrive over the
+- [x] The About window is a secondary engine, so the numbers arrive over the
   session bus like every other snapshot (`AboutStatsEvent`, or folded into an
   existing snapshot event) — no direct controller access from the client.
-- Counters that need to survive restarts are persisted with the rest of the
-  settings/resume state.
-- `AboutStats.placeholder` is gone, or kept only as a test fixture.
+- [x] Counters that need to survive restarts are persisted with the rest of the
+  settings/resume state. **Deviation, deliberate:** the spin count went into its
+  own `usage.json` rather than onto settings or the resume snapshot. It is
+  history, not a preference — resetting settings must spare it — and folding it
+  into settings would rewrite the whole preferences document every time a track
+  ended. Ticket 13 records the reasoning.
+- [x] `AboutStats.placeholder` is gone, or kept only as a test fixture. Kept as
+  a fixture, referenced from the widget and golden tests and from nothing in
+  `lib/`.
 
 ## Notes
 

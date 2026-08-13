@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../domain/collection_figures.dart';
 import '../domain/saved_playlist.dart';
 import '../domain/track.dart';
 import 'm3u_codec.dart';
@@ -34,6 +35,7 @@ class PlaylistCollectionController extends ChangeNotifier {
   final Set<String> _missing = {};
   String? _selectedPath;
   String? _lastError;
+  int _figuresRevision = 0;
 
   /// Saved playlists in the order the panel paints them: alphabetical by the
   /// name the listener reads.
@@ -57,6 +59,15 @@ class PlaylistCollectionController extends ChangeNotifier {
   /// Last failure a listener could act on (an unreadable playlist file).
   String? get lastError => _lastError;
 
+  /// Bumped whenever [readFigures] could answer differently: a playlist added,
+  /// saved, removed, or found changed on disk.
+  ///
+  /// Exists so a caller can tell those four moments apart from the far more
+  /// frequent ones that cannot move a figure — a row being highlighted, say.
+  /// Reading the figures costs the companion file, and nothing should pay that
+  /// for a selection change.
+  int get figuresRevision => _figuresRevision;
+
   /// Reads the index. Small by design — this is on the startup path.
   ///
   /// An index that cannot be read costs the listener their collection, never
@@ -76,6 +87,7 @@ class PlaylistCollectionController extends ChangeNotifier {
     _missing.clear();
     _sort();
     if (!_entries.any((e) => e.path == _selectedPath)) _selectedPath = null;
+    _figuresRevision++;
     notifyListeners();
   }
 
@@ -225,9 +237,10 @@ class PlaylistCollectionController extends ChangeNotifier {
     _selectedPath = entry.path;
     _missing.remove(normalized);
     _lastError = null;
+    _figuresRevision++;
 
     await _store.writeIndex(_entries);
-    await _writeTrackSet(entry.path, figures.trackPaths);
+    await _writeTrackSet(entry.path, figures);
     notifyListeners();
     return entry;
   }
@@ -250,7 +263,7 @@ class PlaylistCollectionController extends ChangeNotifier {
   Future<void> validateReferences() async {
     final missing = <String>{};
     final refreshed = <String, SavedPlaylist>{};
-    final refreshedTrackSets = <String, List<String>>{};
+    final refreshedTrackSets = <String, _Figures>{};
     final errorBefore = _lastError;
 
     for (final entry in List<SavedPlaylist>.of(_entries)) {
@@ -270,7 +283,7 @@ class PlaylistCollectionController extends ChangeNotifier {
         totalDuration: figures.totalDuration,
         modified: reference.modified,
       );
-      refreshedTrackSets[entry.path] = figures.trackPaths;
+      refreshedTrackSets[entry.path] = figures;
     }
 
     if (refreshed.isNotEmpty) {
@@ -278,11 +291,16 @@ class PlaylistCollectionController extends ChangeNotifier {
         final replacement = refreshed[_entries[i].path];
         if (replacement != null) _entries[i] = replacement;
       }
+      _figuresRevision++;
       await _store.writeIndex(_entries);
-      await _store.writeTrackSets(
-        Map<String, List<String>>.from(await _store.readTrackSets())
-          ..addAll(refreshedTrackSets),
-      );
+      final stored = await _store.readTrackSets();
+      final byEntry = Map<String, List<String>>.from(stored.byEntry);
+      final durations = Map<String, int>.from(stored.durationsMs);
+      for (final refresh in refreshedTrackSets.entries) {
+        byEntry[refresh.key] = refresh.value.trackPaths;
+        durations.addAll(refresh.value.trackDurationsMs);
+      }
+      await _store.writeTrackSets(_prune(byEntry, durations));
     }
 
     // An entry the listener removed while the pass ran is no longer theirs to
@@ -328,12 +346,16 @@ class PlaylistCollectionController extends ChangeNotifier {
     if (_entries.length == before) return;
     if (_selectedPath == normalized) _selectedPath = null;
     _missing.remove(normalized);
+    _figuresRevision++;
 
     await _store.writeIndex(_entries);
     final sets = await _store.readTrackSets();
-    if (sets.containsKey(normalized)) {
+    if (sets.byEntry.containsKey(normalized)) {
       await _store.writeTrackSets(
-        Map<String, List<String>>.from(sets)..remove(normalized),
+        _prune(
+          Map<String, List<String>>.from(sets.byEntry)..remove(normalized),
+          sets.durationsMs,
+        ),
       );
     }
     notifyListeners();
@@ -357,7 +379,44 @@ class PlaylistCollectionController extends ChangeNotifier {
 
   /// Each entry's cached normalized track paths, read on demand. Deduplicated
   /// About figures are the union of these; nothing on the startup path wants it.
-  Future<Map<String, List<String>>> readTrackSets() => _store.readTrackSets();
+  Future<CollectionTrackSets> readTrackSets() => _store.readTrackSets();
+
+  /// The deduplicated figures the About window's stats well reports.
+  ///
+  /// The union is built **here, in memory, at the moment it is wanted** — never
+  /// accumulated as entries come and go. A running total cannot be subtracted
+  /// correctly when an entry is removed or rewritten: the tracks it held may
+  /// also be held elsewhere, and arithmetic on a total cannot tell.
+  ///
+  /// Every entry counts, **disabled playlists included**, because a drive that
+  /// is unplugged today is still music the listener keeps. The current playlist
+  /// is not in the collection and so contributes nothing until it is saved.
+  ///
+  /// A track whose running time is unknown — an `#EXTM3U` line with no
+  /// `#EXTINF` before it — adds nothing to the total rather than a guess. It
+  /// still counts as a track: Tramp knows the listener keeps it, it just does
+  /// not know how long it runs.
+  ///
+  /// Off the startup path by construction: this is the only thing that reads
+  /// the companion file, and nothing calls it until the figures are wanted.
+  Future<CollectionFigures> readFigures() async {
+    final sets = await _store.readTrackSets();
+    final union = <String>{};
+    for (final entry in _entries) {
+      final paths = sets.byEntry[entry.path];
+      if (paths != null) union.addAll(paths);
+    }
+    var total = Duration.zero;
+    for (final path in union) {
+      final ms = sets.durationsMs[path];
+      if (ms != null) total += Duration(milliseconds: ms);
+    }
+    return CollectionFigures(
+      playlists: _entries.length,
+      tracks: union.length,
+      totalDuration: total,
+    );
+  }
 
   SavedPlaylist? _entryFor(String normalizedPath) {
     for (final entry in _entries) {
@@ -366,10 +425,29 @@ class PlaylistCollectionController extends ChangeNotifier {
     return null;
   }
 
-  Future<void> _writeTrackSet(String path, List<String> trackPaths) async {
-    final sets = Map<String, List<String>>.from(await _store.readTrackSets());
-    sets[path] = trackPaths;
-    await _store.writeTrackSets(sets);
+  Future<void> _writeTrackSet(String path, _Figures figures) async {
+    final stored = await _store.readTrackSets();
+    final byEntry = Map<String, List<String>>.from(stored.byEntry)
+      ..[path] = figures.trackPaths;
+    final durations = Map<String, int>.from(stored.durationsMs)
+      ..addAll(figures.trackDurationsMs);
+    await _store.writeTrackSets(_prune(byEntry, durations));
+  }
+
+  /// Drops running times for tracks no entry holds any more, so the companion
+  /// file cannot grow forever as the listener tidies their collection.
+  CollectionTrackSets _prune(
+    Map<String, List<String>> byEntry,
+    Map<String, int> durations,
+  ) {
+    final held = <String>{for (final paths in byEntry.values) ...paths};
+    return CollectionTrackSets(
+      byEntry: byEntry,
+      durationsMs: {
+        for (final path in held)
+          if (durations[path] != null) path: durations[path]!,
+      },
+    );
   }
 
   /// One visit to a reference on disk.
@@ -406,16 +484,21 @@ class PlaylistCollectionController extends ChangeNotifier {
     }
     final tracks = _codec.parse(contents, playlistFilePath: path);
     var total = Duration.zero;
+    final trackPaths = <String>[];
+    final trackDurationsMs = <String, int>{};
     for (final track in tracks) {
+      final normalized = normalizePlaylistPath(track.path);
+      trackPaths.add(normalized);
       final duration = track.duration;
-      if (duration != null) total += duration;
+      if (duration == null || duration <= Duration.zero) continue;
+      total += duration;
+      trackDurationsMs[normalized] = duration.inMilliseconds;
     }
     return _Figures(
       trackCount: tracks.length,
       totalDuration: total,
-      trackPaths: [
-        for (final track in tracks) normalizePlaylistPath(track.path),
-      ],
+      trackPaths: trackPaths,
+      trackDurationsMs: trackDurationsMs,
     );
   }
 
@@ -445,15 +528,24 @@ class _Reference {
 }
 
 /// What one read of a playlist file yielded: the figures the panel paints, and
-/// the entry's normalized track paths for the companion file.
+/// the entry's normalized track paths and running times for the companion file.
 class _Figures {
   const _Figures({
     required this.trackCount,
     required this.totalDuration,
     required this.trackPaths,
+    required this.trackDurationsMs,
   });
 
   final int trackCount;
+
+  /// This entry's own running time, duplicates and all — what its row paints.
+  /// The About total deduplicates instead; see
+  /// [PlaylistCollectionController.readFigures].
   final Duration totalDuration;
+
   final List<String> trackPaths;
+
+  /// Only the tracks whose length this file declared.
+  final Map<String, int> trackDurationsMs;
 }

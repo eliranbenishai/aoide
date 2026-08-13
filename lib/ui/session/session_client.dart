@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../app.dart';
+import '../../domain/about_stats.dart';
 import '../../domain/equalizer_settings.dart';
 import '../../domain/saved_playlist.dart';
 import '../../domain/tramp_settings.dart';
@@ -73,6 +74,10 @@ class _SessionClientAppState extends State<SessionClientApp>
   bool _plShaded = false;
   bool _settingsShaded = false;
   bool _aboutShaded = false;
+
+  /// The About window's stats well. Zeros until the host's reading arrives —
+  /// the well never shows a figure nothing counted.
+  AboutStats _aboutStats = AboutStats.unmeasured;
   SettingsSnapshotEvent _settingsSnapshot = const SettingsSnapshotEvent(
     resumeLastSession: true,
     confirmBeforeQuit: false,
@@ -276,6 +281,8 @@ class _SessionClientAppState extends State<SessionClientApp>
           _collection = playlists;
           _collectionSelectedPath = selectedPath;
           _collectionDisabledPaths = disabledPaths.toSet();
+        case AboutStatsEvent():
+          _aboutStats = event.stats;
         case PlaybackSnapshotEvent(:final playing, :final playingPath):
           _playing = playing;
           if (playingPath != null) {
@@ -858,6 +865,7 @@ class _SessionClientAppState extends State<SessionClientApp>
             logicalSize: TrampMetrics.about,
             child: AboutWindow(
               version: trampAppVersion,
+              stats: _aboutStats,
               shaded: _aboutShaded,
               zoom: zoom,
               onOpenUrl: (uri) => unawaited(openExternalUrl(uri)),

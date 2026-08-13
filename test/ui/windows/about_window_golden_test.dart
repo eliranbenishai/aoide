@@ -1,9 +1,14 @@
-// Golden: About window at 100% (480×360) with the placeholder usage stats.
+// Golden: About window at 100% (480×360) with a full-looking stats readout.
+//
+// The figures are the retired placeholder, kept here as a fixture: the window
+// now defaults to zeros until the host pushes a reading, and a well of zeros
+// would tell this golden nothing about how a four-digit row lays out.
 @Tags(['golden'])
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tramp/domain/about_stats.dart';
 import 'package:tramp/theme/mockup_tokens.dart';
 import 'package:tramp/theme/tramp_metrics.dart';
 import 'package:tramp/ui/chrome/mockup/mockup_shell.dart';
@@ -30,7 +35,12 @@ void main() {
           alignment: Alignment.topLeft,
           child: ColoredBox(
             color: MockupTokens.shellDeep,
-            child: wrapWithLook(const AboutWindow(draggableTitle: false)),
+            child: wrapWithLook(
+              const AboutWindow(
+                draggableTitle: false,
+                stats: AboutStats.placeholder,
+              ),
+            ),
           ),
         ),
       ),

@@ -3,10 +3,11 @@
 /// The counters a listener recognises as *theirs* — how many playlists they
 /// keep, how much music that adds up to, how often they have played it.
 ///
-/// Nothing measures these yet: the playlist manager overhaul owns the real
-/// counters, so the about window falls back to [placeholder] until then.
-/// [measured] separates the two so a caller can tell a real reading from the
-/// stand-in without comparing field by field.
+/// Every figure here is measured: the playlist collection answers the first
+/// three and playback's **spin** count answers the last, and they reach the
+/// about window over the session bus. [unmeasured] is what the window reads
+/// before that reading arrives, and [measured] separates the two so a caller
+/// can tell them apart without comparing field by field.
 class AboutStats {
   const AboutStats({
     required this.playlists,
@@ -15,15 +16,26 @@ class AboutStats {
     required this.spins,
   }) : measured = true;
 
-  const AboutStats._placeholder({
+  const AboutStats._unmeasured({
     required this.playlists,
     required this.tracks,
     required this.totalDuration,
     required this.spins,
   }) : measured = false;
 
-  /// Plausible stand-in figures — see the class doc.
-  static const placeholder = AboutStats._placeholder(
+  /// No reading has arrived yet. Zeros rather than plausible figures, because
+  /// the well must never show a number nothing counted.
+  static const unmeasured = AboutStats._unmeasured(
+    playlists: 0,
+    tracks: 0,
+    totalDuration: Duration.zero,
+    spins: 0,
+  );
+
+  /// **Test fixture only.** The stand-in figures the well used to ship with,
+  /// kept so widget and golden tests can render a full-looking readout. No
+  /// production code may reference this — see [unmeasured].
+  static const placeholder = AboutStats._unmeasured(
     playlists: 12,
     tracks: 1284,
     totalDuration: Duration(days: 3, hours: 22, minutes: 40),
@@ -31,15 +43,18 @@ class AboutStats {
   );
 
   final int playlists;
+
+  /// Distinct tracks across the collection — a track kept in three playlists
+  /// counts once.
   final int tracks;
 
-  /// Summed running time of every track across the listener's playlists.
+  /// Summed running time of those distinct tracks.
   final Duration totalDuration;
 
   /// Times a track has been played to the end.
   final int spins;
 
-  /// False for [placeholder]; true for counters that came from real data.
+  /// False until a reading arrives; true for counters that came from real data.
   final bool measured;
 
   String get playlistsLabel => _grouped(playlists);

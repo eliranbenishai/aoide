@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../domain/about_stats.dart';
 import '../../domain/equalizer_settings.dart';
 import '../../domain/saved_playlist.dart';
 import '../../domain/track.dart';
@@ -69,6 +70,8 @@ sealed class SessionEvent {
         return PlaylistSnapshotEvent.fromPayload(payload);
       case PlaylistCollectionSnapshotEvent.typeName:
         return PlaylistCollectionSnapshotEvent.fromPayload(payload);
+      case AboutStatsEvent.typeName:
+        return AboutStatsEvent.fromPayload(payload);
       case DockSnapshotEvent.typeName:
         return DockSnapshotEvent.fromPayload(payload);
       case LookSnapshotEvent.typeName:
@@ -342,6 +345,65 @@ final class PlaylistCollectionSnapshotEvent extends SessionEvent {
             if (path is String && path.isNotEmpty) path,
       ],
       lastError: json['lastError'] as String?,
+    );
+  }
+}
+
+/// The About window's stats well, measured.
+///
+/// The About window is a secondary engine, so its figures arrive the way every
+/// other snapshot does rather than by a client reaching into a controller. The
+/// first three come from the playlist collection and the fourth from playback,
+/// and they travel together because the well reads as one instrument.
+///
+/// Deliberately not folded into [PlaylistCollectionSnapshotEvent]: that one
+/// carries the entries the Playlist Manager paints and is broadcast on every
+/// collection change, where these are deduplicated aggregates only the About
+/// window wants, and only while it is open.
+final class AboutStatsEvent extends SessionEvent {
+  const AboutStatsEvent({
+    required this.playlists,
+    required this.tracks,
+    required this.totalDurationMs,
+    required this.spins,
+  });
+
+  static const typeName = 'about_stats';
+
+  final int playlists;
+
+  /// Distinct tracks across the collection — a track kept in three playlists
+  /// counts once.
+  final int tracks;
+  final int totalDurationMs;
+  final int spins;
+
+  /// Always [AboutStats.measured]: an event only exists because something
+  /// counted.
+  AboutStats get stats => AboutStats(
+        playlists: playlists,
+        tracks: tracks,
+        totalDuration: Duration(milliseconds: totalDurationMs),
+        spins: spins,
+      );
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'playlists': playlists,
+        'tracks': tracks,
+        'totalDurationMs': totalDurationMs,
+        'spins': spins,
+      };
+
+  factory AboutStatsEvent.fromPayload(Map<String, dynamic> json) {
+    return AboutStatsEvent(
+      playlists: (json['playlists'] as num?)?.toInt() ?? 0,
+      tracks: (json['tracks'] as num?)?.toInt() ?? 0,
+      totalDurationMs: (json['totalDurationMs'] as num?)?.toInt() ?? 0,
+      spins: (json['spins'] as num?)?.toInt() ?? 0,
     );
   }
 }

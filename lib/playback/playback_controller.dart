@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../domain/repeat_mode.dart';
 import '../domain/track.dart';
+import '../platform/usage_store.dart';
 import '../playlist/playlist_controller.dart';
 import 'audio_format_info.dart';
 import 'audio_levels.dart';
@@ -13,8 +14,11 @@ class PlaybackController extends ChangeNotifier {
   PlaybackController({
     required PlaylistController playlist,
     required PlayerEngine engine,
+    UsageStore? usageStore,
+    this.spinPersistDebounce = const Duration(seconds: 2),
   })  : _playlist = playlist,
-        _engine = engine {
+        _engine = engine,
+        _usageStore = usageStore {
     _subscriptions.add(
       _engine.playingStream.listen((value) {
         _playing = value;
@@ -50,7 +54,14 @@ class PlaybackController extends ChangeNotifier {
 
   final PlaylistController _playlist;
   final PlayerEngine _engine;
+  final UsageStore? _usageStore;
   final List<StreamSubscription<dynamic>> _subscriptions = [];
+
+  /// Coalesces writes of the lifetime **spin** count. Two seconds, the same
+  /// debounce the altered current playlist and playback resume already keep, so
+  /// a listener who leaves an album running writes one small file per track
+  /// rather than one per notification.
+  final Duration spinPersistDebounce;
 
   bool _playing = false;
   bool _muted = false;
@@ -68,6 +79,8 @@ class PlaybackController extends ChangeNotifier {
   bool _mediaOpen = false;
   int _previousTrackCount = 0;
   AudioFormatInfo _formatInfo = AudioFormatInfo.unknown;
+  int _spins = 0;
+  Timer? _spinPersistTimer;
 
   bool get playing => _playing;
   /// Track loaded and not playing (after pause; cleared by [stop]).
@@ -80,6 +93,35 @@ class PlaybackController extends ChangeNotifier {
   bool get shuffle => _shuffle;
   RepeatMode get repeatMode => _repeatMode;
   AudioFormatInfo get formatInfo => _formatInfo;
+
+  /// Lifetime **spins**: tracks played through to the end.
+  ///
+  /// Counted from end-of-stream alone, so skipping never inflates it however
+  /// late the skip comes, and stopping never does either. Each repeat-one pass
+  /// counts, because the track genuinely played through.
+  int get spins => _spins;
+
+  /// Picks the lifetime count up where the last session left it.
+  ///
+  /// Called by the host during bootstrap. A missing or unreadable usage file
+  /// reads as zero rather than failing startup — the store answers that.
+  Future<void> loadUsage() async {
+    final store = _usageStore;
+    if (store == null) return;
+    final counters = await store.read();
+    if (counters.spins == _spins) return;
+    _spins = counters.spins;
+    notifyListeners();
+  }
+
+  /// Writes any pending count now. The debounce means a session that ends
+  /// seconds after a track finished would otherwise lose that spin, and quit
+  /// already pays for one small write.
+  Future<void> flushUsage() async {
+    _spinPersistTimer?.cancel();
+    _spinPersistTimer = null;
+    await _usageStore?.write(UsageCounters(spins: _spins));
+  }
 
   /// Analyser frames, consumed directly by the spectrum display.
   ///
@@ -230,6 +272,8 @@ class PlaybackController extends ChangeNotifier {
 
   @override
   Future<void> dispose() async {
+    _spinPersistTimer?.cancel();
+    _spinPersistTimer = null;
     _playlist.removeListener(_onPlaylistChanged);
     for (final subscription in _subscriptions) {
       await subscription.cancel();
@@ -316,7 +360,13 @@ class PlaybackController extends ChangeNotifier {
     return null;
   }
 
+  /// End of stream: the one place a **spin** is counted.
+  ///
+  /// Nothing else reaches here. [next], [previous] and [stop] drive the engine
+  /// directly, so a skip a second before the end counts for nothing, which is
+  /// the whole point of the figure.
   Future<void> _onCompleted() async {
+    _countSpin();
     switch (_repeatMode) {
       case RepeatMode.one:
         await _engine.seek(Duration.zero);
@@ -331,5 +381,24 @@ class PlaybackController extends ChangeNotifier {
           await next();
         }
     }
+  }
+
+  void _countSpin() {
+    _spins++;
+    _scheduleSpinPersist();
+    notifyListeners();
+  }
+
+  void _scheduleSpinPersist() {
+    final store = _usageStore;
+    if (store == null) return;
+    _spinPersistTimer?.cancel();
+    if (spinPersistDebounce <= Duration.zero) {
+      unawaited(store.write(UsageCounters(spins: _spins)));
+      return;
+    }
+    _spinPersistTimer = Timer(spinPersistDebounce, () {
+      unawaited(store.write(UsageCounters(spins: _spins)));
+    });
   }
 }

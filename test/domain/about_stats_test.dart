@@ -60,16 +60,31 @@ void main() {
     });
   });
 
-  test('placeholder is flagged as not yet measured', () {
-    expect(AboutStats.placeholder.measured, isFalse);
-    expect(
-      const AboutStats(
-        playlists: 1,
-        tracks: 1,
-        totalDuration: Duration.zero,
-        spins: 1,
-      ).measured,
-      isTrue,
-    );
+  group('measured', () {
+    test('a reading is flagged as measured', () {
+      expect(
+        const AboutStats(
+          playlists: 1,
+          tracks: 1,
+          totalDuration: Duration.zero,
+          spins: 1,
+        ).measured,
+        isTrue,
+      );
+    });
+
+    test('no reading yet reads as zeros, not as plausible figures', () {
+      expect(AboutStats.unmeasured.measured, isFalse);
+      expect(AboutStats.unmeasured.playlists, 0);
+      expect(AboutStats.unmeasured.tracks, 0);
+      expect(AboutStats.unmeasured.totalDuration, Duration.zero);
+      expect(AboutStats.unmeasured.spins, 0);
+    });
+
+    test('the retired placeholder is still flagged as not measured', () {
+      // Kept as a test fixture only. Nothing in lib/ may reference it — that
+      // is what stops the invented figures reaching a listener again.
+      expect(AboutStats.placeholder.measured, isFalse);
+    });
   });
 }

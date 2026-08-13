@@ -46,7 +46,7 @@ void main() {
 
   test('reads empty before anything has been kept', () async {
     expect(await store.readIndex(), isEmpty);
-    expect(await store.readTrackSets(), isEmpty);
+    expect((await store.readTrackSets()).isEmpty, isTrue);
   });
 
   test('round-trips the index through a real directory', () async {
@@ -63,17 +63,41 @@ void main() {
     expect(await store.readIndex(), [entry]);
   });
 
-  test('round-trips the companion track sets', () async {
-    final sets = {
-      normalizePlaylistPath(p.join(musicDir.path, 'driving.m3u')): [
-        normalizePlaylistPath(p.join(musicDir.path, 'a.mp3')),
-        normalizePlaylistPath(p.join(musicDir.path, 'b.mp3')),
-      ],
-    };
+  test('round-trips the companion track sets and their running times',
+      () async {
+    final a = normalizePlaylistPath(p.join(musicDir.path, 'a.mp3'));
+    final b = normalizePlaylistPath(p.join(musicDir.path, 'b.mp3'));
+    final sets = CollectionTrackSets(
+      byEntry: {
+        normalizePlaylistPath(p.join(musicDir.path, 'driving.m3u')): [a, b],
+      },
+      durationsMs: {a: 65000, b: 125000},
+    );
 
     await store.writeTrackSets(sets);
 
-    expect(await store.readTrackSets(), sets);
+    final read = await store.readTrackSets();
+    expect(read.byEntry, sets.byEntry);
+    expect(read.durationsMs, sets.durationsMs);
+  });
+
+  test('a companion file from before running times were kept still reads',
+      () async {
+    final a = normalizePlaylistPath(p.join(musicDir.path, 'a.mp3'));
+    await trackSetsFile().writeAsString(jsonEncode({
+      'trackSets': {
+        normalizePlaylistPath(p.join(musicDir.path, 'driving.m3u')): [a],
+      },
+    }));
+
+    final read = await store.readTrackSets();
+
+    expect(read.byEntry.values.single, [a]);
+    expect(
+      read.durationsMs,
+      isEmpty,
+      reason: 'total time comes back on the entry\'s next refresh',
+    );
   });
 
   test('keeps the two files apart, so startup reads stay small', () async {
@@ -125,7 +149,7 @@ void main() {
     test('a malformed companion file reads as no track sets', () async {
       await trackSetsFile().writeAsString('[]');
 
-      expect(await store.readTrackSets(), isEmpty);
+      expect((await store.readTrackSets()).isEmpty, isTrue);
     });
   });
 
@@ -162,7 +186,7 @@ void main() {
     await after.bootstrap();
 
     expect(after.entries.map((e) => e.path), [normalizePlaylistPath(path)]);
-    expect(await after.readTrackSets(), isNotEmpty);
+    expect((await after.readTrackSets()).isNotEmpty, isTrue);
     expect(
       (await settings.read()).playlistCollectionWidth,
       TrampSettings.defaultPlaylistCollectionWidth,

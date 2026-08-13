@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:tramp/domain/collection_figures.dart';
 import 'package:tramp/domain/saved_playlist.dart';
 import 'package:tramp/domain/track.dart';
 import 'package:tramp/playlist/m3u_codec.dart';
@@ -10,7 +11,7 @@ import 'package:tramp/playlist/playlist_collection_store.dart';
 
 class MemoryCollectionStore implements PlaylistCollectionStore {
   List<SavedPlaylist> index = const [];
-  Map<String, List<String>> trackSets = const {};
+  CollectionTrackSets trackSets = CollectionTrackSets.empty;
   int indexReads = 0;
   int indexWrites = 0;
   int trackSetReads = 0;
@@ -29,15 +30,15 @@ class MemoryCollectionStore implements PlaylistCollectionStore {
   }
 
   @override
-  Future<Map<String, List<String>>> readTrackSets() async {
+  Future<CollectionTrackSets> readTrackSets() async {
     trackSetReads++;
-    return Map<String, List<String>>.of(trackSets);
+    return trackSets;
   }
 
   @override
-  Future<void> writeTrackSets(Map<String, List<String>> sets) async {
+  Future<void> writeTrackSets(CollectionTrackSets sets) async {
     trackSetWrites++;
-    trackSets = Map<String, List<String>>.of(sets);
+    trackSets = sets;
   }
 }
 
@@ -230,7 +231,7 @@ void main() {
 
       expect(store.trackSetWrites, 1);
       expect(
-        await controller.readTrackSets(),
+        (await controller.readTrackSets()).byEntry,
         {
           normalizePlaylistPath(path): [
             normalizePlaylistPath(p.join(dir.path, 'sub', 'one.mp3')),
@@ -257,7 +258,7 @@ void main() {
       expect(entry.modified, isNotNull);
       expect(controller.selectedPath, entry.path);
       expect(
-        (await controller.readTrackSets())[entry.path],
+        (await controller.readTrackSets()).byEntry[entry.path],
         hasLength(2),
         reason: 'the About figures need the new entry\'s track set too',
       );
@@ -293,7 +294,10 @@ void main() {
       expect(entry.trackCount, 3);
       expect(entry.totalDuration, const Duration(seconds: 120));
       expect(controller.selectedPath, entry.path);
-      expect((await controller.readTrackSets())[entry.path], hasLength(3));
+      expect(
+        (await controller.readTrackSets()).byEntry[entry.path],
+        hasLength(3),
+      );
     });
 
     test('the figures it writes are current, not the next validation pass\'s',
@@ -409,7 +413,7 @@ void main() {
       expect(controller.entries, hasLength(1));
       expect(controller.selectedPath, entry.path);
       expect(
-        (await controller.readTrackSets())[entry.path],
+        (await controller.readTrackSets()).byEntry[entry.path],
         hasLength(3),
         reason: 'the About figures need the new entry\'s track set too',
       );
@@ -648,7 +652,7 @@ void main() {
       await controller.remove(dropped);
 
       expect(
-        (await controller.readTrackSets()).keys,
+        (await controller.readTrackSets()).byEntry.keys,
         [normalizePlaylistPath(kept)],
       );
     });
@@ -827,7 +831,7 @@ void main() {
       expect(entry.trackCount, 1);
       expect(entry.totalDuration, const Duration(seconds: 30));
       expect(
-        await controller.readTrackSets(),
+        (await controller.readTrackSets()).byEntry,
         {
           normalizePlaylistPath(path): [
             normalizePlaylistPath(p.join(dir.path, 'c.mp3')),
@@ -1053,6 +1057,279 @@ void main() {
       controller.entries.map((e) => e.displayName),
       ['driving', 'sunday', 'work'],
     );
+  });
+
+  group('About figures', () {
+    test('an empty collection reads as zeros', () async {
+      final controller =
+          PlaylistCollectionController(store: MemoryCollectionStore());
+
+      expect(await controller.readFigures(), CollectionFigures.empty);
+    });
+
+    test('a track kept in three playlists counts once', () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final shared = p.join(dir.path, 'shared.mp3');
+      for (final name in ['work.m3u', 'driving.m3u', 'sunday.m3u']) {
+        await controller.add(
+          await writePlaylist(
+            name,
+            lines: [
+              '#EXTINF:60,Shared',
+              shared,
+              '#EXTINF:30,${name}only',
+              p.join(dir.path, '$name.mp3'),
+            ],
+          ),
+        );
+      }
+
+      final figures = await controller.readFigures();
+
+      expect(figures.playlists, 3);
+      expect(
+        figures.tracks,
+        4,
+        reason: 'one shared track plus one of its own per playlist',
+      );
+      expect(
+        figures.totalDuration,
+        const Duration(seconds: 60 + 30 * 3),
+        reason: 'the shared track contributes its minute exactly once',
+      );
+    });
+
+    test('the same track reached by two spellings is one track', () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      await controller.add(
+        await writePlaylist(
+          'plain.m3u',
+          lines: ['#EXTINF:90,One', p.join(dir.path, 'one.mp3')],
+        ),
+      );
+      await controller.add(
+        await writePlaylist(
+          'roundabout.m3u',
+          // The same file, through a redundant `.` and a `..` hop.
+          lines: [
+            '#EXTINF:90,One',
+            p.join(dir.path, 'nested', '..', '.', 'one.mp3'),
+          ],
+        ),
+      );
+
+      final figures = await controller.readFigures();
+
+      expect(figures.playlists, 2);
+      expect(figures.tracks, 1);
+      expect(figures.totalDuration, const Duration(seconds: 90));
+    });
+
+    test('a disabled playlist still contributes to all three figures',
+        () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final kept = await writeTwoTrackPlaylist('kept.m3u');
+      final unplugged = await writePlaylist(
+        'on a drive.m3u',
+        lines: ['#EXTINF:45,Away', p.join(dir.path, 'away.mp3')],
+      );
+      await controller.add(kept);
+      await controller.add(unplugged);
+
+      // The drive goes away.
+      await File(unplugged).delete();
+      await controller.validateReferences();
+      expect(controller.isDisabled(unplugged), isTrue);
+
+      final figures = await controller.readFigures();
+
+      expect(figures.playlists, 2);
+      expect(figures.tracks, 3);
+      expect(
+        figures.totalDuration,
+        const Duration(seconds: 65 + 125 + 45),
+        reason: 'unplugging a disk must not rewrite the listener\'s history',
+      );
+    });
+
+    test('a track with no declared running time counts but adds no time',
+        () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      await controller.add(
+        await writePlaylist(
+          'untagged.m3u',
+          lines: [
+            '#EXTINF:60,Known',
+            p.join(dir.path, 'known.mp3'),
+            // No #EXTINF: an M3U that never declared how long this runs.
+            p.join(dir.path, 'unknown.mp3'),
+          ],
+        ),
+      );
+
+      final figures = await controller.readFigures();
+
+      expect(figures.tracks, 2);
+      expect(
+        figures.totalDuration,
+        const Duration(seconds: 60),
+        reason: 'a length Tramp does not know is not a length it may invent',
+      );
+    });
+
+    test('a playlist file the listener never added contributes nothing',
+        () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      await controller.add(await writeTwoTrackPlaylist('kept.m3u'));
+      // Sitting on disk beside it, but not in the collection — the same
+      // standing the unsaved current playlist has.
+      await writeTwoTrackPlaylist('never added.m3u');
+
+      final figures = await controller.readFigures();
+
+      expect(figures.playlists, 1);
+      expect(figures.tracks, 2);
+    });
+
+    test('removing an entry subtracts only what nothing else holds', () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final shared = p.join(dir.path, 'shared.mp3');
+      final work = await writePlaylist(
+        'work.m3u',
+        lines: [
+          '#EXTINF:60,Shared',
+          shared,
+          '#EXTINF:60,Only here',
+          p.join(dir.path, 'only-work.mp3'),
+        ],
+      );
+      await controller.add(work);
+      await controller.add(
+        await writePlaylist(
+          'driving.m3u',
+          lines: ['#EXTINF:60,Shared', shared],
+        ),
+      );
+
+      await controller.remove(work);
+
+      final figures = await controller.readFigures();
+      expect(figures.playlists, 1);
+      expect(
+        figures.tracks,
+        1,
+        reason: 'the shared track is still kept, its neighbour is not',
+      );
+      expect(figures.totalDuration, const Duration(seconds: 60));
+    });
+
+    test('an edit elsewhere is reflected the next time the figures are read',
+        () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = await writeTwoTrackPlaylist('work.m3u');
+      await controller.add(path);
+      expect((await controller.readFigures()).tracks, 2);
+
+      await editPlaylistElsewhere(
+        path,
+        lines: [
+          '#EXTINF:30,Charlie',
+          p.join(dir.path, 'c.mp3'),
+          '#EXTINF:30,Delta',
+          p.join(dir.path, 'd.mp3'),
+          '#EXTINF:30,Echo',
+          p.join(dir.path, 'e.mp3'),
+        ],
+      );
+      await controller.validateReferences();
+
+      final figures = await controller.readFigures();
+      expect(figures.tracks, 3);
+      expect(figures.totalDuration, const Duration(seconds: 90));
+    });
+
+    test('the revision moves on the four events that can change a figure',
+        () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = await writeTwoTrackPlaylist('work.m3u');
+
+      final atStart = controller.figuresRevision;
+      await controller.add(path);
+      final afterAdd = controller.figuresRevision;
+      expect(afterAdd, greaterThan(atStart), reason: 'added');
+
+      await controller.addWritten(path);
+      final afterSave = controller.figuresRevision;
+      expect(afterSave, greaterThan(afterAdd), reason: 'saved');
+
+      await editPlaylistElsewhere(
+        path,
+        lines: ['#EXTINF:30,Charlie', p.join(dir.path, 'c.mp3')],
+      );
+      await controller.validateReferences();
+      final afterPass = controller.figuresRevision;
+      expect(afterPass, greaterThan(afterSave), reason: 'changed on disk');
+
+      await controller.remove(path);
+      expect(
+        controller.figuresRevision,
+        greaterThan(afterPass),
+        reason: 'removed',
+      );
+    });
+
+    test('the revision holds still for changes that cannot move a figure',
+        () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final first = await writeTwoTrackPlaylist('first.m3u');
+      await controller.add(first);
+      await controller.add(await writeTwoTrackPlaylist('second.m3u'));
+      final settled = controller.figuresRevision;
+
+      controller.select(first);
+      await controller.rename(first, 'The First One');
+      await controller.validateReferences();
+      await controller.resolveForLoad(first);
+
+      expect(
+        controller.figuresRevision,
+        settled,
+        reason: 'reading the companion file for a highlight would be waste',
+      );
+    });
+
+    test('the figures never come from a pass over the whole collection',
+        () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      await controller.add(await writeTwoTrackPlaylist('work.m3u'));
+      await controller.add(await writeTwoTrackPlaylist('driving.m3u'));
+      final codec = CountingM3uCodec();
+      final restarted = PlaylistCollectionController(
+        store: store,
+        codec: codec,
+      );
+      await restarted.bootstrap();
+
+      final figures = await restarted.readFigures();
+
+      expect(figures.playlists, 2);
+      expect(figures.tracks, 2);
+      expect(
+        codec.parses,
+        0,
+        reason: 'the cached track sets answer this; no playlist file is opened',
+      );
+    });
   });
 
   test('notifies once per change so the host broadcasts once', () async {

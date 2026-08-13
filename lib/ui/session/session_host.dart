@@ -9,6 +9,7 @@ import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../domain/collection_figures.dart';
 import '../../domain/track.dart';
 import '../../domain/tramp_settings.dart';
 import '../../eq/equalizer_controller.dart';
@@ -18,6 +19,7 @@ import '../../platform/file_open.dart';
 import '../../platform/session_resume_store.dart';
 import '../../platform/settings_store.dart';
 import '../../platform/tramp_window.dart';
+import '../../platform/usage_store.dart';
 import '../../playback/media_kit_player_engine.dart';
 import '../../playback/playback_controller.dart';
 import '../../playback/player_engine.dart';
@@ -110,6 +112,11 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   /// when the current playlist is actually loaded from somewhere else.
   String? _lastPlaylistSource;
   bool _nativeDragging = false;
+  /// Last reading sent to the About window, and what it was computed from.
+  /// Both start below any real value so the first push always happens.
+  CollectionFigures _aboutFigures = CollectionFigures.empty;
+  int _aboutFiguresRevision = -1;
+  int _aboutSpins = -1;
   Timer? _resumeSaveTimer;
   late final NativeDragTracker _mainNativeDrag;
   late final LinuxDragPoll _mainLinuxDragPoll;
@@ -181,6 +188,9 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
             player: sharedPlayer,
             onMetadata: _onPlayingTrackMetadata,
           ),
+      // Lifetime spins are history, so they keep their own small file rather
+      // than riding on settings — resetting a preference must not erase them.
+      usageStore: FileUsageStore(supportDir: getApplicationSupportDirectory),
     );
     _equalizer = EqualizerController(
       store: _settingsStore,
@@ -216,11 +226,13 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
 
   void _onCollectionChanged() {
     unawaited(_broadcastCollectionSnapshot());
+    unawaited(_refreshAboutStats());
   }
 
   void _onPlaybackChanged() {
     unawaited(_broadcastPlaylistSnapshot());
     unawaited(_broadcastPlaybackSnapshot());
+    unawaited(_refreshAboutStats());
     _scheduleResumeSave();
   }
 
@@ -245,6 +257,17 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         wasPlaying: _playback.playing,
       ),
     );
+  }
+
+  /// The one write quit already pays for, plus the spin count.
+  ///
+  /// Quitting stays immediate — this is two small files, not a teardown — but
+  /// a listener who closes Tramp within the spin debounce would otherwise lose
+  /// the track that just finished, and a lifetime total that drops the last
+  /// one is not a lifetime total.
+  Future<void> _persistOnQuit() async {
+    await _persistResume();
+    await _playback.flushUsage();
   }
 
   Future<void> _bootstrap() async {
@@ -278,6 +301,9 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     // a small read even for a large collection. Validating the references it
     // points at is deliberately *not* here — that waits until after launch.
     await _collection.bootstrap();
+    // One tiny file, the same size as the resume snapshot: this is what makes
+    // the spin count read as a lifetime total rather than a per-session one.
+    await _playback.loadUsage();
     if (_resumeLastSession) {
       await _playlist.restoreCurrentPlaylist();
       unawaited(_enrichMissingTrackMetadata());
@@ -396,6 +422,10 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
           await _pushSettingsSnapshot(role);
         } else if (role == WindowRole.about) {
           _aboutReady = true;
+          // Unawaited, and a no-op unless the listener left the window open:
+          // the figures cost a file read, and the handshake happens while the
+          // session is still coming up.
+          unawaited(_refreshAboutStats());
         }
         await _pushLookSnapshot(role);
         await _applyRoleFrame(role);
@@ -411,6 +441,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         }
         if (visible && window == WindowId.about) {
           await _raiseAbout();
+          // Opening the well is the moment the figures are wanted.
+          await _refreshAboutStats();
         }
         if (mounted) setState(() {});
       case SetShadedCommand(:final window, :final shaded):
@@ -547,9 +579,10 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   ///
   /// Only `settings.json` is rewritten. Installed skins, the playlist
   /// collection index and its companion track sets, a kept altered current
-  /// playlist, and the resume snapshot all live in their own files and are
-  /// deliberately left alone — a listener fixing a preference must not lose
-  /// what they keep.
+  /// playlist, the lifetime spin count in `usage.json`, and the resume snapshot
+  /// all live in their own files and are deliberately left alone — a listener
+  /// fixing a preference must not lose what they keep, and a spin count is
+  /// history rather than a preference.
   Future<void> _handleResetSettings() async {
     const next = TrampSettings.defaults;
     await _settingsStore.write(next);
@@ -915,6 +948,48 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
 
   Future<void> _broadcastCollectionSnapshot() =>
       _broadcast(_collectionSnapshot());
+
+  /// Sends the About window a fresh reading, but only when there is one to
+  /// send and someone to read it.
+  ///
+  /// Three guards, and each earns its keep:
+  ///
+  /// * The window must be **open**. The deduplicated figures cost a read of the
+  ///   companion track-set file, and the About window is hidden at launch, so
+  ///   this is what keeps that file off the startup path — it is read when the
+  ///   figures are wanted and not before.
+  /// * The collection's [PlaylistCollectionController.figuresRevision] must
+  ///   have moved. It moves on the four events that can change a figure — a
+  ///   playlist added, saved, removed, or found changed on disk — and not on a
+  ///   row being highlighted, which is far more frequent.
+  /// * Spins must have moved. Playback notifies on every position tick, and
+  ///   only end-of-stream changes the count.
+  Future<void> _refreshAboutStats() async {
+    if (!_aboutReady || !_docking.layout.about.visible) return;
+    final revision = _collection.figuresRevision;
+    final spins = _playback.spins;
+    if (revision == _aboutFiguresRevision && spins == _aboutSpins) return;
+    _aboutSpins = spins;
+    if (revision != _aboutFiguresRevision) {
+      _aboutFiguresRevision = revision;
+      _aboutFigures = await _collection.readFigures();
+    }
+    final controller = _aboutWindow;
+    if (controller == null) return;
+    try {
+      await SessionBus.pushEvent(
+        controller,
+        AboutStatsEvent(
+          playlists: _aboutFigures.playlists,
+          tracks: _aboutFigures.tracks,
+          totalDurationMs: _aboutFigures.totalDuration.inMilliseconds,
+          spins: spins,
+        ),
+      );
+    } catch (error, stack) {
+      debugPrint('SessionHost pushAboutStats failed: $error\n$stack');
+    }
+  }
 
   PlaybackSnapshotEvent _playbackSnapshot() {
     return PlaybackSnapshotEvent(
@@ -1531,7 +1606,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         await windowManager.hide();
       } catch (_) {}
     }());
-    await finishSessionQuit(persist: _persistResume);
+    await finishSessionQuit(persist: _persistOnQuit);
   }
 
   @override

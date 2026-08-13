@@ -5,6 +5,7 @@ import 'package:tramp/domain/about_stats.dart';
 import 'package:tramp/theme/tramp_metrics.dart';
 import 'package:tramp/ui/chrome/logo.dart';
 import 'package:tramp/ui/chrome/proxima_logo.dart';
+import 'package:tramp/ui/session/session_messages.dart';
 import 'package:tramp/ui/windows/about_window.dart';
 
 import '../../support/test_fonts.dart';
@@ -86,11 +87,58 @@ void main() {
     expect(find.text('17'), findsOneWidget);
   });
 
-  testWidgets('stats default to the placeholder figures', (tester) async {
-    await pumpAbout(tester);
+  testWidgets('the well shows zeros until a reading arrives', (tester) async {
+    // The default must never be a plausible-looking figure: an About window
+    // whose host has not spoken yet has counted nothing, and says so.
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) =>
+            wrapWithLook(child ?? const SizedBox.shrink()),
+        home: const Center(child: AboutWindow(draggableTitle: false)),
+      ),
+    );
 
-    expect(find.text(AboutStats.placeholder.tracksLabel), findsOneWidget);
-    expect(find.text(AboutStats.placeholder.totalTimeLabel), findsOneWidget);
+    expect(find.text(AboutStats.placeholder.tracksLabel), findsNothing);
+    expect(find.text('0 m'), findsOneWidget);
+    expect(find.text('0'), findsNWidgets(3));
+  });
+
+  testWidgets('a measured reading replaces the zeros', (tester) async {
+    await pumpAbout(
+      tester,
+      stats: const AboutStats(
+        playlists: 4,
+        tracks: 51,
+        totalDuration: Duration(hours: 3, minutes: 12),
+        spins: 906,
+      ),
+    );
+
+    expect(find.text('4'), findsOneWidget);
+    expect(find.text('51'), findsOneWidget);
+    expect(find.text('3 h 12 m'), findsOneWidget);
+    expect(find.text('906'), findsOneWidget);
+  });
+
+  testWidgets('a reading off the session bus paints the well', (tester) async {
+    // The About window is a secondary engine, so its figures arrive as an
+    // event. This is both ends of that contract meeting: what the host would
+    // send, decoded the way the client decodes it, rendered in the well.
+    const sent = AboutStatsEvent(
+      playlists: 12,
+      tracks: 1284,
+      totalDurationMs: 340800000,
+      spins: 4096,
+    );
+    final received =
+        SessionEvent.fromJson(sent.toEnvelope()) as AboutStatsEvent;
+
+    await pumpAbout(tester, stats: received.stats);
+
+    expect(find.text('12'), findsOneWidget);
+    expect(find.text('1,284'), findsOneWidget);
+    expect(find.text('3 d 22 h'), findsOneWidget);
+    expect(find.text('4,096'), findsOneWidget);
   });
 
   testWidgets('website chip shows the host and reports the product URL',

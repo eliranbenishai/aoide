@@ -5,6 +5,35 @@ import 'package:path/path.dart' as p;
 
 import '../domain/saved_playlist.dart';
 
+/// The lazily-read companion to the collection index: what each entry holds,
+/// and how long each distinct track runs for.
+///
+/// One value rather than two store calls because the two maps live in one file
+/// and must be written together — a write that knew only the track sets would
+/// erase the running times beside them.
+class CollectionTrackSets {
+  const CollectionTrackSets({
+    this.byEntry = const {},
+    this.durationsMs = const {},
+  });
+
+  static const empty = CollectionTrackSets();
+
+  /// Entry path → that entry's normalized track paths, in file order.
+  final Map<String, List<String>> byEntry;
+
+  /// Normalized track path → running time in milliseconds.
+  ///
+  /// Keyed by **track** rather than by entry because a running time is a
+  /// property of the file: a track kept in three playlists runs for one length,
+  /// and the deduplicated total wants exactly one of them. A track whose length
+  /// is not known is simply absent.
+  final Map<String, int> durationsMs;
+
+  bool get isEmpty => byEntry.isEmpty && durationsMs.isEmpty;
+  bool get isNotEmpty => !isEmpty;
+}
+
 /// Persistence for the **playlist collection**, split across two files so a
 /// larger collection never costs launch time.
 ///
@@ -15,9 +44,9 @@ abstract class PlaylistCollectionStore {
   Future<List<SavedPlaylist>> readIndex();
   Future<void> writeIndex(List<SavedPlaylist> entries);
 
-  /// Entry path → that entry's normalized track paths. Off the startup path.
-  Future<Map<String, List<String>>> readTrackSets();
-  Future<void> writeTrackSets(Map<String, List<String>> trackSets);
+  /// The companion file. Off the startup path.
+  Future<CollectionTrackSets> readTrackSets();
+  Future<void> writeTrackSets(CollectionTrackSets trackSets);
 }
 
 /// Two JSON files in the app support dir, beside `settings.json`.
@@ -78,33 +107,52 @@ class FilePlaylistCollectionStore implements PlaylistCollectionStore {
   }
 
   @override
-  Future<Map<String, List<String>>> readTrackSets() async {
+  Future<CollectionTrackSets> readTrackSets() async {
     final file = await _file(trackSetsFileName);
-    if (!await file.exists()) return const {};
+    if (!await file.exists()) return CollectionTrackSets.empty;
     try {
       final decoded = jsonDecode(await file.readAsString());
-      if (decoded is! Map) return const {};
+      if (decoded is! Map) return CollectionTrackSets.empty;
       final raw = decoded['trackSets'];
-      if (raw is! Map) return const {};
       final sets = <String, List<String>>{};
-      for (final entry in raw.entries) {
-        final key = entry.key;
-        final value = entry.value;
-        if (key is! String || value is! List) continue;
-        sets[key] = [
-          for (final path in value)
-            if (path is String && path.isNotEmpty) path,
-        ];
+      if (raw is Map) {
+        for (final entry in raw.entries) {
+          final key = entry.key;
+          final value = entry.value;
+          if (key is! String || value is! List) continue;
+          sets[key] = [
+            for (final path in value)
+              if (path is String && path.isNotEmpty) path,
+          ];
+        }
       }
-      return sets;
+      // Absent in files written before running times were kept. Those figures
+      // come back on the entry's next refresh rather than costing the count.
+      final rawDurations = decoded['trackDurations'];
+      final durations = <String, int>{};
+      if (rawDurations is Map) {
+        for (final entry in rawDurations.entries) {
+          final key = entry.key;
+          final value = entry.value;
+          if (key is! String || value is! num) continue;
+          final ms = value.toInt();
+          if (ms > 0) durations[key] = ms;
+        }
+      }
+      return CollectionTrackSets(byEntry: sets, durationsMs: durations);
     } catch (_) {
-      return const {};
+      return CollectionTrackSets.empty;
     }
   }
 
   @override
-  Future<void> writeTrackSets(Map<String, List<String>> trackSets) async {
+  Future<void> writeTrackSets(CollectionTrackSets trackSets) async {
     final file = await _file(trackSetsFileName);
-    await file.writeAsString(jsonEncode({'trackSets': trackSets}));
+    await file.writeAsString(
+      jsonEncode({
+        'trackSets': trackSets.byEntry,
+        'trackDurations': trackSets.durationsMs,
+      }),
+    );
   }
 }

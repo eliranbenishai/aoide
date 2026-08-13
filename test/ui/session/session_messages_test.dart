@@ -375,6 +375,68 @@ void main() {
     });
   });
 
+  group('AboutStatsEvent', () {
+    test('carries all four figures across the bus', () {
+      const event = AboutStatsEvent(
+        playlists: 12,
+        tracks: 1284,
+        totalDurationMs: 340800000,
+        spins: 4096,
+      );
+
+      final decoded = SessionEvent.fromJson(
+        SessionEvent.decodeEnvelope(jsonEncode(event.toEnvelope())),
+      ) as AboutStatsEvent;
+
+      expect(decoded.playlists, 12);
+      expect(decoded.tracks, 1284);
+      expect(decoded.totalDurationMs, 340800000);
+      expect(decoded.spins, 4096);
+    });
+
+    test('what arrives is a reading, so it reads as measured', () {
+      const event = AboutStatsEvent(
+        playlists: 3,
+        tracks: 51,
+        totalDurationMs: 11520000,
+        spins: 906,
+      );
+
+      final stats =
+          (SessionEvent.fromJson(event.toEnvelope()) as AboutStatsEvent).stats;
+
+      expect(stats.measured, isTrue);
+      expect(stats.playlists, 3);
+      expect(stats.tracks, 51);
+      expect(stats.totalDuration, const Duration(hours: 3, minutes: 12));
+      expect(stats.spins, 906);
+    });
+
+    test('a listener who keeps nothing round-trips as zeros', () {
+      const event = AboutStatsEvent(
+        playlists: 0,
+        tracks: 0,
+        totalDurationMs: 0,
+        spins: 0,
+      );
+
+      final decoded =
+          SessionEvent.fromJson(event.toEnvelope()) as AboutStatsEvent;
+
+      expect(decoded.stats.totalTimeLabel, '0 m');
+      expect(decoded.stats.measured, isTrue);
+    });
+
+    test('a missing figure decodes as zero rather than throwing', () {
+      final decoded = AboutStatsEvent.fromPayload(const {'playlists': 2});
+
+      expect(decoded.playlists, 2);
+      expect(decoded.tracks, 0);
+      expect(decoded.totalDurationMs, 0);
+      expect(decoded.spins, 0);
+    });
+  });
+
   group('SettingsSnapshotEvent', () {
     test('carries the playlist collection layout across the bus', () {
       const event = SettingsSnapshotEvent(

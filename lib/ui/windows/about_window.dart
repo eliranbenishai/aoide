@@ -32,7 +32,7 @@ class AboutWindow extends StatelessWidget {
     this.copyrightYear = trampCopyrightYear,
     this.companyName = trampCompanyName,
     this.websiteUrl = trampWebsiteUrl,
-    this.stats = AboutStats.placeholder,
+    this.stats = AboutStats.unmeasured,
     this.shaded = false,
     this.onCollapse,
     this.onClose,
@@ -51,8 +51,8 @@ class AboutWindow extends StatelessWidget {
   final String companyName;
   final String websiteUrl;
 
-  /// Usage counters for the stats well. Defaults to the placeholder figures —
-  /// see [AboutStats].
+  /// Measured usage counters for the stats well, pushed by the host over the
+  /// session bus. Zeros until that reading arrives — see [AboutStats].
   final AboutStats stats;
   final bool shaded;
   final VoidCallback? onCollapse;
