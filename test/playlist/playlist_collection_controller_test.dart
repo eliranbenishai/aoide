@@ -241,6 +241,133 @@ void main() {
     });
   });
 
+  group('addWritten', () {
+    test('keeps a reference to a playlist Tramp has just written', () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = await writeTwoTrackPlaylist('kept pile.m3u');
+
+      final entry = await controller.addWritten(path);
+
+      expect(entry, isNotNull);
+      expect(controller.entries, hasLength(1));
+      expect(entry!.displayName, 'kept pile');
+      expect(entry.trackCount, 2);
+      expect(entry.totalDuration, const Duration(seconds: 190));
+      expect(entry.modified, isNotNull);
+      expect(controller.selectedPath, entry.path);
+      expect(
+        (await controller.readTrackSets())[entry.path],
+        hasLength(2),
+        reason: 'the About figures need the new entry\'s track set too',
+      );
+    });
+
+    test('saving over a kept playlist updates that entry, never twins it',
+        () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = await writePlaylist(
+        'driving.m3u',
+        lines: ['#EXTINF:60,One', p.join(dir.path, 'one.mp3')],
+      );
+      await controller.add(path);
+      expect(controller.entries.single.trackCount, 1);
+
+      // The listener saves a longer current playlist straight over it.
+      await editPlaylistElsewhere(
+        path,
+        lines: [
+          '#EXTINF:60,One',
+          p.join(dir.path, 'one.mp3'),
+          '#EXTINF:30,Two',
+          p.join(dir.path, 'two.mp3'),
+          '#EXTINF:30,Three',
+          p.join(dir.path, 'three.mp3'),
+        ],
+      );
+      await controller.addWritten(path);
+
+      expect(controller.entries, hasLength(1), reason: 'one file, one row');
+      final entry = controller.entries.single;
+      expect(entry.trackCount, 3);
+      expect(entry.totalDuration, const Duration(seconds: 120));
+      expect(controller.selectedPath, entry.path);
+      expect((await controller.readTrackSets())[entry.path], hasLength(3));
+    });
+
+    test('the figures it writes are current, not the next validation pass\'s',
+        () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = await writePlaylist(
+        'work.m3u',
+        lines: ['#EXTINF:60,One', p.join(dir.path, 'one.mp3')],
+      );
+      await controller.add(path);
+      await editPlaylistElsewhere(
+        path,
+        lines: [
+          '#EXTINF:60,One',
+          p.join(dir.path, 'one.mp3'),
+          '#EXTINF:60,Two',
+          p.join(dir.path, 'two.mp3'),
+        ],
+      );
+
+      await controller.addWritten(path);
+
+      // The stamp went with the figures, so the pass that runs later reads no
+      // external edit and leaves the entry exactly as this left it.
+      final after = controller.entries.single;
+      await controller.validateReferences();
+      expect(controller.entries.single, after);
+      expect(store.index.single.trackCount, 2);
+    });
+
+    test('a saved-over entry keeps the name the listener gave it', () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = await writeTwoTrackPlaylist('dt-2019-03.m3u');
+      await controller.add(path, name: 'Driving Tunes');
+
+      await editPlaylistElsewhere(path);
+      await controller.addWritten(path);
+
+      expect(controller.entries.single.displayName, 'Driving Tunes');
+      expect(controller.entries.single.trackCount, 0);
+    });
+
+    test('saving over a playlist whose file had gone missing re-enables it',
+        () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+      final path = await writeTwoTrackPlaylist('back again.m3u');
+      await controller.add(path);
+      await File(path).delete();
+      await controller.validateReferences();
+      expect(controller.isDisabled(path), isTrue);
+
+      await writeTwoTrackPlaylist('back again.m3u');
+      await controller.addWritten(path);
+
+      expect(controller.isDisabled(path), isFalse);
+      expect(controller.entries, hasLength(1));
+    });
+
+    test('a file that cannot be read is reported, not kept', () async {
+      final store = MemoryCollectionStore();
+      final controller = PlaylistCollectionController(store: store);
+
+      final entry = await controller.addWritten(p.join(dir.path, 'gone.m3u'));
+
+      expect(entry, isNull);
+      expect(controller.entries, isEmpty);
+      expect(controller.lastError, isNotNull);
+      expect(store.indexWrites, 0);
+    });
+  });
+
   group('remove', () {
     test('drops the entry and never touches disk', () async {
       final store = MemoryCollectionStore();

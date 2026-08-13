@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../domain/track.dart';
 import '../../playlist/playlist_controller.dart';
@@ -6,6 +8,44 @@ import '../../theme/look_scope.dart';
 import '../../ui/format.dart';
 import '../chrome/logo.dart';
 import 'mockup_playlist_scrollbar.dart';
+
+/// What a tap on a track row asks the selection to do, once the modifiers the
+/// listener was holding have been read.
+enum TrackRowSelection {
+  /// A plain tap: collapse the selection to the row that was clicked.
+  replace,
+
+  /// Shift-click: select the contiguous range from the anchor.
+  range,
+
+  /// The platform modifier click: add or drop just this row.
+  toggle,
+}
+
+/// Whether the platform's own toggle-a-row modifier is down: **Command** on
+/// macOS, **Control** on Windows and Linux.
+///
+/// The convention is read from [defaultTargetPlatform] rather than `dart:io`'s
+/// `Platform`, so it follows the same notion of the host every other Flutter
+/// widget behaves by — and so a test can pin either desktop's convention
+/// without pretending to run on it. The key state comes from
+/// [HardwareKeyboard], the way the title bar already reads Shift for undock.
+bool trackRowToggleModifierPressed() {
+  final keyboard = HardwareKeyboard.instance;
+  return defaultTargetPlatform == TargetPlatform.macOS
+      ? keyboard.isMetaPressed
+      : keyboard.isControlPressed;
+}
+
+/// What the modifiers held at this moment mean for a row tap.
+///
+/// Shift wins over the toggle modifier when both are down: a range is the more
+/// specific request, and it is the one the listener can see the result of.
+TrackRowSelection trackRowSelectionFromKeyboard() {
+  if (HardwareKeyboard.instance.isShiftPressed) return TrackRowSelection.range;
+  if (trackRowToggleModifierPressed()) return TrackRowSelection.toggle;
+  return TrackRowSelection.replace;
+}
 
 /// The track list half of the playlist body: list well, rows, and the custom
 /// scrollbar beside it.
@@ -27,7 +67,10 @@ class MockupPlaylistTrackPane extends StatefulWidget {
 
   final PlaylistController playlist;
   final int? playingIndex;
-  final ValueChanged<int> onSelect;
+
+  /// A row tap, with what the modifiers made of it. The pane reads the
+  /// keyboard so the owner only ever decides what each gesture *means*.
+  final void Function(int index, TrackRowSelection how) onSelect;
   final ValueChanged<int> onActivate;
 
   @override
@@ -106,7 +149,10 @@ class _MockupPlaylistTrackPaneState extends State<MockupPlaylistTrackPane> {
                               track: track,
                               selected: selected.contains(index),
                               playing: widget.playingIndex == index,
-                              onSelect: () => widget.onSelect(index),
+                              onSelect: () => widget.onSelect(
+                                index,
+                                trackRowSelectionFromKeyboard(),
+                              ),
                               onActivate: () => widget.onActivate(index),
                             );
                           },

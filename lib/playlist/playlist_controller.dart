@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
@@ -40,6 +41,10 @@ class PlaylistController extends ChangeNotifier {
   Playlist get playlist => _playlist;
 
   /// Primary / anchor selection (last single-select or play target).
+  ///
+  /// Also the anchor [selectRange] measures a shift-click from, which is why
+  /// nothing here keeps a second index: one anchor, already riding the
+  /// snapshot, cannot disagree with itself across the two engines.
   int? get selectedIndex => _selectedIndex;
 
   /// Multi-selection for bulk ops (select-all / invert / remove).
@@ -215,12 +220,63 @@ class PlaylistController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// A plain tap: the selection collapses to [index], which becomes the anchor.
   void select(int index) {
     if (index < 0 || index >= _playlist.tracks.length) return;
     _selectedIndex = index;
     _selectedIndices
       ..clear()
       ..add(index);
+    notifyListeners();
+  }
+
+  /// A shift-click: selects every row between the anchor and [index].
+  ///
+  /// The anchor is [selectedIndex] and deliberately stays where it is, so a
+  /// second shift-click re-measures the range from the row the listener
+  /// started at rather than crawling along behind them.
+  ///
+  /// With **no anchor** — nothing selected yet, or a [removeSelected] that
+  /// cleared it — there is no range to describe, so this is a plain [select]
+  /// of the row that was clicked. Predictable, and nothing to throw over.
+  ///
+  /// Selection is not the track list: this never raises [altered].
+  void selectRange(int index) {
+    if (index < 0 || index >= _playlist.tracks.length) return;
+    final anchor = _selectedIndex;
+    if (anchor == null || anchor >= _playlist.tracks.length) {
+      select(index);
+      return;
+    }
+    final from = math.min(anchor, index);
+    final to = math.max(anchor, index);
+    _selectedIndices
+      ..clear()
+      ..addAll([for (var i = from; i <= to; i++) i]);
+    notifyListeners();
+  }
+
+  /// The platform modifier click: adds [index] to the selection or drops it,
+  /// leaving every other selected row alone.
+  ///
+  /// A row added this way becomes the anchor, so a shift-click after it ranges
+  /// from where the listener last pointed. Dropping the anchor row falls back
+  /// to the lowest row still selected — the same fallback
+  /// [setSelectedIndices] uses — or to no anchor at all when nothing is left.
+  ///
+  /// Selection is not the track list: this never raises [altered].
+  void toggleSelection(int index) {
+    if (index < 0 || index >= _playlist.tracks.length) return;
+    if (_selectedIndices.remove(index)) {
+      if (_selectedIndex == index) {
+        _selectedIndex = _selectedIndices.isEmpty
+            ? null
+            : (_selectedIndices.toList()..sort()).first;
+      }
+    } else {
+      _selectedIndices.add(index);
+      _selectedIndex = index;
+    }
     notifyListeners();
   }
 

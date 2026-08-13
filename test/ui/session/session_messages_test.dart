@@ -218,6 +218,10 @@ void main() {
           paths: ['/a.mp3', '/b.mp3'],
         ),
         const PlaylistOpCommand('sort', sortKey: 'title'),
+        // The multi-select gestures carry the row that was clicked; the host
+        // works the range out from the anchor it already shares.
+        const PlaylistOpCommand('selectRange', index: 4),
+        const PlaylistOpCommand('toggleSelect', index: 0),
         const ResizePlaylistCommand(width: 900, height: 500),
         const ResizePlaylistCollectionCommand(width: 220.5, collapsed: false),
         const ResizePlaylistCollectionCommand(width: 240, collapsed: true),
@@ -225,6 +229,8 @@ void main() {
         const RemoveSavedPlaylistCommand('/music/driving.m3u'),
         const SelectSavedPlaylistCommand('/music/driving.m3u'),
         const LoadSavedPlaylistCommand(r'D:\music\driving.m3u'),
+        const CreatePlaylistFromCurrentCommand('/music/new pile.m3u'),
+        const CreatePlaylistFromCurrentCommand(r'D:\music\new pile.m3u'),
         const MoveWindowCommand(
           window: WindowId.playlist,
           left: 12.5,
@@ -257,6 +263,7 @@ void main() {
         RemoveSavedPlaylistCommand.typeName,
         SelectSavedPlaylistCommand.typeName,
         LoadSavedPlaylistCommand.typeName,
+        CreatePlaylistFromCurrentCommand.typeName,
       ]) {
         expect(
           () => SessionCommand.fromJson({
@@ -412,6 +419,30 @@ void main() {
       expect(decoded.playingIndex, 0);
       expect(decoded.playing, isTrue);
       expect(decoded.sourcePath, '/list.m3u');
+    });
+
+    test('a multi-selection and its anchor both ride the snapshot', () {
+      const event = PlaylistSnapshotEvent(
+        tracks: [
+          Track(path: '/a.mp3'),
+          Track(path: '/b.mp3'),
+          Track(path: '/c.mp3'),
+          Track(path: '/d.mp3'),
+        ],
+        // A range picked from row 1, so the anchor is not the lowest index.
+        selectedIndices: [1, 2, 3],
+        selectedIndex: 1,
+      );
+
+      final decoded =
+          SessionEvent.fromJson(event.toEnvelope()) as PlaylistSnapshotEvent;
+
+      expect(decoded.selectedIndices, [1, 2, 3]);
+      expect(
+        decoded.selectedIndex,
+        1,
+        reason: 'the anchor is what the next shift-click measures from',
+      );
     });
 
     test('altered rides the snapshot both ways', () {

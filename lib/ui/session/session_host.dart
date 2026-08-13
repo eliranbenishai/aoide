@@ -475,6 +475,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         await _collection.remove(path);
       case SelectSavedPlaylistCommand(:final path):
         _collection.select(path);
+      case CreatePlaylistFromCurrentCommand(:final path):
+        await _handleCreatePlaylistFromCurrent(path);
       case LoadSavedPlaylistCommand(:final path):
         await _handleLoadSavedPlaylist(path);
       case MoveWindowCommand(
@@ -688,6 +690,12 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       case 'select':
         final index = command.index;
         if (index != null) _playlist.select(index);
+      case 'selectRange':
+        final index = command.index;
+        if (index != null) _playlist.selectRange(index);
+      case 'toggleSelect':
+        final index = command.index;
+        if (index != null) _playlist.toggleSelection(index);
       case 'removeSelected':
         _playlist.removeSelected();
       case 'clear':
@@ -744,6 +752,26 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     if (entry == null) return;
     await _playlist.openPlaylistFile(entry.path);
     unawaited(_enrichMissingTrackMetadata());
+  }
+
+  /// Turns the current playlist into a **saved playlist** at [path].
+  ///
+  /// The write goes through [PlaylistController.savePlaylistFile] because it is
+  /// the whole track list going to a file that becomes its origin: that is the
+  /// one thing that lowers the altered state, and the one thing that forgets
+  /// the kept altered list, so a playlist the listener just saved cannot come
+  /// back altered after a restart.
+  ///
+  /// The reference is then kept the way an add keeps one, so the new row lands
+  /// with a real count, duration, modification time, and track set — and a save
+  /// over a file already in the collection updates that entry instead of
+  /// twinning it.
+  Future<void> _handleCreatePlaylistFromCurrent(String path) async {
+    // An empty current playlist has nothing to keep; the window's create
+    // control is already disabled, and this is the same answer from the host.
+    if (_playlist.playlist.tracks.isEmpty) return;
+    await _playlist.savePlaylistFile(path);
+    await _collection.addWritten(path);
   }
 
   Future<void> _handlePlaylistResize(double width, double height) async {

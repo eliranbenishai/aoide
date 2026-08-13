@@ -23,6 +23,7 @@ class MockupPlaylistCollectionPane extends StatelessWidget {
     this.onCollapse,
     this.onSelect,
     this.onAdd,
+    this.onCreate,
     this.onRemove,
   });
 
@@ -53,6 +54,11 @@ class MockupPlaylistCollectionPane extends StatelessWidget {
   final VoidCallback? onCollapse;
   final ValueChanged<SavedPlaylist>? onSelect;
   final VoidCallback? onAdd;
+
+  /// Makes a new saved playlist out of the current playlist's tracks. Null
+  /// disables the control — which is how an empty current playlist is refused,
+  /// since there is nothing there to keep.
+  final VoidCallback? onCreate;
 
   /// Removes the entry passed back — the selected one, matching how the
   /// footer's track remove acts on the track selection.
@@ -147,6 +153,17 @@ class MockupPlaylistCollectionPane extends StatelessWidget {
                 onPressed: onAdd,
                 child: MockupIcons.add(
                   size: 13,
+                  color: MockupIcons.inkOf(context),
+                ),
+              ),
+              const SizedBox(width: 6),
+              MockupButton(
+                key: const Key('pl-collection-create'),
+                width: 30,
+                height: 24,
+                semanticLabel: 'Create playlist from current playlist',
+                onPressed: onCreate,
+                child: PlaylistCollectionCreateMark(
                   color: MockupIcons.inkOf(context),
                 ),
               ),
@@ -375,6 +392,63 @@ class _MissingMarkPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _MissingMarkPainter oldDelegate) =>
+      color != oldDelegate.color;
+}
+
+/// The mark on the panel's create control: a short stack of lines with a plus
+/// beside it — a list being made, rather than a file being fetched, which is
+/// what the neighbouring add control does.
+///
+/// Stroked in the same idiom as [PlaylistCollectionChevron], and drawn here
+/// rather than in `MockupIcons` because it belongs to this panel: the mockup's
+/// icon set has no glyph for an action the window did not used to have.
+class PlaylistCollectionCreateMark extends StatelessWidget {
+  const PlaylistCollectionCreateMark({
+    super.key,
+    required this.color,
+    this.size = 12,
+  });
+
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size.square(size),
+      painter: _CreateMarkPainter(color: color),
+    );
+  }
+}
+
+class _CreateMarkPainter extends CustomPainter {
+  const _CreateMarkPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round
+      ..color = color;
+    // Three list rules down the left two-thirds…
+    final ruleWidth = size.width * 0.62;
+    for (var i = 0; i < 3; i++) {
+      final y = size.height * (0.18 + i * 0.32);
+      canvas.drawLine(Offset(0.7, y), Offset(ruleWidth, y), paint);
+    }
+    // …and a plus in the bottom-right corner.
+    final cx = size.width - size.width * 0.16;
+    final cy = size.height - size.height * 0.16;
+    final reach = size.width * 0.2;
+    canvas.drawLine(Offset(cx - reach, cy), Offset(cx + reach, cy), paint);
+    canvas.drawLine(Offset(cx, cy - reach), Offset(cx, cy + reach), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CreateMarkPainter oldDelegate) =>
       color != oldDelegate.color;
 }
 

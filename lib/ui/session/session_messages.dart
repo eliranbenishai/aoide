@@ -719,6 +719,8 @@ sealed class SessionCommand {
         return RemoveSavedPlaylistCommand.fromPayload(payload);
       case SelectSavedPlaylistCommand.typeName:
         return SelectSavedPlaylistCommand.fromPayload(payload);
+      case CreatePlaylistFromCurrentCommand.typeName:
+        return CreatePlaylistFromCurrentCommand.fromPayload(payload);
       case LoadSavedPlaylistCommand.typeName:
         return LoadSavedPlaylistCommand.fromPayload(payload);
       case MoveWindowCommand.typeName:
@@ -1157,8 +1159,13 @@ final class PlaylistOpCommand extends SessionCommand {
 
   static const typeName = 'playlist_op';
 
-  /// Ops: playIndex, select, removeSelected, clear, selectAll, invertSelection,
-  /// addPaths, openPlaylist, savePlaylist, sort, reverse.
+  /// Ops: playIndex, select, selectRange, toggleSelect, removeSelected, clear,
+  /// selectAll, invertSelection, addPaths, openPlaylist, savePlaylist, sort,
+  /// reverse.
+  ///
+  /// `selectRange` and `toggleSelect` carry the row the listener clicked, not
+  /// the resulting selection: the host works it out from the same anchor the
+  /// window did, so a snapshot in flight cannot make the two disagree.
   final String op;
   final int? index;
   final String? path;
@@ -1335,6 +1342,39 @@ final class SelectSavedPlaylistCommand extends SessionCommand {
       throw const FormatException('SelectSavedPlaylistCommand.path');
     }
     return SelectSavedPlaylistCommand(path);
+  }
+}
+
+/// Make a **saved playlist** out of every track in the current playlist, at the
+/// path the listener chose in the save dialog.
+///
+/// One command rather than a write followed by an add, because the two halves
+/// are ordered: the reference can only be counted once the file exists. The
+/// host writes through `PlaylistController.savePlaylistFile` — the single place
+/// that lowers the altered state and adopts the new file as the current
+/// playlist's origin — and then keeps the reference through the collection
+/// module, so the entry lands with the same figures an add gives it.
+final class CreatePlaylistFromCurrentCommand extends SessionCommand {
+  const CreatePlaylistFromCurrentCommand(this.path);
+
+  static const typeName = 'create_playlist_from_current';
+
+  final String path;
+
+  @override
+  String get type => typeName;
+
+  @override
+  Map<String, dynamic> toJson() => {'path': path};
+
+  factory CreatePlaylistFromCurrentCommand.fromPayload(
+    Map<String, dynamic> json,
+  ) {
+    final path = json['path'];
+    if (path is! String || path.isEmpty) {
+      throw const FormatException('CreatePlaylistFromCurrentCommand.path');
+    }
+    return CreatePlaylistFromCurrentCommand(path);
   }
 }
 

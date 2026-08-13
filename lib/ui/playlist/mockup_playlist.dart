@@ -51,9 +51,21 @@ class MockupPlaylist extends StatelessWidget {
                 child: MockupPlaylistTrackPane(
                   playlist: playlist,
                   playingIndex: playingIndex,
-                  onSelect: (index) {
-                    playlist.select(index);
-                    _emit(PlaylistOpCommand('select', index: index));
+                  onSelect: (index, how) {
+                    // Applied here and echoed to the host, so this window
+                    // repaints on the frame the listener clicked and the two
+                    // engines' selections stay the same selection.
+                    switch (how) {
+                      case TrackRowSelection.replace:
+                        playlist.select(index);
+                        _emit(PlaylistOpCommand('select', index: index));
+                      case TrackRowSelection.range:
+                        playlist.selectRange(index);
+                        _emit(PlaylistOpCommand('selectRange', index: index));
+                      case TrackRowSelection.toggle:
+                        playlist.toggleSelection(index);
+                        _emit(PlaylistOpCommand('toggleSelect', index: index));
+                    }
                   },
                   onActivate: (index) {
                     playlist.select(index);

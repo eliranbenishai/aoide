@@ -81,10 +81,33 @@ class PlaylistCollectionController extends ChangeNotifier {
   /// than making a twin, because the entry's identity *is* its normalized path.
   /// Returns the entry the listener ends up on, or null when the file could not
   /// be read.
-  Future<SavedPlaylist?> add(String path, {String? name}) async {
+  Future<SavedPlaylist?> add(String path, {String? name}) =>
+      _keepReference(path, name: name, rewritten: false);
+
+  /// Keeps a reference to a playlist file **Tramp has just written**, as
+  /// create-from-current-playlist does once the file is on disk.
+  ///
+  /// The same entry, figures, and companion track set [add] produces — this is
+  /// that work, not a second copy of it. The one difference is what happens
+  /// when the listener saved over a file the collection already holds: the
+  /// entry is *updated* rather than left alone, keeping the name they gave it.
+  /// [add] leaves an existing entry's figures to [validateReferences] because
+  /// it has no reason to think the file moved; here Tramp moved it, so the
+  /// cached count and duration are known stale the moment the write lands.
+  ///
+  /// Either way the collection ends up with exactly one entry for the path,
+  /// because an entry's identity is its normalized path.
+  Future<SavedPlaylist?> addWritten(String path) =>
+      _keepReference(path, rewritten: true);
+
+  Future<SavedPlaylist?> _keepReference(
+    String path, {
+    String? name,
+    required bool rewritten,
+  }) async {
     final normalized = normalizePlaylistPath(path);
     final existing = _entryFor(normalized);
-    if (existing != null) {
+    if (existing != null && !rewritten) {
       _lastError = null;
       _selectedPath = existing.path;
       // One stat, so a re-add answers the disabled question with what is on
@@ -109,12 +132,19 @@ class PlaylistCollectionController extends ChangeNotifier {
 
     final entry = SavedPlaylist(
       path: normalized,
-      name: name,
+      // A rewritten entry keeps the name the listener gave it: they saved over
+      // a playlist, they did not rename it back to its filename.
+      name: existing?.name ?? name,
       trackCount: figures.trackCount,
       totalDuration: figures.totalDuration,
       modified: reference.modified,
     );
-    _entries.add(entry);
+    final at = _entries.indexWhere((e) => e.path == normalized);
+    if (at >= 0) {
+      _entries[at] = entry;
+    } else {
+      _entries.add(entry);
+    }
     _sort();
     _selectedPath = entry.path;
     _missing.remove(normalized);

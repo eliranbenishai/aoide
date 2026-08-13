@@ -222,6 +222,22 @@ class _PlaylistWindowState extends State<PlaylistWindow> {
     }
   }
 
+  /// Keeps the pile the listener has built: they say where it goes, the file is
+  /// written there, and a reference to it joins the collection — one action,
+  /// with no separate "now add it" step.
+  ///
+  /// Cancelling the save dialog changes nothing at all: no command leaves the
+  /// window, so there is no file, no entry, and the altered state stays exactly
+  /// where it was.
+  ///
+  /// An **empty** current playlist never reaches here — the control that calls
+  /// this is disabled while there is nothing to keep.
+  Future<void> _createPlaylistFromCurrentTracks() async {
+    final path = await widget.pickSavePlaylistPath?.call();
+    if (!mounted || path == null || path.isEmpty) return;
+    _emit(CreatePlaylistFromCurrentCommand(path));
+  }
+
   /// Writes the whole current playlist to the file that becomes its origin:
   /// straight to the origin it already has, or wherever the save dialog says.
   ///
@@ -326,14 +342,24 @@ class _PlaylistWindowState extends State<PlaylistWindow> {
         children: [
           SizedBox(
             width: _renderedCollectionWidth,
-            child: MockupPlaylistCollectionPane(
-              playlists: widget.collection,
-              selectedPath: widget.selectedCollectionPath,
-              disabledPaths: widget.disabledCollectionPaths,
-              onCollapse: () => _setCollapsed(true),
-              onSelect: (entry) => unawaited(_selectSavedPlaylist(entry)),
-              onAdd: widget.onAddSavedPlaylist,
-              onRemove: (entry) => _emit(RemoveSavedPlaylistCommand(entry.path)),
+            // Listens to the current playlist as well as the collection: the
+            // create control has to go dead the moment the last track leaves,
+            // not when the host's next snapshot says so.
+            child: ListenableBuilder(
+              listenable: widget.playlist,
+              builder: (context, _) => MockupPlaylistCollectionPane(
+                playlists: widget.collection,
+                selectedPath: widget.selectedCollectionPath,
+                disabledPaths: widget.disabledCollectionPaths,
+                onCollapse: () => _setCollapsed(true),
+                onSelect: (entry) => unawaited(_selectSavedPlaylist(entry)),
+                onAdd: widget.onAddSavedPlaylist,
+                onCreate: widget.playlist.playlist.tracks.isEmpty
+                    ? null
+                    : () => unawaited(_createPlaylistFromCurrentTracks()),
+                onRemove: (entry) =>
+                    _emit(RemoveSavedPlaylistCommand(entry.path)),
+              ),
             ),
           ),
           PlaylistCollectionDivider(

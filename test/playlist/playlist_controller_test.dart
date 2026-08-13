@@ -236,6 +236,226 @@ void main() {
     });
   });
 
+  group('multi-select', () {
+    /// Five rows, so a range has an inside as well as two ends.
+    PlaylistController listOfFive() {
+      final c = PlaylistController(store: MemoryStore());
+      c.setTracks(const [
+        Track(path: '/a.mp3'),
+        Track(path: '/b.mp3'),
+        Track(path: '/c.mp3'),
+        Track(path: '/d.mp3'),
+        Track(path: '/e.mp3'),
+      ], sourcePath: '/music/list.m3u');
+      return c;
+    }
+
+    test('a shift-click selects the range between the anchor and the row', () {
+      final c = listOfFive();
+      c.select(1);
+
+      c.selectRange(3);
+
+      expect(c.selectedIndices, {1, 2, 3});
+      expect(c.selectedIndex, 1, reason: 'the anchor does not move');
+    });
+
+    test('a range reaches backwards just as well', () {
+      final c = listOfFive();
+      c.select(3);
+
+      c.selectRange(1);
+
+      expect(c.selectedIndices, {1, 2, 3});
+      expect(c.selectedIndex, 3);
+    });
+
+    test('a second shift-click re-measures from the same anchor', () {
+      final c = listOfFive();
+      c.select(2);
+      c.selectRange(4);
+      expect(c.selectedIndices, {2, 3, 4});
+
+      c.selectRange(0);
+
+      expect(
+        c.selectedIndices,
+        {0, 1, 2},
+        reason: 'the listener is still ranging from the row they started at',
+      );
+    });
+
+    test('shift-clicking the anchor itself leaves just that row', () {
+      final c = listOfFive();
+      c.select(2);
+
+      c.selectRange(2);
+
+      expect(c.selectedIndices, {2});
+    });
+
+    test('shift-clicking with nothing selected selects just that row', () {
+      final c = listOfFive();
+      expect(c.selectedIndex, isNull);
+
+      c.selectRange(3);
+
+      expect(c.selectedIndices, {3});
+      expect(c.selectedIndex, 3);
+    });
+
+    test('shift-clicking after a remove cleared the anchor does not throw', () {
+      final c = listOfFive();
+      c.selectAll();
+      c.removeSelected();
+      expect(c.selectedIndex, isNull);
+      expect(c.playlist.tracks, isEmpty);
+
+      // Nothing left to click, and nothing left to blow up on.
+      c.selectRange(0);
+      expect(c.selectedIndices, isEmpty);
+
+      c.addTracks(const [Track(path: '/f.mp3'), Track(path: '/g.mp3')]);
+      c.selectRange(1);
+      expect(c.selectedIndices, {1});
+    });
+
+    test('the modifier click adds and drops single rows', () {
+      final c = listOfFive();
+      c.select(0);
+
+      c.toggleSelection(2);
+      c.toggleSelection(4);
+      expect(c.selectedIndices, {0, 2, 4});
+      expect(c.selectedIndex, 4, reason: 'the last row pointed at is next anchor');
+
+      c.toggleSelection(2);
+      expect(c.selectedIndices, {0, 4});
+    });
+
+    test('dropping the anchor row leaves an anchor behind', () {
+      final c = listOfFive();
+      c.select(1);
+      c.toggleSelection(3);
+      expect(c.selectedIndex, 3);
+
+      c.toggleSelection(3);
+
+      expect(c.selectedIndices, {1});
+      expect(c.selectedIndex, 1);
+    });
+
+    test('the modifier click can empty the selection entirely', () {
+      final c = listOfFive();
+      c.select(2);
+
+      c.toggleSelection(2);
+
+      expect(c.selectedIndices, isEmpty);
+      expect(c.selectedIndex, isNull);
+    });
+
+    test('a modifier click sets the anchor a following range measures from',
+        () {
+      final c = listOfFive();
+      c.select(0);
+      c.toggleSelection(2);
+
+      c.selectRange(4);
+
+      expect(c.selectedIndices, {2, 3, 4});
+    });
+
+    test('a plain tap collapses the selection back to one row', () {
+      final c = listOfFive();
+      c.select(0);
+      c.selectRange(4);
+      expect(c.selectedIndices, {0, 1, 2, 3, 4});
+
+      c.select(3);
+
+      expect(c.selectedIndices, {3});
+      expect(c.selectedIndex, 3);
+    });
+
+    test('a row that is not there is not selectable', () {
+      final c = listOfFive();
+      c.select(1);
+
+      c.selectRange(9);
+      c.selectRange(-1);
+      c.toggleSelection(9);
+      c.toggleSelection(-1);
+
+      expect(c.selectedIndices, {1});
+    });
+
+    test('removing acts on the whole selection', () {
+      final c = listOfFive();
+      c.select(1);
+      c.selectRange(3);
+
+      c.removeSelected();
+
+      expect(c.playlist.tracks.map((t) => t.path), ['/a.mp3', '/e.mp3']);
+      expect(c.selectedIndices, isEmpty);
+    });
+
+    test('removing acts on a selection the modifier built out of gaps', () {
+      final c = listOfFive();
+      c.select(0);
+      c.toggleSelection(2);
+      c.toggleSelection(4);
+
+      c.removeSelected();
+
+      expect(c.playlist.tracks.map((t) => t.path), ['/b.mp3', '/d.mp3']);
+    });
+
+    test('none of it marks the current playlist altered', () {
+      final c = listOfFive();
+      expect(c.altered, isFalse);
+
+      c.select(1);
+      c.selectRange(4);
+      c.toggleSelection(2);
+      c.toggleSelection(2);
+      c.selectRange(0);
+      c.select(3);
+      c.setSelectedIndices(const [0, 1], primary: 1);
+
+      expect(
+        c.altered,
+        isFalse,
+        reason: 'pointing at tracks is not changing them',
+      );
+
+      // Acting on the selection is a different matter — that is ticket 05's.
+      c.removeSelected();
+      expect(c.altered, isTrue);
+    });
+
+    test('a selection survives a snapshot round trip', () {
+      final host = listOfFive();
+      host.select(1);
+      host.selectRange(3);
+
+      final client = listOfFive();
+      client.setSelectedIndices(
+        host.selectedIndices,
+        primary: host.selectedIndex,
+      );
+
+      expect(client.selectedIndices, {1, 2, 3});
+      expect(client.selectedIndex, 1);
+      expect(client.altered, isFalse);
+      // And the anchor came with it, so the next shift-click agrees.
+      client.selectRange(0);
+      host.selectRange(0);
+      expect(client.selectedIndices, host.selectedIndices);
+    });
+  });
+
   group('altered current playlist', () {
     const tracks = [
       Track(path: '/a.mp3', title: 'Alpha', duration: Duration(seconds: 10)),

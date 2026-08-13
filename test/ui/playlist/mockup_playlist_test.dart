@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -950,6 +951,130 @@ void main() {
       });
     });
 
+    group('creating a playlist from every track', () {
+      Iterable<CreatePlaylistFromCurrentCommand> creates(
+        List<SessionCommand> commands,
+      ) =>
+          commands.whereType<CreatePlaylistFromCurrentCommand>();
+
+      testWidgets('asks where to save, then keeps what was written',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        var pickerOpened = 0;
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving],
+          pickSavePlaylistPath: () async {
+            pickerOpened++;
+            return '/music/kept pile.m3u';
+          },
+        );
+
+        await tester.tap(find.byKey(const Key('pl-collection-create')));
+        await tester.pumpAndSettle();
+
+        expect(pickerOpened, 1);
+        // One command, because the write and the reference are one action —
+        // the entry joins the collection with no separate "now add it" step.
+        expect(commands, hasLength(1));
+        expect(creates(commands).single.path, '/music/kept pile.m3u');
+      });
+
+      testWidgets('cancelling the save dialog changes nothing at all',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        var pickerOpened = 0;
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving],
+          pickSavePlaylistPath: () async {
+            pickerOpened++;
+            return null;
+          },
+        );
+
+        await tester.tap(find.byKey(const Key('pl-collection-create')));
+        await tester.pumpAndSettle();
+
+        expect(pickerOpened, 1);
+        expect(commands, isEmpty);
+        // The current playlist is still exactly where it was.
+        expect(find.textContaining('Alpha'), findsOneWidget);
+        expect(find.byKey(const Key('pl-collection-row-0')), findsOneWidget);
+      });
+
+      testWidgets('an empty current playlist is refused, not half-written',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        var pickerOpened = 0;
+        playlist.setTracks(const []);
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          collection: [driving],
+          pickSavePlaylistPath: () async {
+            pickerOpened++;
+            return '/music/nothing.m3u';
+          },
+        );
+
+        await tester.tap(find.byKey(const Key('pl-collection-create')));
+        await tester.pumpAndSettle();
+
+        // Refused outright: no dialog to back out of, and nothing emitted.
+        expect(pickerOpened, 0);
+        expect(commands, isEmpty);
+      });
+
+      testWidgets('it wakes up as soon as there is something to keep',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        playlist.setTracks(const []);
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: const Size(1000, 700),
+          pickSavePlaylistPath: () async => '/music/kept.m3u',
+        );
+
+        // A drop lands in this window's own mirror before the host echoes it.
+        playlist.addTracks(const [Track(path: '/dropped.mp3')]);
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('pl-collection-create')));
+        await tester.pumpAndSettle();
+
+        expect(creates(commands).single.path, '/music/kept.m3u');
+      });
+
+      testWidgets('create is its own control, beside add and remove',
+          (tester) async {
+        final commands = <SessionCommand>[];
+        await pumpPl(
+          tester,
+          commands: commands,
+          size: TrampMetrics.playlistMinWithCollection,
+          collection: [driving],
+        );
+
+        expect(find.byKey(const Key('pl-collection-create')), findsOneWidget);
+        expect(
+          find.bySemanticsLabel('Create playlist from current playlist'),
+          findsOneWidget,
+        );
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: 'three controls still fit the narrowest panel',
+        );
+      });
+    });
+
     testWidgets('a collection snapshot mid-drag does not undo the drag',
         (tester) async {
       final commands = <SessionCommand>[];
@@ -971,6 +1096,212 @@ void main() {
       );
 
       expect(collectionPaneWidth(tester), dragged);
+    });
+  });
+
+  group('multi-select', () {
+    /// Five rows, so a range has an inside as well as two ends.
+    void fiveTracks() {
+      playlist.setTracks(const [
+        Track(path: '/a.mp3', title: 'Alpha'),
+        Track(path: '/b.mp3', title: 'Bravo'),
+        Track(path: '/c.mp3', title: 'Charlie'),
+        Track(path: '/d.mp3', title: 'Delta'),
+        Track(path: '/e.mp3', title: 'Echo'),
+      ]);
+    }
+
+    /// Clicks a row with [holding] down, the way a listener holds a modifier
+    /// while clicking. Released again, so no test leaves a key stuck down.
+    Future<void> clickRow(
+      WidgetTester tester,
+      int index, {
+      List<LogicalKeyboardKey> holding = const [],
+    }) async {
+      for (final key in holding) {
+        await tester.sendKeyDownEvent(key);
+      }
+      await tester.tap(find.byKey(Key('pl-row-$index')));
+      // Rows answer to double-tap as well, so the arena is held open and a
+      // single tap only lands once that window has passed.
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      for (final key in holding) {
+        await tester.sendKeyUpEvent(key);
+      }
+    }
+
+    /// What the row actually paints: selected rows carry the highlight
+    /// gradient, unselected ones carry none.
+    bool rowReadsSelected(WidgetTester tester, int index) {
+      final decoration = tester
+          .widget<DecoratedBox>(
+            find
+                .descendant(
+                  of: find.byKey(Key('pl-row-$index')),
+                  matching: find.byType(DecoratedBox),
+                )
+                .first,
+          )
+          .decoration as BoxDecoration;
+      return decoration.gradient != null;
+    }
+
+    Set<int> rowsReadingSelected(WidgetTester tester) => {
+          for (var i = 0; i < 5; i++)
+            if (rowReadsSelected(tester, i)) i,
+        };
+
+    Iterable<String> selectionOps(List<SessionCommand> commands) => commands
+        .whereType<PlaylistOpCommand>()
+        .map((c) => '${c.op}:${c.index}');
+
+    testWidgets('shift-click selects the range, and every row shows it',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      fiveTracks();
+      await pumpPl(tester, commands: commands, size: const Size(1000, 700));
+
+      await clickRow(tester, 1);
+      await clickRow(tester, 3, holding: [LogicalKeyboardKey.shiftLeft]);
+
+      expect(playlist.selectedIndices, {1, 2, 3});
+      expect(rowsReadingSelected(tester), {1, 2, 3});
+      expect(selectionOps(commands), ['select:1', 'selectRange:3']);
+    });
+
+    testWidgets('the platform modifier toggles single rows in and out',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      fiveTracks();
+      await pumpPl(tester, commands: commands, size: const Size(1000, 700));
+
+      await clickRow(tester, 0);
+      await clickRow(tester, 2, holding: [LogicalKeyboardKey.controlLeft]);
+      await clickRow(tester, 4, holding: [LogicalKeyboardKey.controlLeft]);
+
+      expect(rowsReadingSelected(tester), {0, 2, 4});
+
+      await clickRow(tester, 2, holding: [LogicalKeyboardKey.controlLeft]);
+
+      expect(rowsReadingSelected(tester), {0, 4});
+      expect(
+        selectionOps(commands),
+        ['select:0', 'toggleSelect:2', 'toggleSelect:4', 'toggleSelect:2'],
+      );
+    });
+
+    testWidgets('on macOS it is Command that toggles, and Control that does not',
+        (tester) async {
+      // Reset inside the body: the framework checks for a leaked debug
+      // override before tear-downs run.
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final commands = <SessionCommand>[];
+        fiveTracks();
+        await pumpPl(tester, commands: commands, size: const Size(1000, 700));
+
+        await clickRow(tester, 0);
+        await clickRow(tester, 2, holding: [LogicalKeyboardKey.metaLeft]);
+
+        expect(rowsReadingSelected(tester), {0, 2});
+
+        // Control is not the Mac convention, so it reads as a plain tap.
+        await clickRow(tester, 4, holding: [LogicalKeyboardKey.controlLeft]);
+
+        expect(rowsReadingSelected(tester), {4});
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('a plain tap collapses the selection to one row',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      fiveTracks();
+      await pumpPl(tester, commands: commands, size: const Size(1000, 700));
+
+      await clickRow(tester, 0);
+      await clickRow(tester, 4, holding: [LogicalKeyboardKey.shiftLeft]);
+      expect(rowsReadingSelected(tester), {0, 1, 2, 3, 4});
+
+      await clickRow(tester, 2);
+
+      expect(rowsReadingSelected(tester), {2});
+      expect(playlist.selectedIndices, {2});
+    });
+
+    testWidgets('shift-clicking with nothing selected selects just that row',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      fiveTracks();
+      await pumpPl(tester, commands: commands, size: const Size(1000, 700));
+      expect(playlist.selectedIndex, isNull);
+
+      await clickRow(tester, 3, holding: [LogicalKeyboardKey.shiftLeft]);
+
+      expect(rowsReadingSelected(tester), {3});
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('removing tracks acts on the whole selection', (tester) async {
+      final commands = <SessionCommand>[];
+      fiveTracks();
+      await pumpPl(tester, commands: commands, size: const Size(1000, 700));
+
+      await clickRow(tester, 1);
+      await clickRow(tester, 3, holding: [LogicalKeyboardKey.shiftLeft]);
+      await tester.tap(find.byKey(const Key('pl-remove')));
+      await tester.pump();
+
+      expect(
+        playlist.playlist.tracks.map((t) => t.title),
+        ['Alpha', 'Echo'],
+      );
+      expect(
+        commands.whereType<PlaylistOpCommand>().map((c) => c.op),
+        contains('removeSelected'),
+      );
+    });
+
+    testWidgets('selecting rows never marks the current playlist altered',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      fiveTracks();
+      await pumpPl(
+        tester,
+        commands: commands,
+        size: const Size(1000, 700),
+        collection: [SavedPlaylist(path: '/music/driving.m3u')],
+      );
+
+      await clickRow(tester, 0);
+      await clickRow(tester, 3, holding: [LogicalKeyboardKey.shiftLeft]);
+      await clickRow(tester, 2, holding: [LogicalKeyboardKey.controlLeft]);
+
+      expect(playlist.altered, isFalse);
+      // And the proof a listener would meet: clicking a saved playlist does
+      // not stop to ask about work that was never done.
+      await tester.tap(find.byKey(const Key('pl-collection-row-0')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('pl-altered-dialog')), findsNothing);
+      expect(commands.whereType<LoadSavedPlaylistCommand>(), hasLength(1));
+    });
+
+    testWidgets('double-tap still plays the row it landed on', (tester) async {
+      final commands = <SessionCommand>[];
+      fiveTracks();
+      await pumpPl(tester, commands: commands, size: const Size(1000, 700));
+
+      await tester.tap(find.byKey(const Key('pl-row-2')));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(find.byKey(const Key('pl-row-2')));
+      await tester.pumpAndSettle();
+
+      expect(
+        commands.whereType<PlaylistOpCommand>().map((c) => c.op),
+        contains('playIndex'),
+      );
     });
   });
 
