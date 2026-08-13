@@ -142,3 +142,4 @@ These cost real time and will bite again:
 - [0005 — Full libmpv bundling](adr/0005-full-libmpv.md)
 - [0006 — Multi-window docking](adr/0006-multi-window-docking.md)
 - [0007 — Code-constructed mockup chrome](adr/0007-code-constructed-mockup-chrome.md)
+- [0008 — Playlist collection stores references; skins stay copies](adr/0008-playlist-collection-stores-references.md)
