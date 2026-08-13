@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:tramp/domain/track.dart';
+import 'package:tramp/playlist/altered_playlist_store.dart';
 import 'package:tramp/playlist/m3u_codec.dart';
 import 'package:tramp/playlist/playlist_controller.dart';
 import 'package:tramp/playlist/playlist_sort.dart';
@@ -16,6 +17,27 @@ class MemoryStore implements PlaylistStore {
 
   @override
   Future<void> writeLastPlaylistPath(String? path) async => last = path;
+}
+
+class MemoryAlteredStore implements AlteredPlaylistStore {
+  AlteredPlaylist? kept;
+  int writes = 0;
+  int clears = 0;
+
+  @override
+  Future<AlteredPlaylist> read() async => kept ?? AlteredPlaylist.empty;
+
+  @override
+  Future<void> write(AlteredPlaylist playlist) async {
+    kept = playlist;
+    writes++;
+  }
+
+  @override
+  Future<void> clear() async {
+    kept = null;
+    clears++;
+  }
 }
 
 void main() {
@@ -465,6 +487,230 @@ void main() {
       expect(c.playlist.tracks, hasLength(1));
       expect(c.playlist.tracks[0].path, '/existing.mp3');
       expect(c.playlist.sourcePath, isNull);
+    });
+  });
+
+  group('an altered current playlist survives a restart', () {
+    const tracks = [
+      Track(path: '/a.mp3', title: 'Alpha'),
+      Track(path: '/b.mp3', title: 'Bravo'),
+      Track(path: '/c.mp3', title: 'Charlie'),
+    ];
+
+    /// Keeps the pile the instant it changes, so a test never waits.
+    PlaylistController keeping(
+      MemoryAlteredStore kept, {
+      PlaylistStore? store,
+    }) {
+      return PlaylistController(
+        store: store ?? MemoryStore(),
+        alteredStore: kept,
+        alteredPersistDebounce: Duration.zero,
+      );
+    }
+
+    Future<String> writePlaylistFile(String prefix) async {
+      final dir = await Directory.systemTemp.createTemp(prefix);
+      final path = p.join(dir.path, 'list.m3u');
+      await File(path).writeAsString(const M3uCodec().encode(tracks));
+      return path;
+    }
+
+    group('the restore method', () {
+      test('raises the altered state, because that is what it was', () {
+        final c = PlaylistController(store: MemoryStore());
+
+        c.restoreAlteredTracks(tracks, sourcePath: '/music/list.m3u');
+
+        expect(c.playlist.tracks, tracks);
+        expect(c.playlist.sourcePath, '/music/list.m3u');
+        expect(c.altered, isTrue);
+      });
+
+      test('a pile with no origin comes back with none', () {
+        final c = PlaylistController(store: MemoryStore());
+
+        c.restoreAlteredTracks(tracks);
+
+        expect(c.playlist.sourcePath, isNull);
+        expect(c.altered, isTrue);
+      });
+
+      test('it never lowers, however it is called', () {
+        final c = PlaylistController(store: MemoryStore());
+        c.addTracks(tracks);
+        expect(c.altered, isTrue);
+
+        // There is no argument that asks for unaltered, and no setter to reach
+        // for: only a whole write to a file can lower it.
+        c.restoreAlteredTracks(const [Track(path: '/d.mp3')]);
+        expect(c.altered, isTrue);
+        c.restoreAlteredTracks(const []);
+        expect(c.altered, isTrue);
+      });
+    });
+
+    test('the pile is still there, and still altered, after a restart',
+        () async {
+      final kept = MemoryAlteredStore();
+      final first = keeping(kept);
+      first.addTracks(tracks);
+      await pumpEventQueue();
+
+      final next = keeping(kept);
+      await next.restoreCurrentPlaylist();
+
+      expect(next.playlist.tracks, tracks);
+      expect(
+        next.altered,
+        isTrue,
+        reason: 'navigating away from it must still ask first',
+      );
+    });
+
+    test('its origin, where it had one, comes back too', () async {
+      final kept = MemoryAlteredStore();
+      final first = keeping(kept);
+      first.setTracks(tracks, sourcePath: '/music/driving.m3u');
+      first.removeAt(0);
+      await pumpEventQueue();
+
+      final next = keeping(kept);
+      await next.restoreCurrentPlaylist();
+
+      expect(next.playlist.sourcePath, '/music/driving.m3u');
+      expect(next.playlist.tracks, tracks.sublist(1));
+      expect(next.altered, isTrue);
+    });
+
+    test('an unaltered playlist restores as it does today, and stays unaltered',
+        () async {
+      final path = await writePlaylistFile('tramp_restart_unaltered_');
+      final kept = MemoryAlteredStore();
+      final c = keeping(kept, store: MemoryStore()..last = path);
+
+      await c.restoreCurrentPlaylist();
+
+      expect(c.playlist.tracks, hasLength(3));
+      expect(c.playlist.sourcePath, path);
+      expect(c.altered, isFalse);
+      expect(kept.writes, 0, reason: 'only an altered list is kept');
+    });
+
+    test('a saved playlist is not kept, so it cannot come back altered',
+        () async {
+      final dir = await Directory.systemTemp.createTemp('tramp_restart_save_');
+      final kept = MemoryAlteredStore();
+      final c = keeping(kept);
+      c.addTracks(tracks);
+      await pumpEventQueue();
+      expect(kept.kept, isNotNull);
+
+      await c.savePlaylistFile(p.join(dir.path, 'out.m3u'));
+      await pumpEventQueue();
+
+      expect(kept.kept, isNull);
+      final next = keeping(kept);
+      await next.restoreCurrentPlaylist();
+      expect(next.altered, isFalse);
+    });
+
+    test('loading over an altered playlist forgets the pile it replaced',
+        () async {
+      final path = await writePlaylistFile('tramp_restart_load_');
+      final kept = MemoryAlteredStore();
+      final c = keeping(kept);
+      c.addTracks(const [Track(path: '/ad-hoc.mp3')]);
+      await pumpEventQueue();
+      expect(kept.kept, isNotNull);
+
+      await c.openPlaylistFile(path);
+      await pumpEventQueue();
+
+      expect(kept.kept, isNull);
+    });
+
+    test('an unaltered session writes nothing at all', () async {
+      final kept = MemoryAlteredStore();
+      final c = keeping(kept);
+      c.setTracks(tracks, sourcePath: '/music/list.m3u');
+      c.select(1);
+      c.selectAll();
+      c.updateTrackByPath('/a.mp3', (t) => t.copyWith(artist: 'Probed'));
+      await pumpEventQueue();
+
+      expect(kept.writes, 0);
+      expect(kept.clears, 0);
+    });
+
+    test('an unreadable kept list yields an empty playlist, not a failed start',
+        () async {
+      final dir = await Directory.systemTemp.createTemp('tramp_restart_bad_');
+      await File(
+        p.join(dir.path, FileAlteredPlaylistStore.fileName),
+      ).writeAsString('{"tracks": [ this is not json');
+      final c = PlaylistController(
+        store: MemoryStore(),
+        alteredStore: FileAlteredPlaylistStore(supportDir: () async => dir),
+      );
+
+      await c.restoreCurrentPlaylist();
+
+      expect(c.playlist.tracks, isEmpty);
+      expect(c.playlist.sourcePath, isNull);
+      expect(c.altered, isFalse);
+    });
+
+    group('keeping it is debounced, not written per edit', () {
+      test('a run of edits costs one write, holding the last of them',
+          () async {
+        final kept = MemoryAlteredStore();
+        final c = PlaylistController(
+          store: MemoryStore(),
+          alteredStore: kept,
+          alteredPersistDebounce: const Duration(milliseconds: 30),
+        );
+
+        for (var i = 0; i < 10; i++) {
+          c.addTracks([Track(path: '/track$i.mp3')]);
+        }
+        c.move(0, 3);
+        c.removeAt(9);
+        expect(kept.writes, 0, reason: 'nothing is written while typing');
+
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        expect(kept.writes, 1);
+        expect(kept.kept!.tracks, c.playlist.tracks);
+      });
+
+      test('the debounce is 2 seconds unless a caller says otherwise', () {
+        expect(
+          PlaylistController(store: MemoryStore()).alteredPersistDebounce,
+          const Duration(seconds: 2),
+          reason: 'the same debounce the session host keeps resume on',
+        );
+      });
+
+      test('teardown writes nothing — closing Tramp never waits on a write',
+          () async {
+        final kept = MemoryAlteredStore();
+        final c = PlaylistController(
+          store: MemoryStore(),
+          alteredStore: kept,
+          alteredPersistDebounce: const Duration(milliseconds: 30),
+        );
+        c.addTracks(tracks);
+
+        c.dispose();
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        expect(
+          kept.writes,
+          0,
+          reason: 'the pending keep is dropped, never flushed on the way out',
+        );
+      });
     });
   });
 }

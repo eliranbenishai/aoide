@@ -21,6 +21,7 @@ import '../../platform/tramp_window.dart';
 import '../../playback/media_kit_player_engine.dart';
 import '../../playback/playback_controller.dart';
 import '../../playback/player_engine.dart';
+import '../../playlist/altered_playlist_store.dart';
 import '../../playlist/playlist_collection_controller.dart';
 import '../../playlist/playlist_collection_store.dart';
 import '../../playlist/playlist_controller.dart';
@@ -158,6 +159,11 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     _playlist = PlaylistController(
       store: widget.playlistStore ??
           FilePlaylistStore(supportDir: getApplicationSupportDirectory),
+      // An altered current playlist is kept continuously while the session
+      // runs, so quitting can go on writing nothing at all.
+      alteredStore: FileAlteredPlaylistStore(
+        supportDir: getApplicationSupportDirectory,
+      ),
     );
     _collection = PlaylistCollectionController(
       store: widget.playlistCollectionStore ??
@@ -273,7 +279,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     // points at is deliberately *not* here — that waits until after launch.
     await _collection.bootstrap();
     if (_resumeLastSession) {
-      await _playlist.restoreLastPlaylist();
+      await _playlist.restoreCurrentPlaylist();
       unawaited(_enrichMissingTrackMetadata());
       await _restorePlaybackResume();
     }
@@ -534,9 +540,10 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   /// Preferences reset; content survives.
   ///
   /// Only `settings.json` is rewritten. Installed skins, the playlist
-  /// collection index and its companion track sets, and the resume snapshot all
-  /// live in their own files and are deliberately left alone — a listener fixing
-  /// a preference must not lose what they keep.
+  /// collection index and its companion track sets, a kept altered current
+  /// playlist, and the resume snapshot all live in their own files and are
+  /// deliberately left alone — a listener fixing a preference must not lose
+  /// what they keep.
   Future<void> _handleResetSettings() async {
     const next = TrampSettings.defaults;
     await _settingsStore.write(next);

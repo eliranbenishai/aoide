@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
 import '../domain/playlist.dart';
 import '../domain/track.dart';
+import 'altered_playlist_store.dart';
 import 'm3u_codec.dart';
 import 'playlist_sort.dart';
 import 'playlist_store.dart';
@@ -11,17 +13,29 @@ import 'playlist_store.dart';
 class PlaylistController extends ChangeNotifier {
   PlaylistController({
     required PlaylistStore store,
+    AlteredPlaylistStore? alteredStore,
     M3uCodec codec = const M3uCodec(),
+    this.alteredPersistDebounce = const Duration(seconds: 2),
   })  : _store = store,
+        _alteredStore = alteredStore,
         _codec = codec;
 
   final PlaylistStore _store;
+  final AlteredPlaylistStore? _alteredStore;
   final M3uCodec _codec;
+
+  /// Coalesces writes of the **altered current playlist** while the listener is
+  /// editing, so closing Tramp never has to write anything.
+  ///
+  /// Two seconds, the same debounce the session host keeps playback resume on.
+  final Duration alteredPersistDebounce;
 
   Playlist _playlist = const Playlist();
   int? _selectedIndex;
   final Set<int> _selectedIndices = <int>{};
   bool _altered = false;
+  Timer? _alteredPersistTimer;
+  bool _alteredPersisted = false;
 
   Playlist get playlist => _playlist;
 
@@ -46,7 +60,11 @@ class PlaylistController extends ChangeNotifier {
   /// exactly where it is.
   ///
   /// There is deliberately no setter: "only a whole write lowers it" is a rule
-  /// no caller can talk its way around.
+  /// no caller can talk its way around. [restoreAlteredTracks] is the one other
+  /// way it moves, and it can only ever raise.
+  ///
+  /// While it is up, the whole list is kept on disk, debounced, so an altered
+  /// current playlist comes back after a restart.
   bool get altered => _altered;
 
   Future<void> openPlaylistFile(String path) async {
@@ -72,17 +90,53 @@ class PlaylistController extends ChangeNotifier {
     await openPlaylistFile(path);
   }
 
+  /// Brings back the current playlist the last session ended with.
+  ///
+  /// An **altered current playlist** was kept whole while that session ran, so
+  /// it comes back as it was — tracks, origin, and still altered, which is what
+  /// keeps navigating away from it asking first.
+  ///
+  /// Anything else is a load: the last playlist path opens the way it always
+  /// has, and so stays unaltered. An unreadable kept list reads as none, so a
+  /// bad file costs the pile rather than the launch.
+  Future<void> restoreCurrentPlaylist() async {
+    final kept = await _alteredStore?.read() ?? AlteredPlaylist.empty;
+    if (kept.isEmpty) {
+      await restoreLastPlaylist();
+      return;
+    }
+    // It is already on disk, exactly as restored: no need to write it back.
+    _alteredPersisted = true;
+    restoreAlteredTracks(kept.tracks, sourcePath: kept.sourcePath);
+  }
+
   /// Replaces the whole playlist and sets the baseline [altered] measures from.
   ///
   /// This is what a load is made of, and what a client applies a host snapshot
   /// with, so it must never raise: otherwise every snapshot broadcast would
   /// raise the flag in the window's own mirror of the playlist.
   void setTracks(List<Track> tracks, {String? sourcePath}) {
+    _replaceTracks(tracks, sourcePath: sourcePath);
+    _altered = false;
+    notifyListeners();
+  }
+
+  /// Puts back an altered current playlist that was kept from a past session,
+  /// and **raises** [altered] — because that is what it was when Tramp closed.
+  ///
+  /// This can only ever raise. There is no setter, no `altered:` flag on
+  /// [setTracks], and no way to reach a lowered flag through here, so "only a
+  /// whole write lowers it" stays a rule no caller can talk its way around.
+  void restoreAlteredTracks(List<Track> tracks, {String? sourcePath}) {
+    _replaceTracks(tracks, sourcePath: sourcePath);
+    _altered = true;
+    notifyListeners();
+  }
+
+  void _replaceTracks(List<Track> tracks, {String? sourcePath}) {
     _playlist = Playlist(sourcePath: sourcePath, tracks: List.of(tracks));
     _selectedIndex = tracks.isEmpty ? null : _clampIndex(_selectedIndex);
     _syncSelectedIndicesFromPrimary();
-    _altered = false;
-    notifyListeners();
   }
 
   void addTracks(List<Track> tracks) {
@@ -284,6 +338,58 @@ class PlaylistController extends ChangeNotifier {
     _playlist = _playlist.copyWith(tracks: tracks);
     notifyListeners();
     return true;
+  }
+
+  /// Every mutation ends here, so this is where keeping the altered current
+  /// playlist is armed — continuously, while the listener works.
+  ///
+  /// Deliberately nowhere near shutdown: Tramp leaves the process rather than
+  /// tearing its engines down, and a slow quit is a release blocker. By the
+  /// time the listener closes the window their pile is already on disk.
+  @override
+  void notifyListeners() {
+    _scheduleAlteredPersist();
+    super.notifyListeners();
+  }
+
+  void _scheduleAlteredPersist() {
+    if (_alteredStore == null) return;
+    // Unaltered, with nothing kept: there is nothing to say either way.
+    if (!_altered && !_alteredPersisted) return;
+    _alteredPersistTimer?.cancel();
+    if (alteredPersistDebounce <= Duration.zero) {
+      unawaited(_persistAltered());
+      return;
+    }
+    _alteredPersistTimer = Timer(alteredPersistDebounce, () {
+      unawaited(_persistAltered());
+    });
+  }
+
+  Future<void> _persistAltered() async {
+    final store = _alteredStore;
+    if (store == null) return;
+    if (_altered) {
+      _alteredPersisted = true;
+      await store.write(
+        AlteredPlaylist(
+          tracks: List.of(_playlist.tracks),
+          sourcePath: _playlist.sourcePath,
+        ),
+      );
+      return;
+    }
+    _alteredPersisted = false;
+    await store.clear();
+  }
+
+  /// Drops the pending keep. Nothing is written from here: shutdown does no
+  /// work, and a session that ends is a session whose last edit is 2s old.
+  @override
+  void dispose() {
+    _alteredPersistTimer?.cancel();
+    _alteredPersistTimer = null;
+    super.dispose();
   }
 
   /// Sort and reverse land on a new list every time; only a different running
