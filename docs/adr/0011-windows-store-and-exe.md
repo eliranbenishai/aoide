@@ -14,11 +14,11 @@ Accepted
 
 Windows has **two** obtain paths:
 
-- **Microsoft Store** — an **MSIX** package. Microsoft re-signs it. This is the clean install (no SmartScreen).
+- **Microsoft Store** — an **MSIX** package listed as **tramp.music** (the reserved Store name; the product is still Tramp). Microsoft re-signs it. This is the clean install (no SmartScreen).
 - **Official download** — an unsigned **EXE** installer on `https://tramp.music`, at the listener's acknowledged risk (SmartScreen click-through). This is the path when the Store is missing or unwanted.
 
 tramp.music remains the product page and still hosts the EXE. Other stores stay out of v1 except Flathub ([ADR 0013](0013-linux-flathub-and-appimage.md)).
 
 ## Consequences
 
-Two Windows artifacts and two update stories. The in-app prompt follows **install channel**: a Store install opens the Store product page; the website EXE opens tramp.music. The EXE is not Authenticode-signed; document SmartScreen. File associations must be declared in both the MSIX manifest and the EXE installer.
+Two Windows artifacts and two update stories. The in-app prompt follows **install channel**: a Store install opens the Store product page; the website EXE opens tramp.music. The EXE is not Authenticode-signed; document SmartScreen. File associations must be declared in both the MSIX manifest and the EXE installer. The Store listing title is tramp.music; Start menu for a Store install follows that display name. The website EXE and in-app chrome stay **Tramp**.

@@ -8,7 +8,7 @@ Living design map of how Tramp is structured. Agents and humans update this when
 
 ## Intended product shape (v1)
 
-- Multi-platform desktop player (Windows, Linux, macOS); **official download** from `https://tramp.music`; **GPL-3.0-or-later**; Windows Store MSIX **and** website EXE ([ADR 0011](adr/0011-windows-store-and-exe.md)); Linux Flathub **and** AppImage ([ADR 0013](adr/0013-linux-flathub-and-appimage.md)); Mac notarized DMG from the site; CI-built ([ADR 0014](adr/0014-ci-and-architectures.md))
+- Multi-platform desktop player (Windows, Linux, macOS); **official download** from `https://tramp.music`; **GPL-3.0-or-later**; Windows Store listing **tramp.music** (MSIX) **and** website EXE ([ADR 0011](adr/0011-windows-store-and-exe.md)); Linux Flathub **and** AppImage ([ADR 0013](adr/0013-linux-flathub-and-appimage.md)); Mac notarized DMG from the site; CI-built ([ADR 0014](adr/0014-ci-and-architectures.md))
 - Local playback; custom **app chrome** (no OS window frame); **five** frameless windows — main/EQ/PL with Winamp-style docking; **settings** and **about** freestanding (not snappable, not in main drag cohort) ([ADR 0006](adr/0006-multi-window-docking.md))
 - Main title drag moves all **visible** EQ/PL satellites (settings/about excluded); EQ/PL drag moves self and may snap. Settings stays raised above other Tramp windows. Windows taskbar shows **main only**
 - Main and EQ: fixed logical canvases (**825×348**) sized by **global** discrete zoom only; playlist freely resizes (default **1073×696** — 825 track side + 240 collection panel + 8 divider); settings fixed **520×420**; about fixed **480×360** ([ADR 0002](adr/0002-fixed-canvas-zoom.md))
@@ -26,7 +26,7 @@ Living design map of how Tramp is structured. Agents and humans update this when
 flowchart LR
   CI[GitHub Actions]
   Site[tramp.music]
-  MS[Microsoft Store]
+  MS[Microsoft Store tramp.music]
   FH[Flathub]
   CI --> Site
   CI --> MS

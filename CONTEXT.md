@@ -20,6 +20,10 @@ _Avoid_: freeware, donationware (unless donations become a product); using this 
 How listeners obtain Tramp — the website (`https://tramp.music`). Not GitHub. Windows also has a Microsoft Store listing and Linux a Flathub listing; the site still offers an unsigned EXE and an AppImage when a store is missing or unwanted.
 _Avoid_: GitHub Release as the product surface, treating Store or Flathub as the only install, shipping from the repo
 
+**Store listing name**:
+The Microsoft Store catalog title: **tramp.music**. The product is still Tramp; this is only the reserved Store name (the bare word was taken).
+_Avoid_: renaming the product, using this as the wordmark, assuming the website EXE listing is named tramp.music
+
 **Install channel**:
 How this copy of Tramp was packaged — Microsoft Store, website EXE, Flathub, AppImage, or macOS DMG. The in-app new-version prompt follows that channel.
 _Avoid_: flavor (compiler jargon), edition, SKU

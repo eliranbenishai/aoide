@@ -11,7 +11,7 @@ permissions:
 env:
   # Override with repo variable MSIX_PUBLISHER after Partner Center identity exists.
   MSIX_PUBLISHER_DEFAULT: "CN=Proxima Magnifica"
-  MSIX_IDENTITY_DEFAULT: "ProximaMagnifica.Tramp"
+  MSIX_IDENTITY_DEFAULT: "ProximaMagnifica.trampmusic"
 
 jobs:
   test:

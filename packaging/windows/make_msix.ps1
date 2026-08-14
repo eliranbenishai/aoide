@@ -3,7 +3,7 @@
 param(
   [string]$Version = "0.1.0.0",
   [string]$Publisher = "CN=Proxima Magnifica",
-  [string]$IdentityName = "ProximaMagnifica.Tramp"
+  [string]$IdentityName = "ProximaMagnifica.trampmusic"
 )
 
 $ErrorActionPreference = "Stop"
@@ -47,7 +47,7 @@ $manifest = @"
   IgnorableNamespaces="uap rescap">
   <Identity Name="$IdentityName" Publisher="$Publisher" Version="$Version" ProcessorArchitecture="x64" />
   <Properties>
-    <DisplayName>Tramp</DisplayName>
+    <DisplayName>tramp.music</DisplayName>
     <PublisherDisplayName>Proxima Magnifica</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -60,7 +60,7 @@ $manifest = @"
   <Applications>
     <Application Id="Tramp" Executable="tramp.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
-        DisplayName="Tramp"
+        DisplayName="tramp.music"
         Description="Desktop music player"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"

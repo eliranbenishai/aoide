@@ -23,7 +23,7 @@ The tag name without `v` must equal the pubspec version.
 | File | Channel |
 |------|---------|
 | `Tramp-<ver>-windows-x64.exe` | Official download (unsigned Inno; SmartScreen click-through) |
-| `Tramp-<ver>-windows-x64.msix` | Microsoft Store upload (unsigned here; Store re-signs) |
+| `Tramp-<ver>-windows-x64.msix` | Microsoft Store listing **tramp.music** (unsigned here; Store re-signs) |
 | `Tramp-<ver>-linux-x86_64.AppImage` | Official download |
 | `Tramp-<ver>-linux-x86_64.tar.gz` | Input for a Flathub recipe |
 | `Tramp-<ver>-linux-x86_64.flatpak` | Optional CI bundle (job may fail without blocking the rest) |
@@ -37,8 +37,10 @@ Partner Center and Flathub submit stay **human**. Packaging scripts live under `
 
 | Variable | Purpose |
 |----------|---------|
-| `MSIX_PUBLISHER` | Store identity `CN=...` from Partner Center. Default `CN=Proxima Magnifica`. |
-| `MSIX_IDENTITY_NAME` | Store identity name. Default `ProximaMagnifica.Tramp`. |
+| `MSIX_PUBLISHER` | Store identity `CN=...` from Partner Center **Identity details**. Default `CN=Proxima Magnifica`. |
+| `MSIX_IDENTITY_NAME` | Package identity name from those same details. Default `ProximaMagnifica.trampmusic` until Partner Center shows the real one. |
+
+The MSIX **display name** is `tramp.music` (the reserved Store listing). Paste Publisher and Identity Name from Partner Center into those variables as soon as the app exists there; a mismatch fails certification. The website EXE and in-app chrome stay **Tramp**.
 
 ### Secrets (macOS notarization)
 
