@@ -93,3 +93,23 @@ File paths are passed via GTK `GApplication` argv (`linux/runner/my_application.
 
 - [`CONTEXT.md`](CONTEXT.md) — domain vocabulary
 - [`docs/architecture.md`](docs/architecture.md) — structure map
+
+## License
+
+Copyright (C) 2026 Proxima Magnifica
+
+Tramp is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option)
+any later version.
+
+Tramp is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+details.
+
+The full license is in [`LICENSE`](LICENSE). Other works shipped with
+Tramp are listed in [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
+
+The name Tramp, the maker’s plate, Proxima Magnifica, and tramp.music
+are trademarks; the GPL does not grant trademark rights.
