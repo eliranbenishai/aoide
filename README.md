@@ -19,7 +19,7 @@ sudo dnf install -y zenity
 
 ## Packaging
 
-Release builds per platform:
+Listener installers are built by GitHub Actions. See [`docs/distribution.md`](docs/distribution.md).
 
 ```bash
 flutter build windows   # → build/windows/x64/runner/Release/tramp.exe
@@ -27,7 +27,7 @@ flutter build macos     # → build/macos/Build/Products/Release/tramp.app
 flutter build linux     # → build/linux/x64/release/bundle/
 ```
 
-macOS and Linux builds require those hosts (or CI). This repo was smoke-tested on **Windows** only; run the macOS/Linux commands on the matching OS before shipping.
+A version tag `v*` (matching `pubspec.yaml`) runs the Release workflow and attaches artifacts to a GitHub Release (a mirror; the product page is tramp.music).
 
 ## Known v1 limits
 
@@ -35,9 +35,9 @@ macOS and Linux builds require those hosts (or CI). This repo was smoke-tested o
 |-------|--------|
 | Linux MPRIS | OS media keys / Now Playing via D-Bus not implemented (`LinuxOsMediaControls` stub). In-app media keys work when Tramp is focused. |
 | Second-instance “Open with” | Cold-start argv and file associations work; a second running instance does not forward paths to the first (starts a new process). |
-| macOS/Linux packaging smoke | Release builds not verified on this host; Windows release build verified. |
+| macOS/Linux packaging smoke | Release builds not verified on this host; Windows release build verified. Use the Release workflow for installer artifacts. |
 
-App-store listings are not required for v1.
+Windows Store and Flathub are v1 channels; Mac App Store and Snap are not.
 
 ## v1 success criteria
 
@@ -93,6 +93,7 @@ File paths are passed via GTK `GApplication` argv (`linux/runner/my_application.
 
 - [`CONTEXT.md`](CONTEXT.md) — domain vocabulary
 - [`docs/architecture.md`](docs/architecture.md) — structure map
+- [`docs/distribution.md`](docs/distribution.md) — CI, artifacts, secrets
 
 ## License
 

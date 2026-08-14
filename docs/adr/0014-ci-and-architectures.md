@@ -22,4 +22,4 @@ v1 CPU matrix:
 
 ## Consequences
 
-Apple notarization secrets and any Store/Flathub tokens live in GitHub, not on a laptop. Windows ARM and Linux ARM AppImage are explicit non-goals until a real need. The website EXE remains unsigned; SmartScreen is documented, not “fixed” by CI.
+Apple notarization secrets and any Store identity variables live in GitHub, not on a laptop. Workflows: `.github/workflows/ci.yml` (PR/main tests) and `release.yml` (tag `v*` packages). How to cut a release and which secrets to set: [`distribution.md`](../distribution.md). Windows ARM and Linux ARM AppImage are explicit non-goals until a real need. The website EXE remains unsigned; SmartScreen is documented, not “fixed” by CI.

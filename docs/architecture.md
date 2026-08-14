@@ -38,7 +38,7 @@ flowchart LR
   FH --> Flatpak[Linux Flatpak x86_64]
 ```
 
-Release bits are CI-built ([ADR 0014](adr/0014-ci-and-architectures.md)). tramp.music is the product page and hosts the unsigned Windows EXE, AppImage, and notarized DMG. Store and Flathub are the store-shaped exceptions. In-app update follows **install channel**.
+Release bits are CI-built ([ADR 0014](adr/0014-ci-and-architectures.md)). Workflows and secrets: [`distribution.md`](distribution.md). tramp.music is the product page and hosts the unsigned Windows EXE, AppImage, and notarized DMG. Store and Flathub are the store-shaped exceptions. In-app update follows **install channel**.
 
 ## System overview
 
@@ -133,10 +133,10 @@ OS windows stay unmapped until `SessionHostApp` has mounted chrome and one frame
 ## Known v1 gaps
 
 - **Mockup goldens** — side-by-side mockup fidelity / platform golden sets still hardening; docking + 2026-08-09 polish (button bevel, dock rules, EQ fill, compact titles, taskbar) are implemented — see [`2026-08-09-ui-polish-docking-taskbar-design.md`](superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md).
-- **Full libmpv on macOS/Linux** — Windows fetch + CMake load override are the verified path; macOS/Linux full-binary packaging and release smoke are not yet at the same bar ([ADR 0005](adr/0005-full-libmpv.md)).
+- **Full libmpv on macOS/Linux** — Windows fetch + CMake load override are the verified path; CI stages distro libmpv into the Linux bundle and swaps macOS audio-full xcframeworks ([ADR 0005](adr/0005-full-libmpv.md), [`distribution.md`](distribution.md)). Release smoke on those hosts is still the first real proof.
 - **Linux MPRIS** — session D-Bus player not registered; in-app shortcuts/media keys when focused still work.
 - **Second-instance “Open with”** — argv on cold start only; no IPC to an already-running instance.
-- **macOS/Linux release smoke** — not run on the primary dev host (Windows verified for prior packaging).
+- **macOS/Linux release smoke** — not run on the primary dev host; the Release workflow packages them.
 - **Spectrum decode cost** — each open runs a second `ao=pcm` pass before frames are indexed; long tracks analyse in the background (honest silence until ready).
 ## Implementation notes (chrome)
 

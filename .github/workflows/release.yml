@@ -1,0 +1,223 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  # Override with repo variable MSIX_PUBLISHER after Partner Center identity exists.
+  MSIX_PUBLISHER_DEFAULT: "CN=Proxima Magnifica"
+  MSIX_IDENTITY_DEFAULT: "ProximaMagnifica.Tramp"
+
+jobs:
+  test:
+    name: Test (Linux goldens)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Linux build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-14-dev \
+            libmpv-dev xvfb
+      - run: flutter pub get
+      - name: Tag matches pubspec
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          chmod +x tool/pubspec_version.sh
+          eval "$(./tool/pubspec_version.sh)"
+          tag="${GITHUB_REF_NAME#v}"
+          if [[ "$tag" != "$version" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match pubspec version $version" >&2
+            exit 1
+          fi
+      - run: flutter analyze
+      - run: xvfb-run -a flutter test
+
+  windows:
+    name: Windows EXE + MSIX
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Fetch full libmpv
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -File tool/fetch_full_libmpv.ps1
+      - run: flutter build windows --release
+      - name: Inno Setup installer
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          $ver = (Select-String -Path pubspec.yaml -Pattern '^version:\s*([0-9.]+)').Matches[0].Groups[1].Value
+          $iscc = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Inno Setup *","${env:ProgramFiles}\Inno Setup *" -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+          if (-not $iscc) { throw 'ISCC.exe not found' }
+          & $iscc.FullName "/DMyAppVersion=$ver" packaging\windows\tramp.iss
+      - name: MSIX (unsigned, Store re-signs)
+        shell: pwsh
+        env:
+          MSIX_PUBLISHER: ${{ vars.MSIX_PUBLISHER }}
+          MSIX_IDENTITY_NAME: ${{ vars.MSIX_IDENTITY_NAME }}
+        run: |
+          $fields = @{}
+          Get-Content pubspec.yaml | ForEach-Object {
+            if ($_ -match '^version:\s*([0-9.]+)(?:\+(\d+))?') {
+              $v = $Matches[1]; $b = $(if ($Matches[2]) { $Matches[2] } else { '0' })
+              $parts = $v.Split('.'); while ($parts.Count -lt 3) { $parts += '0' }
+              $fields.msix = "$($parts[0]).$($parts[1]).$($parts[2]).$b"
+            }
+          }
+          $pub = if ($env:MSIX_PUBLISHER) { $env:MSIX_PUBLISHER } else { $env:MSIX_PUBLISHER_DEFAULT }
+          $id = if ($env:MSIX_IDENTITY_NAME) { $env:MSIX_IDENTITY_NAME } else { $env:MSIX_IDENTITY_DEFAULT }
+          & packaging\windows\make_msix.ps1 -Version $fields.msix -Publisher $pub -IdentityName $id
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            build/windows/installer/*.exe
+            build/windows/msix/*.msix
+
+  linux:
+    name: Linux AppImage + tarball
+    needs: test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Linux build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-14-dev \
+            libmpv-dev libmpv2
+      - run: flutter pub get
+      - name: Stage full libmpv into the bundle
+        run: |
+          chmod +x tool/*.sh packaging/linux/*.sh
+          ./tool/stage_linux_libmpv.sh
+      - run: flutter build linux --release
+      - name: AppImage + tarball
+        run: |
+          ./packaging/linux/make_appimage.sh
+          eval "$(./tool/pubspec_version.sh)"
+          tar -C build/linux/x64/release -czf \
+            "build/linux/Tramp-${version}-linux-x86_64.tar.gz" bundle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            build/linux/Tramp-*-linux-x86_64.AppImage
+            build/linux/Tramp-*-linux-x86_64.tar.gz
+
+  flatpak:
+    name: Linux Flatpak bundle
+    needs: linux
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux
+          path: artifacts
+      - name: Unpack Linux bundle
+        run: |
+          tarball="$(find artifacts -name 'Tramp-*-linux-x86_64.tar.gz' | head -n 1)"
+          test -n "$tarball"
+          mkdir -p build/linux/x64/release
+          tar -C build/linux/x64/release -xzf "$tarball"
+      - name: Install flatpak-builder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends flatpak flatpak-builder
+          sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install -y flathub org.gnome.Platform//47 org.gnome.Sdk//47
+      - name: Build .flatpak
+        run: |
+          chmod +x packaging/linux/make_flatpak.sh tool/pubspec_version.sh
+          ./packaging/linux/make_flatpak.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-flatpak
+          path: build/linux/Tramp-*-linux-x86_64.flatpak
+
+  macos:
+    name: macOS DMG
+    needs: test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Fetch and stage full libmpv
+        run: |
+          chmod +x tool/*.sh packaging/macos/*.sh
+          ./tool/fetch_full_libmpv.sh
+          cd macos && pod install && cd ..
+          ./tool/stage_macos_libmpv.sh
+      - run: flutter build macos --release
+      - name: DMG
+        run: ./packaging/macos/make_dmg.sh
+      - name: Notarize
+        env:
+          MACOS_CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: ./packaging/macos/notarize.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: build/macos/Tramp-*-macos-universal.dmg
+
+  github-release:
+    name: Attach to GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, linux, macos]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Flatten artifacts
+        run: |
+          mkdir -p upload
+          find dist -type f \( -name '*.exe' -o -name '*.msix' -o -name '*.AppImage' \
+            -o -name '*.tar.gz' -o -name '*.flatpak' -o -name '*.dmg' \) \
+            -exec cp -v {} upload/ \;
+          ls -la upload
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: upload/*
+          generate_release_notes: true
+          draft: false
+          body: |
+            Source: this tag. Product downloads: https://tramp.music
+
+            Windows Store and Flathub listings are submitted separately from these bits.

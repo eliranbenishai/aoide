@@ -1,0 +1,40 @@
+# Binary Flatpak of the CI Linux bundle. Flathub listing is a human PR;
+# this is the sandbox/permissions contract and a local test bundle.
+app-id: com.tramp.tramp
+runtime: org.gnome.Platform
+runtime-version: "47"
+sdk: org.gnome.Sdk
+command: tramp
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --socket=pulseaudio
+  - --device=dri
+  - --filesystem=host
+modules:
+  - name: tramp
+    buildsystem: simple
+    build-commands:
+      - install -d /app/tramp /app/bin
+      - cp -a . /app/tramp/
+      - chmod +x /app/tramp/tramp
+      - |
+        printf '%s\n' '#!/bin/sh' \
+          'export LD_LIBRARY_PATH=/app/tramp/lib:${LD_LIBRARY_PATH:-}' \
+          'exec /app/tramp/tramp "$@"' > /app/bin/tramp
+      - chmod +x /app/bin/tramp
+      - |
+        if [ -d share/applications ]; then
+          install -d /app/share/applications
+          cp -a share/applications/. /app/share/applications/
+          sed -i 's|^Exec=.*|Exec=tramp %F|' /app/share/applications/com.tramp.tramp.desktop || true
+        fi
+        if [ -d share/icons ]; then
+          install -d /app/share/icons
+          cp -a share/icons/. /app/share/icons/
+        fi
+    sources:
+      - type: dir
+        path: ../../build/linux/x64/release/bundle
