@@ -8,6 +8,22 @@ A multi-platform desktop music player positioned as a spiritual successor to Win
 The product — a desktop music player that can be built for Windows, Linux, and macOS.
 _Avoid_: Winamp clone, media player (when meaning this product)
 
+**Proxima Magnifica**:
+The company that makes Tramp. Named on the About window's maker's plate.
+_Avoid_: com.tramp (the technical application id), publisher (vague)
+
+**Free Forever**:
+The product pledge on the maker's plate: Tramp costs nothing to use. Price, not a license name.
+_Avoid_: freeware, donationware (unless donations become a product); using this phrase to mean open-source
+
+**Official download**:
+How listeners obtain Tramp — the website (`https://tramp.music`). Not GitHub. Windows also has a Microsoft Store listing and Linux a Flathub listing; the site still offers an unsigned EXE and an AppImage when a store is missing or unwanted.
+_Avoid_: GitHub Release as the product surface, treating Store or Flathub as the only install, shipping from the repo
+
+**Install channel**:
+How this copy of Tramp was packaged — Microsoft Store, website EXE, Flathub, AppImage, or macOS DMG. The in-app new-version prompt follows that channel.
+_Avoid_: flavor (compiler jargon), edition, SKU
+
 **Classic skin**:
 A Winamp-compatible skin that replaces the built-in chrome with the skin's own layout and art (WSZ). Out of v1 product path for mockup chrome.
 _Avoid_: theme (when meaning a classic Winamp skin), skin pack (unless referring to a collection)

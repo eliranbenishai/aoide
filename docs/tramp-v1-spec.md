@@ -14,7 +14,10 @@ Tramp is a multi-platform desktop music player — a spiritual successor to Wina
 
 - **Windows, Linux, and macOS** desktop.
 - One codebase; shippable artifacts via Flutter desktop packaging (`flutter build` / normal platform installers as appropriate).
-- **App-store listings** (Microsoft Store, Mac App Store, Flathub, etc.) are **not** required for v1.
+- **Official download** is `https://tramp.music`. Windows lists on the **Microsoft Store** (MSIX) **and** offers an unsigned website EXE ([ADR 0011](adr/0011-windows-store-and-exe.md)). Linux lists on **Flathub** **and** offers an AppImage ([ADR 0013](adr/0013-linux-flathub-and-appimage.md)). macOS is a notarized DMG from the site. Mac App Store and Snap are **not** v1.
+- License: **GPL-3.0-or-later** ([ADR 0012](adr/0012-gpl-3.md)).
+- Release artifacts are built on **GitHub Actions**. v1 CPUs: Windows x64, Linux x86_64, macOS universal ([ADR 0014](adr/0014-ci-and-architectures.md)).
+- In-app new-version prompt follows **install channel** (Store → Store, Flathub → Flathub, otherwise tramp.music). The app does not replace itself.
 
 ## Stack
 
@@ -109,12 +112,11 @@ Associate Tramp with v1 audio formats and `.m3u` / `.m3u8` so “Open with Tramp
 - Crossfade
 - Trusting mpv filter “success” without measuring output
 - Approximate or partial chrome cutovers (no half-mockup / half-graphite ship)
-- App-store listing requirements
-- Licensing posture inside this document (decide separately via `LICENSE` / README)
+- Mac App Store and Snap Store listings
 
 ## Success criteria
 
-v1 is done when a user can install Tramp on Windows, Linux, and macOS, open local audio and playlists, manage a large playlist in a freely resizable playlist window, control playback with three dockable windows whose chrome matches `player-mockup-2.html` at 100% zoom, hear measurement-proven EQ, see a real 20-bar spectrum, and use Mono — without depending on a library, WSZ skins, PNG graphite faces, or store distribution.
+v1 is done when a user can install Tramp on Windows, Linux, and macOS, open local audio and playlists, manage a large playlist in a freely resizable playlist window, control playback with three dockable windows whose chrome matches `player-mockup-2.html` at 100% zoom, hear measurement-proven EQ, see a real 20-bar spectrum, and use Mono — without depending on a library, WSZ skins, PNG graphite faces, or any single store. Windows install must work from the Microsoft Store and from the website EXE; Linux from Flathub and from the AppImage.
 
 ## Related artifacts
 

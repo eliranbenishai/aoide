@@ -8,7 +8,7 @@ Living design map of how Tramp is structured. Agents and humans update this when
 
 ## Intended product shape (v1)
 
-- Multi-platform desktop player (Windows, Linux, macOS); shippable via Flutter packaging (stores not required)
+- Multi-platform desktop player (Windows, Linux, macOS); **official download** from `https://tramp.music`; **GPL-3.0-or-later**; Windows Store MSIX **and** website EXE ([ADR 0011](adr/0011-windows-store-and-exe.md)); Linux Flathub **and** AppImage ([ADR 0013](adr/0013-linux-flathub-and-appimage.md)); Mac notarized DMG from the site; CI-built ([ADR 0014](adr/0014-ci-and-architectures.md))
 - Local playback; custom **app chrome** (no OS window frame); **five** frameless windows — main/EQ/PL with Winamp-style docking; **settings** and **about** freestanding (not snappable, not in main drag cohort) ([ADR 0006](adr/0006-multi-window-docking.md))
 - Main title drag moves all **visible** EQ/PL satellites (settings/about excluded); EQ/PL drag moves self and may snap. Settings stays raised above other Tramp windows. Windows taskbar shows **main only**
 - Main and EQ: fixed logical canvases (**825×348**) sized by **global** discrete zoom only; playlist freely resizes (default **1073×696** — 825 track side + 240 collection panel + 8 divider); settings fixed **520×420**; about fixed **480×360** ([ADR 0002](adr/0002-fixed-canvas-zoom.md))
@@ -19,6 +19,26 @@ Living design map of how Tramp is structured. Agents and humans update this when
 - Classic Winamp WSZ loading, whole-chrome “Scalable UI”, gapless, and crossfade: out of v1
 - Product spec target: `docs/tramp-v1-spec.md`
 - UI authority: `player-mockup-2.html` + redesign / polish design docs above
+
+## Distribution (v1)
+
+```mermaid
+flowchart LR
+  CI[GitHub Actions]
+  Site[tramp.music]
+  MS[Microsoft Store]
+  FH[Flathub]
+  CI --> Site
+  CI --> MS
+  CI --> FH
+  Site --> WinExe[Windows EXE x64]
+  Site --> AppImage[Linux AppImage x86_64]
+  Site --> Dmg[macOS universal DMG]
+  MS --> Msix[Windows MSIX x64]
+  FH --> Flatpak[Linux Flatpak x86_64]
+```
+
+Release bits are CI-built ([ADR 0014](adr/0014-ci-and-architectures.md)). tramp.music is the product page and hosts the unsigned Windows EXE, AppImage, and notarized DMG. Store and Flathub are the store-shaped exceptions. In-app update follows **install channel**.
 
 ## System overview
 
@@ -151,3 +171,9 @@ These cost real time and will bite again:
 - [0006 — Multi-window docking](adr/0006-multi-window-docking.md)
 - [0007 — Code-constructed mockup chrome](adr/0007-code-constructed-mockup-chrome.md)
 - [0008 — Playlist collection stores references; skins stay copies](adr/0008-playlist-collection-stores-references.md)
+- [0009 — Official download is the website; source stays private](adr/0009-website-distribution.md) *(superseded by 0010 on source posture)*
+- [0010 — Open-source; website remains the official download](adr/0010-open-source-website-download.md)
+- [0011 — Windows Store MSIX and website EXE](adr/0011-windows-store-and-exe.md)
+- [0012 — GPL-3.0-or-later](adr/0012-gpl-3.md)
+- [0013 — Linux Flathub and AppImage](adr/0013-linux-flathub-and-appimage.md)
+- [0014 — GitHub Actions CI and v1 CPU matrix](adr/0014-ci-and-architectures.md)
