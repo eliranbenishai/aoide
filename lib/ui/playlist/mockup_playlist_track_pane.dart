@@ -47,6 +47,17 @@ ShortcutActivator selectAllActivator() =>
         ? const SingleActivator(LogicalKeyboardKey.keyA, meta: true)
         : const SingleActivator(LogicalKeyboardKey.keyA, control: true);
 
+/// Delete and Backspace drop the selected tracks from the current playlist.
+///
+/// Both keys, on every desktop: the Mac key labelled Delete is Backspace to
+/// Flutter, and Forward Delete is Delete, so binding one would miss whichever
+/// the listener actually pressed. Same unmodified keys everywhere — unlike
+/// select-all, there is no platform modifier to agree with the mouse.
+List<ShortcutActivator> removeSelectedActivators() => const [
+      SingleActivator(LogicalKeyboardKey.delete),
+      SingleActivator(LogicalKeyboardKey.backspace),
+    ];
+
 /// What the modifiers held at this moment mean for a row tap.
 ///
 /// Shift wins over the toggle modifier when both are down: a range is the more

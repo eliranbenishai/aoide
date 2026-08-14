@@ -48,6 +48,15 @@ class MockupPlaylist extends StatelessWidget {
     _emit(const PlaylistOpCommand('selectAll'));
   }
 
+  /// Drops the highlighted tracks, from the footer button or Delete / Backspace.
+  ///
+  /// Same sharing as [_selectAll]: the button and the keys cannot apply the op
+  /// differently, and an empty selection is already a no-op in the controller.
+  void _removeSelected() {
+    playlist.removeSelected();
+    _emit(const PlaylistOpCommand('removeSelected'));
+  }
+
   @override
   Widget build(BuildContext context) {
     Widget body = ListenableBuilder(
@@ -108,10 +117,7 @@ class MockupPlaylist extends StatelessWidget {
                 playing: playing,
                 playingIndex: playingIndex,
                 onAdd: onAddFiles,
-                onRemove: () {
-                  playlist.removeSelected();
-                  _emit(const PlaylistOpCommand('removeSelected'));
-                },
+                onRemove: _removeSelected,
                 onSort: (key) {
                   if (key == 'reverse') {
                     playlist.reverseTracks();
@@ -163,13 +169,17 @@ class MockupPlaylist extends StatelessWidget {
       );
     }
 
-    // The chord is bound to the current-playlist panel rather than the window,
-    // so it always means "select all *tracks*" — the collection panel beside it
-    // holds a different kind of row and is free to claim the chord for its own
-    // later. `CallbackShortcuts` cannot take focus itself, hence the node: the
-    // panel is this window's subject, so it is the right thing to focus on open.
+    // Shortcuts bind to the current-playlist panel rather than the window, so
+    // they always mean tracks — the collection panel beside it holds a different
+    // kind of row and is free to claim the same keys for its own later.
+    // `CallbackShortcuts` cannot take focus itself, hence the node: the panel
+    // is this window's subject, so it is the right thing to focus on open.
     return CallbackShortcuts(
-      bindings: {selectAllActivator(): _selectAll},
+      bindings: {
+        selectAllActivator(): _selectAll,
+        for (final activator in removeSelectedActivators())
+          activator: _removeSelected,
+      },
       child: Focus(autofocus: true, child: body),
     );
   }

@@ -244,6 +244,62 @@ void main() {
     });
   });
 
+  group('remove selected from the keyboard', () {
+    testWidgets('Delete drops the highlighted tracks and echoes the op',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      await pumpPl(tester, commands: commands);
+
+      await tester.tap(find.byKey(const Key('pl-row-1')));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+      await tester.pumpAndSettle();
+
+      expect(
+        playlist.playlist.tracks.map((t) => t.title),
+        ['Alpha', 'Charlie'],
+      );
+      expect(
+        commands.whereType<PlaylistOpCommand>().map((c) => c.op),
+        contains('removeSelected'),
+      );
+    });
+
+    testWidgets('Backspace drops the highlighted tracks and echoes the op',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      await pumpPl(tester, commands: commands);
+
+      await tester.tap(find.byKey(const Key('pl-row-0')));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.pumpAndSettle();
+
+      expect(
+        playlist.playlist.tracks.map((t) => t.title),
+        ['Bravo', 'Charlie'],
+      );
+      expect(
+        commands.whereType<PlaylistOpCommand>().map((c) => c.op),
+        contains('removeSelected'),
+      );
+    });
+
+    testWidgets('Delete with nothing selected leaves the list alone',
+        (tester) async {
+      final commands = <SessionCommand>[];
+      await pumpPl(tester, commands: commands);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+      await tester.pumpAndSettle();
+
+      expect(
+        playlist.playlist.tracks.map((t) => t.title),
+        ['Alpha', 'Bravo', 'Charlie'],
+      );
+    });
+  });
+
   testWidgets('sort menu emits sort and reorders rows', (tester) async {
     final commands = <SessionCommand>[];
     await pumpPl(tester, commands: commands);
