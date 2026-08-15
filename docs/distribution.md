@@ -9,6 +9,8 @@ How Tramp is built and handed to listeners. Decisions: [ADR 0010](adr/0010-open-
 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PR and `main` | Linux `flutter analyze` + `flutter test` (goldens are Linux) |
 | [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Tag `v*` or **Run workflow** | Test, then Windows / Linux / macOS packages; tags also attach a GitHub Release |
 
+Workflows pin **Flutter 3.47.0** (`flutter-action` `flutter-version`). Do not leave the channel floating — a newer stable will fail analyze or goldens without a deliberate bump.
+
 Cut a release by bumping `pubspec.yaml` `version` (and `trampAppVersion` in `lib/app.dart`), committing, then:
 
 ```bash

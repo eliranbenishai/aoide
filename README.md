@@ -4,6 +4,8 @@ Multi-platform desktop music player (Flutter). See [`docs/tramp-v1-spec.md`](doc
 
 ## Development
 
+Flutter **3.47** / Dart **3.13** (same pin as CI).
+
 ```bash
 flutter pub get
 flutter run -d windows   # or macos / linux

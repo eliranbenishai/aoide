@@ -150,7 +150,7 @@ These cost real time and will bite again:
 
 ## Stack
 
-**Locked:** Flutter for v1 (Windows, Linux, macOS). Preferred defaults: multi-window host + docking for app chrome, media_kit control seam + **full libmpv** for playback/EQ/mono, code-constructed chrome from the HTML mockup. Not locked: state management, routing, SDK versions, design-system packages. Not v1: Tauri, Electron, second UI toolkit.
+**Locked:** Flutter for v1 (Windows, Linux, macOS). CI and goldens: **Flutter 3.47.0 / Dart 3.13**. Preferred defaults: multi-window host + docking for app chrome, media_kit control seam + **full libmpv** for playback/EQ/mono, code-constructed chrome from the HTML mockup. Not locked: state management, routing, design-system packages. Not v1: Tauri, Electron, second UI toolkit.
 
 - ADR: [0001-flutter-for-v1.md](adr/0001-flutter-for-v1.md)
 - ADR: [0002-fixed-canvas-zoom.md](adr/0002-fixed-canvas-zoom.md) (revised — global zoom across three canvases)

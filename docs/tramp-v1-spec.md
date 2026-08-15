@@ -24,8 +24,7 @@ Tramp is a multi-platform desktop music player — a spiritual successor to Wina
 | Locked | Preferred default (swappable for same job) | Not locked |
 |--------|--------------------------------------------|------------|
 | **Flutter** (desktop) | Multi-window host + docking coordinator — app chrome | State management |
-| | media_kit control seam + **full libmpv** binaries — playback / decode / EQ / mono | Routing |
-| | | Exact Flutter/Dart SDK versions |
+| Flutter **3.47.0** / Dart **3.13** (CI pin) | media_kit control seam + **full libmpv** binaries — playback / decode / EQ / mono | Routing |
 | | | Design-system packages |
 
 **Not v1:** Tauri, Electron, or a second UI toolkit. Fall back to direct libmpv FFI only if the media_kit + custom-binary spike fails. See [ADR 0005](adr/0005-full-libmpv.md).
