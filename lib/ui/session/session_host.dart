@@ -18,6 +18,7 @@ import '../../platform/app_support_dir.dart';
 import '../../platform/file_open.dart';
 import '../../platform/session_resume_store.dart';
 import '../../platform/settings_store.dart';
+import '../../platform/startup_log.dart';
 import '../../platform/tramp_window.dart';
 import '../../platform/usage_store.dart';
 import '../../playback/media_kit_player_engine.dart';
@@ -272,6 +273,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   }
 
   Future<void> _bootstrap() async {
+    try {
     await _bus.bindHost(_onCommand);
     // Main close quits the process after tearing down secondary engines.
     await windowManager.setPreventClose(true);
@@ -330,6 +332,22 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     unawaited(_collection.validateReferences());
     if (trampAutoQuitRequested()) {
       unawaited(_autoQuitForHarness());
+    }
+    } catch (error, stack) {
+      trampStartupLog('bootstrap failed: $error\n$stack');
+      try {
+        await windowManager.setSkipTaskbar(false);
+        await windowManager.show();
+      } catch (_) {}
+      if (mounted) {
+        setState(() {
+          _bootstrapped = true;
+          _revealWindows = true;
+        });
+      }
+      try {
+        await _applyAllFrames();
+      } catch (_) {}
     }
   }
 

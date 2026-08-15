@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -5,6 +7,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'platform/libmpv_bundle.dart';
+import 'platform/startup_log.dart';
 import 'playback/fake_player_engine.dart';
 import 'playback/player_engine.dart';
 import 'ui/session/session_client.dart';
@@ -13,11 +16,21 @@ import 'ui/session/session_messages.dart';
 import 'ui/session/session_quit.dart';
 
 Future<void> main(List<String> args) async {
+  await runZonedGuarded(() async {
+    await _main(args);
+  }, (error, stack) {
+    trampStartupLog('zone: $error\n$stack');
+  });
+}
+
+Future<void> _main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  trampStartupLog('dart main');
   await windowManager.ensureInitialized();
 
   final windowController = await WindowController.fromCurrentEngine();
   final role = parseWindowRole(windowController.arguments);
+  trampStartupLog('role=$role');
 
   if (role == WindowRole.main) {
     PlayerEngine? engine;
@@ -25,14 +38,15 @@ Future<void> main(List<String> args) async {
       MediaKit.ensureInitialized();
       // Fail fast in debug/profile if packaging still points at slim libmpv.
       await LibmpvBundle.verify(enforce: !kReleaseMode);
+      trampStartupLog('media_kit ok');
     } catch (error, stack) {
-      if (!trampAutoQuitRequested()) {
+      trampStartupLog('media_kit failed: $error\n$stack');
+      if (!kReleaseMode && !trampAutoQuitRequested()) {
         rethrow;
       }
-      // Harness still needs five Flutter engines; playback is not under test.
+      // Release: keep the chrome up so a missing DLL is not a silent exit.
       debugPrint(
-        'TRAMP_AUTO_QUIT: media_kit init failed, using FakePlayerEngine: '
-        '$error\n$stack',
+        'media_kit init failed, using FakePlayerEngine: $error\n$stack',
       );
       engine = FakePlayerEngine();
     }
