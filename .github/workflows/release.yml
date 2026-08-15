@@ -18,7 +18,7 @@ jobs:
     name: Test (Linux goldens)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -50,7 +50,7 @@ jobs:
     needs: test
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -89,7 +89,7 @@ jobs:
           $pub = if ($env:MSIX_PUBLISHER) { $env:MSIX_PUBLISHER } else { $env:MSIX_PUBLISHER_DEFAULT }
           $id = if ($env:MSIX_IDENTITY_NAME) { $env:MSIX_IDENTITY_NAME } else { $env:MSIX_IDENTITY_DEFAULT }
           & packaging\windows\make_msix.ps1 -Version $fields.msix -Publisher $pub -IdentityName $id
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: windows
           path: |
@@ -101,7 +101,7 @@ jobs:
     needs: test
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -126,7 +126,7 @@ jobs:
           eval "$(./tool/pubspec_version.sh)"
           tar -C build/linux/x64/release -czf \
             "build/linux/Tramp-${version}-linux-x86_64.tar.gz" bundle
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: linux
           path: |
@@ -139,8 +139,8 @@ jobs:
     runs-on: ubuntu-24.04
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v7
         with:
           name: linux
           path: artifacts
@@ -160,7 +160,7 @@ jobs:
         run: |
           chmod +x packaging/linux/make_flatpak.sh tool/pubspec_version.sh
           ./packaging/linux/make_flatpak.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: linux-flatpak
           path: build/linux/Tramp-*-linux-x86_64.flatpak
@@ -170,7 +170,7 @@ jobs:
     needs: test
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -197,7 +197,7 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: ./packaging/macos/notarize.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: macos
           path: build/macos/Tramp-*-macos-universal.dmg
@@ -208,7 +208,7 @@ jobs:
     needs: [windows, linux, macos]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           path: dist
       - name: Flatten artifacts
@@ -218,7 +218,7 @@ jobs:
             -o -name '*.tar.gz' -o -name '*.flatpak' -o -name '*.dmg' \) \
             -exec cp -v {} upload/ \;
           ls -la upload
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: upload/*
           generate_release_notes: true
