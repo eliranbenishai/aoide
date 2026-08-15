@@ -25,7 +25,7 @@ The tag name without `v` must equal the pubspec version.
 | File | Channel |
 |------|---------|
 | `Tramp-<ver>-windows-x64.exe` | Official download (unsigned Inno; SmartScreen click-through) |
-| `Tramp-<ver>-windows-x64.msix` | Microsoft Store listing **tramp.music** (unsigned here; Store re-signs) |
+| `Tramp-<ver>-windows-x64.msix` | Microsoft Store listing **tramp.music** (unsigned here; Store re-signs). Identity version is `x.y.z.0` from pubspec `x.y.z`; the fourth number must be **0** or Partner Center rejects the package. Bump `x.y.z` for each Store upload. |
 | `Tramp-<ver>-linux-x86_64.AppImage` | Official download |
 | `Tramp-<ver>-linux-x86_64.tar.gz` | Input for a Flathub recipe |
 | `Tramp-<ver>-linux-x86_64.flatpak` | Optional CI bundle (job may fail without blocking the rest) |

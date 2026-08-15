@@ -7,6 +7,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+if ($Version -notmatch '^\d+\.\d+\.\d+\.0$') {
+  throw "Store MSIX version must be Major.Minor.Build.0 (got '$Version'). The Store reserves the revision digit."
+}
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $Release = Join-Path $Root "build\windows\x64\runner\Release"
 $Stage = Join-Path $Root "build\windows\msix_stage"

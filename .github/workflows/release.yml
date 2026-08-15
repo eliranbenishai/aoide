@@ -78,10 +78,11 @@ jobs:
         run: |
           $fields = @{}
           Get-Content pubspec.yaml | ForEach-Object {
-            if ($_ -match '^version:\s*([0-9.]+)(?:\+(\d+))?') {
-              $v = $Matches[1]; $b = $(if ($Matches[2]) { $Matches[2] } else { '0' })
+            if ($_ -match '^version:\s*([0-9.]+)(?:\+\d+)?') {
+              $v = $Matches[1]
               $parts = $v.Split('.'); while ($parts.Count -lt 3) { $parts += '0' }
-              $fields.msix = "$($parts[0]).$($parts[1]).$($parts[2]).$b"
+              # Store Identity.Version revision must be 0 (not the pubspec +build).
+              $fields.msix = "$($parts[0]).$($parts[1]).$($parts[2]).0"
             }
           }
           $pub = if ($env:MSIX_PUBLISHER) { $env:MSIX_PUBLISHER } else { $env:MSIX_PUBLISHER_DEFAULT }
