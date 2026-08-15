@@ -50,6 +50,7 @@ Future<void> _main(List<String> args) async {
       );
       engine = FakePlayerEngine();
     }
+    trampStartupLog('runApp host');
     runApp(SessionHostApp(launchArgs: args, engine: engine));
     return;
   }
