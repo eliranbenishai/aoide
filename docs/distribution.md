@@ -79,3 +79,5 @@ flutter build macos --release
 ./packaging/macos/make_dmg.sh
 ./packaging/macos/notarize.sh   # no-ops without cert env
 ```
+
+Windows (on a Windows host): `tool/fetch_vc_redist.ps1`, then `flutter build windows --release`, then Inno (`packaging/windows/tramp.iss`) and `packaging/windows/make_msix.ps1`. The EXE installer runs `vc_redist.x64.exe` when `MSVCP140.dll` / `VCRUNTIME140.dll` are missing. The MSIX declares `Microsoft.VCLibs.140.00.UWPDesktop` so the Store supplies that runtime.

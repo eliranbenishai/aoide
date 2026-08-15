@@ -38,7 +38,7 @@ flowchart LR
   FH --> Flatpak[Linux Flatpak x86_64]
 ```
 
-Release bits are CI-built ([ADR 0014](adr/0014-ci-and-architectures.md)). Workflows and secrets: [`distribution.md`](distribution.md). tramp.music is the product page and hosts the unsigned Windows EXE, AppImage, and notarized DMG. Store and Flathub are the store-shaped exceptions. In-app update follows **install channel**.
+Release bits are CI-built ([ADR 0014](adr/0014-ci-and-architectures.md)). Workflows and secrets: [`distribution.md`](distribution.md). tramp.music is the product page and hosts the unsigned Windows EXE, AppImage, and notarized DMG. The Windows EXE installs the VC++ x64 runtime when it is missing; the Store MSIX declares the UWPDesktop VCLibs framework. Store and Flathub are the store-shaped exceptions. In-app update follows **install channel**.
 
 ## System overview
 

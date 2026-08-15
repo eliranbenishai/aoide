@@ -65,6 +65,7 @@ jobs:
         shell: pwsh
         run: |
           choco install innosetup --no-progress -y
+          powershell -ExecutionPolicy Bypass -File tool/fetch_vc_redist.ps1
           $ver = (Select-String -Path pubspec.yaml -Pattern '^version:\s*([0-9.]+)').Matches[0].Groups[1].Value
           $iscc = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Inno Setup *","${env:ProgramFiles}\Inno Setup *" -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue |
             Select-Object -First 1

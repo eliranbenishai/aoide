@@ -37,6 +37,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Source: "..\..\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\THIRD-PARTY-NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
@@ -46,6 +47,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Run]
+Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "Installing Visual C++ runtime…"; Flags: waituntilterminated; Check: NeedsVCRedist
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 [Registry]
@@ -64,3 +66,12 @@ Root: HKLM; Subkey: "Software\Classes\.ogg"; ValueType: string; ValueName: ""; V
 Root: HKLM; Subkey: "Software\Classes\.opus"; ValueType: string; ValueName: ""; ValueData: "Tramp.Audio"; Flags: uninsdeletevalue
 Root: HKLM; Subkey: "Software\Classes\.m3u"; ValueType: string; ValueName: ""; ValueData: "Tramp.Playlist"; Flags: uninsdeletevalue
 Root: HKLM; Subkey: "Software\Classes\.m3u8"; ValueType: string; ValueName: ""; ValueData: "Tramp.Playlist"; Flags: uninsdeletevalue
+
+[Code]
+function NeedsVCRedist: Boolean;
+begin
+  Result :=
+    (not FileExists(ExpandConstant('{sys}\vcruntime140.dll'))) or
+    (not FileExists(ExpandConstant('{sys}\vcruntime140_1.dll'))) or
+    (not FileExists(ExpandConstant('{sys}\msvcp140.dll')));
+end;

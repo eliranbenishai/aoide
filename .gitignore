@@ -57,6 +57,9 @@ app.*.map.json
 # Golden mismatch dumps written next to the goldens on every failing run
 test/**/failures/
 
+# Visual C++ redistributable fetched by tool/fetch_vc_redist.ps1 for the Inno EXE
+packaging/windows/vc_redist.x64.exe
+
 # Full libmpv binaries are fetched via tool/fetch_full_libmpv.* (pins in third_party/libmpv/)
 third_party/libmpv/.cache/
 third_party/libmpv/windows/**/*.dll
