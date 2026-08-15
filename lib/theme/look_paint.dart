@@ -141,12 +141,15 @@ abstract final class LookPaint {
   /// Slider fill bottom stop (`#0F7F96` from builtin phosphorDim).
   static Color sliderFillLo(LookPalette p) => _lift(p.phosphorDim, -11, 5, 14);
 
+  static int _srgb8(double channel) =>
+      (channel * 255.0).round().clamp(0, 255);
+
   static Color _lift(Color base, int dr, int dg, int db) {
     return Color.fromARGB(
-      base.alpha,
-      (base.red + dr).clamp(0, 255),
-      (base.green + dg).clamp(0, 255),
-      (base.blue + db).clamp(0, 255),
+      _srgb8(base.a),
+      (_srgb8(base.r) + dr).clamp(0, 255),
+      (_srgb8(base.g) + dg).clamp(0, 255),
+      (_srgb8(base.b) + db).clamp(0, 255),
     );
   }
 
@@ -158,9 +161,9 @@ abstract final class LookPaint {
   ) {
     return Color.fromARGB(
       255,
-      (accent.red * rScale).round().clamp(0, 255),
-      (accent.green * gScale).round().clamp(0, 255),
-      (accent.blue * bScale).round().clamp(0, 255),
+      (_srgb8(accent.r) * rScale).round().clamp(0, 255),
+      (_srgb8(accent.g) * gScale).round().clamp(0, 255),
+      (_srgb8(accent.b) * bScale).round().clamp(0, 255),
     );
   }
 
@@ -173,8 +176,8 @@ abstract final class LookPaint {
     return Color.fromARGB(
       255,
       255,
-      (255 - (255 - color.green) * greenPull).round().clamp(0, 255),
-      (255 - (255 - color.blue) * bluePull).round().clamp(0, 255),
+      (255 - (255 - _srgb8(color.g)) * greenPull).round().clamp(0, 255),
+      (255 - (255 - _srgb8(color.b)) * bluePull).round().clamp(0, 255),
     );
   }
 }

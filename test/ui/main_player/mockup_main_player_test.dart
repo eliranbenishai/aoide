@@ -1,7 +1,6 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart' hide RepeatMode;
-import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tramp/domain/repeat_mode.dart';
 import 'package:tramp/domain/track.dart';
@@ -223,7 +222,7 @@ void main() {
       Key('transport-next'),
     ]) {
       final semantics = tester.getSemantics(find.byKey(key));
-      expect(semantics.hasFlag(SemanticsFlag.isEnabled), isFalse, reason: '$key');
+      expect(semantics.flagsCollection.isEnabled, Tristate.isFalse, reason: '$key');
       expect(
         find.descendant(
           of: find.byKey(key),

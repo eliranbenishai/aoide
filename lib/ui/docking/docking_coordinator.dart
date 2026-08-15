@@ -12,10 +12,9 @@ import 'dock_layout.dart';
 class DockingCoordinator extends ChangeNotifier {
   DockingCoordinator(
     DockLayout initial, {
-    double snapThreshold = 20.0,
+    this.snapThreshold = 20.0,
     this.stickyMoveGroups = true,
-  })  : _layout = initial,
-        snapThreshold = snapThreshold;
+  }) : _layout = initial;
 
   /// Logical px within which edges snap. Set from [DockSnapStrength].
   double snapThreshold;

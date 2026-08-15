@@ -68,15 +68,15 @@ void main() {
       ),
     );
     expect(LookPaint.buttonOnInk(alt), isNot(const Color(0xFF04222B)));
-    expect(LookPaint.phosphorBloom(alt).red, 0xFF);
-    expect(LookPaint.phosphorBloom(alt).green, 0xB0);
+    expect(_srgb8(LookPaint.phosphorBloom(alt).r), 0xFF);
+    expect(_srgb8(LookPaint.phosphorBloom(alt).g), 0xB0);
   });
 
   test('accent blooms follow accentDefault', () {
     final alt = _palette(accentDefault: const Color(0xFFFF5A1F));
-    expect(LookPaint.accentBloom(alt).red, 0xFF);
-    expect(LookPaint.accentBloom(alt).green, 0x5A);
-    expect(LookPaint.accentBloom(alt).blue, 0x1F);
+    expect(_srgb8(LookPaint.accentBloom(alt).r), 0xFF);
+    expect(_srgb8(LookPaint.accentBloom(alt).g), 0x5A);
+    expect(_srgb8(LookPaint.accentBloom(alt).b), 0x1F);
   });
 
   test('builtin lit mid is mockup phosphor token', () {
@@ -107,6 +107,8 @@ void main() {
     expect(LookPaint.plateFace(alt), const Color(0xFF201D18));
   });
 }
+
+int _srgb8(double channel) => (channel * 255.0).round().clamp(0, 255);
 
 LookPalette _palette({
   Color? shellMid,

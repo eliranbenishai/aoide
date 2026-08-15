@@ -1,5 +1,6 @@
+import 'dart:ui' show Tristate;
+
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tramp/look/builtin_look.dart';
 import 'package:tramp/look/look_palette.dart';
@@ -33,7 +34,7 @@ void main() {
     ));
 
     final semantics = tester.getSemantics(find.byType(MockupButton));
-    expect(semantics.hasFlag(SemanticsFlag.isEnabled), isFalse);
+    expect(semantics.flagsCollection.isEnabled, Tristate.isFalse);
 
     final opacity = disabledOpacityOf(tester);
     expect(opacity.opacity, MockupHoverTokens.disabledOpacity);
@@ -55,7 +56,7 @@ void main() {
     );
 
     final semantics = tester.getSemantics(find.byType(MockupButton));
-    expect(semantics.hasFlag(SemanticsFlag.isEnabled), isTrue);
+    expect(semantics.flagsCollection.isEnabled, Tristate.isTrue);
   });
 
   testWidgets('disabled button does not fire onPressed', (tester) async {
