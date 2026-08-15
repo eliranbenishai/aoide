@@ -15,8 +15,8 @@ static void LogStartup(const char* message) {
   }
   std::wstring path(dir);
   path += L"tramp-startup.log";
-  FILE* file = _wfopen(path.c_str(), L"a");
-  if (file == nullptr) {
+  FILE* file = nullptr;
+  if (_wfopen_s(&file, path.c_str(), L"a") != 0 || file == nullptr) {
     return;
   }
   fprintf(file, "%s\n", message);
