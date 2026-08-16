@@ -9,36 +9,57 @@
 #include <QRadialGradient>
 #include <QtMath>
 #include <cmath>
+#include <functional>
+#include <vector>
 
 namespace tramp {
 namespace {
 
 QImage g_noise;
 
-QImage boxBlur(QImage src, int radius) {
-  if (radius <= 0 || src.isNull()) {
+// Separable Gaussian. `sigma` is Skia/Flutter MaskFilter sigma.
+QImage gaussianBlur(QImage src, qreal sigma) {
+  if (src.isNull() || sigma < 0.12) {
     return src;
   }
   src = src.convertToFormat(QImage::Format_ARGB32_Premultiplied);
-  const int w = src.width();
-  const int h = src.height();
-  const int diam = radius * 2 + 1;
+  const int radius = qMax(1, int(std::ceil(sigma * 3.0)));
+  const int kSize = radius * 2 + 1;
+  std::vector<qreal> kernel(static_cast<size_t>(kSize));
+  qreal sum = 0;
+  const qreal s2 = 2 * sigma * sigma;
+  for (int i = -radius; i <= radius; ++i) {
+    const qreal w = std::exp(-(qreal(i) * qreal(i)) / s2);
+    kernel[static_cast<size_t>(i + radius)] = w;
+    sum += w;
+  }
+  for (qreal& w : kernel) {
+    w /= sum;
+  }
+
   auto pass = [&](bool horiz) {
-    QImage out(w, h, src.format());
+    QImage out(src.size(), src.format());
     out.fill(Qt::transparent);
+    const int w = src.width();
+    const int h = src.height();
     for (int y = 0; y < h; ++y) {
+      const QRgb* inLine = horiz ? reinterpret_cast<const QRgb*>(src.constScanLine(y))
+                                 : nullptr;
+      QRgb* outLine = reinterpret_cast<QRgb*>(out.scanLine(y));
       for (int x = 0; x < w; ++x) {
-        int r = 0, g = 0, b = 0, a = 0;
+        qreal r = 0, g = 0, b = 0, a = 0;
         for (int k = -radius; k <= radius; ++k) {
           const int xx = horiz ? qBound(0, x + k, w - 1) : x;
           const int yy = horiz ? y : qBound(0, y + k, h - 1);
-          const QRgb p = src.pixel(xx, yy);
-          r += qRed(p);
-          g += qGreen(p);
-          b += qBlue(p);
-          a += qAlpha(p);
+          const QRgb p = horiz ? inLine[xx]
+                               : reinterpret_cast<const QRgb*>(src.constScanLine(yy))[xx];
+          const qreal wk = kernel[static_cast<size_t>(k + radius)];
+          r += qRed(p) * wk;
+          g += qGreen(p) * wk;
+          b += qBlue(p) * wk;
+          a += qAlpha(p) * wk;
         }
-        out.setPixel(x, y, qRgba(r / diam, g / diam, b / diam, a / diam));
+        outLine[x] = qRgba(int(r + 0.5), int(g + 0.5), int(b + 0.5), int(a + 0.5));
       }
     }
     src = out;
@@ -214,25 +235,23 @@ QPainterPath pathClose() {
 void drawMute(QPainter& p, const QRectF& box, const QColor& color) {
   p.save();
   p.translate(box.topLeft());
-  const qreal s = box.width();
+  p.scale(box.width() / 24.0, box.height() / 24.0);
   QPainterPath body;
-  body.moveTo(s * 0.08, s * 0.35);
-  body.lineTo(s * 0.32, s * 0.35);
-  body.lineTo(s * 0.58, s * 0.12);
-  body.lineTo(s * 0.58, s * 0.88);
-  body.lineTo(s * 0.32, s * 0.65);
-  body.lineTo(s * 0.08, s * 0.65);
+  body.moveTo(4, 9.4);
+  body.lineTo(7.3, 9.4);
+  body.lineTo(12, 5);
+  body.lineTo(12, 19);
+  body.lineTo(7.3, 14.6);
+  body.lineTo(4, 14.6);
   body.closeSubpath();
   p.setPen(Qt::NoPen);
   p.setBrush(color);
   p.drawPath(body);
-  QPen wave(color, qMax(1.2, s * 0.07), Qt::SolidLine, Qt::RoundCap);
+  QPen wave(color, 1.7, Qt::SolidLine, Qt::RoundCap);
   p.setPen(wave);
   p.setBrush(Qt::NoBrush);
-  p.drawArc(QRectF(s * 0.55 - s * 0.275, s * 0.5 - s * 0.275, s * 0.55, s * 0.55),
-            60 * 16, -120 * 16);
-  p.drawArc(QRectF(s * 0.58 - s * 0.42, s * 0.5 - s * 0.42, s * 0.84, s * 0.84),
-            50 * 16, -100 * 16);
+  p.drawArc(QRectF(11.2, 9.3, 8.4, 5.4), 90 * 16, -180 * 16);
+  p.drawArc(QRectF(10.2, 6.7, 15.6, 10.6), 90 * 16, -180 * 16);
   p.restore();
 }
 
@@ -259,10 +278,33 @@ void drawCog(QPainter& p, const QRectF& box, const QColor& color) {
 
 }  // namespace
 
+void paintBlurred(QPainter& p, const QRectF& bounds, qreal sigma,
+                  const std::function<void(QPainter&)>& paint) {
+  if (sigma < 0.12) {
+    p.save();
+    paint(p);
+    p.restore();
+    return;
+  }
+  const int pad = qMax(2, int(std::ceil(sigma * 3)) + 1);
+  QImage buf(int(std::ceil(bounds.width())) + pad * 2,
+             int(std::ceil(bounds.height())) + pad * 2,
+             QImage::Format_ARGB32_Premultiplied);
+  buf.fill(Qt::transparent);
+  QPainter bp(&buf);
+  bp.setRenderHint(QPainter::Antialiasing);
+  bp.setRenderHint(QPainter::TextAntialiasing);
+  bp.translate(pad - bounds.left(), pad - bounds.top());
+  paint(bp);
+  bp.end();
+  p.drawImage(bounds.topLeft() - QPointF(pad, pad), gaussianBlur(buf, sigma));
+}
+
 QFont condensedFont(int px, qreal trackingEm) {
   QFont f(chromeFamily());
   f.setPixelSize(px);
   f.setWeight(QFont::Bold);
+  f.setHintingPreference(QFont::PreferNoHinting);
   f.setStyleStrategy(QFont::PreferAntialias);
   if (trackingEm != 0) {
     f.setLetterSpacing(QFont::AbsoluteSpacing, px * trackingEm);
@@ -274,11 +316,16 @@ QFont monoFont(int px, qreal trackingEm) {
   QFont f(lcdFamily());
   f.setPixelSize(px);
   f.setWeight(QFont::Medium);
+  f.setHintingPreference(QFont::PreferNoHinting);
   f.setStyleStrategy(QFont::PreferAntialias);
   if (trackingEm != 0) {
     f.setLetterSpacing(QFont::AbsoluteSpacing, px * trackingEm);
   }
   return f;
+}
+
+qreal textWidth(const QFont& font, const QString& text) {
+  return QFontMetricsF(font).horizontalAdvance(text);
 }
 
 void fillRound(QPainter& p, const QRectF& r, qreal radius, const QBrush& brush) {
@@ -287,7 +334,7 @@ void fillRound(QPainter& p, const QRectF& r, qreal radius, const QBrush& brush) 
   p.fillPath(path, brush);
 }
 
-void drawScreen(QPainter& p, const QRectF& well) {
+void drawScreenWell(QPainter& p, const QRectF& well) {
   QPainterPath path;
   path.addRoundedRect(well, 3, 3);
   p.save();
@@ -299,32 +346,108 @@ void drawScreen(QPainter& p, const QRectF& well) {
   wash.setColorAt(0.48, QColor(0x07, 0x10, 0x18));
   wash.setColorAt(1, QColor(0x04, 0x07, 0x0c));
   p.fillRect(well, wash);
+  p.setPen(QPen(QColor(kCoolSheen.red(), kCoolSheen.green(), kCoolSheen.blue(), 31), 1));
+  p.drawLine(QPointF(well.left(), well.top() + 0.5),
+             QPointF(well.right(), well.top() + 0.5));
   p.setPen(QPen(QColor(61, 231, 255, 26), 1));
   p.setBrush(Qt::NoBrush);
   p.drawRoundedRect(well.adjusted(0.5, 0.5, -0.5, -0.5), 2.5, 2.5);
-  for (qreal y = well.top(); y < well.bottom(); y += 3) {
-    p.fillRect(QRectF(well.left(), y, well.width(), 1), QColor(0, 0, 0, 82));
-  }
-  QLinearGradient glass(well.topLeft(),
-                        QPointF(well.left(), well.top() + well.height() * 0.38));
-  glass.setColorAt(0, QColor(255, 255, 255, 13));
-  glass.setColorAt(1, QColor(255, 255, 255, 0));
-  p.fillRect(well, glass);
   p.restore();
-  p.setPen(QPen(QColor(226, 236, 255, 31), 1));
-  p.drawLine(QPointF(well.left() + 1, well.top() + 0.5),
-             QPointF(well.right() - 1, well.top() + 0.5));
+
+  // Flutter: fill rrect with phosphor 0x0D + MaskFilter.blur(normal, 12).
+  // Interior is crushed by the inner shade below; the outer halo remains.
+  paintBlurred(p, well.adjusted(-36, -36, 36, 36), 12, [&](QPainter& bp) {
+    bp.setPen(Qt::NoPen);
+    bp.setBrush(QColor(61, 231, 255, 13));
+    bp.drawRoundedRect(well.adjusted(0.5, 0.5, -0.5, -0.5), 2.5, 2.5);
+  });
+
+  // Flutter: fill deflate(1) radius 2 with 0xE6000000 + BlurStyle.inner sigma 3.
+  {
+    const qreal sigma = 3;
+    const int pad = qMax(2, int(std::ceil(sigma * 3)) + 1);
+    QImage buf(int(std::ceil(well.width())) + pad * 2,
+               int(std::ceil(well.height())) + pad * 2,
+               QImage::Format_ARGB32_Premultiplied);
+    buf.fill(Qt::transparent);
+    QPainter bp(&buf);
+    bp.setRenderHint(QPainter::Antialiasing);
+    bp.setPen(Qt::NoPen);
+    bp.setBrush(QColor(0, 0, 0, 0xE6));
+    bp.drawRoundedRect(QRectF(pad + 1, pad + 1, well.width() - 2, well.height() - 2), 2, 2);
+    bp.end();
+    QImage blurred = gaussianBlur(buf, sigma);
+    QImage mask(buf.size(), QImage::Format_ARGB32_Premultiplied);
+    mask.fill(Qt::transparent);
+    QPainter mp(&mask);
+    mp.setRenderHint(QPainter::Antialiasing);
+    mp.setPen(Qt::NoPen);
+    mp.setBrush(Qt::white);
+    mp.drawRoundedRect(QRectF(pad, pad, well.width(), well.height()), 3, 3);
+    mp.end();
+    QPainter mix(&blurred);
+    mix.setCompositionMode(QPainter::CompositionMode_DestinationIn);
+    mix.drawImage(0, 0, mask);
+    mix.end();
+    p.drawImage(well.topLeft() - QPointF(pad, pad), blurred);
+  }
+}
+
+void drawScreenOverlay(QPainter& p, const QRectF& well, QColor scan, bool glass) {
+  QPainterPath path;
+  path.addRoundedRect(well, 3, 3);
+  p.save();
+  p.setClipPath(path);
+  for (qreal y = well.top(); y < well.bottom(); y += 3) {
+    p.fillRect(QRectF(well.left(), y, well.width(), 1), scan);
+  }
+  if (glass) {
+    QLinearGradient wash(well.topLeft(),
+                         QPointF(well.left(), well.top() + well.height() * 0.38));
+    wash.setColorAt(0, QColor(255, 255, 255, 13));
+    wash.setColorAt(1, QColor(255, 255, 255, 0));
+    p.fillRect(well, wash);
+  }
+  p.restore();
+}
+
+void drawScreen(QPainter& p, const QRectF& well) {
+  drawScreenWell(p, well);
+  drawScreenOverlay(p, well);
+}
+
+void drawListWell(QPainter& p, const QRectF& well) {
+  QPainterPath path;
+  path.addRoundedRect(well, 3, 3);
+  p.save();
+  p.setClipPath(path);
+  QRadialGradient wash(QPointF(well.left() + well.width() * 0.2,
+                               well.top() - well.height() * 0.10),
+                       well.width() * 1.05);
+  wash.setColorAt(0, QColor(0x0d, 0x16, 0x22));
+  wash.setColorAt(0.7, QColor(0x05, 0x07, 0x0c));
+  wash.setColorAt(1, QColor(0x05, 0x07, 0x0c));
+  p.fillRect(well, wash);
+  constexpr qreal row = 37;
+  for (qreal y = well.top(); y < well.bottom(); y += row * 2) {
+    p.fillRect(QRectF(well.left(), y, well.width(), row), QColor(226, 236, 255, 4));
+    p.fillRect(QRectF(well.left(), y + row, well.width(), row), QColor(0, 0, 0, 31));
+  }
+  p.restore();
+  p.setPen(QPen(QColor(61, 231, 255, 20), 1));
+  p.setBrush(Qt::NoBrush);
+  p.drawRect(well.adjusted(0.5, 0.5, -0.5, -0.5));
 }
 
 void drawBtn(QPainter& p, const QRectF& r, bool on, const QString& label) {
   QPainterPath path;
   path.addRoundedRect(r, 4, 4);
   if (on) {
-    p.save();
-    p.setPen(Qt::NoPen);
-    p.setBrush(QColor(61, 231, 255, 77));
-    p.drawRoundedRect(r.adjusted(-6, -6, 6, 6), 8, 8);
-    p.restore();
+    paintBlurred(p, r.adjusted(-18, -18, 18, 18), 4, [&](QPainter& bp) {
+      bp.setPen(Qt::NoPen);
+      bp.setBrush(QColor(61, 231, 255, 77));
+      bp.drawRoundedRect(r.adjusted(-3, -3, 3, 3), 7, 7);
+    });
   }
   QLinearGradient face(r.topLeft(), r.bottomLeft());
   if (on) {
@@ -358,11 +481,20 @@ void drawBtn(QPainter& p, const QRectF& r, bool on, const QString& label) {
   gloss.setColorAt(1, QColor(232, 240, 255, 0));
   p.fillRect(QRectF(r.left() + 1, r.top() + 1, r.width() - 2, r.height() * 0.5), gloss);
   p.restore();
+  paintBlurred(p, r.adjusted(-4, -2, 4, 6), 1.2, [&](QPainter& bp) {
+    bp.setPen(QPen(QColor(0, 0, 0, 153), 0.5));
+    bp.setBrush(Qt::NoBrush);
+    bp.drawRoundedRect(r.translated(0, 1), 4, 4);
+  });
   if (!label.isEmpty()) {
     p.setFont(condensedFont(13, 0.18));
     p.setPen(on ? kBtnOnInk : kBtnLabelIdle);
     p.drawText(r, Qt::AlignCenter, label.toUpper());
   }
+}
+
+qreal labelBtnWidth(const QString& label, qreal padL, qreal padR) {
+  return padL + textWidth(condensedFont(13, 0.18), label.toUpper()) + padR;
 }
 
 void drawIcon(QPainter& p, const QRectF& box, MockupIcon icon, const QColor& color) {
@@ -440,16 +572,34 @@ void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle) {
     QRectF fill(track.left() + 2, track.top() + 2, fillW, track.height() - 4);
     QPainterPath fillPath;
     if (seekStyle) {
-      fillPath.addRoundedRect(fill, 3, 3);
+      const qreal rl = fill.height() / 2;
+      const qreal rr = 3;
+      fillPath.moveTo(fill.left() + rl, fill.top());
+      fillPath.lineTo(fill.right() - rr, fill.top());
+      fillPath.quadTo(fill.right(), fill.top(), fill.right(), fill.top() + rr);
+      fillPath.lineTo(fill.right(), fill.bottom() - rr);
+      fillPath.quadTo(fill.right(), fill.bottom(), fill.right() - rr, fill.bottom());
+      fillPath.lineTo(fill.left() + rl, fill.bottom());
+      fillPath.quadTo(fill.left(), fill.bottom(), fill.left(), fill.bottom() - rl);
+      fillPath.lineTo(fill.left(), fill.top() + rl);
+      fillPath.quadTo(fill.left(), fill.top(), fill.left() + rl, fill.top());
+      fillPath.closeSubpath();
     } else {
       fillPath.addRoundedRect(fill, fill.height() / 2, fill.height() / 2);
     }
-    p.fillPath(fillPath, QColor(61, 231, 255, 102));
+    paintBlurred(p, fill.adjusted(-8, -8, 8, 8), 4, [&](QPainter& bp) {
+      bp.setPen(Qt::NoPen);
+      bp.setBrush(QColor(61, 231, 255, 102));
+      bp.drawPath(fillPath);
+    });
     QLinearGradient g(fill.topLeft(), fill.bottomLeft());
     g.setColorAt(0, kSliderFillHi);
     g.setColorAt(0.4, kPhos);
     g.setColorAt(1, kSliderFillLo);
     p.fillPath(fillPath, g);
+    p.setPen(QPen(QColor(kBtnOnLip.red(), kBtnOnLip.green(), kBtnOnLip.blue(), 153), 1));
+    p.setBrush(Qt::NoBrush);
+    p.drawPath(fillPath);
   }
 
   const QSizeF thumb = seekStyle ? QSizeF(22, 32) : QSizeF(20, 30);
@@ -458,12 +608,22 @@ void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle) {
                          track.right() - thumb.width() / 2);
   const QRectF thumbR(x - thumb.width() / 2, track.center().y() - thumb.height() / 2,
                       thumb.width(), thumb.height());
-  fillRound(p, thumbR.translated(0, 1), 4, QColor(0, 0, 0, 166));
+  paintBlurred(p, thumbR.adjusted(-4, -2, 4, 6), 2, [&](QPainter& bp) {
+    bp.setPen(Qt::NoPen);
+    bp.setBrush(QColor(0, 0, 0, 166));
+    bp.drawRoundedRect(thumbR.translated(0, 1), 4, 4);
+  });
   QLinearGradient face(thumbR.topLeft(), thumbR.bottomLeft());
-  face.setColorAt(0, QColor(0x6f, 0x76, 0x88));
-  face.setColorAt(0.55, QColor(0x3d, 0x43, 0x50));
-  face.setColorAt(1, QColor(0x22, 0x26, 0x2f));
+  face.setColorAt(0, QColor(0x63, 0x68, 0x76));
+  face.setColorAt(0.55, QColor(0x2a, 0x30, 0x3c));
+  face.setColorAt(1, QColor(0x1f, 0x22, 0x2c));
   fillRound(p, thumbR, 4, face);
+  QLinearGradient rim(thumbR.topLeft(), thumbR.bottomRight());
+  rim.setColorAt(0, QColor(196, 210, 232, 140));
+  rim.setColorAt(1, QColor(0x22, 0x26, 0x2f));
+  p.setPen(QPen(QBrush(rim), 1));
+  p.setBrush(Qt::NoBrush);
+  p.drawRoundedRect(thumbR.adjusted(0.5, 0.5, -0.5, -0.5), 4, 4);
   const QRectF grip(thumbR.left() + 5, thumbR.top() + 8, thumbR.width() - 10,
                     thumbR.height() - 16);
   p.setPen(QPen(QColor(232, 240, 255, 56), 1));
@@ -522,11 +682,18 @@ void drawVBand(QPainter& p, const QRectF& column, qreal gainDb) {
 void drawLed(QPainter& p, QPointF c, bool on, qreal size) {
   const qreal r = size / 2;
   if (on) {
-    p.setPen(Qt::NoPen);
-    p.setBrush(QColor(kAccent.red(), kAccent.green(), kAccent.blue(), 89));
-    p.drawEllipse(c, r + 5, r + 5);
-    p.setBrush(QColor(kAccent.red(), kAccent.green(), kAccent.blue(), 179));
-    p.drawEllipse(c, r + 1.5, r + 1.5);
+    paintBlurred(p, QRectF(c.x() - r - 12, c.y() - r - 12, (r + 12) * 2, (r + 12) * 2), 6,
+                 [&](QPainter& bp) {
+                   bp.setPen(Qt::NoPen);
+                   bp.setBrush(QColor(kAccent.red(), kAccent.green(), kAccent.blue(), 89));
+                   bp.drawEllipse(c, r + 5, r + 5);
+                 });
+    paintBlurred(p, QRectF(c.x() - r - 8, c.y() - r - 8, (r + 8) * 2, (r + 8) * 2), 3,
+                 [&](QPainter& bp) {
+                   bp.setPen(Qt::NoPen);
+                   bp.setBrush(QColor(kAccent.red(), kAccent.green(), kAccent.blue(), 179));
+                   bp.drawEllipse(c, r + 1.5, r + 1.5);
+                 });
     QRadialGradient g(c + QPointF(-r * 0.2, -r * 0.3), r);
     g.setColorAt(0, kAccentHot);
     g.setColorAt(0.45, kAccent);
@@ -590,13 +757,29 @@ void drawReload(QPainter& p, const QRectF& box, const QColor& color) {
   const qreal s = box.width();
   const QPointF c = box.center();
   const qreal radius = s * 0.34;
-  QPen pen(color, qMax(1.2, s * 0.14), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+  const qreal width = qMax(1.2, s * 0.14);
+  QPen pen(color, width, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
   p.setPen(pen);
   p.setBrush(Qt::NoBrush);
-  p.drawArc(QRectF(c.x() - radius, c.y() - radius, radius * 2, radius * 2),
-            int(-0.85 * 180 * 16), int(0.95 * 180 * 16));
-  p.drawArc(QRectF(c.x() - radius, c.y() - radius, radius * 2, radius * 2),
-            int(0.15 * 180 * 16), int(0.95 * 180 * 16));
+  auto arrow = [&](qreal start, qreal sweep, qreal tipAngle) {
+    // Flutter Canvas.drawArc is clockwise; Qt is counter-clockwise.
+    const int start16 = int(-start * 180.0 / M_PI * 16);
+    const int sweep16 = int(-sweep * 180.0 / M_PI * 16);
+    p.drawArc(QRectF(c.x() - radius, c.y() - radius, radius * 2, radius * 2), start16,
+              sweep16);
+    const QPointF tip(c.x() + radius * std::cos(tipAngle),
+                      c.y() + radius * std::sin(tipAngle));
+    const qreal tangent = tipAngle + M_PI / 2;
+    const qreal head = s * 0.22;
+    const qreal wing = s * 0.16;
+    QPainterPath path;
+    path.moveTo(tip.x() + head * std::cos(tangent), tip.y() + head * std::sin(tangent));
+    path.lineTo(tip);
+    path.lineTo(tip.x() - wing * std::cos(tipAngle), tip.y() - wing * std::sin(tipAngle));
+    p.drawPath(path);
+  };
+  arrow(-M_PI * 0.85, M_PI * 0.95, M_PI * 0.12);
+  arrow(M_PI * 0.15, M_PI * 0.95, M_PI * 1.12);
   p.restore();
 }
 
@@ -612,24 +795,208 @@ void drawNoiseOverlay(QPainter& p, const QRectF& rect, qreal radius) {
   p.restore();
 }
 
-void drawGlowText(QPainter& p, const QRectF& box, const QString& text, const QFont& font,
-                  const QColor& fill, const QColor& glow, qreal blur, int flags) {
-  if (blur > 0.4) {
-    const int pad = int(std::ceil(blur * 3));
-    QImage buf(int(box.width()) + pad * 2, int(box.height()) + pad * 2,
-               QImage::Format_ARGB32_Premultiplied);
-    buf.fill(Qt::transparent);
-    QPainter bp(&buf);
-    bp.setRenderHint(QPainter::TextAntialiasing);
-    bp.setFont(font);
-    bp.setPen(glow);
-    bp.drawText(QRectF(pad, pad, box.width(), box.height()), flags, text);
-    bp.end();
-    p.drawImage(box.topLeft() - QPointF(pad, pad), boxBlur(buf, qMax(1, int(blur / 2))));
+void drawStyledText(QPainter& p, const QRectF& box, const QString& text,
+                    const QFont& font, const QColor& fill, int flags,
+                    const QVector<TextShadow>& shadows) {
+  for (const TextShadow& shadow : shadows) {
+    const QRectF dest = box.translated(shadow.offset);
+    if (shadow.blurRadius > 0.2) {
+      const qreal sigma = shadow.blurRadius * 0.57735;
+      const int pad = qMax(2, int(std::ceil(sigma * 3)) + 1);
+      QImage buf(int(std::ceil(box.width())) + pad * 2,
+                 int(std::ceil(box.height())) + pad * 2,
+                 QImage::Format_ARGB32_Premultiplied);
+      buf.fill(Qt::transparent);
+      QPainter bp(&buf);
+      bp.setRenderHint(QPainter::TextAntialiasing);
+      bp.setFont(font);
+      bp.setPen(shadow.color);
+      bp.drawText(QRectF(pad, pad, box.width(), box.height()), flags, text);
+      bp.end();
+      p.drawImage(dest.topLeft() - QPointF(pad, pad), gaussianBlur(buf, sigma));
+    } else {
+      p.setFont(font);
+      p.setPen(shadow.color);
+      p.drawText(dest, flags, text);
+    }
   }
   p.setFont(font);
   p.setPen(fill);
   p.drawText(box, flags, text);
+}
+
+void drawGlowText(QPainter& p, const QRectF& box, const QString& text, const QFont& font,
+                  const QColor& fill, const QColor& glow, qreal blurRadius, int flags) {
+  drawStyledText(p, box, text, font, fill, flags, {{glow, {}, blurRadius}});
+}
+
+qreal toggleBtnWidth(const QString& label) {
+  return 15 + 8 + 9 + textWidth(condensedFont(13, 0.16), label.toUpper()) + 15;
+}
+
+void drawToggleBtn(QPainter& p, const QRectF& r, const QString& label, bool lit) {
+  drawBtn(p, r, false, {});
+  drawLed(p, QPointF(r.left() + 15 + 4, r.center().y()), lit);
+  p.setFont(condensedFont(13, 0.16));
+  p.setPen(QColor(196, 210, 232, 184));
+  p.drawText(r.adjusted(15 + 8 + 9, 0, -15, 0), Qt::AlignVCenter | Qt::AlignLeft,
+             label.toUpper());
+}
+
+void drawChevron(QPainter& p, const QRectF& box, bool pointsLeft, const QColor& color) {
+  QPen pen(color, 1.6, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+  p.setPen(pen);
+  p.setBrush(Qt::NoBrush);
+  const qreal tipX = pointsLeft ? box.left() + 0.5 : box.right() - 0.5;
+  const qreal backX = pointsLeft ? box.right() - 0.5 : box.left() + 0.5;
+  QPainterPath path;
+  path.moveTo(backX, box.top() + 1);
+  path.lineTo(tipX, box.center().y());
+  path.lineTo(backX, box.bottom() - 1);
+  p.drawPath(path);
+}
+
+void drawCreateMark(QPainter& p, const QRectF& box, const QColor& color) {
+  QPen pen(color, 1.4, Qt::SolidLine, Qt::RoundCap);
+  p.setPen(pen);
+  const qreal w = box.width();
+  const qreal h = box.height();
+  const qreal ruleWidth = w * 0.62;
+  for (int i = 0; i < 3; ++i) {
+    const qreal y = box.top() + h * (0.18 + i * 0.32);
+    p.drawLine(QPointF(box.left() + 0.7, y), QPointF(box.left() + ruleWidth, y));
+  }
+  const qreal cx = box.left() + w - w * 0.16;
+  const qreal cy = box.top() + h - h * 0.16;
+  const qreal reach = w * 0.2;
+  p.drawLine(QPointF(cx - reach, cy), QPointF(cx + reach, cy));
+  p.drawLine(QPointF(cx, cy - reach), QPointF(cx, cy + reach));
+}
+
+void drawRenameMark(QPainter& p, const QRectF& box, const QColor& color) {
+  QPen pen(color, 1.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+  p.setPen(pen);
+  const qreal w = box.width();
+  const qreal h = box.height();
+  const qreal l = box.left();
+  const qreal t = box.top();
+  p.drawLine(QPointF(l + w * 0.2, t + h * 0.68), QPointF(l + w * 0.84, t + h * 0.06));
+  p.drawLine(QPointF(l + w * 0.2, t + h * 0.68), QPointF(l + w * 0.36, t + h * 0.8));
+  p.drawLine(QPointF(l + w * 0.36, t + h * 0.8), QPointF(l + w * 0.86, t + h * 0.28));
+  p.drawLine(QPointF(l + w * 0.06, t + h * 0.96), QPointF(l + w * 0.94, t + h * 0.96));
+}
+
+void drawFooterSep(QPainter& p, const QRectF& r) {
+  QLinearGradient g(r.topLeft(), r.bottomLeft());
+  g.setColorAt(0, QColor(0, 0, 0, 179));
+  g.setColorAt(0.5, QColor(226, 236, 255, 31));
+  g.setColorAt(1, QColor(0, 0, 0, 179));
+  p.fillRect(r, g);
+}
+
+void drawStatusDot(QPainter& p, QPointF c) {
+  p.setPen(Qt::NoPen);
+  p.setBrush(QColor(kInkFaint.red(), kInkFaint.green(), kInkFaint.blue(), 160));
+  p.drawEllipse(c, 1.5, 1.5);
+}
+
+void drawScrollbar(QPainter& p, const QRectF& track, qreal thumbTop, qreal thumbH) {
+  QPainterPath trough;
+  trough.addRoundedRect(track, track.width() / 2, track.width() / 2);
+  QLinearGradient tg(track.topLeft(), track.topRight());
+  tg.setColorAt(0, QColor(0x05, 0x06, 0x0a));
+  tg.setColorAt(0.6, QColor(0x12, 0x15, 0x1c));
+  tg.setColorAt(1, QColor(0x1e, 0x22, 0x2c));
+  p.fillPath(trough, tg);
+  QLinearGradient inset(track.topLeft(), track.topRight());
+  inset.setColorAt(0, QColor(0, 0, 0, 242));
+  inset.setColorAt(0.55, Qt::transparent);
+  p.fillPath(trough, inset);
+  p.setPen(QPen(QColor(226, 236, 255, 26), 1));
+  p.drawLine(QPointF(track.right() - 0.5, track.top() + 1),
+             QPointF(track.right() - 0.5, track.bottom() - 1));
+  const QRectF thumb(track.left() + 1, track.top() + thumbTop, track.width() - 2, thumbH);
+  QLinearGradient face(thumb.topLeft(), thumb.topRight());
+  face.setColorAt(0, QColor(0x7d, 0x84, 0x96));
+  face.setColorAt(0.52, QColor(0x47, 0x4e, 0x5c));
+  face.setColorAt(1, QColor(0x22, 0x26, 0x2f));
+  fillRound(p, thumb, thumb.width() / 2, face);
+  QLinearGradient gloss(thumb.topLeft(), thumb.bottomLeft());
+  gloss.setColorAt(0, QColor(236, 244, 255, 128));
+  gloss.setColorAt(0.35, QColor(236, 244, 255, 0));
+  p.save();
+  QPainterPath clip;
+  clip.addRoundedRect(thumb, thumb.width() / 2, thumb.width() / 2);
+  p.setClipPath(clip);
+  p.fillRect(thumb, gloss);
+  const QRectF ridge(thumb.left() + 3, thumb.center().y() - 4, thumb.width() - 6, 8);
+  for (qreal y = ridge.top(); y < ridge.bottom(); y += 2) {
+    p.fillRect(QRectF(ridge.left(), y, ridge.width(), 1), QColor(0, 0, 0, 128));
+    p.fillRect(QRectF(ridge.left(), y + 1, ridge.width(), 1), QColor(226, 236, 255, 61));
+  }
+  p.restore();
+}
+
+void drawDiscLogo(QPainter& p, const QRectF& disc, const QImage* logo, bool insets) {
+  // Title bar: BoxShadow blurRadius 12 alpha 0x47. About badge: size*0.42 @ 0.3.
+  const qreal bloomRadius = disc.width() <= 32 ? 12.0 : disc.width() * 0.42;
+  const qreal bloomSigma = bloomRadius * 0.57735;
+  const int bloomA = disc.width() <= 32 ? 0x47 : int(0.3 * 255);
+  paintBlurred(p, disc.adjusted(-bloomRadius, -bloomRadius, bloomRadius, bloomRadius),
+               bloomSigma, [&](QPainter& bp) {
+                 bp.setPen(Qt::NoPen);
+                 bp.setBrush(QColor(kAccent.red(), kAccent.green(), kAccent.blue(), bloomA));
+                 bp.drawEllipse(disc);
+               });
+  const qreal dropY = disc.width() <= 32 ? 2.0 : 3.0;
+  const qreal dropBlur = disc.width() <= 32 ? 4.0 : 7.0;
+  paintBlurred(p, disc.adjusted(-dropBlur, -2, dropBlur, dropY + dropBlur),
+               dropBlur * 0.57735, [&](QPainter& bp) {
+                 bp.setPen(Qt::NoPen);
+                 bp.setBrush(QColor(0, 0, 0, disc.width() <= 32 ? 0x8C : 0x99));
+                 bp.drawEllipse(disc.translated(0, dropY));
+               });
+  p.setPen(Qt::NoPen);
+  p.setBrush(kLogoDisc);
+  p.drawEllipse(disc);
+  if (logo && !logo->isNull()) {
+    p.save();
+    QPainterPath clip;
+    clip.addEllipse(disc);
+    p.setClipPath(clip);
+    p.setRenderHint(QPainter::SmoothPixmapTransform);
+    const QRectF dest = disc.adjusted(-disc.width() * 0.06, -disc.height() * 0.06,
+                                      disc.width() * 0.06, disc.height() * 0.06);
+    p.drawImage(dest, *logo);
+    p.restore();
+  }
+  p.setBrush(Qt::NoBrush);
+  p.setPen(QPen(QColor(0, 0, 0, 166), 1));
+  p.drawEllipse(disc);
+  if (!insets) {
+    return;
+  }
+  p.save();
+  QPainterPath clip;
+  clip.addEllipse(disc);
+  p.setClipPath(clip);
+  QLinearGradient sheen(disc.topLeft(), QPointF(disc.left(), disc.top() + disc.height() * 0.55));
+  sheen.setColorAt(0, QColor(255, 255, 255, 128));
+  sheen.setColorAt(1, QColor(255, 255, 255, 0));
+  p.fillRect(QRectF(disc.left(), disc.top(), disc.width(), disc.height() * 0.55), sheen);
+  QLinearGradient shade(QPointF(disc.left(), disc.top() + disc.height() * 0.45),
+                        disc.bottomLeft());
+  shade.setColorAt(0, QColor(20, 34, 66, 0));
+  shade.setColorAt(1, QColor(20, 34, 66, 89));
+  p.fillRect(QRectF(disc.left(), disc.top() + disc.height() * 0.45, disc.width(),
+                    disc.height() * 0.55),
+             shade);
+  QLinearGradient gloss(disc.topLeft() + QPointF(disc.width() * 0.2, 0),
+                        disc.bottomRight() - QPointF(disc.width() * 0.1, disc.height() * 0.2));
+  gloss.setColorAt(0, QColor(255, 255, 255, 115));
+  gloss.setColorAt(0.46, QColor(255, 255, 255, 0));
+  p.fillRect(disc, gloss);
+  p.restore();
 }
 
 QImage loadTrampLogo() {
