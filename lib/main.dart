@@ -7,7 +7,6 @@ import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'platform/libmpv_bundle.dart';
-import 'platform/startup_log.dart';
 import 'playback/fake_player_engine.dart';
 import 'playback/player_engine.dart';
 import 'ui/session/session_client.dart';
@@ -19,18 +18,16 @@ Future<void> main(List<String> args) async {
   await runZonedGuarded(() async {
     await _main(args);
   }, (error, stack) {
-    trampStartupLog('zone: $error\n$stack');
+    debugPrint('Tramp zone error: $error\n$stack');
   });
 }
 
 Future<void> _main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
-  trampStartupLog('dart main');
   await windowManager.ensureInitialized();
 
   final windowController = await WindowController.fromCurrentEngine();
   final role = parseWindowRole(windowController.arguments);
-  trampStartupLog('role=$role');
 
   if (role == WindowRole.main) {
     PlayerEngine? engine;
@@ -38,9 +35,7 @@ Future<void> _main(List<String> args) async {
       MediaKit.ensureInitialized();
       // Fail fast in debug/profile if packaging still points at slim libmpv.
       await LibmpvBundle.verify(enforce: !kReleaseMode);
-      trampStartupLog('media_kit ok');
     } catch (error, stack) {
-      trampStartupLog('media_kit failed: $error\n$stack');
       if (!kReleaseMode && !trampAutoQuitRequested()) {
         rethrow;
       }
@@ -50,7 +45,6 @@ Future<void> _main(List<String> args) async {
       );
       engine = FakePlayerEngine();
     }
-    trampStartupLog('runApp host');
     runApp(SessionHostApp(launchArgs: args, engine: engine));
     return;
   }

@@ -18,7 +18,6 @@ import '../../platform/app_support_dir.dart';
 import '../../platform/file_open.dart';
 import '../../platform/session_resume_store.dart';
 import '../../platform/settings_store.dart';
-import '../../platform/startup_log.dart';
 import '../../platform/tramp_window.dart';
 import '../../platform/usage_store.dart';
 import '../../playback/media_kit_player_engine.dart';
@@ -128,7 +127,6 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   @override
   void initState() {
     super.initState();
-    trampStartupLog('initState');
     _mainNativeDrag = NativeDragTracker(
       // Linux never emits onWindowMoved; quiet finalize is the real end.
       // Arm only after motion (see LinuxDragPoll) — not on press.
@@ -166,11 +164,9 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     _lookController.addListener(_onLookChanged);
     _bus = SessionBus();
     _docking = _createDocking(DockLayout.defaults);
-    trampStartupLog('initState Player()');
     // Share one media_kit Player so EQ `af` and transport hit the same libmpv.
     final Player? sharedPlayer =
         widget.engine == null ? Player() : null;
-    trampStartupLog('initState Player() ok');
     _playlist = PlaylistController(
       store: widget.playlistStore ??
           FilePlaylistStore(supportDir: trampSupportDirectory),
@@ -208,7 +204,6 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     _collection.addListener(_onCollectionChanged);
     _playback.addListener(_onPlaybackChanged);
     windowManager.addListener(this);
-    trampStartupLog('initState done');
     unawaited(_bootstrap());
   }
 
@@ -278,64 +273,55 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
 
   Future<void> _bootstrap() async {
     try {
-      trampStartupLog('bootstrap');
       await _bus.bindHost(_onCommand);
-      trampStartupLog('preventClose');
       await windowManager.setPreventClose(true);
       // Same rule as SessionClientApp: ITaskbarList is created only in
       // waitUntilReadyToShow. setSkipTaskbar without it native-crashes on
       // Windows (null taskbar_). The runner never maps this HWND, so hide()
       // is also a deadlock risk there (ShowWindow nested in the UI isolate).
-      trampStartupLog('readyToShow');
       await windowManager.waitUntilReadyToShow(
         const WindowOptions(backgroundColor: Color(0x00000000)),
       );
-      trampStartupLog('readyToShow ok');
       try {
         if (!Platform.isWindows) {
-          trampStartupLog('hide');
           await windowManager.hide();
         }
-        trampStartupLog('skipTaskbar');
         await windowManager.setSkipTaskbar(true);
       } catch (_) {}
-      trampStartupLog('frameless');
       await windowManager.setAsFrameless();
+      // Let MockupShell rounded corners punch through to the desktop.
       await windowManager.setBackgroundColor(const Color(0x00000000));
       await windowManager.setResizable(false);
       await windowManager.setTitle('Tramp — Main');
-      trampStartupLog('setIcon');
       try {
         await windowManager.setIcon('assets/branding/app_icon.png');
       } catch (_) {}
 
-      trampStartupLog('settings');
       final settings = await _settingsStore.read();
       _applySettingsFields(settings);
       _docking = _createDocking(DockLayout.fromSettings(settings));
 
-      trampStartupLog('look');
       await _lookController.bootstrap(
         settings: settings,
         supportDir: trampSupportDirectory,
       );
-      trampStartupLog('eq');
       await _equalizer.load();
-      trampStartupLog('collection');
+      // The collection index holds only what the left panel paints, so this stays
+      // a small read even for a large collection. Validating the references it
+      // points at is deliberately *not* here — that waits until after launch.
       await _collection.bootstrap();
-      trampStartupLog('usage');
+      // One tiny file, the same size as the resume snapshot: this is what makes
+      // the spin count read as a lifetime total rather than a per-session one.
       await _playback.loadUsage();
       if (_resumeLastSession) {
-        trampStartupLog('resume');
         await _playlist.restoreCurrentPlaylist();
         unawaited(_enrichMissingTrackMetadata());
         await _restorePlaybackResume();
       }
       await _playback.setForceMono(_forceMono);
 
-      // Show main before spawning four more Flutter engines. If those hang,
-      // the listener still has a window instead of a silent process.
-      trampStartupLog('show main');
+      // Show main before spawning four more Flutter engines (~1s each on
+      // Windows). If those hang, the listener still has a window.
       if (mounted) {
         setState(() => _bootstrapped = true);
       }
@@ -344,19 +330,19 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       _revealWindows = true;
       await _applyMainFrame();
       await _applyAlwaysOnTop();
-      trampStartupLog('main shown');
 
-      trampStartupLog('secondaries');
       await _ensureSecondaryWindows();
       await _applyAllFrames();
       await _applyAlwaysOnTop();
-      trampStartupLog('bootstrap done');
+      // The session is up and the windows are mapped: now, and only now, check the
+      // listener's playlist files. Unawaited so a collection on a sleeping drive
+      // cannot hold up anything that follows, and last so nothing waits on it.
       unawaited(_collection.validateReferences());
       if (trampAutoQuitRequested()) {
         unawaited(_autoQuitForHarness());
       }
     } catch (error, stack) {
-      trampStartupLog('bootstrap failed: $error\n$stack');
+      debugPrint('Tramp bootstrap failed: $error\n$stack');
       try {
         await windowManager.setSkipTaskbar(false);
         await windowManager.show();
@@ -417,35 +403,30 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   }
 
   Future<void> _ensureSecondaryWindows() async {
-    trampStartupLog('create equalizer');
     _equalizerWindow ??= await WindowController.create(
       WindowConfiguration(
         hiddenAtLaunch: true,
         arguments: encodeWindowArguments(WindowRole.equalizer),
       ),
     );
-    trampStartupLog('create playlist');
     _playlistWindow ??= await WindowController.create(
       WindowConfiguration(
         hiddenAtLaunch: true,
         arguments: encodeWindowArguments(WindowRole.playlist),
       ),
     );
-    trampStartupLog('create settings');
     _settingsWindow ??= await WindowController.create(
       WindowConfiguration(
         hiddenAtLaunch: true,
         arguments: encodeWindowArguments(WindowRole.settings),
       ),
     );
-    trampStartupLog('create about');
     _aboutWindow ??= await WindowController.create(
       WindowConfiguration(
         hiddenAtLaunch: true,
         arguments: encodeWindowArguments(WindowRole.about),
       ),
     );
-    trampStartupLog('secondaries created');
   }
 
   Future<void> _onCommand(SessionCommand command) async {
