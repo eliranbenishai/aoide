@@ -128,7 +128,7 @@ Nothing else may be added here. Anything that has to outlive a session is persis
 
 ## Cold start
 
-OS windows stay unmapped until `SessionHostApp` has mounted chrome and one frame has painted (`sessionWindowShouldShow`). Linux/Windows/macOS runners must not show on the first Flutter frame — that was the black “starting session…” rectangle. Main is revealed at that point so a hang while spawning extra engines is not a silent process. Secondaries stay `hiddenAtLaunch` until they exist, then map under the same `sessionReady` flag.
+OS windows stay unmapped until `SessionHostApp` has mounted chrome and one frame has painted (`sessionWindowShouldShow`). Linux/Windows/macOS runners must not show on the first Flutter frame — that was the black “starting session…” rectangle. Main is revealed at that point so a hang while spawning extra engines is not a silent process. Secondaries stay `hiddenAtLaunch` until they exist, then map under the same `sessionReady` flag. On Windows both the host and every client must call `waitUntilReadyToShow` before `setSkipTaskbar` — the plugin creates `ITaskbarList` only there; skipping it is a native crash. The host also skips `hide()` on Windows (the HWND was never shown).
 
 ## Known v1 gaps
 

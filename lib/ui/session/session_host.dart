@@ -282,9 +282,21 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       await _bus.bindHost(_onCommand);
       trampStartupLog('preventClose');
       await windowManager.setPreventClose(true);
+      // Same rule as SessionClientApp: ITaskbarList is created only in
+      // waitUntilReadyToShow. setSkipTaskbar without it native-crashes on
+      // Windows (null taskbar_). The runner never maps this HWND, so hide()
+      // is also a deadlock risk there (ShowWindow nested in the UI isolate).
+      trampStartupLog('readyToShow');
+      await windowManager.waitUntilReadyToShow(
+        const WindowOptions(backgroundColor: Color(0x00000000)),
+      );
+      trampStartupLog('readyToShow ok');
       try {
-        trampStartupLog('hide');
-        await windowManager.hide();
+        if (!Platform.isWindows) {
+          trampStartupLog('hide');
+          await windowManager.hide();
+        }
+        trampStartupLog('skipTaskbar');
         await windowManager.setSkipTaskbar(true);
       } catch (_) {}
       trampStartupLog('frameless');
