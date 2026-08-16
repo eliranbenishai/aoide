@@ -16,6 +16,7 @@ import '../../look/builtin_look.dart';
 import '../../look/look_font_loader.dart';
 import '../../look/resolved_look.dart';
 import '../../platform/file_open.dart';
+import '../../platform/harness_flags.dart';
 import '../../platform/open_url.dart';
 import '../../platform/tramp_window.dart';
 import '../../playlist/playlist_controller.dart';
@@ -164,11 +165,11 @@ class _SessionClientAppState extends State<SessionClientApp>
     // waitUntilReadyToShow CoCreateInstances ITaskbarList; setSkipTaskbar
     // null-derefs without it (native crash → "Lost connection to device").
     await windowManager.waitUntilReadyToShow(
-      const WindowOptions(backgroundColor: Color(0x00000000)),
+      WindowOptions(backgroundColor: trampWindowFill()),
     );
     await windowManager.setTitle(title);
     await windowManager.setAsFrameless();
-    await windowManager.setBackgroundColor(const Color(0x00000000));
+    await windowManager.setBackgroundColor(trampWindowFill());
     // Secondaries must not appear as separate Windows taskbar buttons.
     await windowManager.setSkipTaskbar(true);
     // Edge resize only on the playlist window.
@@ -738,13 +739,13 @@ class _SessionClientAppState extends State<SessionClientApp>
     if (widget.role == WindowRole.equalizer) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
-        color: const Color(0x00000000),
+        color: trampWindowFill(),
         builder: (context, child) => LookScope(
           look: _look,
           child: child ?? const SizedBox.shrink(),
         ),
         home: ColoredBox(
-          color: const Color(0x00000000),
+          color: trampWindowFill(),
           child: ZoomedCanvas(
             factor: zoom,
             logicalSize: TrampMetrics.equalizer,
@@ -768,13 +769,13 @@ class _SessionClientAppState extends State<SessionClientApp>
     if (widget.role == WindowRole.playlist) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
-        color: const Color(0x00000000),
+        color: trampWindowFill(),
         builder: (context, child) => LookScope(
           look: _look,
           child: child ?? const SizedBox.shrink(),
         ),
         home: ColoredBox(
-          color: const Color(0x00000000),
+          color: trampWindowFill(),
           // Derive logical size from live window constraints every frame so
           // resize never anisotropic-stretches a stale canvas (zoom owns
           // proportions; only spacing grows). Host sync stays debounced.
@@ -824,13 +825,13 @@ class _SessionClientAppState extends State<SessionClientApp>
     if (widget.role == WindowRole.settings) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
-        color: const Color(0x00000000),
+        color: trampWindowFill(),
         builder: (context, child) => LookScope(
           look: _look,
           child: child ?? const SizedBox.shrink(),
         ),
         home: ColoredBox(
-          color: const Color(0x00000000),
+          color: trampWindowFill(),
           child: ZoomedCanvas(
             factor: zoom,
             logicalSize: TrampMetrics.settings,
@@ -853,13 +854,13 @@ class _SessionClientAppState extends State<SessionClientApp>
     if (widget.role == WindowRole.about) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
-        color: const Color(0x00000000),
+        color: trampWindowFill(),
         builder: (context, child) => LookScope(
           look: _look,
           child: child ?? const SizedBox.shrink(),
         ),
         home: ColoredBox(
-          color: const Color(0x00000000),
+          color: trampWindowFill(),
           child: ZoomedCanvas(
             factor: zoom,
             logicalSize: TrampMetrics.about,
@@ -884,7 +885,7 @@ class _SessionClientAppState extends State<SessionClientApp>
     final palette = _look.palette;
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      color: const Color(0x00000000),
+      color: trampWindowFill(),
       builder: (context, child) => LookScope(
         look: _look,
         child: child ?? const SizedBox.shrink(),

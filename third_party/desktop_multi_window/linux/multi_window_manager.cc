@@ -1,5 +1,7 @@
 #include "multi_window_manager.h"
 
+#include <cstdlib>
+#include <cstring>
 #include <iomanip>
 #include <random>
 #include <sstream>
@@ -109,7 +111,12 @@ std::string MultiWindowManager::Create(FlValue* args) {
   GdkRGBA background_color;
   // Transparent so MockupShell rounded corners punch through (matches
   // window_manager.setBackgroundColor / the main-window FlView).
-  gdk_rgba_parse(&background_color, "#00000000");
+  const char* opaque = getenv("TRAMP_OPAQUE_WINDOWS");
+  if (opaque != nullptr && strcmp(opaque, "1") == 0) {
+    gdk_rgba_parse(&background_color, "#1a1a1a");
+  } else {
+    gdk_rgba_parse(&background_color, "#00000000");
+  }
   fl_view_set_background_color(fl_view, &background_color);
   gtk_widget_show(GTK_WIDGET(fl_view));
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(fl_view));

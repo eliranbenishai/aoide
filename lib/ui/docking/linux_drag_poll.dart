@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:flutter/painting.dart';
 
+import '../../platform/harness_flags.dart';
+
 /// While a native title-bar drag is active on Linux, poll window position.
 ///
 /// `window_manager` on Linux often emits neither `move` nor `moved` during
@@ -27,7 +29,8 @@ class LinuxDragPoll {
   Offset? _lastPosition;
   bool _tickInFlight = false;
 
-  static bool get isNeeded => Platform.isLinux;
+  static bool get isNeeded =>
+      Platform.isLinux && !HarnessFlags.disableLinuxDragPoll;
 
   bool get isRunning => _timer != null;
 

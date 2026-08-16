@@ -1,5 +1,8 @@
 #include "my_application.h"
 
+#include <cstdlib>
+#include <cstring>
+
 #include <flutter_linux/flutter_linux.h>
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
@@ -93,7 +96,13 @@ static void my_application_activate(GApplication* application) {
   GdkRGBA background_color;
   // Transparent so MockupShell rounded corners punch through (matches
   // window_manager.setBackgroundColor in SessionHostApp).
-  gdk_rgba_parse(&background_color, "#00000000");
+  // TRAMP_OPAQUE_WINDOWS=1 forces an opaque fill to isolate compositor drag.
+  const char* opaque = getenv("TRAMP_OPAQUE_WINDOWS");
+  if (opaque != nullptr && strcmp(opaque, "1") == 0) {
+    gdk_rgba_parse(&background_color, "#1a1a1a");
+  } else {
+    gdk_rgba_parse(&background_color, "#00000000");
+  }
   fl_view_set_background_color(view, &background_color);
   gtk_widget_show(GTK_WIDGET(view));
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));

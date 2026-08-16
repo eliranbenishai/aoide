@@ -15,6 +15,7 @@ import '../../eq/equalizer_controller.dart';
 import '../../eq/mpv_equalizer_sink.dart';
 import '../../look/look_installer.dart';
 import '../../platform/app_support_dir.dart';
+import '../../platform/harness_flags.dart';
 import '../../platform/file_open.dart';
 import '../../platform/session_resume_store.dart';
 import '../../platform/settings_store.dart';
@@ -280,7 +281,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       // Windows (null taskbar_). The runner never maps this HWND, so hide()
       // is also a deadlock risk there (ShowWindow nested in the UI isolate).
       await windowManager.waitUntilReadyToShow(
-        const WindowOptions(backgroundColor: Color(0x00000000)),
+        WindowOptions(backgroundColor: trampWindowFill()),
       );
       try {
         if (!Platform.isWindows) {
@@ -290,7 +291,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       } catch (_) {}
       await windowManager.setAsFrameless();
       // Let MockupShell rounded corners punch through to the desktop.
-      await windowManager.setBackgroundColor(const Color(0x00000000));
+      await windowManager.setBackgroundColor(trampWindowFill());
       await windowManager.setResizable(false);
       await windowManager.setTitle('Tramp — Main');
       try {
@@ -338,6 +339,10 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       // listener's playlist files. Unawaited so a collection on a sleeping drive
       // cannot hold up anything that follows, and last so nothing waits on it.
       unawaited(_collection.validateReferences());
+      if (HarnessFlags.positionBench) {
+        await _runPositionBench();
+        trampExitProcess(0);
+      }
       if (trampAutoQuitRequested()) {
         unawaited(_autoQuitForHarness());
       }
@@ -403,6 +408,9 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   }
 
   Future<void> _ensureSecondaryWindows() async {
+    if (HarnessFlags.soloMain) {
+      return;
+    }
     _equalizerWindow ??= await WindowController.create(
       WindowConfiguration(
         hiddenAtLaunch: true,
@@ -1084,6 +1092,37 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     if (_aboutReady) await _applyRoleFrame(WindowRole.about);
   }
 
+  Future<void> _runPositionBench() async {
+    const n = 80;
+    Future<List<int>> timeOps(Future<void> Function() op) async {
+      final times = <int>[];
+      for (var i = 0; i < n; i++) {
+        final sw = Stopwatch()..start();
+        await op();
+        times.add(sw.elapsedMicroseconds);
+      }
+      times.sort();
+      return times;
+    }
+
+    final gets = await timeOps(() async {
+      await windowManager.getPosition();
+    });
+    final sets = await timeOps(() async {
+      await windowManager.setPosition(const Offset(200, 200));
+    });
+    int pct(List<int> xs, int p) => xs[(n * p) ~/ 100];
+    stderr.writeln(
+      'TRAMP_POS_BENCH get_us p50=${pct(gets, 50)} p95=${pct(gets, 95)} '
+      'max=${gets.last}',
+    );
+    stderr.writeln(
+      'TRAMP_POS_BENCH set_us p50=${pct(sets, 50)} p95=${pct(sets, 95)} '
+      'max=${sets.last}',
+    );
+    await stderr.flush();
+  }
+
   Future<void> _applyMainFrame({bool positionOnly = false}) async {
     final zoom = _zoomPercent / 100.0;
     final rect = _docking.frameFor(WindowId.main, zoom);
@@ -1680,7 +1719,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     return MaterialApp(
       title: 'Tramp',
       debugShowCheckedModeBanner: false,
-      color: const Color(0x00000000),
+      color: trampWindowFill(),
       builder: (context, child) => ListenableBuilder(
         listenable: _lookController,
         builder: (context, _) => LookScope(
@@ -1689,7 +1728,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         ),
       ),
       home: ColoredBox(
-        color: const Color(0x00000000),
+        color: trampWindowFill(),
         child: !_bootstrapped
             ? const SizedBox.shrink()
             : ZoomedCanvas(
