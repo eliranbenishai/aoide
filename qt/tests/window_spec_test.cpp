@@ -47,3 +47,4 @@ void WindowSpecTest::hostFlagsAreFramelessToplevelsNotTool() {
 }
 
 QTEST_APPLESS_MAIN(WindowSpecTest)
+#include "window_spec_test.moc"

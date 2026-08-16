@@ -8,7 +8,12 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets Test)
 
 qt_standard_project_setup()
 
-add_library(tramp_window_spec STATIC src/window_spec.cpp)
+file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../assets" TRAMP_ASSET_DIR)
+
+add_library(tramp_window_spec STATIC
+  src/window_spec.cpp
+  src/title_chrome.cpp
+)
 target_include_directories(tramp_window_spec PUBLIC src)
 target_link_libraries(tramp_window_spec PUBLIC Qt6::Widgets)
 
@@ -17,7 +22,12 @@ qt_add_executable(tramp-qt-tracer WIN32
   src/main.cpp
   src/host_window.cpp
   src/host_window.h
+  src/chrome_paint.cpp
+  src/tramp_fonts.cpp
   ${TRAMP_SKIP_TASKBAR_SRC}
+)
+target_compile_definitions(tramp-qt-tracer PRIVATE
+  TRAMP_ASSET_DIR="${TRAMP_ASSET_DIR}"
 )
 target_link_libraries(tramp-qt-tracer PRIVATE tramp_window_spec Qt6::Widgets)
 
@@ -33,5 +43,10 @@ qt_add_executable(window_spec_test tests/window_spec_test.cpp)
 target_link_libraries(window_spec_test PRIVATE tramp_window_spec Qt6::Test)
 set_target_properties(window_spec_test PROPERTIES AUTOMOC ON)
 
+qt_add_executable(chrome_spec_test tests/chrome_spec_test.cpp)
+target_link_libraries(chrome_spec_test PRIVATE tramp_window_spec Qt6::Test)
+set_target_properties(chrome_spec_test PROPERTIES AUTOMOC ON)
+
 enable_testing()
 add_test(NAME window_spec COMMAND window_spec_test)
+add_test(NAME chrome_spec COMMAND chrome_spec_test)

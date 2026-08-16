@@ -2,7 +2,6 @@
 
 #include <array>
 
-#include <QColor>
 #include <QPoint>
 #include <QSize>
 #include <QString>
@@ -15,9 +14,9 @@ enum class WindowId { main, equalizer, playlist, settings, about };
 struct WindowSpec {
   WindowId id;
   QString title;
+  QSize logicalSize;
   QSize size;
   QPoint origin;
-  QColor panel;
   bool skipTaskbar;
 };
 

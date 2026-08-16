@@ -1,47 +1,63 @@
 #include "window_spec.h"
 
+#include "tramp_metrics.h"
+
 namespace tramp {
 
 std::array<WindowSpec, 5> windowSpecs() {
+  const QSize mainPx = nativeUnmappedSeed(kMainPlayer);
+  const QSize eqPx = nativeUnmappedSeed(kEqualizer);
+  const QSize plPx = nativeUnmappedSeed(kPlaylistDefault);
+  const QSize setPx = nativeUnmappedSeed(kSettings);
+  const QSize aboutPx = nativeUnmappedSeed(kAbout);
+  constexpr int gap = 16;
+  constexpr int x0 = 48;
+  constexpr int y0 = 48;
+  const QPoint mainOrigin(x0, y0);
+  const QPoint eqOrigin(x0, y0 + mainPx.height() + gap);
+  const QPoint plOrigin(x0 + mainPx.width() + gap, y0);
+  const QPoint setOrigin(x0 + mainPx.width() + gap, y0 + plPx.height() + gap);
+  const QPoint aboutOrigin(x0, y0 + mainPx.height() + gap + eqPx.height() + gap);
+
   return {
       WindowSpec{
           WindowId::main,
           QStringLiteral("Tramp"),
-          QSize(400, 180),
-          QPoint(80, 80),
-          QColor(26, 26, 26, 230),
+          kMainPlayer,
+          mainPx,
+          mainOrigin,
           false,
       },
       WindowSpec{
           WindowId::equalizer,
           QStringLiteral("Equalizer"),
-          QSize(400, 140),
-          QPoint(80, 280),
-          QColor(32, 48, 40, 230),
+          kEqualizer,
+          eqPx,
+          eqOrigin,
           true,
       },
       WindowSpec{
           WindowId::playlist,
           QStringLiteral("Playlist"),
-          QSize(420, 280),
-          QPoint(500, 80),
-          QColor(40, 36, 28, 230),
+          kPlaylistDefault,
+          plPx,
+          plOrigin,
           true,
       },
       WindowSpec{
           WindowId::settings,
           QStringLiteral("Settings"),
-          QSize(360, 240),
-          QPoint(500, 380),
-          QColor(36, 32, 48, 230),
+          kSettings,
+          setPx,
+          setOrigin,
           true,
       },
       WindowSpec{
           WindowId::about,
           QStringLiteral("About"),
-          QSize(320, 200),
-          QPoint(880, 80),
-          QColor(28, 36, 48, 230),
+          kAbout,
+          aboutPx,
+          aboutOrigin,
           true,
       },
   };

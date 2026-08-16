@@ -11,7 +11,8 @@ Not a Flutter host. Dart tree is frozen (chrome/domain reference).
 - Title strip calls `QWindow::startSystemMove()` (synchronous on press)
 - Linux feel: this host, Wayland, then one `QT_QPA_PLATFORM=xcb` run
 - Windows: CI compile; drag feel later
-- No software raster, no docking, no mpv, no mockup port
+- No software raster, no docking, no mpv
+- Mockup chassis (follow-on): `.win` / `.tbar` / `.wbtn` at 75% native seeds; drag excludes window buttons
 
 ## Build
 
@@ -19,7 +20,9 @@ System Qt via CMake `find_package(Qt6 COMPONENTS Widgets)`. Ship later (Flatpak/
 
 ## Layout
 
-- `qt/src/window_spec.*` — five roles, skip-taskbar, sizes (unit-tested)
+- `qt/src/window_spec.*` — five roles, skip-taskbar, 75% native seeds (unit-tested)
+- `qt/src/mockup_tokens.h` / `tramp_metrics.h` / `title_chrome.*` — CSS palette, canvases, title hit-map
+- `qt/src/chrome_paint.cpp` — mockup shell / title bar / wells
 - `qt/src/skip_taskbar.*` — X11 `_NET_WM_STATE_SKIP_TASKBAR` / Windows `WS_EX_TOOLWINDOW` (not `Qt::Window|Qt::Tool`)
 - `qt/src/main.cpp` — one `QApplication`, five windows; closing main quits
 - `qt/README.md` — build and Wayland / `xcb` runs

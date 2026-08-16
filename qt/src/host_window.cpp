@@ -1,84 +1,56 @@
 #include "host_window.h"
-#include "skip_taskbar.h"
 
-#include <QCloseEvent>
+#include "chrome_paint.h"
+#include "skip_taskbar.h"
+#include "tramp_fonts.h"
+
 #include <QCoreApplication>
-#include <QMouseEvent>
-#include <QPaintEvent>
 #include <QPainter>
-#include <QPainterPath>
-#include <QShowEvent>
 #include <QWindow>
 
-namespace {
-
-constexpr int kTitleHeight = 28;
-constexpr int kCorner = 10;
-
-class TitleStrip : public QWidget {
- public:
-  explicit TitleStrip(const QString& title, QWidget* parent = nullptr)
-      : QWidget(parent), title_(title) {
-    setFixedHeight(kTitleHeight);
-    setCursor(Qt::OpenHandCursor);
-  }
-
- protected:
-  void paintEvent(QPaintEvent*) override {
-    QPainter p(this);
-    p.setRenderHint(QPainter::Antialiasing);
-    p.setPen(QColor(220, 220, 220, 220));
-    p.setFont(QFont(QStringLiteral("Sans Serif"), 10, QFont::DemiBold));
-    p.drawText(rect().adjusted(12, 0, -12, 0), Qt::AlignVCenter | Qt::AlignLeft,
-               title_);
-  }
-
-  void mousePressEvent(QMouseEvent* event) override {
-    if (event->button() != Qt::LeftButton) {
-      return;
-    }
-    if (QWindow* win = window()->windowHandle()) {
-      win->startSystemMove();
-    }
-    event->accept();
-  }
-
- private:
-  QString title_;
-};
-
-}  // namespace
-
 HostWindow::HostWindow(const tramp::WindowSpec& spec, QWidget* parent)
-    : QWidget(parent), spec_(spec) {
+    : QWidget(parent),
+      spec_(spec),
+      title_(tramp::TitleChromeLayout::forWindow(spec.id, spec.logicalSize)) {
   setAttribute(Qt::WA_TranslucentBackground);
+  setMouseTracking(true);
   setWindowTitle(spec.title);
   setWindowFlags(tramp::hostWindowFlags());
-
-  resize(spec.size);
+  setFixedSize(spec.size);
   move(spec.origin);
 
-  auto* title = new TitleStrip(spec.title, this);
-  title->setGeometry(0, 0, spec.size.width(), kTitleHeight);
+  logo_.load(tramp::assetPath("branding/app_icon.png"));
 
-  // Force a platform window so extras are not glued as transients of main.
   winId();
   if (QWindow* native = windowHandle()) {
     native->setTransientParent(nullptr);
   }
 }
 
+QPoint HostWindow::logicalFrom(const QPointF& widgetPos) const {
+  const qreal sx = qreal(width()) / qMax(1, spec_.logicalSize.width());
+  const qreal sy = qreal(height()) / qMax(1, spec_.logicalSize.height());
+  return QPoint(int(widgetPos.x() / sx), int(widgetPos.y() / sy));
+}
+
+void HostWindow::applyHitCursor(const QPointF& widgetPos) {
+  const auto hit = title_.hit(logicalFrom(widgetPos));
+  if (hit == tramp::TitleChromeLayout::Hit::drag) {
+    setCursor(Qt::OpenHandCursor);
+  } else if (hit == tramp::TitleChromeLayout::Hit::none) {
+    setCursor(Qt::ArrowCursor);
+  } else {
+    setCursor(Qt::PointingHandCursor);
+  }
+}
+
 void HostWindow::paintEvent(QPaintEvent*) {
   QPainter p(this);
   p.setRenderHint(QPainter::Antialiasing);
-
-  QRectF panel = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
-  QPainterPath path;
-  path.addRoundedRect(panel, kCorner, kCorner);
-
-  p.setPen(QPen(QColor(255, 255, 255, 40), 1));
-  p.setBrush(spec_.panel);
-  p.drawPath(path);
+  const qreal sx = qreal(width()) / qMax(1, spec_.logicalSize.width());
+  const qreal sy = qreal(height()) / qMax(1, spec_.logicalSize.height());
+  p.scale(sx, sy);
+  tramp::paintMockupWindow(p, spec_.logicalSize, title_, &logo_);
 }
 
 void HostWindow::showEvent(QShowEvent* event) {
@@ -93,4 +65,39 @@ void HostWindow::closeEvent(QCloseEvent* event) {
     QCoreApplication::quit();
   }
   event->accept();
+}
+
+void HostWindow::mousePressEvent(QMouseEvent* event) {
+  if (event->button() != Qt::LeftButton) {
+    return;
+  }
+  const auto hit = title_.hit(logicalFrom(event->position()));
+  switch (hit) {
+    case tramp::TitleChromeLayout::Hit::close:
+      close();
+      event->accept();
+      return;
+    case tramp::TitleChromeLayout::Hit::minimize:
+      showMinimized();
+      event->accept();
+      return;
+    case tramp::TitleChromeLayout::Hit::collapse:
+    case tramp::TitleChromeLayout::Hit::zoomOut:
+    case tramp::TitleChromeLayout::Hit::zoomIn:
+      event->accept();
+      return;
+    case tramp::TitleChromeLayout::Hit::drag:
+      if (QWindow* win = windowHandle()) {
+        win->startSystemMove();
+      }
+      event->accept();
+      return;
+    case tramp::TitleChromeLayout::Hit::none:
+      break;
+  }
+}
+
+void HostWindow::mouseMoveEvent(QMouseEvent* event) {
+  applyHitCursor(event->position());
+  QWidget::mouseMoveEvent(event);
 }

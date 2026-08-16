@@ -1,7 +1,12 @@
 #pragma once
 
+#include "title_chrome.h"
 #include "window_spec.h"
 
+#include <QCloseEvent>
+#include <QImage>
+#include <QMouseEvent>
+#include <QPaintEvent>
 #include <QShowEvent>
 #include <QWidget>
 
@@ -15,7 +20,14 @@ class HostWindow : public QWidget {
   void paintEvent(QPaintEvent* event) override;
   void closeEvent(QCloseEvent* event) override;
   void showEvent(QShowEvent* event) override;
+  void mousePressEvent(QMouseEvent* event) override;
+  void mouseMoveEvent(QMouseEvent* event) override;
 
  private:
+  QPoint logicalFrom(const QPointF& widgetPos) const;
+  void applyHitCursor(const QPointF& widgetPos);
+
   tramp::WindowSpec spec_;
+  tramp::TitleChromeLayout title_;
+  QImage logo_;
 };
