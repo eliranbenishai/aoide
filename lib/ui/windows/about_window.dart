@@ -42,6 +42,7 @@ class AboutWindow extends StatelessWidget {
     this.dockLogicalTopLeft,
     this.onDockMove,
     this.onNativeDragStarted,
+    this.startDragging,
     this.draggableTitle = true,
   });
 
@@ -70,6 +71,7 @@ class AboutWindow extends StatelessWidget {
     required bool ended,
   })? onDockMove;
   final VoidCallback? onNativeDragStarted;
+  final Future<void> Function()? startDragging;
   final bool draggableTitle;
 
   void _openWebsite() {
@@ -100,6 +102,7 @@ class AboutWindow extends StatelessWidget {
                 logicalTopLeft: dockLogicalTopLeft!,
                 onMove: onDockMove!,
                 onNativeDragStarted: onNativeDragStarted,
+                startDragging: startDragging,
                 child: region,
               )
           : null,

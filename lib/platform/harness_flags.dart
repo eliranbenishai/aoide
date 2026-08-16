@@ -8,7 +8,7 @@ import 'dart:ui';
 class HarnessFlags {
   HarnessFlags._();
 
-  /// Do not spawn EQ / playlist / settings / about engines.
+  /// Do not spawn EQ / playlist / settings / about windows.
   static bool get soloMain => _on('TRAMP_SOLO_MAIN');
 
   /// Skip [LinuxDragPoll] during native title-bar drag.

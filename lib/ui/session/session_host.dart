@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:window_manager/window_manager.dart';
 
+import '../../domain/about_stats.dart';
 import '../../domain/collection_figures.dart';
 import '../../domain/track.dart';
 import '../../domain/tramp_settings.dart';
@@ -17,6 +17,8 @@ import '../../look/look_installer.dart';
 import '../../platform/app_support_dir.dart';
 import '../../platform/harness_flags.dart';
 import '../../platform/file_open.dart';
+import '../../platform/open_url.dart';
+import '../../platform/os_window.dart';
 import '../../platform/session_resume_store.dart';
 import '../../platform/settings_store.dart';
 import '../../platform/tramp_window.dart';
@@ -37,17 +39,21 @@ import '../docking/dock_move_coalescer.dart';
 import '../docking/docking_coordinator.dart';
 import '../docking/linux_drag_poll.dart';
 import '../docking/native_drag_tracker.dart';
+import '../windows/about_window.dart';
+import '../windows/equalizer_window.dart';
 import '../windows/main_player_window.dart';
+import '../windows/playlist_window.dart';
+import '../windows/settings_window.dart';
 import '../zoom/zoomed_canvas.dart';
 import 'always_on_top.dart';
 import 'minimize_group.dart';
-import 'session_broadcast.dart';
-import 'session_bus.dart';
 import 'session_messages.dart';
 import 'session_quit.dart';
 import 'session_visibility.dart';
 import '../../look/look_controller.dart';
 import '../../theme/look_scope.dart';
+
+part 'session_host_chrome.dart';
 
 /// Main-engine session owner: controllers/settings, docking frames, EQ/PL windows.
 class SessionHostApp extends StatefulWidget {
@@ -70,10 +76,10 @@ class SessionHostApp extends StatefulWidget {
   State<SessionHostApp> createState() => _SessionHostAppState();
 }
 
-class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
+class _SessionHostAppState extends State<SessionHostApp>
+    with WindowListener, WidgetsBindingObserver {
   late final SettingsStore _settingsStore;
   late final LookController _lookController;
-  late final SessionBus _bus;
   late final PlaylistController _playlist;
   late final PlaylistCollectionController _collection;
   late final PlaybackController _playback;
@@ -95,10 +101,10 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   bool _playlistCollectionCollapsed =
       TrampSettings.defaults.playlistCollectionCollapsed;
 
-  WindowController? _equalizerWindow;
-  WindowController? _playlistWindow;
-  WindowController? _settingsWindow;
-  WindowController? _aboutWindow;
+  OsWindow? _equalizerWindow;
+  OsWindow? _playlistWindow;
+  OsWindow? _settingsWindow;
+  OsWindow? _aboutWindow;
   bool _eqReady = false;
   bool _playlistReady = false;
   bool _settingsReady = false;
@@ -122,6 +128,10 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   Timer? _resumeSaveTimer;
   late final NativeDragTracker _mainNativeDrag;
   late final LinuxDragPoll _mainLinuxDragPoll;
+  Timer? _playlistResizeDebounce;
+  Timer? _collectionWidthDebounce;
+  double? _pendingCollectionWidth;
+  Size? _lastPlaylistPixelSize;
   /// Guards [onWindowFocus] → raise → main [focus] from re-entering.
   bool _raisingFocusGroup = false;
 
@@ -139,18 +149,22 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         // Soft end: siblings only — do not fight the OS HWND if drag resumes.
         unawaited(
           _nativeSyncCoalescer.flush(
-            () => _syncNativeMainDrag(ended: true, softEnd: true),
+            () => _syncNativeDrag(
+              _dockDragWindow ?? WindowId.main,
+              ended: true,
+              softEnd: true,
+            ),
           ),
         );
       },
     );
     _mainLinuxDragPoll = LinuxDragPoll(
-      getPosition: windowManager.getPosition,
+      getPosition: _pixelPositionOfDragged,
       onMotion: (_) {
         if (!_mainNativeDrag.onMoveEvent()) return;
         _nativeDragging = true;
-        _dockDragWindow = WindowId.main;
-        _nativeSyncCoalescer.schedule(() => _syncNativeMainDrag(ended: false));
+        final id = _dockDragWindow ?? WindowId.main;
+        _nativeSyncCoalescer.schedule(() => _syncNativeDrag(id, ended: false));
       },
     );
     _settingsStore = widget.settingsStore ??
@@ -163,7 +177,6 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       supportDir: trampSupportDirectory,
     );
     _lookController.addListener(_onLookChanged);
-    _bus = SessionBus();
     _docking = _createDocking(DockLayout.defaults);
     // Share one media_kit Player so EQ `af` and transport hit the same libmpv.
     final Player? sharedPlayer =
@@ -205,6 +218,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     _collection.addListener(_onCollectionChanged);
     _playback.addListener(_onPlaybackChanged);
     windowManager.addListener(this);
+    WidgetsBinding.instance.addObserver(this);
     unawaited(_bootstrap());
   }
 
@@ -222,25 +236,21 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       _lastPlaylistSource = source;
       _collection.select(source);
     }
-    unawaited(_broadcastPlaylistSnapshot());
     if (mounted) setState(() {});
   }
 
   void _onCollectionChanged() {
-    unawaited(_broadcastCollectionSnapshot());
     unawaited(_refreshAboutStats());
+    if (mounted) setState(() {});
   }
 
   void _onPlaybackChanged() {
-    unawaited(_broadcastPlaylistSnapshot());
-    unawaited(_broadcastPlaybackSnapshot());
     unawaited(_refreshAboutStats());
     _scheduleResumeSave();
   }
 
   void _onLookChanged() {
-    unawaited(_broadcastLookSnapshot());
-    unawaited(_broadcastSettingsSnapshot());
+    if (mounted) setState(() {});
   }
 
   void _scheduleResumeSave() {
@@ -274,9 +284,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
 
   Future<void> _bootstrap() async {
     try {
-      await _bus.bindHost(_onCommand);
       await windowManager.setPreventClose(true);
-      // Same rule as SessionClientApp: ITaskbarList is created only in
+      // Same rule as the old secondary engines: ITaskbarList is created only in
       // waitUntilReadyToShow. setSkipTaskbar without it native-crashes on
       // Windows (null taskbar_). The runner never maps this HWND, so hide()
       // is also a deadlock risk there (ShowWindow nested in the UI isolate).
@@ -321,18 +330,15 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       }
       await _playback.setForceMono(_forceMono);
 
-      // Show main before spawning four more Flutter engines (~1s each on
-      // Windows). If those hang, the listener still has a window.
+      // Extra views share this isolate — create them before the first chrome
+      // frame so ViewAnchor is present immediately.
+      await _ensureSecondaryWindows();
       if (mounted) {
         setState(() => _bootstrapped = true);
       }
       await WidgetsBinding.instance.endOfFrame;
       await WidgetsBinding.instance.endOfFrame;
       _revealWindows = true;
-      await _applyMainFrame();
-      await _applyAlwaysOnTop();
-
-      await _ensureSecondaryWindows();
       await _applyAllFrames();
       await _applyAlwaysOnTop();
       // The session is up and the windows are mapped: now, and only now, check the
@@ -411,72 +417,55 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     if (HarnessFlags.soloMain) {
       return;
     }
-    _equalizerWindow ??= await WindowController.create(
-      WindowConfiguration(
-        hiddenAtLaunch: true,
-        arguments: encodeWindowArguments(WindowRole.equalizer),
-      ),
+    final zoom = _zoomPercent / 100.0;
+    Size seed(WindowId id, Size fallback) {
+      try {
+        return _docking.frameFor(id, zoom).size;
+      } catch (_) {
+        return TrampMetrics.zoomed(fallback, _zoomPercent);
+      }
+    }
+
+    _equalizerWindow ??= OsWindow.create(
+      size: seed(WindowId.equalizer, TrampMetrics.equalizer),
+      title: 'Tramp — Equalizer',
     );
-    _playlistWindow ??= await WindowController.create(
-      WindowConfiguration(
-        hiddenAtLaunch: true,
-        arguments: encodeWindowArguments(WindowRole.playlist),
-      ),
+    _playlistWindow ??= OsWindow.create(
+      size: seed(WindowId.playlist, TrampMetrics.playlistDefault),
+      title: 'Tramp — Playlist',
+      resizable: true,
     );
-    _settingsWindow ??= await WindowController.create(
-      WindowConfiguration(
-        hiddenAtLaunch: true,
-        arguments: encodeWindowArguments(WindowRole.settings),
-      ),
+    _settingsWindow ??= OsWindow.create(
+      size: seed(WindowId.settings, TrampMetrics.settings),
+      title: 'Tramp — Settings',
     );
-    _aboutWindow ??= await WindowController.create(
-      WindowConfiguration(
-        hiddenAtLaunch: true,
-        arguments: encodeWindowArguments(WindowRole.about),
-      ),
+    _aboutWindow ??= OsWindow.create(
+      size: seed(WindowId.about, TrampMetrics.about),
+      title: 'Tramp — About',
     );
+    _eqReady = true;
+    _playlistReady = true;
+    _settingsReady = true;
+    _aboutReady = true;
   }
 
   Future<void> _onCommand(SessionCommand command) async {
     switch (command) {
       case ClientReadyCommand(:final role):
-        if (role == WindowRole.equalizer) {
-          _eqReady = true;
-          await _pushEqSnapshot(role);
-        } else if (role == WindowRole.playlist) {
-          _playlistReady = true;
-          await _pushPlaylistSnapshot(role);
-          await _pushPlaybackSnapshot(role);
-          // The Playlist Manager reads its collection panel layout from the
-          // settings snapshot; without this push it paints the default width
-          // until some unrelated broadcast happens to arrive.
-          await _pushSettingsSnapshot(role);
-          await _pushCollectionSnapshot(role);
-        } else if (role == WindowRole.settings) {
-          _settingsReady = true;
-          await _pushSettingsSnapshot(role);
-        } else if (role == WindowRole.about) {
-          _aboutReady = true;
-          // Unawaited, and a no-op unless the listener left the window open:
-          // the figures cost a file read, and the handshake happens while the
-          // session is still coming up.
+        await _applyRoleFrame(role);
+        if (role == WindowRole.about) {
           unawaited(_refreshAboutStats());
         }
-        await _pushLookSnapshot(role);
-        await _applyRoleFrame(role);
-        await _pushDockSnapshot(role);
       case ToggleWindowCommand(:final window, :final visible):
         if (window == WindowId.main) return;
         _docking.setVisible(window, visible);
         await _persistLayout();
         await _applyRoleFrame(_roleFor(window));
-        await _broadcastDockSnapshot();
         if (visible && window == WindowId.settings) {
           await _orderSettingsOnTop();
         }
         if (visible && window == WindowId.about) {
           await _raiseAbout();
-          // Opening the well is the moment the figures are wanted.
           await _refreshAboutStats();
         }
         if (mounted) setState(() {});
@@ -484,7 +473,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         _docking.setShaded(window, shaded);
         await _persistLayout();
         await _applyRoleFrame(_roleFor(window));
-        await _broadcastDockSnapshot();
+        if (mounted) setState(() {});
       case AlwaysOnTopCommand(:final enabled):
         _alwaysOnTop = enabled;
         await _applyAlwaysOnTop();
@@ -501,29 +490,24 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         await _handleUpdateGeneralSettings(command);
       case ActivateSkinCommand(:final id):
         await _lookController.activate(id);
-        await _broadcastSettingsSnapshot();
+        if (mounted) setState(() {});
       case InstallSkinPathCommand(:final path, :final isDirectory):
         await _handleInstallSkin(path, isDirectory: isDirectory);
       case SetSkinsDirectoryCommand(:final path):
         await _lookController.setSkinsDirectory(path);
-        await _broadcastSettingsSnapshot();
+        if (mounted) setState(() {});
       case ResetSettingsCommand():
         await _handleResetSettings();
       case EqGainCommand(:final band, :final gain):
         _equalizer.setGain(band, gain);
-        await _broadcastEqSnapshot();
       case EqPreampCommand(:final preamp):
         _equalizer.setPreamp(preamp);
-        await _broadcastEqSnapshot();
       case EqEnabledCommand(:final enabled):
         _equalizer.setEnabled(enabled);
-        await _broadcastEqSnapshot();
       case EqAutoCommand(:final enabled):
         _equalizer.setAuto(enabled);
-        await _broadcastEqSnapshot();
       case ApplyPresetCommand(:final name):
         _equalizer.applyPreset(name);
-        await _broadcastEqSnapshot();
       case TransportCommand(:final action):
         await _handleTransport(action);
       case SeekCommand(:final positionMs):
@@ -590,7 +574,6 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       _docking.snapThreshold = _dockSnapStrength.snapPixels;
     }
     await _persistLayout();
-    await _broadcastSettingsSnapshot();
     if (mounted) setState(() {});
   }
 
@@ -607,7 +590,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     } else {
       await _lookController.installZip(File(path), onConflict: replace);
     }
-    await _broadcastSettingsSnapshot();
+    if (mounted) setState(() {});
   }
 
   /// Preferences reset; content survives.
@@ -630,9 +613,6 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     await _playback.setForceMono(_forceMono);
     await _applyAllFrames();
     await _applyAlwaysOnTop();
-    await _broadcastDockSnapshot();
-    await _broadcastLookSnapshot();
-    await _broadcastSettingsSnapshot();
     if (mounted) setState(() {});
   }
 
@@ -680,7 +660,6 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       _dockDragWindow = null;
       _nativeDragging = false;
       await _persistLayout();
-      await _broadcastDockSnapshot();
       if (mounted) setState(() {});
       return;
     }
@@ -712,13 +691,18 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   void _onNativeDragStarted(WindowId id) {
     _nativeDragging = true;
     _dockDragWindow = id;
-    if (id == WindowId.main) {
-      _mainNativeDrag.started();
-      _mainLinuxDragPoll.start();
-    }
+    _mainNativeDrag.started();
+    _mainLinuxDragPoll.start(force: id != WindowId.main);
   }
 
-  Future<void> _syncNativeMainDrag({
+  Future<Offset> _pixelPositionOfDragged() async {
+    final id = _dockDragWindow ?? WindowId.main;
+    if (id == WindowId.main) return windowManager.getPosition();
+    return _osWindow(id)?.getPosition() ?? Offset.zero;
+  }
+
+  Future<void> _syncNativeDrag(
+    WindowId id, {
     required bool ended,
     bool softEnd = false,
   }) async {
@@ -727,10 +711,15 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       _mainNativeDrag.endedConfirmed();
     }
     final zoom = (_zoomPercent / 100.0).clamp(0.5, 4.0);
-    final pos = await windowManager.getPosition();
+    final Offset pos;
+    if (id == WindowId.main) {
+      pos = await windowManager.getPosition();
+    } else {
+      pos = _osWindow(id)?.getPosition() ?? Offset.zero;
+    }
     final logical = Offset(pos.dx / zoom, pos.dy / zoom);
     await _handleDockMove(
-      WindowId.main,
+      id,
       logical,
       shiftUndock: HardwareKeyboard.instance.isShiftPressed,
       ended: ended,
@@ -906,83 +895,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     );
     _playlistCollectionCollapsed = collapsed;
     await _persistLayout();
-    await _broadcastSettingsSnapshot();
+    if (mounted) setState(() {});
   }
-
-  Future<void> _pushEqSnapshot(WindowRole role) async {
-    final controller = switch (role) {
-      WindowRole.equalizer => _equalizerWindow,
-      WindowRole.playlist => _playlistWindow,
-      WindowRole.settings => _settingsWindow,
-      WindowRole.about => _aboutWindow,
-      WindowRole.main => null,
-    };
-    if (controller == null) return;
-    try {
-      await SessionBus.pushEvent(
-        controller,
-        EqSnapshotEvent(_equalizer.settings),
-      );
-    } catch (error, stack) {
-      debugPrint('SessionHost pushEq($role) failed: $error\n$stack');
-    }
-  }
-
-  Future<void> _broadcastEqSnapshot() =>
-      _broadcast(EqSnapshotEvent(_equalizer.settings));
-
-  PlaylistSnapshotEvent _playlistSnapshot() {
-    return PlaylistSnapshotEvent(
-      tracks: List.of(_playlist.playlist.tracks),
-      selectedIndices: _playlist.selectedIndices.toList()..sort(),
-      selectedIndex: _playlist.selectedIndex,
-      sourcePath: _playlist.playlist.sourcePath,
-      playingIndex: _playback.playingIndex,
-      playing: _playback.playing,
-      altered: _playlist.altered,
-    );
-  }
-
-  Future<void> _pushPlaylistSnapshot(WindowRole role) async {
-    final controller = switch (role) {
-      WindowRole.playlist => _playlistWindow,
-      WindowRole.equalizer => _equalizerWindow,
-      WindowRole.settings => _settingsWindow,
-      WindowRole.about => _aboutWindow,
-      WindowRole.main => null,
-    };
-    if (controller == null) return;
-    try {
-      await SessionBus.pushEvent(controller, _playlistSnapshot());
-    } catch (error, stack) {
-      debugPrint('SessionHost pushPlaylist($role) failed: $error\n$stack');
-    }
-  }
-
-  Future<void> _broadcastPlaylistSnapshot() =>
-      _broadcast(_playlistSnapshot());
-
-  PlaylistCollectionSnapshotEvent _collectionSnapshot() {
-    return PlaylistCollectionSnapshotEvent(
-      playlists: _collection.entries,
-      selectedPath: _collection.selectedPath,
-      disabledPaths: _collection.disabledPaths.toList(),
-      lastError: _collection.lastError,
-    );
-  }
-
-  Future<void> _pushCollectionSnapshot(WindowRole role) async {
-    final controller = _controllerFor(role);
-    if (controller == null) return;
-    try {
-      await SessionBus.pushEvent(controller, _collectionSnapshot());
-    } catch (error, stack) {
-      debugPrint('SessionHost pushCollection($role) failed: $error\n$stack');
-    }
-  }
-
-  Future<void> _broadcastCollectionSnapshot() =>
-      _broadcast(_collectionSnapshot());
 
   /// Sends the About window a fresh reading, but only when there is one to
   /// send and someone to read it.
@@ -1009,54 +923,8 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       _aboutFiguresRevision = revision;
       _aboutFigures = await _collection.readFigures();
     }
-    final controller = _aboutWindow;
-    if (controller == null) return;
-    try {
-      await SessionBus.pushEvent(
-        controller,
-        AboutStatsEvent(
-          playlists: _aboutFigures.playlists,
-          tracks: _aboutFigures.tracks,
-          totalDurationMs: _aboutFigures.totalDuration.inMilliseconds,
-          spins: spins,
-        ),
-      );
-    } catch (error, stack) {
-      debugPrint('SessionHost pushAboutStats failed: $error\n$stack');
-    }
+    if (mounted) setState(() {});
   }
-
-  PlaybackSnapshotEvent _playbackSnapshot() {
-    return PlaybackSnapshotEvent(
-      playing: _playback.playing,
-      positionMs: _playback.position.inMilliseconds,
-      durationMs: _playback.duration.inMilliseconds,
-      volume: _playback.volume,
-      muted: _playback.muted,
-      shuffle: _playback.shuffle,
-      repeatMode: _playback.repeatMode.name,
-      playingPath: _playback.currentTrack?.path,
-    );
-  }
-
-  Future<void> _pushPlaybackSnapshot(WindowRole role) async {
-    final controller = switch (role) {
-      WindowRole.playlist => _playlistWindow,
-      WindowRole.equalizer => _equalizerWindow,
-      WindowRole.settings => _settingsWindow,
-      WindowRole.about => _aboutWindow,
-      WindowRole.main => null,
-    };
-    if (controller == null) return;
-    try {
-      await SessionBus.pushEvent(controller, _playbackSnapshot());
-    } catch (error, stack) {
-      debugPrint('SessionHost pushPlayback($role) failed: $error\n$stack');
-    }
-  }
-
-  Future<void> _broadcastPlaybackSnapshot() =>
-      _broadcast(_playbackSnapshot());
 
   Future<void> _stepZoom(int delta) async {
     final steps = TrampSettings.validZoomPercents;
@@ -1071,8 +939,6 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     _docking.reanchorForZoom(fromZoom: fromZoom, toZoom: toZoom);
     await _applyAllFrames();
     await _persistLayout();
-    await _broadcast(ZoomChangedEvent(_zoomPercent));
-    await _broadcastDockSnapshot();
     if (mounted) setState(() {});
   }
 
@@ -1182,14 +1048,14 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       await _applyMainFrame(positionOnly: positionOnly);
       return;
     }
-    final controller = switch (role) {
+    final window = switch (role) {
       WindowRole.equalizer => _equalizerWindow,
       WindowRole.playlist => _playlistWindow,
       WindowRole.settings => _settingsWindow,
       WindowRole.about => _aboutWindow,
       WindowRole.main => null,
     };
-    if (controller == null) return;
+    if (window == null) return;
     if (role == WindowRole.equalizer && !_eqReady) return;
     if (role == WindowRole.playlist && !_playlistReady) return;
     if (role == WindowRole.settings && !_settingsReady) return;
@@ -1211,8 +1077,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       minimizeSuppressed: _minimizeGroup.shouldSuppressShow(id),
     );
     try {
-      await SessionBus.pushFrame(
-        controller,
+      window.applyFrame(
         left: rect.left,
         top: rect.top,
         width: rect.width,
@@ -1224,9 +1089,11 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         ),
         positionOnly: positionOnly,
       );
+      if (id == WindowId.playlist && !positionOnly) {
+        _lastPlaylistPixelSize = rect.size;
+      }
     } catch (error, stack) {
-      // Client may be restarting; ready handshake will retry.
-      debugPrint('SessionHost pushFrame($role) failed: $error\n$stack');
+      debugPrint('SessionHost applyFrame($role) failed: $error\n$stack');
     }
   }
 
@@ -1266,19 +1133,13 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     required bool hidden,
   }) async {
     for (final id in ids) {
-      final controller = switch (id) {
-        WindowId.equalizer => _equalizerWindow,
-        WindowId.playlist => _playlistWindow,
-        WindowId.settings => _settingsWindow,
-        WindowId.about => _aboutWindow,
-        WindowId.main => null,
-      };
-      if (controller == null) continue;
+      final window = _osWindow(id);
+      if (window == null) continue;
       try {
         if (hidden) {
-          await controller.hide();
+          window.native.hide();
         } else {
-          await controller.show();
+          window.native.show();
         }
       } catch (error, stack) {
         debugPrint(
@@ -1314,48 +1175,6 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     );
   }
 
-  DockSnapshotEvent _dockSnapshot() {
-    final layout = _docking.layout;
-    return DockSnapshotEvent(
-      main: layout.main,
-      equalizer: layout.equalizer,
-      playlist: layout.playlist,
-      settings: layout.settings,
-      about: layout.about,
-      dockEdges: layout.dockEdges,
-      zoomPercent: _zoomPercent,
-    );
-  }
-
-  Future<void> _pushDockSnapshot(WindowRole role) async {
-    final controller = _controllerFor(role);
-    if (controller == null) return;
-    try {
-      await SessionBus.pushEvent(controller, _dockSnapshot());
-    } catch (error, stack) {
-      debugPrint('SessionHost pushEvent($role) failed: $error\n$stack');
-    }
-  }
-
-  Future<void> _broadcastDockSnapshot() => _broadcast(_dockSnapshot());
-
-  LookSnapshotEvent _lookSnapshot() => LookSnapshotEvent.fromResolved(
-        _lookController.resolved,
-        fontFiles: _lookController.fontFiles,
-      );
-
-  Future<void> _pushLookSnapshot(WindowRole role) async {
-    final controller = _controllerFor(role);
-    if (controller == null) return;
-    try {
-      await SessionBus.pushEvent(controller, _lookSnapshot());
-    } catch (error, stack) {
-      debugPrint('SessionHost pushLook($role) failed: $error\n$stack');
-    }
-  }
-
-  Future<void> _broadcastLookSnapshot() => _broadcast(_lookSnapshot());
-
   SettingsSnapshotEvent _settingsSnapshot() {
     return SettingsSnapshotEvent(
       resumeLastSession: _resumeLastSession,
@@ -1372,60 +1191,6 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       playlistCollectionWidth: _playlistCollectionWidth,
       playlistCollectionCollapsed: _playlistCollectionCollapsed,
     );
-  }
-
-  Future<void> _pushSettingsSnapshot(WindowRole role) async {
-    final controller = _controllerFor(role);
-    if (controller == null) return;
-    try {
-      await SessionBus.pushEvent(controller, _settingsSnapshot());
-    } catch (error, stack) {
-      debugPrint('SessionHost pushSettings($role) failed: $error\n$stack');
-    }
-  }
-
-  Future<void> _broadcastSettingsSnapshot() =>
-      _broadcast(_settingsSnapshot());
-
-  WindowController? _controllerFor(WindowRole role) => switch (role) {
-        WindowRole.equalizer => _equalizerWindow,
-        WindowRole.playlist => _playlistWindow,
-        WindowRole.settings => _settingsWindow,
-        WindowRole.about => _aboutWindow,
-        WindowRole.main => null,
-      };
-
-  /// Secondary roles whose OS window has been created.
-  Set<WindowRole> get _createdRoles => {
-        if (_equalizerWindow != null) WindowRole.equalizer,
-        if (_playlistWindow != null) WindowRole.playlist,
-        if (_settingsWindow != null) WindowRole.settings,
-        if (_aboutWindow != null) WindowRole.about,
-      };
-
-  /// Secondary roles that have completed the [ClientReadyCommand] handshake.
-  Set<WindowRole> get _readyRoles => {
-        if (_eqReady) WindowRole.equalizer,
-        if (_playlistReady) WindowRole.playlist,
-        if (_settingsReady) WindowRole.settings,
-        if (_aboutReady) WindowRole.about,
-      };
-
-  Future<void> _broadcast(SessionEvent event) async {
-    for (final role in secondaryBroadcastRoles(
-      created: _createdRoles,
-      ready: _readyRoles,
-    )) {
-      final controller = _controllerFor(role);
-      if (controller == null) continue;
-      try {
-        await SessionBus.pushEvent(controller, event);
-      } catch (error, stack) {
-        debugPrint(
-          'SessionHost broadcast ${event.type} failed: $error\n$stack',
-        );
-      }
-    }
   }
 
   Future<void> _handleLocalCommand(SessionCommand command) async {
@@ -1547,7 +1312,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
           _equalizerWindow != null &&
           !_minimizeGroup.shouldSuppressShow(WindowId.equalizer)) {
         try {
-          await SessionBus.pushRaise(_equalizerWindow!);
+          _equalizerWindow!.raise();
         } catch (error, stack) {
           debugPrint('SessionHost raise(eq) failed: $error\n$stack');
         }
@@ -1557,7 +1322,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
           _playlistWindow != null &&
           !_minimizeGroup.shouldSuppressShow(WindowId.playlist)) {
         try {
-          await SessionBus.pushRaise(_playlistWindow!);
+          _playlistWindow!.raise();
         } catch (error, stack) {
           debugPrint('SessionHost raise(pl) failed: $error\n$stack');
         }
@@ -1582,7 +1347,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       return;
     }
     try {
-      await SessionBus.pushOrderTop(_settingsWindow!);
+      _settingsWindow!.raise(focus: false);
     } catch (error, stack) {
       debugPrint('SessionHost orderTop(settings) failed: $error\n$stack');
     }
@@ -1597,14 +1362,53 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
       return;
     }
     try {
-      await SessionBus.pushRaise(_aboutWindow!);
+      _aboutWindow!.raise();
     } catch (error, stack) {
       debugPrint('SessionHost raise(about) failed: $error\n$stack');
     }
   }
 
   @override
+  void didChangeMetrics() {
+    if (_nativeDragging) return;
+    _playlistResizeDebounce?.cancel();
+    _playlistResizeDebounce = Timer(const Duration(milliseconds: 120), () {
+      unawaited(_persistPlaylistSizeFromOs());
+    });
+  }
+
+  Future<void> _persistPlaylistSizeFromOs() async {
+    final os = _playlistWindow;
+    if (os == null || !_playlistReady) return;
+    if (!_docking.layout.playlist.visible) return;
+    final zoom = (_zoomPercent / 100.0).clamp(0.5, 4.0);
+    final px = os.getSize();
+    final last = _lastPlaylistPixelSize;
+    if (last != null &&
+        (px.width - last.width).abs() < 2 &&
+        (px.height - last.height).abs() < 2) {
+      return;
+    }
+    _lastPlaylistPixelSize = px;
+    await _handlePlaylistResize(px.width / zoom, px.height / zoom);
+  }
+
+  void _scheduleCollectionWidth(double width) {
+    _pendingCollectionWidth = width;
+    _collectionWidthDebounce?.cancel();
+    _collectionWidthDebounce = Timer(const Duration(milliseconds: 120), () {
+      unawaited(
+        _handlePlaylistCollectionResize(
+          _pendingCollectionWidth ?? _playlistCollectionWidth,
+          collapsed: _playlistCollectionCollapsed,
+        ),
+      );
+    });
+  }
+
+  @override
   void onWindowMove() {
+    if (_dockDragWindow != null && _dockDragWindow != WindowId.main) return;
     // Tracker gates + arms quiet end; also resumes after a soft quiet finalize.
     if (!_mainNativeDrag.onMoveEvent()) return;
     _nativeDragging = true;
@@ -1612,11 +1416,14 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     if (LinuxDragPoll.isNeeded && !_mainLinuxDragPoll.isRunning) {
       _mainLinuxDragPoll.start();
     }
-    _nativeSyncCoalescer.schedule(() => _syncNativeMainDrag(ended: false));
+    _nativeSyncCoalescer.schedule(
+      () => _syncNativeDrag(WindowId.main, ended: false),
+    );
   }
 
   @override
   void onWindowMoved() {
+    if (_dockDragWindow != null && _dockDragWindow != WindowId.main) return;
     if (!_nativeDragging && !_mainNativeDrag.isActive && !_mainNativeDrag.softEnded) {
       return;
     }
@@ -1625,7 +1432,9 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     _nativeDragging = true;
     _dockDragWindow = WindowId.main;
     unawaited(
-      _nativeSyncCoalescer.flush(() => _syncNativeMainDrag(ended: true)),
+      _nativeSyncCoalescer.flush(
+        () => _syncNativeDrag(WindowId.main, ended: true),
+      ),
     );
   }
 
@@ -1667,20 +1476,17 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
         if (ok != true) return;
       }
     }
-    // Conceal chrome immediately. Do not await engine destroy — that is the
-    // multi-second Linux hang. Persist, then `_exit` the whole process.
-    for (final controller in [
+    // Conceal chrome immediately. Persist, then `_exit` the whole process.
+    for (final window in [
       _equalizerWindow,
       _playlistWindow,
       _settingsWindow,
       _aboutWindow,
     ]) {
-      if (controller == null) continue;
-      unawaited(() async {
-        try {
-          await controller.hide();
-        } catch (_) {}
-      }());
+      if (window == null) continue;
+      try {
+        window.native.hide();
+      } catch (_) {}
     }
     unawaited(() async {
       try {
@@ -1693,8 +1499,11 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   @override
   void dispose() {
     _resumeSaveTimer?.cancel();
+    _playlistResizeDebounce?.cancel();
+    _collectionWidthDebounce?.cancel();
     _mainLinuxDragPoll.dispose();
     _mainNativeDrag.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     windowManager.removeListener(this);
     _lookController.removeListener(_onLookChanged);
     _lookController.dispose();
@@ -1707,7 +1516,10 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
     if (probe is MediaKitTrackMetadataProbe) {
       unawaited(probe.dispose());
     }
-    unawaited(_bus.unbind());
+    _equalizerWindow?.destroy();
+    _playlistWindow?.destroy();
+    _settingsWindow?.destroy();
+    _aboutWindow?.destroy();
     unawaited(_playback.dispose());
     super.dispose();
   }
@@ -1716,7 +1528,7 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
   Widget build(BuildContext context) {
     final layout = _docking.layout;
     final zoom = _zoomPercent / 100.0;
-    return MaterialApp(
+    final main = MaterialApp(
       title: 'Tramp',
       debugShowCheckedModeBanner: false,
       color: trampWindowFill(),
@@ -1748,7 +1560,6 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
                     _docking.layout.main.top,
                   ),
                   onDockMove: (topLeft, {required shiftUndock, required ended}) {
-                    // Fallback path when nativeDragging is disabled (tests).
                     unawaited(
                       _handleDockMove(
                         WindowId.main,
@@ -1771,6 +1582,20 @@ class _SessionHostAppState extends State<SessionHostApp> with WindowListener {
                 ),
               ),
       ),
+    );
+    final extras = <Widget>[
+      for (final view in [
+        _equalizerView(),
+        _playlistView(),
+        _settingsView(),
+        _aboutView(),
+      ])
+        if (view != null) view,
+    ];
+    if (extras.isEmpty) return main;
+    return ViewAnchor(
+      view: ViewCollection(views: extras),
+      child: main,
     );
   }
 }

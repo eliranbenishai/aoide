@@ -24,6 +24,7 @@ class EqualizerWindow extends StatelessWidget {
     this.dockLogicalTopLeft,
     this.onDockMove,
     this.onNativeDragStarted,
+    this.startDragging,
     this.draggableTitle = true,
   });
 
@@ -52,6 +53,9 @@ class EqualizerWindow extends StatelessWidget {
   /// Native OS title-bar drag began (sibling sync via onWindowMove).
   final VoidCallback? onNativeDragStarted;
 
+  /// Override for this window's HWND; defaults to [windowManager.startDragging].
+  final Future<void> Function()? startDragging;
+
   final bool draggableTitle;
 
   @override
@@ -70,6 +74,7 @@ class EqualizerWindow extends StatelessWidget {
                 logicalTopLeft: dockLogicalTopLeft!,
                 onMove: onDockMove!,
                 onNativeDragStarted: onNativeDragStarted,
+                startDragging: startDragging,
                 child: region,
               )
           : null,

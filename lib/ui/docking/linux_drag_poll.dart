@@ -34,8 +34,10 @@ class LinuxDragPoll {
 
   bool get isRunning => _timer != null;
 
-  void start() {
-    if (!isNeeded) return;
+  /// [force] polls on Windows/macOS too (extra HWNDs have no `onWindowMove`).
+  void start({bool force = false}) {
+    if (HarnessFlags.disableLinuxDragPoll) return;
+    if (!force && !Platform.isLinux) return;
     stop();
     _lastPosition = null;
     _timer = Timer.periodic(interval, (_) => unawaited(_tick()));

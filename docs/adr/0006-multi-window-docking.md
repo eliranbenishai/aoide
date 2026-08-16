@@ -54,8 +54,8 @@ behavior; see
 
 ## Consequences
 
-`DockingCoordinator` remains the pure layout seam; session host/client apply
-frames. Sticky dock edges record snap contact for persistence and peel, and
+`DockingCoordinator` remains the pure layout seam; the session host applies
+frames to each OS window. Sticky dock edges record snap contact for persistence and peel, and
 **gate** whether main carries satellites (`moveCohortOf` → `groupOf`). The
 single `TrampShell` lower-region EQ/PL swap stays removed. ADR 0003’s zoom-only
 main/EQ and free-resize playlist *sizing intent* continues under this ADR and
@@ -63,9 +63,10 @@ ADR 0002; its single-window framing does not.
 
 ## Implementation pins
 
-- `desktop_multi_window` `0.3.0` (MixinNetwork) — one process, three Flutter
-  engines; secondary plugin registration via platform window-created callbacks.
-- `window_manager` git fork required by that plugin’s README:
+- One Flutter engine / one Dart isolate; extra OS windows via 3.47 experimental
+  windowing (`OsWindow` + native GTK/Win32). See [ADR 0015](0015-one-engine-windows.md).
+- `window_manager` still owns the **main** HWND (frameless, skip-taskbar, OS
+  drag). Git fork pin:
 
   ```yaml
   window_manager:

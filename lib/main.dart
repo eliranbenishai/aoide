@@ -1,17 +1,15 @@
 import 'dart:async';
 
-import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'platform/libmpv_bundle.dart';
+import 'platform/os_window.dart';
 import 'playback/fake_player_engine.dart';
 import 'playback/player_engine.dart';
-import 'ui/session/session_client.dart';
 import 'ui/session/session_host.dart';
-import 'ui/session/session_messages.dart';
 import 'ui/session/session_quit.dart';
 
 Future<void> main(List<String> args) async {
@@ -23,36 +21,24 @@ Future<void> main(List<String> args) async {
 }
 
 Future<void> _main(List<String> args) async {
+  enableTrampWindowing();
   WidgetsFlutterBinding.ensureInitialized();
   await windowManager.ensureInitialized();
 
-  final windowController = await WindowController.fromCurrentEngine();
-  final role = parseWindowRole(windowController.arguments);
-
-  if (role == WindowRole.main) {
-    PlayerEngine? engine;
-    try {
-      MediaKit.ensureInitialized();
-      // Fail fast in debug/profile if packaging still points at slim libmpv.
-      await LibmpvBundle.verify(enforce: !kReleaseMode);
-    } catch (error, stack) {
-      if (!kReleaseMode && !trampAutoQuitRequested()) {
-        rethrow;
-      }
-      // Release: keep the chrome up so a missing DLL is not a silent exit.
-      debugPrint(
-        'media_kit init failed, using FakePlayerEngine: $error\n$stack',
-      );
-      engine = FakePlayerEngine();
+  PlayerEngine? engine;
+  try {
+    MediaKit.ensureInitialized();
+    // Fail fast in debug/profile if packaging still points at slim libmpv.
+    await LibmpvBundle.verify(enforce: !kReleaseMode);
+  } catch (error, stack) {
+    if (!kReleaseMode && !trampAutoQuitRequested()) {
+      rethrow;
     }
-    runApp(SessionHostApp(launchArgs: args, engine: engine));
-    return;
+    // Release: keep the chrome up so a missing DLL is not a silent exit.
+    debugPrint(
+      'media_kit init failed, using FakePlayerEngine: $error\n$stack',
+    );
+    engine = FakePlayerEngine();
   }
-
-  runApp(
-    SessionClientApp(
-      role: role,
-      windowController: windowController,
-    ),
-  );
+  runApp(SessionHostApp(launchArgs: args, engine: engine));
 }

@@ -10,6 +10,7 @@ import '../../domain/tramp_settings.dart';
 import '../../theme/tramp_metrics.dart';
 import '../chrome/mockup/mockup_shell.dart';
 import '../chrome/mockup/mockup_title_bar.dart';
+import '../chrome/os_drag_to_resize_area.dart';
 import '../chrome/window_resize_grip.dart';
 import '../docking/dock_drag_area.dart';
 import '../playlist/altered_playlist_dialog.dart';
@@ -51,6 +52,7 @@ class PlaylistWindow extends StatefulWidget {
     this.dockLogicalTopLeft,
     this.onDockMove,
     this.onNativeDragStarted,
+    this.startDragging,
     this.draggableTitle = true,
     this.showResizeGrip = true,
     this.startResizing,
@@ -115,6 +117,9 @@ class PlaylistWindow extends StatefulWidget {
 
   /// Native OS title-bar drag began (sibling sync via onWindowMove).
   final VoidCallback? onNativeDragStarted;
+
+  /// Override for this window's HWND; defaults to [windowManager.startDragging].
+  final Future<void> Function()? startDragging;
 
   final bool draggableTitle;
 
@@ -310,6 +315,7 @@ class _PlaylistWindowState extends State<PlaylistWindow> {
                 logicalTopLeft: widget.dockLogicalTopLeft!,
                 onMove: widget.onDockMove!,
                 onNativeDragStarted: widget.onNativeDragStarted,
+                startDragging: widget.startDragging,
                 child: region,
               )
           : null,
@@ -328,8 +334,21 @@ class _PlaylistWindowState extends State<PlaylistWindow> {
       ),
     );
 
-    if (resizable) {
+    if (resizable && widget.startResizing != null) {
       // Edges except top* — top strip stays free for title-bar dock drag.
+      shell = OsDragToResizeArea(
+        startResizing: widget.startResizing!,
+        resizeEdgeSize: 6,
+        enableResizeEdges: const [
+          ResizeEdge.left,
+          ResizeEdge.right,
+          ResizeEdge.bottom,
+          ResizeEdge.bottomLeft,
+          ResizeEdge.bottomRight,
+        ],
+        child: shell,
+      );
+    } else if (resizable) {
       shell = DragToResizeArea(
         resizeEdgeSize: 6,
         enableResizeEdges: const [
