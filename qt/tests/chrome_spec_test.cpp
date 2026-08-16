@@ -27,6 +27,8 @@ void ChromeSpecTest::tokensMatchMockupCssRoot() {
   QCOMPARE(tramp::kPhos.name(QColor::HexRgb).toLower(), QStringLiteral("#3de7ff"));
   QCOMPARE(tramp::kAccent.name(QColor::HexRgb).toLower(), QStringLiteral("#ff3d9a"));
   QCOMPARE(tramp::kWell.name(QColor::HexRgb).toLower(), QStringLiteral("#050608"));
+  QCOMPARE(tramp::kBtnOn0.name(QColor::HexRgb).toLower(), QStringLiteral("#a3f4ff"));
+  QCOMPARE(tramp::kSliderFillHi.name(QColor::HexRgb).toLower(), QStringLiteral("#cbf9ff"));
 }
 
 void ChromeSpecTest::titleBarStopsMatchMockupStylesheet() {

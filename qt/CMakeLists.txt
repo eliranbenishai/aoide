@@ -24,6 +24,7 @@ qt_add_executable(tramp-qt-tracer WIN32
   src/host_window.h
   src/chrome_paint.cpp
   src/chrome_bodies.cpp
+  src/mockup_draw.cpp
   src/tramp_fonts.cpp
   ${TRAMP_SKIP_TASKBAR_SRC}
 )

@@ -2,9 +2,9 @@
 
 Five frameless windows in one process. QWidget + QPainter.
 
-**Now:** mockup chassis (`.win` shell, `.tbar`, `.wbtn`, phosphor grips, `.screen` wells) at the 75% native seed. Title-strip drag uses `startSystemMove()`. Extras skip the taskbar. Closing **Tramp** (main) quits.
+**Now:** mockup chassis plus static window bodies (main / EQ / playlist / settings / about) painted from the frozen Flutter layout numbers and golden fixtures. `--dump-chrome DIR` writes 1× logical PNGs for comparison. Title-strip drag uses `startSystemMove()`. Extras skip the taskbar. Closing **Tramp** (main) quits.
 
-**Not yet:** docking, libmpv, interactive player/EQ/playlist chrome, zoom stepping.
+**Not yet:** live controls, docking, libmpv, zoom stepping.
 
 Windows: CI compiles this target. Drag feel on Windows comes later.
 
@@ -38,6 +38,12 @@ X11:
 
 ```sh
 QT_QPA_PLATFORM=xcb ./qt/build/tramp-qt-tracer
+```
+
+Dump logical chrome (no windows) for golden diffs:
+
+```sh
+QT_QPA_PLATFORM=offscreen ./qt/build/tramp-qt-tracer --dump-chrome /tmp/tramp-chrome
 ```
 
 Do not use `~/.config/tramp-flutter-env.sh` (it forces X11 and Mesa for Flutter). This binary is Qt; let it see `WAYLAND_DISPLAY`.

@@ -50,4 +50,25 @@ inline const QColor kCloseGlyph{0xff, 0xd6, 0xe8};
 inline const QColor kBevelLight{226, 236, 255, 38};  // 0.15
 inline const QColor kBevelSoft{226, 236, 255, 15};   // 0.06
 
+// Derived LookPaint literals on the builtin palette.
+inline const QColor kBtnIdle0{0x3f, 0x46, 0x57};
+inline const QColor kBtnIdle48{0x2b, 0x31, 0x3e};
+inline const QColor kBtnIdle100{0x1e, 0x22, 0x2c};
+inline const QColor kBtnOn0{0xa3, 0xf4, 0xff};
+inline const QColor kBtnOnInk{0x04, 0x22, 0x2b};
+inline const QColor kBtnOnLip{0xf0, 0xfd, 0xff};
+inline const QColor kBtnOnFoot{0x05, 0x46, 0x58};
+inline const QColor kBtnLabelIdle{196, 210, 232, 184};
+inline const QColor kSliderFillHi{0xcb, 0xf9, 0xff};
+inline const QColor kSliderFillLo{0x0f, 0x7f, 0x96};
+inline const QColor kSpectrum0{0xcb, 0xf9, 0xff};
+inline const QColor kSpectrum2{0x1b, 0x9e, 0xc4};
+inline const QColor kPlateFace{0x1e, 0x22, 0x2c};
+inline const QColor kHoverLift{0xe8, 0xf0, 0xff};
+inline const QColor kIdleLedHi{0x3d, 0x43, 0x50};
+inline const QColor kIdleLedLo{0x22, 0x26, 0x2f};
+inline const QColor kAccentHot{0xff, 0xd6, 0xea};
+inline const QColor kLitLedRim{0x5a, 0x0f, 0x32};
+inline const QColor kCurveStroke{0x8d, 0xf2, 0xff};
+
 }  // namespace tramp

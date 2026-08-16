@@ -1,6 +1,7 @@
 #include "chrome_paint.h"
 
 #include "chrome_bodies.h"
+#include "mockup_draw.h"
 #include "mockup_tokens.h"
 #include "tramp_fonts.h"
 #include "tramp_metrics.h"
@@ -115,34 +116,26 @@ void drawGrip(QPainter& p, const QRectF& slot) {
 }
 
 void drawGlyph(QPainter& p, const QRect& btn, TitleChromeLayout::Hit kind, const QColor& color) {
-  p.save();
-  p.setRenderHint(QPainter::Antialiasing, true);
-  p.setPen(QPen(color, 1.6, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-  p.setBrush(color);
-  const QRectF g = QRectF(btn).adjusted(7, 5, -7, -5);
+  MockupIcon icon = MockupIcon::minimize;
   switch (kind) {
     case TitleChromeLayout::Hit::minimize:
     case TitleChromeLayout::Hit::collapse:
-      p.fillRect(QRectF(g.left(), g.center().y() - 0.8, g.width(), 1.6), color);
+      icon = MockupIcon::minimize;
       break;
     case TitleChromeLayout::Hit::zoomOut:
-      p.fillRect(QRectF(g.left(), g.center().y() - 0.8, g.width(), 1.6), color);
+      icon = MockupIcon::zoomOut;
       break;
-    case TitleChromeLayout::Hit::zoomIn: {
-      const qreal cx = g.center().x();
-      const qreal cy = g.center().y();
-      p.fillRect(QRectF(g.left(), cy - 0.8, g.width(), 1.6), color);
-      p.fillRect(QRectF(cx - 0.8, g.top(), 1.6, g.height()), color);
+    case TitleChromeLayout::Hit::zoomIn:
+      icon = MockupIcon::zoomIn;
       break;
-    }
     case TitleChromeLayout::Hit::close:
-      p.drawLine(g.topLeft(), g.bottomRight());
-      p.drawLine(g.topRight(), g.bottomLeft());
+      icon = MockupIcon::close;
       break;
     default:
-      break;
+      return;
   }
-  p.restore();
+  const QRectF g = QRectF(btn).adjusted(7, 5, -7, -5);
+  drawIcon(p, g, icon, color);
 }
 
 void drawWinBtn(QPainter& p, const QRect& btn, bool close, TitleChromeLayout::Hit kind) {
@@ -191,6 +184,7 @@ void drawLogo(QPainter& p, const QRectF& disc, const QImage* logo) {
     QPainterPath clip;
     clip.addEllipse(disc);
     p.setClipPath(clip);
+    p.setRenderHint(QPainter::SmoothPixmapTransform);
     const QRectF dest = disc.adjusted(-disc.width() * 0.06, -disc.height() * 0.06,
                                       disc.width() * 0.06, disc.height() * 0.06);
     p.drawImage(dest, *logo);
@@ -213,18 +207,15 @@ void drawLogo(QPainter& p, const QRectF& disc, const QImage* logo) {
 }
 
 void drawWordmark(QPainter& p, const QRectF& box) {
-  QFont font(chromeFamily());
-  font.setPixelSize(24);
-  font.setWeight(QFont::Bold);
-  font.setLetterSpacing(QFont::AbsoluteSpacing, 24 * 0.2);
-  p.setFont(font);
+  QFont font = condensedFont(24, 0.2);
   const QString text = QStringLiteral("TRAMP");
+  p.setFont(font);
   p.setPen(QColor(0, 0, 0, 217));
   p.drawText(box.translated(0, 1), Qt::AlignVCenter | Qt::AlignLeft, text);
   p.setPen(QColor(226, 236, 255, 77));
   p.drawText(box.translated(0, -1), Qt::AlignVCenter | Qt::AlignLeft, text);
-  p.setPen(kWordmark);
-  p.drawText(box, Qt::AlignVCenter | Qt::AlignLeft, text);
+  drawGlowText(p, box, text, font, kWordmark, QColor(61, 231, 255, 77), 2,
+               Qt::AlignVCenter | Qt::AlignLeft);
 }
 
 QFont roleFont() {
@@ -288,36 +279,6 @@ void drawTitleContents(QPainter& p, const TitleChromeLayout& title, const QImage
   drawWinBtn(p, title.close, true, TitleChromeLayout::Hit::close);
 }
 
-void drawScreen(QPainter& p, const QRectF& well) {
-  QPainterPath path;
-  path.addRoundedRect(well, 3, 3);
-  p.save();
-  p.setClipPath(path);
-  QRadialGradient wash(QPointF(well.left() + well.width() * 0.18,
-                               well.top() - well.height() * 0.20),
-                       well.width() * 0.9);
-  wash.setColorAt(0, QColor(0x0f, 0x1c, 0x2a));
-  wash.setColorAt(0.48, QColor(0x07, 0x10, 0x18));
-  wash.setColorAt(1, QColor(0x04, 0x07, 0x0c));
-  p.fillRect(well, wash);
-
-  p.setPen(QPen(QColor(61, 231, 255, 26), 1));
-  p.setBrush(Qt::NoBrush);
-  p.drawRoundedRect(well.adjusted(0.5, 0.5, -0.5, -0.5), 3, 3);
-
-  for (qreal y = well.top(); y < well.bottom(); y += 3) {
-    p.fillRect(QRectF(well.left(), y, well.width(), 1), QColor(0, 0, 0, 82));
-  }
-  QLinearGradient glass(well.topLeft(), QPointF(well.left(), well.top() + well.height() * 0.38));
-  glass.setColorAt(0, QColor(255, 255, 255, 13));
-  glass.setColorAt(1, QColor(255, 255, 255, 0));
-  p.fillRect(well, glass);
-  p.restore();
-
-  p.setPen(QPen(QColor(226, 236, 255, 31), 1));
-  p.drawLine(QPointF(well.left() + 1, well.top()), QPointF(well.right() - 1, well.top()));
-}
-
 }  // namespace
 
 void paintMockupWindow(QPainter& painter,
@@ -331,9 +292,10 @@ void paintMockupWindow(QPainter& painter,
   drawShell(painter, rect);
   painter.save();
   painter.setClipPath(shell);
+  drawNoiseOverlay(painter, rect, kShellRadius);
   drawTitleFace(painter, QRectF(title.titleBar));
   drawTitleContents(painter, title, logo);
-  paintWindowBody(painter, id, logical);
+  paintWindowBody(painter, id, logical, logo);
   drawRivet(painter, QPointF(9 + 3.5, logical.height() - 8 - 3.5));
   drawRivet(painter, QPointF(logical.width() - 9 - 3.5, logical.height() - 8 - 3.5));
   painter.restore();

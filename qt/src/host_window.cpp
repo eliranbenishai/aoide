@@ -1,6 +1,7 @@
 #include "host_window.h"
 
 #include "chrome_paint.h"
+#include "mockup_draw.h"
 #include "skip_taskbar.h"
 #include "tramp_fonts.h"
 
@@ -19,7 +20,7 @@ HostWindow::HostWindow(const tramp::WindowSpec& spec, QWidget* parent)
   setFixedSize(spec.size);
   move(spec.origin);
 
-  logo_.load(tramp::assetPath("branding/app_icon.png"));
+  logo_ = tramp::loadTrampLogo();
 
   winId();
 }
