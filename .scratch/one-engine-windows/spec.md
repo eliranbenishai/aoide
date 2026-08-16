@@ -4,4 +4,4 @@ Product windows stay five OS windows. They must share **one Flutter engine / one
 
 Pinned SDK stays Flutter **3.47.0**. The spike force-enables `isWindowingEnabled` in Dart (stable rejects the dart-define and has no `flutter config --enable-windowing`). Do not move CI to master for this.
 
-Linux spike first (`tool/run_windowing_spike.sh`). Session rewrite only if that drag feels like solo-main.
+Linux spike: extra view is not the sludge; `RegularWindow` rebuild-on-move is choppy. Next is the session rewrite onto a Tramp host that adds views on the existing engine and ignores configure during native drag. Keep 3.47.0.
