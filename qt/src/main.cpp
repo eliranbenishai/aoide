@@ -3,6 +3,7 @@
 #include "mockup_draw.h"
 #include "title_chrome.h"
 #include "tramp_fonts.h"
+#include "tramp_metrics.h"
 #include "window_spec.h"
 
 #include <QApplication>
@@ -75,13 +76,64 @@ int main(int argc, char** argv) {
   std::vector<HostWindow*> windows;
   windows.reserve(5);
   HostWindow* mainWindow = nullptr;
+  HostWindow* eqWindow = nullptr;
+  HostWindow* plWindow = nullptr;
+  HostWindow* settingsWindow = nullptr;
   for (const tramp::WindowSpec& spec : tramp::windowSpecs()) {
     auto* window = new HostWindow(spec);
     windows.push_back(window);
-    if (spec.id == tramp::WindowId::main) {
-      mainWindow = window;
+    switch (spec.id) {
+      case tramp::WindowId::main:
+        mainWindow = window;
+        break;
+      case tramp::WindowId::equalizer:
+        eqWindow = window;
+        break;
+      case tramp::WindowId::playlist:
+        plWindow = window;
+        break;
+      case tramp::WindowId::settings:
+        settingsWindow = window;
+        break;
+      case tramp::WindowId::about:
+        break;
     }
   }
+
+  int zoom = tramp::kDefaultZoomPercent;
+  auto applyZoom = [&](int next) {
+    zoom = next;
+    for (HostWindow* window : windows) {
+      window->setZoomPercent(zoom);
+    }
+  };
+  auto syncToggles = [&]() {
+    tramp::BodyChrome chrome;
+    chrome.eqOn = eqWindow->isVisible();
+    chrome.plOn = plWindow->isVisible();
+    mainWindow->setBodyChrome(chrome);
+  };
+
+  QObject::connect(mainWindow, &HostWindow::zoomOutRequested, mainWindow, [&]() {
+    applyZoom(tramp::prevZoomPercent(zoom));
+  });
+  QObject::connect(mainWindow, &HostWindow::zoomInRequested, mainWindow, [&]() {
+    applyZoom(tramp::nextZoomPercent(zoom));
+  });
+  QObject::connect(mainWindow, &HostWindow::toggleEqualizer, mainWindow, [&]() {
+    eqWindow->setVisible(!eqWindow->isVisible());
+    syncToggles();
+  });
+  QObject::connect(mainWindow, &HostWindow::togglePlaylist, mainWindow, [&]() {
+    plWindow->setVisible(!plWindow->isVisible());
+    syncToggles();
+  });
+  QObject::connect(eqWindow, &HostWindow::extraHidden, mainWindow, [&]() { syncToggles(); });
+  QObject::connect(plWindow, &HostWindow::extraHidden, mainWindow, [&]() { syncToggles(); });
+  QObject::connect(mainWindow, &HostWindow::openSettings, mainWindow, [&]() {
+    settingsWindow->show();
+    settingsWindow->raise();
+  });
 
   // Show main first so extras can be xdg_toplevel children. Independent
   // toplevels all land on the KDE/GNOME taskbar; X11 skip atoms do not

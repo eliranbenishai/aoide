@@ -1,6 +1,8 @@
 #pragma once
 
+#include "chrome_bodies.h"
 #include "title_chrome.h"
+#include "tramp_metrics.h"
 #include "window_spec.h"
 
 #include <QCloseEvent>
@@ -16,6 +18,20 @@ class HostWindow : public QWidget {
  public:
   explicit HostWindow(const tramp::WindowSpec& spec, QWidget* parent = nullptr);
 
+  tramp::WindowId id() const { return spec_.id; }
+  void setZoomPercent(int percent);
+  void setShaded(bool shaded);
+  void setBodyChrome(const tramp::BodyChrome& chrome);
+  bool shaded() const { return shaded_; }
+
+ signals:
+  void zoomOutRequested();
+  void zoomInRequested();
+  void toggleEqualizer();
+  void togglePlaylist();
+  void openSettings();
+  void extraHidden();
+
  protected:
   void paintEvent(QPaintEvent* event) override;
   void closeEvent(QCloseEvent* event) override;
@@ -24,10 +40,15 @@ class HostWindow : public QWidget {
   void mouseMoveEvent(QMouseEvent* event) override;
 
  private:
+  QSize paintLogical() const;
+  void applyNativeSize();
   QPoint logicalFrom(const QPointF& widgetPos) const;
   void applyHitCursor(const QPointF& widgetPos);
 
   tramp::WindowSpec spec_;
   tramp::TitleChromeLayout title_;
+  tramp::BodyChrome chrome_;
   QImage logo_;
+  int zoomPercent_ = tramp::kDefaultZoomPercent;
+  bool shaded_ = false;
 };

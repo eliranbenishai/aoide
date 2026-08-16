@@ -2,9 +2,9 @@
 
 Five frameless windows in one process. QWidget + QPainter.
 
-**Now:** mockup chassis plus static window bodies (main / EQ / playlist / settings / about) painted from the frozen Flutter layout numbers and golden fixtures. `--dump-chrome DIR` writes 1× logical PNGs for comparison. Title-strip drag uses `startSystemMove()`. Extras skip the taskbar. Closing **Tramp** (main) quits.
+**Now:** mockup chassis plus static window bodies painted from the frozen Flutter layout. Title-strip drag uses `startSystemMove()`. Extras skip the taskbar. Closing **Tramp** (main) quits; extra close hides. Collapse shades extras to the title bar. Main −/+ steps global zoom (50–300%). EQ / PL / options cog toggle those windows. `--dump-chrome DIR` writes 1× logical PNGs.
 
-**Not yet:** live controls, docking, libmpv, zoom stepping.
+**Not yet:** live transport, docking, libmpv, settings persistence.
 
 Windows: CI compiles this target. Drag feel on Windows comes later.
 

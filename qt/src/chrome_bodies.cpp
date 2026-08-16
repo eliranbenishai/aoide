@@ -43,7 +43,7 @@ void drawLogoMark(QPainter& p, const QRectF& box, const QImage* logo, qreal opac
   p.restore();
 }
 
-void paintMain(QPainter& p, const QRectF& body) {
+void paintMain(QPainter& p, const QRectF& body, const BodyChrome& chrome) {
   const QRectF well(body.left() + 96, body.top() + 14, 705, 132);
   drawScreen(p, well);
 
@@ -137,9 +137,9 @@ void paintMain(QPainter& p, const QRectF& body) {
              0.66);
   drawBtn(p, QRectF(volRow.right() - 86 - 14 - 74 - 8 - 74, volRow.top() + 1, 86, 38), false,
           QStringLiteral("MONO"));
-  drawBtn(p, QRectF(volRow.right() - 74 - 8 - 74, volRow.top() + 1, 74, 38), true,
+  drawBtn(p, QRectF(volRow.right() - 74 - 8 - 74, volRow.top() + 1, 74, 38), chrome.eqOn,
           QStringLiteral("EQ"));
-  drawBtn(p, QRectF(volRow.right() - 74, volRow.top() + 1, 74, 38), true,
+  drawBtn(p, QRectF(volRow.right() - 74, volRow.top() + 1, 74, 38), chrome.plOn,
           QStringLiteral("PL"));
 
   const QRectF seekRow(body.left() + 22, body.top() + 206, body.width() - 44, 32);
@@ -603,11 +603,12 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo) {
 
 }  // namespace
 
-void paintWindowBody(QPainter& painter, WindowId id, QSize logical, const QImage* logo) {
+void paintWindowBody(QPainter& painter, WindowId id, QSize logical, const QImage* logo,
+                     const BodyChrome& chrome) {
   const QRectF body = bodyRect(logical);
   switch (id) {
     case WindowId::main:
-      paintMain(painter, body);
+      paintMain(painter, body, chrome);
       break;
     case WindowId::equalizer:
       paintEq(painter, body, logo);
@@ -622,6 +623,21 @@ void paintWindowBody(QPainter& painter, WindowId id, QSize logical, const QImage
       paintAbout(painter, body, logo);
       break;
   }
+}
+
+QRect mainOptionsHit(QSize logical) {
+  Q_UNUSED(logical);
+  return QRect(22, kTitleBar + 18, 26, 26);
+}
+
+QRect mainEqHit(QSize logical) {
+  const QRectF volRow(22, kTitleBar + 156, logical.width() - 44, 40);
+  return QRect(int(volRow.right() - 74 - 8 - 74), int(volRow.top() + 1), 74, 38);
+}
+
+QRect mainPlHit(QSize logical) {
+  const QRectF volRow(22, kTitleBar + 156, logical.width() - 44, 40);
+  return QRect(int(volRow.right() - 74), int(volRow.top() + 1), 74, 38);
 }
 
 }  // namespace tramp

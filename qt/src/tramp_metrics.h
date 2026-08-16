@@ -6,6 +6,26 @@
 namespace tramp {
 
 inline constexpr int kDefaultZoomPercent = 75;
+inline constexpr int kZoomSteps[] = {50, 75, 100, 125, 150, 200, 250, 300};
+
+inline int nextZoomPercent(int current) {
+  for (int step : kZoomSteps) {
+    if (step > current) {
+      return step;
+    }
+  }
+  return kZoomSteps[sizeof(kZoomSteps) / sizeof(kZoomSteps[0]) - 1];
+}
+
+inline int prevZoomPercent(int current) {
+  int found = kZoomSteps[0];
+  for (int step : kZoomSteps) {
+    if (step < current) {
+      found = step;
+    }
+  }
+  return found;
+}
 
 inline constexpr int kTitleBar = 42;
 inline constexpr int kShellRadius = 6;

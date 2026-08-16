@@ -4,6 +4,7 @@
 #include "mockup_draw.h"
 #include "skip_taskbar.h"
 #include "tramp_fonts.h"
+#include "tramp_metrics.h"
 
 #include <QCoreApplication>
 #include <QPainter>
@@ -17,38 +18,79 @@ HostWindow::HostWindow(const tramp::WindowSpec& spec, QWidget* parent)
   setMouseTracking(true);
   setWindowTitle(spec.title);
   setWindowFlags(tramp::hostWindowFlags(spec.skipTaskbar));
-  setFixedSize(spec.size);
   move(spec.origin);
-
   logo_ = tramp::loadTrampLogo();
-
+  applyNativeSize();
   winId();
 }
 
+QSize HostWindow::paintLogical() const {
+  if (shaded_) {
+    return QSize(spec_.logicalSize.width(), tramp::kTitleBar);
+  }
+  return spec_.logicalSize;
+}
+
+void HostWindow::applyNativeSize() {
+  title_ = tramp::TitleChromeLayout::forWindow(spec_.id, paintLogical());
+  const QSize native = tramp::zoomed(paintLogical(), zoomPercent_);
+  setFixedSize(native);
+  update();
+}
+
+void HostWindow::setZoomPercent(int percent) {
+  if (zoomPercent_ == percent) {
+    return;
+  }
+  zoomPercent_ = percent;
+  applyNativeSize();
+}
+
+void HostWindow::setShaded(bool shaded) {
+  if (spec_.id == tramp::WindowId::main || shaded_ == shaded) {
+    return;
+  }
+  shaded_ = shaded;
+  applyNativeSize();
+}
+
+void HostWindow::setBodyChrome(const tramp::BodyChrome& chrome) {
+  chrome_ = chrome;
+  update();
+}
+
 QPoint HostWindow::logicalFrom(const QPointF& widgetPos) const {
-  const qreal sx = qreal(width()) / qMax(1, spec_.logicalSize.width());
-  const qreal sy = qreal(height()) / qMax(1, spec_.logicalSize.height());
+  const QSize logical = paintLogical();
+  const qreal sx = qreal(width()) / qMax(1, logical.width());
+  const qreal sy = qreal(height()) / qMax(1, logical.height());
   return QPoint(int(widgetPos.x() / sx), int(widgetPos.y() / sy));
 }
 
 void HostWindow::applyHitCursor(const QPointF& widgetPos) {
-  const auto hit = title_.hit(logicalFrom(widgetPos));
+  const QPoint logical = logicalFrom(widgetPos);
+  const auto hit = title_.hit(logical);
   if (hit == tramp::TitleChromeLayout::Hit::drag) {
     setCursor(Qt::OpenHandCursor);
-  } else if (hit == tramp::TitleChromeLayout::Hit::none) {
-    setCursor(Qt::ArrowCursor);
-  } else {
+  } else if (hit != tramp::TitleChromeLayout::Hit::none) {
     setCursor(Qt::PointingHandCursor);
+  } else if (spec_.id == tramp::WindowId::main &&
+             (tramp::mainEqHit(spec_.logicalSize).contains(logical) ||
+              tramp::mainPlHit(spec_.logicalSize).contains(logical) ||
+              tramp::mainOptionsHit(spec_.logicalSize).contains(logical))) {
+    setCursor(Qt::PointingHandCursor);
+  } else {
+    setCursor(Qt::ArrowCursor);
   }
 }
 
 void HostWindow::paintEvent(QPaintEvent*) {
   QPainter p(this);
   p.setRenderHint(QPainter::Antialiasing);
-  const qreal sx = qreal(width()) / qMax(1, spec_.logicalSize.width());
-  const qreal sy = qreal(height()) / qMax(1, spec_.logicalSize.height());
+  const QSize logical = paintLogical();
+  const qreal sx = qreal(width()) / qMax(1, logical.width());
+  const qreal sy = qreal(height()) / qMax(1, logical.height());
   p.scale(sx, sy);
-  tramp::paintMockupWindow(p, spec_.logicalSize, spec_.id, title_, &logo_);
+  tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, chrome_);
 }
 
 void HostWindow::showEvent(QShowEvent* event) {
@@ -61,15 +103,20 @@ void HostWindow::showEvent(QShowEvent* event) {
 void HostWindow::closeEvent(QCloseEvent* event) {
   if (spec_.id == tramp::WindowId::main) {
     QCoreApplication::quit();
+    event->accept();
+    return;
   }
-  event->accept();
+  event->ignore();
+  hide();
+  emit extraHidden();
 }
 
 void HostWindow::mousePressEvent(QMouseEvent* event) {
   if (event->button() != Qt::LeftButton) {
     return;
   }
-  const auto hit = title_.hit(logicalFrom(event->position()));
+  const QPoint logical = logicalFrom(event->position());
+  const auto hit = title_.hit(logical);
   switch (hit) {
     case tramp::TitleChromeLayout::Hit::close:
       close();
@@ -80,8 +127,15 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
       event->accept();
       return;
     case tramp::TitleChromeLayout::Hit::collapse:
+      setShaded(!shaded_);
+      event->accept();
+      return;
     case tramp::TitleChromeLayout::Hit::zoomOut:
+      emit zoomOutRequested();
+      event->accept();
+      return;
     case tramp::TitleChromeLayout::Hit::zoomIn:
+      emit zoomInRequested();
       event->accept();
       return;
     case tramp::TitleChromeLayout::Hit::drag:
@@ -92,6 +146,24 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
       return;
     case tramp::TitleChromeLayout::Hit::none:
       break;
+  }
+
+  if (spec_.id == tramp::WindowId::main) {
+    if (tramp::mainEqHit(spec_.logicalSize).contains(logical)) {
+      emit toggleEqualizer();
+      event->accept();
+      return;
+    }
+    if (tramp::mainPlHit(spec_.logicalSize).contains(logical)) {
+      emit togglePlaylist();
+      event->accept();
+      return;
+    }
+    if (tramp::mainOptionsHit(spec_.logicalSize).contains(logical)) {
+      emit openSettings();
+      event->accept();
+      return;
+    }
   }
 }
 

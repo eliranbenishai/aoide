@@ -15,6 +15,7 @@ class ChromeSpecTest : public QObject {
   void windowSpecsUseNativeSeeds();
   void mainTitleDragExcludesWindowButtons();
   void extrasOmitBrandAndZoomAndUseCollapse();
+  void zoomStepsMoveAcrossTheDiscreteLadder();
 };
 
 void ChromeSpecTest::tokensMatchMockupCssRoot() {
@@ -99,6 +100,14 @@ void ChromeSpecTest::extrasOmitBrandAndZoomAndUseCollapse() {
       tramp::WindowId::playlist, tramp::kPlaylistDefault);
   QCOMPARE(pl.roleName, QStringLiteral("Playlist Manager"));
   QVERIFY(!pl.showBrand);
+}
+
+void ChromeSpecTest::zoomStepsMoveAcrossTheDiscreteLadder() {
+  QCOMPARE(tramp::nextZoomPercent(75), 100);
+  QCOMPARE(tramp::prevZoomPercent(75), 50);
+  QCOMPARE(tramp::nextZoomPercent(300), 300);
+  QCOMPARE(tramp::prevZoomPercent(50), 50);
+  QCOMPARE(tramp::zoomed(tramp::kMainPlayer, 75), QSize(619, 261));
 }
 
 QTEST_APPLESS_MAIN(ChromeSpecTest)
