@@ -9,6 +9,7 @@ private slots:
   void fiveWindowsInProductOrder();
   void onlyMainAppearsOnTheTaskbar();
   void extrasHaveDistinctTitles();
+  void hostFlagsAreFramelessToplevelsNotTool();
 };
 
 void WindowSpecTest::fiveWindowsInProductOrder() {
@@ -36,6 +37,13 @@ void WindowSpecTest::extrasHaveDistinctTitles() {
   QCOMPARE(specs[2].title, QStringLiteral("Playlist"));
   QCOMPARE(specs[3].title, QStringLiteral("Settings"));
   QCOMPARE(specs[4].title, QStringLiteral("About"));
+}
+
+void WindowSpecTest::hostFlagsAreFramelessToplevelsNotTool() {
+  const Qt::WindowFlags flags = tramp::hostWindowFlags();
+  QCOMPARE(flags & Qt::WindowType_Mask, Qt::WindowFlags(Qt::Window));
+  QVERIFY(flags.testFlag(Qt::FramelessWindowHint));
+  QVERIFY(!flags.testFlag(Qt::Tool));
 }
 
 QTEST_APPLESS_MAIN(WindowSpecTest)

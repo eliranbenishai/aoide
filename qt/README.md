@@ -11,7 +11,7 @@ Windows: CI compiles this target. Drag feel on Windows comes later.
 Fedora:
 
 ```sh
-sudo dnf install qt6-qtbase-devel qt6-qtwayland cmake ninja-build gcc-c++
+sudo dnf install qt6-qtbase-devel qt6-qtwayland libX11-devel cmake ninja-build gcc-c++
 ```
 
 Arch:

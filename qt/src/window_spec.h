@@ -6,6 +6,7 @@
 #include <QPoint>
 #include <QSize>
 #include <QString>
+#include <Qt>
 
 namespace tramp {
 
@@ -21,5 +22,9 @@ struct WindowSpec {
 };
 
 std::array<WindowSpec, 5> windowSpecs();
+
+/// Frameless toplevel. Do not OR Qt::Tool with Qt::Window — that is not a
+/// valid window type, and extras stay on the taskbar.
+Qt::WindowFlags hostWindowFlags();
 
 }  // namespace tramp

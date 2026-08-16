@@ -47,4 +47,8 @@ std::array<WindowSpec, 5> windowSpecs() {
   };
 }
 
+Qt::WindowFlags hostWindowFlags() {
+  return Qt::FramelessWindowHint | Qt::Window;
+}
+
 }  // namespace tramp

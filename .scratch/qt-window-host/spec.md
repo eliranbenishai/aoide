@@ -20,6 +20,6 @@ System Qt via CMake `find_package(Qt6 COMPONENTS Widgets)`. Ship later (Flatpak/
 ## Layout
 
 - `qt/src/window_spec.*` — five roles, skip-taskbar, sizes (unit-tested)
-- `qt/src/host_window.*` — frameless, translucent, title `startSystemMove()`
+- `qt/src/skip_taskbar.*` — X11 `_NET_WM_STATE_SKIP_TASKBAR` / Windows `WS_EX_TOOLWINDOW` (not `Qt::Window|Qt::Tool`)
 - `qt/src/main.cpp` — one `QApplication`, five windows; closing main quits
 - `qt/README.md` — build and Wayland / `xcb` runs

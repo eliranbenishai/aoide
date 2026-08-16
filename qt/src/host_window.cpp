@@ -1,4 +1,5 @@
 #include "host_window.h"
+#include "skip_taskbar.h"
 
 #include <QCloseEvent>
 #include <QCoreApplication>
@@ -6,6 +7,7 @@
 #include <QPaintEvent>
 #include <QPainter>
 #include <QPainterPath>
+#include <QShowEvent>
 #include <QWindow>
 
 namespace {
@@ -51,12 +53,7 @@ HostWindow::HostWindow(const tramp::WindowSpec& spec, QWidget* parent)
     : QWidget(parent), spec_(spec) {
   setAttribute(Qt::WA_TranslucentBackground);
   setWindowTitle(spec.title);
-
-  Qt::WindowFlags flags = Qt::FramelessWindowHint | Qt::Window;
-  if (spec.skipTaskbar) {
-    flags |= Qt::Tool;
-  }
-  setWindowFlags(flags);
+  setWindowFlags(tramp::hostWindowFlags());
 
   resize(spec.size);
   move(spec.origin);
@@ -82,6 +79,13 @@ void HostWindow::paintEvent(QPaintEvent*) {
   p.setPen(QPen(QColor(255, 255, 255, 40), 1));
   p.setBrush(spec_.panel);
   p.drawPath(path);
+}
+
+void HostWindow::showEvent(QShowEvent* event) {
+  QWidget::showEvent(event);
+  if (spec_.skipTaskbar) {
+    tramp::applySkipTaskbar(windowHandle());
+  }
 }
 
 void HostWindow::closeEvent(QCloseEvent* event) {
