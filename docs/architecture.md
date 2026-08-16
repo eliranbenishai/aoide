@@ -150,7 +150,7 @@ These cost real time and will bite again:
 
 ## Stack
 
-**Window host:** Qt 6 C++ QWidget + QPainter in `qt/`. Linux + Windows pairing; Mac later. Build against system Qt; ship later via Flathub/AppImage. Frozen Flutter tree still uses CI pin **3.47.0** / Dart 3.13 (goldens, `flutter test`). Mockup chassis + title bars are in the Qt host; not yet: docking, libmpv, interactive player chrome, software raster.
+**Window host:** Qt 6 C++ QWidget + QPainter in `qt/`. Linux + Windows pairing; Mac later. Build against system Qt; ship later via Flathub/AppImage. Frozen Flutter tree still uses CI pin **3.47.0** / Dart 3.13 (goldens, `flutter test`). Mockup chassis, title bars, and static window bodies are in the Qt host. Extras skip the taskbar as `Qt::Dialog` transients of main (Wayland has no `_NET_WM_STATE`). Not yet: docking, libmpv, live controls, software raster.
 
 - ADR: [0001-flutter-for-v1.md](adr/0001-flutter-for-v1.md)
 - ADR: [0002-fixed-canvas-zoom.md](adr/0002-fixed-canvas-zoom.md) (revised — global zoom across three canvases)

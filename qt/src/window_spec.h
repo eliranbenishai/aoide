@@ -22,8 +22,8 @@ struct WindowSpec {
 
 std::array<WindowSpec, 5> windowSpecs();
 
-/// Frameless toplevel. Do not OR Qt::Tool with Qt::Window — that is not a
-/// valid window type, and extras stay on the taskbar.
-Qt::WindowFlags hostWindowFlags();
+/// Frameless toplevel. Extras are [Qt::Dialog] (not [Qt::Tool] — Tool includes
+/// the Popup bit and becomes an xdg_popup on Wayland). Never OR Tool with Window.
+Qt::WindowFlags hostWindowFlags(bool skipTaskbar);
 
 }  // namespace tramp

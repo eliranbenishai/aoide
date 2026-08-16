@@ -23,7 +23,7 @@ System Qt via CMake `find_package(Qt6 COMPONENTS Widgets)`. Ship later (Flatpak/
 - `qt/src/window_spec.*` — five roles, skip-taskbar, 75% native seeds (unit-tested)
 - `qt/src/mockup_tokens.h` / `tramp_metrics.h` / `title_chrome.*` — CSS palette, canvases, title hit-map
 - `qt/src/chrome_paint.cpp` — mockup shell / title bar / wells
-- `qt/src/skip_taskbar.*` — X11 `_NET_WM_STATE_SKIP_TASKBAR` / Windows `WS_EX_TOOLWINDOW` (not `Qt::Window|Qt::Tool`)
+- `qt/src/skip_taskbar.*` — X11 `_NET_WM_STATE_SKIP_TASKBAR` / Windows `WS_EX_TOOLWINDOW`. Wayland: extras are `Qt::Dialog` transients of main (xdg_toplevel parent), not `Qt::Tool` (Popup bit).
 - `qt/src/main.cpp` — one `QApplication`, five windows; closing main quits
 - `qt/README.md` — build and Wayland / `xcb` runs
 

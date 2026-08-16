@@ -1,5 +1,6 @@
 #include "chrome_paint.h"
 
+#include "chrome_bodies.h"
 #include "mockup_tokens.h"
 #include "tramp_fonts.h"
 #include "tramp_metrics.h"
@@ -321,6 +322,7 @@ void drawScreen(QPainter& p, const QRectF& well) {
 
 void paintMockupWindow(QPainter& painter,
                        QSize logical,
+                       WindowId id,
                        const TitleChromeLayout& title,
                        const QImage* logo) {
   const QRectF rect(0, 0, logical.width(), logical.height());
@@ -331,11 +333,7 @@ void paintMockupWindow(QPainter& painter,
   painter.setClipPath(shell);
   drawTitleFace(painter, QRectF(title.titleBar));
   drawTitleContents(painter, title, logo);
-
-  const QRectF body(0, kTitleBar, logical.width(), logical.height() - kTitleBar);
-  const QRectF well = body.adjusted(10, 8, -10, -16);
-  drawScreen(painter, well);
-
+  paintWindowBody(painter, id, logical);
   drawRivet(painter, QPointF(9 + 3.5, logical.height() - 8 - 3.5));
   drawRivet(painter, QPointF(logical.width() - 9 - 3.5, logical.height() - 8 - 3.5));
   painter.restore();

@@ -63,8 +63,10 @@ std::array<WindowSpec, 5> windowSpecs() {
   };
 }
 
-Qt::WindowFlags hostWindowFlags() {
-  return Qt::FramelessWindowHint | Qt::Window;
+Qt::WindowFlags hostWindowFlags(bool skipTaskbar) {
+  Qt::WindowFlags flags = Qt::FramelessWindowHint;
+  flags |= skipTaskbar ? Qt::Dialog : Qt::Window;
+  return flags;
 }
 
 }  // namespace tramp

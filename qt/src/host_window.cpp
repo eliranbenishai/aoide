@@ -15,16 +15,13 @@ HostWindow::HostWindow(const tramp::WindowSpec& spec, QWidget* parent)
   setAttribute(Qt::WA_TranslucentBackground);
   setMouseTracking(true);
   setWindowTitle(spec.title);
-  setWindowFlags(tramp::hostWindowFlags());
+  setWindowFlags(tramp::hostWindowFlags(spec.skipTaskbar));
   setFixedSize(spec.size);
   move(spec.origin);
 
   logo_.load(tramp::assetPath("branding/app_icon.png"));
 
   winId();
-  if (QWindow* native = windowHandle()) {
-    native->setTransientParent(nullptr);
-  }
 }
 
 QPoint HostWindow::logicalFrom(const QPointF& widgetPos) const {
@@ -50,7 +47,7 @@ void HostWindow::paintEvent(QPaintEvent*) {
   const qreal sx = qreal(width()) / qMax(1, spec_.logicalSize.width());
   const qreal sy = qreal(height()) / qMax(1, spec_.logicalSize.height());
   p.scale(sx, sy);
-  tramp::paintMockupWindow(p, spec_.logicalSize, title_, &logo_);
+  tramp::paintMockupWindow(p, spec_.logicalSize, spec_.id, title_, &logo_);
 }
 
 void HostWindow::showEvent(QShowEvent* event) {

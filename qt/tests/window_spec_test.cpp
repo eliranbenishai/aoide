@@ -10,6 +10,7 @@ private slots:
   void onlyMainAppearsOnTheTaskbar();
   void extrasHaveDistinctTitles();
   void hostFlagsAreFramelessToplevelsNotTool();
+  void extraFlagsAreDialogsWithoutPopupBit();
 };
 
 void WindowSpecTest::fiveWindowsInProductOrder() {
@@ -40,10 +41,21 @@ void WindowSpecTest::extrasHaveDistinctTitles() {
 }
 
 void WindowSpecTest::hostFlagsAreFramelessToplevelsNotTool() {
-  const Qt::WindowFlags flags = tramp::hostWindowFlags();
+  const Qt::WindowFlags flags = tramp::hostWindowFlags(false);
   QCOMPARE(flags & Qt::WindowType_Mask, Qt::WindowFlags(Qt::Window));
   QVERIFY(flags.testFlag(Qt::FramelessWindowHint));
   QVERIFY(!flags.testFlag(Qt::Tool));
+  QVERIFY(!flags.testFlag(Qt::Dialog));
+  QVERIFY(!flags.testFlag(Qt::Popup));
+}
+
+void WindowSpecTest::extraFlagsAreDialogsWithoutPopupBit() {
+  const Qt::WindowFlags flags = tramp::hostWindowFlags(true);
+  QCOMPARE(flags & Qt::WindowType_Mask, Qt::WindowFlags(Qt::Dialog));
+  QVERIFY(flags.testFlag(Qt::FramelessWindowHint));
+  QVERIFY(flags.testFlag(Qt::Dialog));
+  QVERIFY(!flags.testFlag(Qt::Tool));
+  QVERIFY(!flags.testFlag(Qt::Popup));
 }
 
 QTEST_APPLESS_MAIN(WindowSpecTest)
