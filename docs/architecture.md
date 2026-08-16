@@ -4,7 +4,7 @@ Living design map of how Tramp is structured. Agents and humans update this when
 
 ## Status
 
-**Mockup multi-window redesign + settings/about windows.** Five frameless windows (main / EQ / playlist / settings / about), code-constructed chrome from [`player-mockup-2.html`](../player-mockup-2.html), and full libmpv (audible EQ, real spectrum, Mono) — see [`tramp-v1-spec.md`](tramp-v1-spec.md), [`2026-08-08-mockup-multiwindow-redesign-design.md`](superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md), and [`2026-08-09-ui-polish-docking-taskbar-design.md`](superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md). PNG graphite `TrampShell` / `assets/skin/graphite/` are removed (ADRs 0003/0004 superseded by 0006/0007). Stack locked (Flutter). App at repo root (`lib/`, `pubspec.yaml`, desktop runners under `windows/`, `macos/`, `linux/`).
+**Window host is under proof, not Flutter.** Five frameless windows remain the product shape. The Dart tree is **frozen** (chrome/domain reference). A Qt 6 C++ tracer in [`qt/`](../qt/) (QWidget + QPainter, `startSystemMove`) must stay up on Linux Wayland + one X11 run, with per-pixel alpha and extras off the taskbar, before any chrome/mpv port. Windows compiles in CI; drag feel on a Windows box comes later. Flutter embedder work (one-engine views, Distrobox GLX) is stopped. See [`.scratch/qt-window-host/spec.md`](../.scratch/qt-window-host/spec.md).
 
 ## Intended product shape (v1)
 
@@ -150,7 +150,7 @@ These cost real time and will bite again:
 
 ## Stack
 
-**Locked:** Flutter for v1 (Windows, Linux, macOS). CI and goldens: **Flutter 3.47.0 / Dart 3.13**. Windows and Linux runners **disable Impeller** (3.47’s desktop default) so engines use Skia — Impeller was a silent-exit risk on Windows and is the Linux drag A/B (`TRAMP_ENABLE_IMPELLER=1` restores it). Preferred defaults: multi-window host + docking for app chrome, media_kit control seam + **full libmpv** for playback/EQ/mono, code-constructed chrome from the HTML mockup. Not locked: state management, routing, design-system packages. Not v1: Tauri, Electron, second UI toolkit.
+**In flux (window host):** Flutter is **not** the window host. Linux + Windows pairing; Mac later. Tracer is Qt 6 C++ QWidget + QPainter in `qt/`. Build against system Qt; ship later via Flathub/AppImage. Frozen Flutter tree still uses CI pin **3.47.0** / Dart 3.13 (goldens, `flutter test`). Not in the tracer: docking, libmpv, mockup port, software raster.
 
 - ADR: [0001-flutter-for-v1.md](adr/0001-flutter-for-v1.md)
 - ADR: [0002-fixed-canvas-zoom.md](adr/0002-fixed-canvas-zoom.md) (revised — global zoom across three canvases)
