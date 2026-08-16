@@ -105,6 +105,11 @@ std::string MultiWindowManager::Create(FlValue* args) {
                                    config.arguments.c_str(), nullptr};
   fl_dart_project_set_dart_entrypoint_arguments(
       project, const_cast<char**>(entrypoint_args));
+  {
+    const char* enable = getenv("TRAMP_ENABLE_IMPELLER");
+    const gboolean on = enable != nullptr && strcmp(enable, "1") == 0;
+    fl_dart_project_set_enable_impeller(project, on);
+  }
 
   // Create Flutter view
   auto fl_view = fl_view_new(project);

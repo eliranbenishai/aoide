@@ -150,7 +150,7 @@ These cost real time and will bite again:
 
 ## Stack
 
-**Locked:** Flutter for v1 (Windows, Linux, macOS). CI and goldens: **Flutter 3.47.0 / Dart 3.13**. Windows runner **disables Impeller** (3.47’s desktop default) so five engines use Skia — Impeller was a silent-exit risk. Preferred defaults: multi-window host + docking for app chrome, media_kit control seam + **full libmpv** for playback/EQ/mono, code-constructed chrome from the HTML mockup. Not locked: state management, routing, design-system packages. Not v1: Tauri, Electron, second UI toolkit.
+**Locked:** Flutter for v1 (Windows, Linux, macOS). CI and goldens: **Flutter 3.47.0 / Dart 3.13**. Windows and Linux runners **disable Impeller** (3.47’s desktop default) so engines use Skia — Impeller was a silent-exit risk on Windows and is the Linux drag A/B (`TRAMP_ENABLE_IMPELLER=1` restores it). Preferred defaults: multi-window host + docking for app chrome, media_kit control seam + **full libmpv** for playback/EQ/mono, code-constructed chrome from the HTML mockup. Not locked: state management, routing, design-system packages. Not v1: Tauri, Electron, second UI toolkit.
 
 - ADR: [0001-flutter-for-v1.md](adr/0001-flutter-for-v1.md)
 - ADR: [0002-fixed-canvas-zoom.md](adr/0002-fixed-canvas-zoom.md) (revised — global zoom across three canvases)

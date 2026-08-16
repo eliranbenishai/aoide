@@ -91,6 +91,13 @@ static void my_application_activate(GApplication* application) {
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
       project, self->dart_entrypoint_arguments);
+  // Flutter 3.47 defaults Impeller on for desktop. Match Windows: Skia unless
+  // TRAMP_ENABLE_IMPELLER=1 (drag / renderer A/B).
+  {
+    const char* enable = getenv("TRAMP_ENABLE_IMPELLER");
+    const gboolean on = enable != nullptr && strcmp(enable, "1") == 0;
+    fl_dart_project_set_enable_impeller(project, on);
+  }
 
   FlView* view = fl_view_new(project);
   GdkRGBA background_color;

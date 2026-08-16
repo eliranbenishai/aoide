@@ -4,6 +4,7 @@ import 'dart:ui';
 /// Process-env switches for local drag / window-host experiments.
 ///
 /// Not product settings. A missing or non-`1` value is off.
+/// Linux C++ (not Dart): `TRAMP_ENABLE_IMPELLER=1` restores Impeller.
 class HarnessFlags {
   HarnessFlags._();
 
