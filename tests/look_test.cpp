@@ -414,7 +414,9 @@ int main() {
       REQUIRE(ids.contains(QString::fromUtf8(id)));
     }
     const auto arc = resolveLook(QStringLiteral("arc"), bundled.manifests);
+    REQUIRE_EQ(hex(arc.palette.ink), QStringLiteral("#ff2d3a"));
     REQUIRE_EQ(hex(arc.palette.phos), QStringLiteral("#ffc107"));
+    REQUIRE_EQ(hex(arc.palette.accent), QStringLiteral("#c5ccd6"));
     QTemporaryDir support;
     TrampSettings settings;
     SkinController skins;
