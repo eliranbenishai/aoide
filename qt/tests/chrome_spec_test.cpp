@@ -16,7 +16,7 @@ class ChromeSpecTest : public QObject {
   void mainTitleDragExcludesWindowButtons();
   void extrasOmitBrandAndZoomAndUseCollapse();
   void zoomStepsMoveAcrossTheDiscreteLadder();
-  void mainTitleShowsZoomReadoutLeftOfButtons();
+  void mainTitleShowsZoomReadoutBetweenZoomButtons();
   void chromePaintBufferMatchesWidgetTimesDpr();
 };
 
@@ -74,9 +74,9 @@ void ChromeSpecTest::mainTitleDragExcludesWindowButtons() {
   QVERIFY(layout.showZoom);
   QCOMPARE(layout.roleName, QStringLiteral("Main Player"));
 
-  // `.wbtn` 26×22, gap 5, pad-right 9 — close is the last of four.
+  // `.wbtn` 26×22, gap 5, pad-right 9 — close is last (min − % + close).
   QCOMPARE(layout.close, QRect(790, 10, 26, 22));
-  QCOMPARE(layout.minimize, QRect(697, 10, 26, 22));
+  QCOMPARE(layout.minimize, QRect(648, 10, 26, 22));
 
   const QPoint closeCenter = layout.close.center();
   QCOMPARE(layout.hit(closeCenter), tramp::TitleChromeLayout::Hit::close);
@@ -112,14 +112,16 @@ void ChromeSpecTest::zoomStepsMoveAcrossTheDiscreteLadder() {
   QCOMPARE(tramp::zoomed(tramp::kMainPlayer, 75), QSize(619, 261));
 }
 
-void ChromeSpecTest::mainTitleShowsZoomReadoutLeftOfButtons() {
+void ChromeSpecTest::mainTitleShowsZoomReadoutBetweenZoomButtons() {
   const auto layout =
       tramp::TitleChromeLayout::forWindow(tramp::WindowId::main, tramp::kMainPlayer);
   QCOMPARE(layout.close, QRect(790, 10, 26, 22));
-  QCOMPARE(layout.minimize, QRect(697, 10, 26, 22));
-  QCOMPARE(layout.zoomReadout, QRect(641, 10, 44, 22));
-  QVERIFY(layout.zoomReadout.right() < layout.minimize.left());
-  QVERIFY(layout.dragRight <= layout.zoomReadout.left());
+  QCOMPARE(layout.minimize, QRect(648, 10, 26, 22));
+  QCOMPARE(layout.zoomOut, QRect(679, 10, 26, 22));
+  QCOMPARE(layout.zoomReadout, QRect(710, 10, 44, 22));
+  QCOMPARE(layout.zoomIn, QRect(759, 10, 26, 22));
+  QVERIFY(layout.zoomOut.right() < layout.zoomReadout.left());
+  QVERIFY(layout.zoomReadout.right() < layout.zoomIn.left());
   QCOMPARE(layout.hit(layout.zoomReadout.center()), tramp::TitleChromeLayout::Hit::none);
   QVERIFY(!layout.inDragRegion(layout.zoomReadout.center()));
 

@@ -248,9 +248,9 @@ void drawTitleContents(QPainter& p, const TitleChromeLayout& title, const QImage
     const QString label = QString::number(zoomPercent) + QLatin1Char('%');
     p.setFont(condensedFont(11, 0.12));
     p.setPen(QColor(0, 0, 0, 179));
-    p.drawText(title.zoomReadout.translated(0, 1), Qt::AlignVCenter | Qt::AlignRight, label);
+    p.drawText(title.zoomReadout.translated(0, 1), Qt::AlignCenter, label);
     p.setPen(T().inkDim);
-    p.drawText(title.zoomReadout, Qt::AlignVCenter | Qt::AlignRight, label);
+    p.drawText(title.zoomReadout, Qt::AlignCenter, label);
   }
 
   if (title.showZoom) {

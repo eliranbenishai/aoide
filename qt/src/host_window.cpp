@@ -55,8 +55,9 @@ void HostWindow::applyNativeSize() {
 }
 
 void HostWindow::setZoomPercent(int percent) {
-  if (zoomPercent_ == percent) return;
+  if (zoomPercent_ == percent && view_.zoomPercent == percent) return;
   zoomPercent_ = percent;
+  view_.zoomPercent = percent;
   applyNativeSize();
 }
 
@@ -71,6 +72,7 @@ void HostWindow::setSessionView(const tramp::SessionView& view) {
   const bool collectionChanged =
       spec_.id == tramp::WindowId::playlist && view_.collectionCollapsed != view.collectionCollapsed;
   view_ = view;
+  view_.zoomPercent = zoomPercent_;
   invalidateChassis();
   if (collectionChanged) applyNativeSize();
   update();
