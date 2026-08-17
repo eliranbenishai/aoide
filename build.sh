@@ -118,6 +118,22 @@ SRCS=(
   -o "$BUILD/font_metrics_test"
 QT_QPA_PLATFORM=offscreen "$BUILD/font_metrics_test"
 
+"$MOC" "$ROOT/tests/window_spec_test.cpp" -o "$BUILD/window_spec_test.moc"
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
+  "$ROOT/src/window_spec.cpp" \
+  "$ROOT/tests/window_spec_test.cpp" \
+  -L"$QT/lib" -lQt6Test -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
+  -o "$BUILD/window_spec_test"
+"$BUILD/window_spec_test"
+
+"$MOC" "$ROOT/tests/host_shell_test.cpp" -o "$BUILD/host_shell_test.moc"
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_GUI_LIB -DQT_CORE_LIB \
+  "$ROOT/src/host_shell.cpp" \
+  "$ROOT/tests/host_shell_test.cpp" \
+  -L"$QT/lib" -lQt6Test -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
+  -o "$BUILD/host_shell_test"
+"$BUILD/host_shell_test"
+
 "$MOC" "$ROOT/tests/chrome_spec_test.cpp" -o "$BUILD/chrome_spec_test.moc"
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
   "$ROOT/src/window_spec.cpp" "$ROOT/src/title_chrome.cpp" \

@@ -18,6 +18,7 @@ file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libmpv" TRAMP_MPV_RO
 
 add_library(tramp_window_spec STATIC
   src/window_spec.cpp
+  src/host_shell.cpp
   src/title_chrome.cpp
 )
 target_include_directories(tramp_window_spec PUBLIC src)
@@ -125,6 +126,10 @@ qt_add_executable(window_spec_test tests/window_spec_test.cpp)
 target_link_libraries(window_spec_test PRIVATE tramp_window_spec Qt6::Test)
 set_target_properties(window_spec_test PROPERTIES AUTOMOC ON)
 
+qt_add_executable(host_shell_test tests/host_shell_test.cpp)
+target_link_libraries(host_shell_test PRIVATE tramp_window_spec Qt6::Test)
+set_target_properties(host_shell_test PROPERTIES AUTOMOC ON)
+
 qt_add_executable(chrome_spec_test tests/chrome_spec_test.cpp)
 target_link_libraries(chrome_spec_test PRIVATE tramp_window_spec Qt6::Test)
 set_target_properties(chrome_spec_test PROPERTIES AUTOMOC ON)
@@ -180,6 +185,7 @@ set_target_properties(skip_taskbar_test PROPERTIES AUTOMOC ON)
 
 enable_testing()
 add_test(NAME window_spec COMMAND window_spec_test)
+add_test(NAME host_shell COMMAND host_shell_test)
 add_test(NAME chrome_spec COMMAND chrome_spec_test)
 add_test(NAME skip_taskbar COMMAND skip_taskbar_test)
 add_test(NAME domain COMMAND domain_test)
