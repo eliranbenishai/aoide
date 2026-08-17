@@ -76,6 +76,14 @@ void HostWindow::setSessionView(const tramp::SessionView& view) {
   update();
 }
 
+void HostWindow::applyEqualizer(const tramp::EqualizerSettings& eq) {
+  const bool chrome = view_.eq.enabled != eq.enabled || view_.eq.auto_ != eq.auto_ ||
+                      view_.eq.presetName != eq.presetName;
+  view_.eq = eq;
+  if (chrome) invalidateChassis();
+  update();
+}
+
 void HostWindow::applyLiveReadouts(const tramp::MainLiveReadouts& live) {
   view_.positionMs = live.positionMs;
   view_.durationMs = live.durationMs;
@@ -170,7 +178,8 @@ void HostWindow::paintEvent(QPaintEvent*) {
   const qreal sx = qreal(width()) / qMax(1, logical.width());
   const qreal sy = qreal(height()) / qMax(1, logical.height());
   p.scale(sx, sy);
-  if (spec_.id == tramp::WindowId::main && !view_.goldenDemo && !shaded_) {
+  if ((spec_.id == tramp::WindowId::main || spec_.id == tramp::WindowId::equalizer) &&
+      !view_.goldenDemo && !shaded_) {
     if (!chassisValid_) rebuildChassis();
     p.drawImage(0, 0, chassis_);
     tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_,

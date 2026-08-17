@@ -93,6 +93,9 @@ TrampSession::TrampSession(QObject* parent)
     figuresLoaded_ = true;
     refreshChrome();
   });
+  eqApplyTimer_.setSingleShot(true);
+  eqApplyTimer_.setInterval(50);
+  QObject::connect(&eqApplyTimer_, &QTimer::timeout, this, [this]() { applyEq(); });
 
   playlist_.setOnChanged([this]() {
     if (playback_) playback_->onPlaylistChanged();
@@ -233,6 +236,14 @@ void TrampSession::bootstrap(const QStringList& argvFiles) {
 }
 
 void TrampSession::applyEq() { engine_->setEqualizerAf(buildEqualizerAf(settings_.equalizerCurve)); }
+
+void TrampSession::scheduleApplyEq() {
+  if (!eqApplyTimer_.isActive()) eqApplyTimer_.start();
+}
+
+void TrampSession::refreshEqChrome() {
+  if (eq_) eq_->applyEqualizer(settings_.equalizerCurve);
+}
 
 bool TrampSession::confirmQuit() const { return settings_.confirmBeforeQuit; }
 
@@ -596,6 +607,10 @@ void TrampSession::loadCollectionRow(int index) {
 
 void TrampSession::handleRelease(WindowId id) {
   sliderKind_ = ChromeHit::Kind::none;
+  if (eqApplyTimer_.isActive()) {
+    eqApplyTimer_.stop();
+    applyEq();
+  }
   if (id == WindowId::equalizer || id == WindowId::playlist) {
     windowMoved(id, windowFor(id)->pos(), true);
   }
@@ -628,18 +643,18 @@ void TrampSession::handleDrag(WindowId id, ChromeHit hit, QPoint logical) {
     sliderKind_ = ChromeHit::Kind::seek;
   } else if (sliderKind_ == ChromeHit::Kind::eqPreamp || hit.kind == ChromeHit::Kind::eqPreamp) {
     settings_.equalizerCurve = settings_.equalizerCurve.withPreamp(band(hit.rect, logical.y()));
-    applyEq();
+    scheduleApplyEq();
     sliderKind_ = ChromeHit::Kind::eqPreamp;
     schedulePersist();
-    refreshChrome();
+    refreshEqChrome();
   } else if (sliderKind_ == ChromeHit::Kind::eqBand || hit.kind == ChromeHit::Kind::eqBand) {
     const int idx = sliderIndex_ >= 0 ? sliderIndex_ : hit.index;
     settings_.equalizerCurve = settings_.equalizerCurve.withGain(idx, band(hit.rect, logical.y()));
-    applyEq();
+    scheduleApplyEq();
     sliderKind_ = ChromeHit::Kind::eqBand;
     sliderIndex_ = idx;
     schedulePersist();
-    refreshChrome();
+    refreshEqChrome();
   } else if (hit.kind == ChromeHit::Kind::plDivider) {
     const qreal x = logical.x();
     settings_.playlistCollectionWidth =
@@ -725,12 +740,12 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       settings_.equalizerCurve.enabled = !settings_.equalizerCurve.enabled;
       applyEq();
       schedulePersist();
-      refreshChrome();
+      refreshEqChrome();
       break;
     case K::eqAuto:
       settings_.equalizerCurve.auto_ = !settings_.equalizerCurve.auto_;
       schedulePersist();
-      refreshChrome();
+      refreshEqChrome();
       break;
     case K::eqPresets: {
       QMenu menu;
@@ -742,7 +757,7 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
           settings_.equalizerCurve.enabled = true;
           applyEq();
           schedulePersist();
-          refreshChrome();
+          refreshEqChrome();
         });
       }
       if (eq_) menu.exec(eq_->mapToGlobal(QPoint(40, 70)));

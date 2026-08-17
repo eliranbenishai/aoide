@@ -101,6 +101,52 @@ int benchChrome() {
   std::fprintf(stdout,
                "chrome bench: full %.2f ms/frame, chassis %.2f ms, live %.2f ms/frame\n",
                fullMs, chassisMs, liveMs);
+
+  auto paintSpec = [&](const tramp::WindowSpec& s) {
+    QImage img(s.logicalSize, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
+    QPainter p(&img);
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setRenderHint(QPainter::TextAntialiasing);
+    const auto t = tramp::TitleChromeLayout::forWindow(s.id, s.logicalSize);
+    tramp::paintMockupWindow(p, s.logicalSize, s.id, t, &logo, view);
+    p.end();
+  };
+
+  const auto specs = tramp::windowSpecs();
+  paintSpec(specs[1]);
+  constexpr int kEq = 8;
+  timer.restart();
+  for (int i = 0; i < kEq; ++i) paintSpec(specs[1]);
+  const double eqMs = (timer.nsecsElapsed() / 1e6) / kEq;
+
+  for (const auto& s : specs) paintSpec(s);
+  constexpr int kAll = 4;
+  timer.restart();
+  for (int i = 0; i < kAll; ++i) {
+    for (const auto& s : specs) paintSpec(s);
+  }
+  const double allMs = (timer.nsecsElapsed() / 1e6) / kAll;
+
+  const tramp::WindowSpec eqSpec = specs[1];
+  const auto eqTitle = tramp::TitleChromeLayout::forWindow(eqSpec.id, eqSpec.logicalSize);
+  auto paintEqPass = [&](tramp::BodyPaint pass) {
+    QImage img(eqSpec.logicalSize, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
+    QPainter p(&img);
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setRenderHint(QPainter::TextAntialiasing);
+    tramp::paintMockupWindow(p, eqSpec.logicalSize, eqSpec.id, eqTitle, &logo, view, pass);
+    p.end();
+  };
+  paintEqPass(tramp::BodyPaint::live);
+  timer.restart();
+  for (int i = 0; i < kLive; ++i) paintEqPass(tramp::BodyPaint::live);
+  const double eqLiveMs = (timer.nsecsElapsed() / 1e6) / kLive;
+  std::fprintf(stdout,
+               "chrome bench: eq %.2f ms/frame, eq-live %.2f ms/frame, all-five %.2f ms/frame\n",
+               eqMs, eqLiveMs, allMs);
+
   if (liveMs > 8.0) {
     std::fprintf(stderr, "FAIL live paint %.2f ms/frame exceeds 8 ms budget\n", liveMs);
     return 1;
@@ -108,6 +154,10 @@ int benchChrome() {
   if (fullMs > 4.0 && liveMs * 4.0 > fullMs) {
     std::fprintf(stderr, "FAIL live is not 4x cheaper than full (%.2f vs %.2f)\n", liveMs,
                  fullMs);
+    return 1;
+  }
+  if (eqLiveMs > 8.0) {
+    std::fprintf(stderr, "FAIL eq live paint %.2f ms/frame exceeds 8 ms budget\n", eqLiveMs);
     return 1;
   }
   return 0;

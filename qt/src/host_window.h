@@ -30,6 +30,7 @@ class HostWindow : public QWidget {
   void setShaded(bool shaded);
   void setSessionView(const tramp::SessionView& view);
   void applyLiveReadouts(const tramp::MainLiveReadouts& live);
+  void applyEqualizer(const tramp::EqualizerSettings& eq);
   void setPlaylistLogicalSize(QSize logical);
   void setQuitConfirmer(std::function<bool()> fn) { quitConfirmer_ = std::move(fn); }
   void setAlwaysOnTop(bool on);

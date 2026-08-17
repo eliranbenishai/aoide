@@ -69,6 +69,8 @@ class TrampSession : public QObject {
  private:
   void bindPlayback();
   void applyEq();
+  void scheduleApplyEq();
+  void refreshEqChrome();
   void applyAlwaysOnTop();
   void applyFramesToWindows();
   void schedulePersist();
@@ -121,6 +123,7 @@ class TrampSession : public QObject {
   QTimer alteredTimer_;
   QTimer usageTimer_;
   QTimer aboutTimer_;
+  QTimer eqApplyTimer_;
   CollectionFigures figures_;
   bool figuresLoaded_ = false;
 };

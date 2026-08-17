@@ -297,7 +297,8 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
   }
 }
 
-void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionView& view) {
+void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionView& view,
+            BodyPaint pass) {
   bool on = view.eq.enabled;
   bool autoOn = view.eq.auto_;
   QString curveName = view.eq.presetName.isEmpty() ? QStringLiteral("CUSTOM") : view.eq.presetName.toUpper();
@@ -313,102 +314,113 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
     for (int i = 0; i < 10; ++i) gains[i] = demo[i];
   }
 
+  const bool chassis = pass != BodyPaint::live;
+  const bool live = pass != BodyPaint::chassis;
+  const bool glow = pass == BodyPaint::full;
+
   const qreal onW = labelBtnWidth(QStringLiteral("ON"));
   const qreal autoW = labelBtnWidth(QStringLiteral("AUTO"));
   const qreal presetsW = labelBtnWidth(QStringLiteral("PRESETS"), 16, 22);
   qreal hx = body.left() + 22;
   const qreal hy = body.top() + 16;
-  drawBtn(p, QRectF(hx, hy, onW, 38), on, QStringLiteral("ON"));
-  hx += onW + 8;
-  drawBtn(p, QRectF(hx, hy, autoW, 38), autoOn, QStringLiteral("AUTO"));
-  hx += autoW + 8;
-  const QRectF presets(hx, hy, presetsW, 38);
-  drawBtn(p, presets, false, QStringLiteral("PRESETS"));
-  drawMenuCaret(p, presets);
-  hx += presetsW + 14;
-  p.setFont(condensedFont(11, 0.2));
-  p.setPen(kInkFaint);
-  p.drawText(QRectF(hx, hy, 180, 38), Qt::AlignVCenter,
-             QStringLiteral("CURVE · %1").arg(curveName));
-
   const QRectF curveWell(body.right() - 22 - 372, body.top() + 16, 372, 62);
-  drawScreenWell(p, curveWell);
-  QVector<QPointF> pts;
-  pts.reserve(11);
-  auto yFor = [&](qreal g) {
-    const qreal t = (12.0 - qBound(-12.0, g, 12.0)) / 24.0;
-    return curveWell.top() + t * curveWell.height();
-  };
-  pts.push_back(QPointF(curveWell.left(), yFor(preamp)));
-  for (int i = 0; i < 10; ++i) {
-    pts.push_back(QPointF(curveWell.left() + curveWell.width() * (i + 1) / 10.0,
-                          yFor(gains[i])));
-  }
-  p.setPen(QPen(QColor(226, 236, 255, 36), 1));
-  p.drawLine(QPointF(curveWell.left(), curveWell.center().y()),
-             QPointF(curveWell.right(), curveWell.center().y()));
-  QPainterPath curve;
-  curve.moveTo(pts.first());
-  for (int i = 0; i < pts.size() - 1; ++i) {
-    const QPointF p0 = i == 0 ? pts[i] : pts[i - 1];
-    const QPointF p1 = pts[i];
-    const QPointF p2 = pts[i + 1];
-    const QPointF p3 = i + 2 < pts.size() ? pts[i + 2] : p2;
-    curve.cubicTo(QPointF(p1.x() + (p2.x() - p0.x()) / 6, p1.y() + (p2.y() - p0.y()) / 6),
-                  QPointF(p2.x() - (p3.x() - p1.x()) / 6, p2.y() - (p3.y() - p1.y()) / 6),
-                  p2);
-  }
-  QPainterPath fill = curve;
-  fill.lineTo(curveWell.bottomRight());
-  fill.lineTo(curveWell.bottomLeft());
-  fill.closeSubpath();
-  QLinearGradient wash(curveWell.topLeft(), curveWell.bottomLeft());
-  wash.setColorAt(0, QColor(61, 231, 255, 102));
-  wash.setColorAt(1, QColor(61, 231, 255, 0));
-  p.fillPath(fill, wash);
-  paintBlurred(p, curveWell.adjusted(-8, -8, 8, 8), 2.5, [&](QPainter& bp) {
-    bp.setBrush(Qt::NoBrush);
-    bp.setPen(QPen(QColor(61, 231, 255, 153), 2.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-    bp.drawPath(curve);
-  });
-  p.setBrush(Qt::NoBrush);
-  p.setPen(QPen(kCurveStroke, 2.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-  p.drawPath(curve);
-  drawScreenOverlay(p, curveWell);
-
+  const QRectF bandRow(body.left() + 22, body.top() + 92, body.width() - 44, 196);
   const char* labels[] = {"PREAMP", "60", "170", "310", "600", "1k",
                           "3k",     "6k", "12k", "14k", "16k"};
   qreal allGains[11] = {preamp};
-  for (int i = 0; i < 10; ++i) {
-    allGains[i + 1] = gains[i];
-  }
+  for (int i = 0; i < 10; ++i) allGains[i + 1] = gains[i];
 
-  const QRectF bandRow(body.left() + 22, body.top() + 92, body.width() - 44, 196);
-  p.setFont(monoFont(11));
-  p.setPen(kInkFaint);
-  p.drawText(QRectF(bandRow.left(), bandRow.top() + 18, 36, 14),
-             Qt::AlignRight | Qt::AlignVCenter, QStringLiteral("+12"));
-  p.drawText(QRectF(bandRow.left(), bandRow.top() + 18 + 67, 36, 14),
-             Qt::AlignRight | Qt::AlignVCenter, QStringLiteral("0"));
-  p.drawText(QRectF(bandRow.left(), bandRow.top() + 18 + 134, 36, 14),
-             Qt::AlignRight | Qt::AlignVCenter, QStringLiteral("−12"));
-
-  qreal x = bandRow.left() + 44;
-  for (int i = 0; i < 11; ++i) {
-    const qreal w = i == 0 ? 62 : 50;
+  if (chassis) {
+    drawBtn(p, QRectF(hx, hy, onW, 38), on, QStringLiteral("ON"));
+    hx += onW + 8;
+    drawBtn(p, QRectF(hx, hy, autoW, 38), autoOn, QStringLiteral("AUTO"));
+    hx += autoW + 8;
+    const QRectF presets(hx, hy, presetsW, 38);
+    drawBtn(p, presets, false, QStringLiteral("PRESETS"));
+    drawMenuCaret(p, presets);
+    hx += presetsW + 14;
+    p.setFont(condensedFont(11, 0.2));
+    p.setPen(kInkFaint);
+    p.drawText(QRectF(hx, hy, 180, 38), Qt::AlignVCenter,
+               QStringLiteral("CURVE · %1").arg(curveName));
+    drawScreenWell(p, curveWell);
     p.setFont(monoFont(11));
-    p.setPen(kInk);
-    p.drawText(QRectF(x, bandRow.top(), w, 18), Qt::AlignHCenter | Qt::AlignVCenter,
-               formatGain(allGains[i]));
-    drawVBand(p, QRectF(x, bandRow.top() + 18, w, 148), allGains[i]);
-    p.setFont(condensedFont(11, i == 0 ? 0.18 : 0.1));
-    p.setPen(i == 0 ? QColor(61, 231, 255, 140) : kInkFaint);
-    p.drawText(QRectF(x, bandRow.top() + 166, w, 26), Qt::AlignHCenter | Qt::AlignVCenter,
-               QString::fromLatin1(labels[i]));
-    x += w + (i == 0 ? 16 : 0);
+    p.setPen(kInkFaint);
+    p.drawText(QRectF(bandRow.left(), bandRow.top() + 18, 36, 14),
+               Qt::AlignRight | Qt::AlignVCenter, QStringLiteral("+12"));
+    p.drawText(QRectF(bandRow.left(), bandRow.top() + 18 + 67, 36, 14),
+               Qt::AlignRight | Qt::AlignVCenter, QStringLiteral("0"));
+    p.drawText(QRectF(bandRow.left(), bandRow.top() + 18 + 134, 36, 14),
+               Qt::AlignRight | Qt::AlignVCenter, QStringLiteral("−12"));
+    qreal lx = bandRow.left() + 44;
+    for (int i = 0; i < 11; ++i) {
+      const qreal w = i == 0 ? 62 : 50;
+      p.setFont(condensedFont(11, i == 0 ? 0.18 : 0.1));
+      p.setPen(i == 0 ? QColor(61, 231, 255, 140) : kInkFaint);
+      p.drawText(QRectF(lx, bandRow.top() + 166, w, 26), Qt::AlignHCenter | Qt::AlignVCenter,
+                 QString::fromLatin1(labels[i]));
+      lx += w + (i == 0 ? 16 : 0);
+    }
   }
 
-  drawLogoMark(p, QRectF(body.right() - 36 - 120, body.top() + 120, 120, 120), logo, 0.14);
+  if (live) {
+    QVector<QPointF> pts;
+    pts.reserve(11);
+    auto yFor = [&](qreal g) {
+      const qreal t = (12.0 - qBound(-12.0, g, 12.0)) / 24.0;
+      return curveWell.top() + t * curveWell.height();
+    };
+    pts.push_back(QPointF(curveWell.left(), yFor(preamp)));
+    for (int i = 0; i < 10; ++i) {
+      pts.push_back(QPointF(curveWell.left() + curveWell.width() * (i + 1) / 10.0,
+                            yFor(gains[i])));
+    }
+    p.setPen(QPen(QColor(226, 236, 255, 36), 1));
+    p.drawLine(QPointF(curveWell.left(), curveWell.center().y()),
+               QPointF(curveWell.right(), curveWell.center().y()));
+    QPainterPath curve;
+    curve.moveTo(pts.first());
+    for (int i = 0; i < pts.size() - 1; ++i) {
+      const QPointF p0 = i == 0 ? pts[i] : pts[i - 1];
+      const QPointF p1 = pts[i];
+      const QPointF p2 = pts[i + 1];
+      const QPointF p3 = i + 2 < pts.size() ? pts[i + 2] : p2;
+      curve.cubicTo(QPointF(p1.x() + (p2.x() - p0.x()) / 6, p1.y() + (p2.y() - p0.y()) / 6),
+                    QPointF(p2.x() - (p3.x() - p1.x()) / 6, p2.y() - (p3.y() - p1.y()) / 6),
+                    p2);
+    }
+    QPainterPath fill = curve;
+    fill.lineTo(curveWell.bottomRight());
+    fill.lineTo(curveWell.bottomLeft());
+    fill.closeSubpath();
+    QLinearGradient wash(curveWell.topLeft(), curveWell.bottomLeft());
+    wash.setColorAt(0, QColor(61, 231, 255, 102));
+    wash.setColorAt(1, QColor(61, 231, 255, 0));
+    p.fillPath(fill, wash);
+    if (glow) {
+      paintBlurred(p, curveWell.adjusted(-8, -8, 8, 8), 2.5, [&](QPainter& bp) {
+        bp.setBrush(Qt::NoBrush);
+        bp.setPen(QPen(QColor(61, 231, 255, 153), 2.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        bp.drawPath(curve);
+      });
+    }
+    p.setBrush(Qt::NoBrush);
+    p.setPen(QPen(kCurveStroke, 2.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    p.drawPath(curve);
+    drawScreenOverlay(p, curveWell);
+
+    qreal x = bandRow.left() + 44;
+    for (int i = 0; i < 11; ++i) {
+      const qreal w = i == 0 ? 62 : 50;
+      p.setFont(monoFont(11));
+      p.setPen(kInk);
+      p.drawText(QRectF(x, bandRow.top(), w, 18), Qt::AlignHCenter | Qt::AlignVCenter,
+                 formatGain(allGains[i]));
+      drawVBand(p, QRectF(x, bandRow.top() + 18, w, 148), allGains[i]);
+      x += w + (i == 0 ? 16 : 0);
+    }
+    drawLogoMark(p, QRectF(body.right() - 36 - 120, body.top() + 120, 120, 120), logo, 0.14);
+  }
 }
 
 void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const SessionView& view) {
@@ -916,7 +928,7 @@ void paintWindowBody(QPainter& painter, WindowId id, QSize logical, const QImage
       paintMain(painter, body, view, pass);
       break;
     case WindowId::equalizer:
-      paintEq(painter, body, logo, view);
+      paintEq(painter, body, logo, view, pass);
       break;
     case WindowId::playlist:
       paintPlaylist(painter, body, logo, view);
