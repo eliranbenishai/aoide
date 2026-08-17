@@ -6,7 +6,7 @@ Living map of how Tramp is structured. Domain terms: [`CONTEXT.md`](../CONTEXT.m
 
 **Qt 6 C++** is the only build ([ADR 0016](adr/0016-qt-for-v1.md)). One process, five frameless windows, QWidget + QPainter in [`src/`](../src/). Binary: `build/tramp`.
 
-`TrampSession` owns playback (libmpv), playlist/collection, EQ, spectrum, docking, zoom, skins, and persistence. Extra windows are extra views, not extra engines. Title-bar drag is `QWindow::startSystemMove()`; the session polls that move and translates the dock cohort without writing the dragged window’s geometry back (so it doesn’t fight the WM). Extras skip the taskbar. On Windows they are `Qt::Dialog` transients of main; on Linux they are independent toplevels so saved positions and dock follow stick. `--dump-chrome` writes 1× logical PNGs from `SessionView::golden()`.
+`TrampSession` owns playback (libmpv), playlist/collection, EQ, spectrum, docking, zoom, skins, and persistence. Extra windows are extra views, not extra engines. Title-bar drag is `QWindow::startSystemMove()`; the session polls that move and translates the dock cohort without writing the dragged window’s geometry back (so it doesn’t fight the WM). Extras are `Qt::Dialog` transients of main and skip the taskbar. Frames are reapplied after map so the WM’s first configure does not stack restored windows. `--dump-chrome` writes 1× logical PNGs from `SessionView::golden()`.
 
 Linux + Windows are the pairing hosts; macOS follows. Dock follow is proven on xcb; Wayland is best-effort.
 

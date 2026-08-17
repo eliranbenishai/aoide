@@ -274,10 +274,9 @@ void PlaybackController::onPlaylistChanged() {
       mediaOpen_ = false;
       engine_->stop();
     } else {
+      // Playlist replaced (loaded another saved list). Keep the open file
+      // playing; only a true one-track removal should advance/stop.
       playingIndex_.reset();
-      playingPath_.clear();
-      mediaOpen_ = false;
-      engine_->stop();
     }
   }
   notify();

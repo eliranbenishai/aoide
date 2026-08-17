@@ -405,7 +405,6 @@ int main(int argc, char** argv) {
   refresh();
 
   mainWindow->show();
-#ifdef Q_OS_WIN
   QWindow* mainHandle = mainWindow->windowHandle();
   for (HostWindow* window : windows) {
     if (window == mainWindow) continue;
@@ -414,13 +413,22 @@ int main(int argc, char** argv) {
       native->setTransientParent(mainHandle);
     }
   }
-#endif
   if (session.view().eqOn) eqWindow->show();
   if (session.view().plOn) plWindow->show();
   if (session.windowShouldShow(tramp::WindowId::settings)) settingsWindow->show();
   if (session.windowShouldShow(tramp::WindowId::about)) aboutWindow->show();
+  for (HostWindow* window : windows) {
+    if (window == mainWindow) continue;
+    if (QWindow* native = window->windowHandle()) tramp::applySkipTaskbar(native);
+  }
   session.reapplyWindowFrames();
-  QTimer::singleShot(0, mainWindow, [&]() { session.reapplyWindowFrames(); });
+  QTimer::singleShot(0, mainWindow, [&]() {
+    session.reapplyWindowFrames();
+    for (HostWindow* window : windows) {
+      if (window == mainWindow) continue;
+      if (QWindow* native = window->windowHandle()) tramp::applySkipTaskbar(native);
+    }
+  });
 
   if (qEnvironmentVariable("TRAMP_AUTO_QUIT") == QLatin1String("1")) {
     session.persistNow();

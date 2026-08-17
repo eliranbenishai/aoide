@@ -678,6 +678,11 @@ void TrampSession::loadCollectionRow(int index) {
     refreshChrome();
     return;
   }
+  if (samePlaylistFile(playlist_.sourcePath(), e.path)) {
+    collection_.select(e.path);
+    refreshChrome();
+    return;
+  }
   if (!confirmReplaceAltered()) return;
   playlist_.openPlaylistFile(e.path);
   collection_.select(e.path);

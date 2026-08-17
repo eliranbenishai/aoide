@@ -84,4 +84,9 @@ class SupportStore {
 
 QString normalizePlaylistPath(const QString& path);
 
+inline bool samePlaylistFile(const QString& a, const QString& b) {
+  if (a.isEmpty() || b.isEmpty()) return false;
+  return normalizePlaylistPath(a) == normalizePlaylistPath(b);
+}
+
 }  // namespace tramp

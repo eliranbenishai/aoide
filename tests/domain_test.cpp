@@ -523,6 +523,44 @@ int main() {
     REQUIRE(playback.paused());
   }
 
+  {
+    REQUIRE(tramp::samePlaylistFile(QStringLiteral("/music/set.m3u"),
+                                    QStringLiteral("/music/./set.m3u")));
+    REQUIRE(!tramp::samePlaylistFile(QStringLiteral("/music/a.m3u"),
+                                     QStringLiteral("/music/b.m3u")));
+    REQUIRE(!tramp::samePlaylistFile(QString(), QStringLiteral("/music/a.m3u")));
+  }
+
+  {
+    class WatchEngine : public NullEngine {
+     public:
+      void play() override { stopped = false; }
+      void stop() override {
+        stopped = true;
+        NullEngine::stop();
+      }
+      bool stopped = false;
+    };
+    PlaylistController playlist;
+    Track a;
+    a.path = QStringLiteral("/tmp/keep-playing.mp3");
+    Track b;
+    b.path = QStringLiteral("/tmp/other.mp3");
+    playlist.setTracks({a, b}, QStringLiteral("/tmp/current.m3u"));
+    WatchEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.playIndex(0);
+    REQUIRE(playback.playing());
+    playlist.select(1);
+    REQUIRE(playback.playing());
+    REQUIRE(!engine.stopped);
+    Track c;
+    c.path = QStringLiteral("/tmp/from-another-list.mp3");
+    playlist.setTracks({c}, QStringLiteral("/tmp/other.m3u"));
+    REQUIRE(playback.playing());
+    REQUIRE(!engine.stopped);
+  }
+
   if (gFails != 0) {
     std::fprintf(stderr, "%d assertion(s) failed\n", gFails);
     return 1;
