@@ -1,3 +1,4 @@
+#include "chrome_layout.h"
 #include "mockup_tokens.h"
 #include "title_chrome.h"
 #include "tramp_metrics.h"
@@ -18,6 +19,8 @@ class ChromeSpecTest : public QObject {
   void zoomStepsMoveAcrossTheDiscreteLadder();
   void mainTitleShowsZoomReadoutBetweenZoomButtons();
   void chromePaintBufferMatchesWidgetTimesDpr();
+  void stereoPlaylistGapHoldsForWideGlyphs();
+  void skinsListScrollsLastRowIntoView();
 };
 
 void ChromeSpecTest::tokensMatchMockupCssRoot() {
@@ -136,6 +139,32 @@ void ChromeSpecTest::chromePaintBufferMatchesWidgetTimesDpr() {
   QCOMPARE(tramp::chromePaintBufferSize(QSize(619, 261), 2.0), QSize(1238, 522));
   QCOMPARE(tramp::chromePaintBufferSize(QSize(619, 261), 1.0), QSize(619, 261));
   QCOMPARE(tramp::chromePaintBufferSize(QSize(619, 261), 1.25), QSize(774, 326));
+}
+
+void ChromeSpecTest::stereoPlaylistGapHoldsForWideGlyphs() {
+  const QRectF inner(0, 0, 400, 18);
+  const auto compact = tramp::layoutDisplayMetaRow(inner, 0, 40, 40, 50, 70, 36);
+  QVERIFY(compact.playlist.left() - compact.channels.right() >= tramp::kDisplayMetaGap);
+  QVERIFY(!compact.channels.intersects(compact.playlist));
+
+  const auto wide = tramp::layoutDisplayMetaRow(inner, 0, 80, 80, 160, 120, 48);
+  QCOMPARE(wide.playlist.left() - wide.channels.right(), tramp::kDisplayMetaGap);
+  QVERIFY(!wide.channels.intersects(wide.playlist));
+}
+
+void ChromeSpecTest::skinsListScrollsLastRowIntoView() {
+  const auto pane = tramp::settingsPane(tramp::kSettings);
+  const auto viewport = tramp::skinsListViewport(pane);
+  QCOMPARE(int(viewport.height()), 262);
+  QCOMPARE(tramp::skinsListMaxScroll(8, viewport.height()), 26);
+
+  const auto lastHidden = tramp::skinsListRow(viewport, 7, 0);
+  QVERIFY(lastHidden.bottom() > viewport.bottom());
+
+  const int scroll = tramp::skinsListMaxScroll(8, viewport.height());
+  const auto lastShown = tramp::skinsListRow(viewport, 7, scroll);
+  QVERIFY(lastShown.top() >= viewport.top());
+  QVERIFY(lastShown.bottom() <= viewport.bottom());
 }
 
 QTEST_APPLESS_MAIN(ChromeSpecTest)

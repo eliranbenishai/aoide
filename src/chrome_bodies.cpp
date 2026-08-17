@@ -1,5 +1,6 @@
 #include "chrome_bodies.h"
 
+#include "chrome_layout.h"
 #include "look.h"
 #include "mockup_draw.h"
 #include "tramp_fonts.h"
@@ -188,24 +189,29 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
 
     const qreal metaY = inner.bottom() - 18;
     const QFont metaFont = monoFont(13, 0.04);
-    drawStyledText(p, QRectF(meta.left(), metaY, 80, 18), bitrate, metaFont,
-                   withAlpha(T().phos, 128), Qt::AlignVCenter | Qt::AlignLeft,
-                   {{withAlpha(T().phos, 0x40), QPointF(), 8}});
-    drawStyledText(p, QRectF(meta.left() + 80 + 22, metaY, 80, 18), rate,
-                   metaFont, withAlpha(T().phos, 128), Qt::AlignVCenter | Qt::AlignLeft,
-                   {{withAlpha(T().phos, 0x40), QPointF(), 8}});
-    drawStyledText(p, QRectF(meta.left() + 80 + 22 + 80 + 22, metaY, 70, 18),
-                   channels, condensedFont(12, 0.2), T().phos,
+    const QFont channelsFont = condensedFont(12, 0.2);
+    const QFont fmtFont = condensedFont(12, 0.18);
+    const QFont chipFont = condensedFont(12, 0.14);
+    const QString chipLabel = QStringLiteral("PLAYLIST");
+    const qreal reload = 11;
+    const qreal fmtW = 9 + textWidth(fmtFont, fmtLabel) + 9;
+    const qreal chipW = reload + 4 + textWidth(chipFont, chipLabel);
+    const auto metaRow = layoutDisplayMetaRow(
+        QRectF(meta.left(), metaY, meta.width(), kDisplayMetaH), metaY,
+        textWidth(metaFont, bitrate), textWidth(metaFont, rate),
+        textWidth(channelsFont, channels), chipW, fmtW);
+    drawStyledText(p, metaRow.bitrate, bitrate, metaFont, withAlpha(T().phos, 128),
+                   Qt::AlignVCenter | Qt::AlignLeft, {{withAlpha(T().phos, 0x40), QPointF(), 8}});
+    drawStyledText(p, metaRow.rate, rate, metaFont, withAlpha(T().phos, 128),
+                   Qt::AlignVCenter | Qt::AlignLeft, {{withAlpha(T().phos, 0x40), QPointF(), 8}});
+    drawStyledText(p, metaRow.channels, channels, channelsFont, T().phos,
                    Qt::AlignVCenter | Qt::AlignLeft,
                    {
                        {withAlpha(T().phos, 0xd9), QPointF(), 1},
                        {withAlpha(T().phos, 0x73), QPointF(), 12},
                    });
 
-    const QFont fmtFont = condensedFont(12, 0.18);
-    const qreal fmtW = 9 + textWidth(fmtFont, fmtLabel) + 9;
-    const qreal fmtH = 18;
-    const QRectF fmt(inner.right() - fmtW, inner.bottom() - fmtH, fmtW, fmtH);
+    const QRectF fmt = metaRow.format;
     paintBlurred(p, fmt.adjusted(-18, -18, 18, 18), 12 * 0.57735, [&](QPainter& bp) {
       bp.setPen(Qt::NoPen);
       bp.setBrush(withAlpha(T().accent, 102));
@@ -220,11 +226,7 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
     p.setFont(fmtFont);
     p.drawText(fmt, Qt::AlignCenter, fmtLabel);
 
-    const QFont chipFont = condensedFont(12, 0.14);
-    const QString chipLabel = QStringLiteral("PLAYLIST");
-    const qreal reload = 11;
-    const qreal chipW = reload + 4 + textWidth(chipFont, chipLabel);
-    const QRectF chip(fmt.left() - 10 - chipW, inner.bottom() - 18, chipW, 16);
+    const QRectF chip = metaRow.playlist;
     drawReload(p, QRectF(chip.left(), chip.center().y() - reload / 2, reload, reload), T().phos);
     drawStyledText(p, QRectF(chip.left() + reload + 4, chip.top(), chip.width() - reload - 4, 16),
                    chipLabel, chipFont, T().phos, Qt::AlignVCenter | Qt::AlignLeft,
@@ -709,8 +711,13 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view) {
   if (tabIndex == 1) {
     const QVector<SkinCatalogEntry> skins = view.goldenDemo ? QVector<SkinCatalogEntry>{} : view.skins;
     const QString active = view.goldenDemo ? QStringLiteral("builtin") : view.activeSkinId;
+    const QRectF viewport = skinsListViewport(pane);
+    const int scroll = view.goldenDemo ? 0 : view.skinsScroll;
+    p.save();
+    p.setClipRect(viewport);
     for (int i = 0; i < skins.size(); ++i) {
-      const QRectF row(pane.left() + 12, pane.top() + 10 + i * 36, pane.width() - 24, 32);
+      const QRectF row = skinsListRow(viewport, i, scroll);
+      if (row.bottom() < viewport.top() || row.top() > viewport.bottom()) continue;
       const bool on = skins[i].id == active;
       if (on) {
         p.fillRect(row, QColor(T().shellHi.red(), T().shellHi.green(), T().shellHi.blue(), 115));
@@ -725,6 +732,13 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view) {
         p.drawText(row.adjusted(14 + nameW, 0, -10, 0), Qt::AlignVCenter | Qt::AlignLeft,
                    skins[i].author);
       }
+    }
+    p.restore();
+    const int maxScroll = skinsListMaxScroll(skins.size(), viewport.height());
+    if (maxScroll > 0) {
+      const QRectF track = skinsListScrollTrack(viewport);
+      const QRectF thumb = skinsListThumb(track, skins.size(), scroll);
+      drawScrollbar(p, track, thumb.top() - track.top(), thumb.height());
     }
     if (!view.skinsError.isEmpty() && !view.goldenDemo) {
       p.setFont(monoFont(10));

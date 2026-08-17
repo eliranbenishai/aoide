@@ -150,6 +150,30 @@ void DockingCoordinator::resizePlaylist(QSizeF logical) {
   layout_.playlist.height = logical.height();
 }
 
+QPoint followDragNative(QPoint windowPos, QPoint startPos, QPoint cursorNow, QPoint cursorStart) {
+  if (windowPos != startPos) return windowPos;
+  return startPos + (cursorNow - cursorStart);
+}
+
+void DockingCoordinator::nudgeOffMainIfStacked(WindowId id) {
+  if (id == WindowId::main || id == WindowId::settings || id == WindowId::about) return;
+  const QRectF mainR = rectFor(WindowId::main);
+  const QRectF r = rectFor(id);
+  const QRectF inter = mainR.intersected(r);
+  const double cover = inter.width() * inter.height();
+  const double otherArea = std::max(1.0, r.width() * r.height());
+  const bool sameOrigin = std::abs(r.left() - mainR.left()) <= 8 && std::abs(r.top() - mainR.top()) <= 8;
+  if (!sameOrigin && cover < 0.6 * otherArea) return;
+  WindowFrame& frame = layout_.frameOf(id);
+  frame.left = mainR.left();
+  if (id == WindowId::equalizer) {
+    frame.top = mainR.bottom();
+  } else {
+    frame.left = mainR.right();
+    frame.top = mainR.top();
+  }
+}
+
 void DockingCoordinator::move(WindowId id, QPointF topLeft, bool shiftUndock, bool snap) {
   if (id == WindowId::settings || id == WindowId::about) {
     layout_.frameOf(id).left = topLeft.x();

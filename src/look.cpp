@@ -1,5 +1,6 @@
 #include "look.h"
 
+#include "mockup_tokens.h"
 #include "tramp_fonts.h"
 
 #include <QDir>
@@ -282,6 +283,36 @@ QColor tintTowardWhite(const QColor& color, double greenPull, double bluePull) {
                 qBound(0, int(std::round(255 - (255 - color.blue()) * bluePull)), 255));
 }
 
+/// Keep the sample's lightness (and relative saturation) but walk its hue with
+/// the skin accent. Builtin accent → builtin sample is an identity so mockup
+/// hex pins stay put.
+QColor mapUsingAccent(const QColor& accent, const QColor& fromAccent, const QColor& sample) {
+  if (accent.red() == fromAccent.red() && accent.green() == fromAccent.green() &&
+      accent.blue() == fromAccent.blue()) {
+    return sample;
+  }
+  float ah = 0, as = 0, al = 0, aa = 0;
+  accent.getHslF(&ah, &as, &al, &aa);
+  float bh = 0, bs = 0, bl = 0, ba = 0;
+  fromAccent.getHslF(&bh, &bs, &bl, &ba);
+  float oh = 0, os = 0, ol = 0, oa = 0;
+  sample.getHslF(&oh, &os, &ol, &oa);
+  if (ah < 0 || as < 0.04f) {
+    return QColor::fromHslF(oh < 0 ? 0 : oh, as, ol, sample.alphaF());
+  }
+  float h = ah;
+  if (oh >= 0 && bh >= 0) {
+    h = oh + (ah - bh);
+    if (h < 0) h += 1;
+    if (h >= 1) h -= 1;
+  }
+  float s = os;
+  if (bs > 0.001f) s = qBound(0.f, os * (as / bs), 1.f);
+  else s = as;
+  QColor out = QColor::fromHslF(h, s, ol, sample.alphaF());
+  return out;
+}
+
 bool copyDir(const QString& src, const QString& dst) {
   QDir().mkpath(dst);
   const QFileInfoList entries =
@@ -539,11 +570,11 @@ ChromeTokens ChromeTokens::from(const ResolvedLook& look) {
   t.wbtn0 = lift(p.shellHi, 19, 22, 28);
   t.wbtn55 = lift(p.shell, 9, 10, 11);
   t.wbtn100 = lift(p.shellMid, 6, 7, 8);
-  t.wbtnClose0 = scaleColor(p.accent, 0.6118, 0.6885, 0.6234);
-  t.wbtnClose55 = scaleColor(p.accent, 0.4745, 0.5246, 0.4805);
-  t.wbtnClose100 = scaleColor(p.accent, 0.2902, 0.2787, 0.2662);
+  t.wbtnClose0 = mapUsingAccent(p.accent, kAccent, kWbtnClose0);
+  t.wbtnClose55 = mapUsingAccent(p.accent, kAccent, kWbtnClose55);
+  t.wbtnClose100 = mapUsingAccent(p.accent, kAccent, kWbtnClose100);
   t.glyphInk = withAlpha(lift(p.ink, -18, -8, 5), 0xD1);
-  t.closeGlyph = tintTowardWhite(p.accent, 41.0 / 194.0, 23.0 / 101.0);
+  t.closeGlyph = mapUsingAccent(p.accent, kAccent, kCloseGlyph);
   t.bevelLight = withAlpha(t.coolSheen, int(std::round(m.bevelLightOpacity * 255)));
   t.bevelSoft = withAlpha(t.coolSheen, int(std::round(m.bevelSoftOpacity * 255)));
   t.btnIdle0 = lift(p.shellHi, 13, 15, 19);

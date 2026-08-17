@@ -1,5 +1,6 @@
 #include "session.h"
 
+#include "chrome_layout.h"
 #include "files.h"
 #include "host_window.h"
 #include "look.h"
@@ -15,8 +16,11 @@
 #include "tramp_metrics.h"
 
 #include <QAction>
+#include <QCoreApplication>
+#include <QCursor>
 #include <QDesktopServices>
 #include <QDir>
+#include <QEvent>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QGuiApplication>
@@ -103,6 +107,10 @@ TrampSession::TrampSession(QObject* parent)
   dragFollowTimer_.setInterval(16);
   dragFollowTimer_.setTimerType(Qt::PreciseTimer);
   QObject::connect(&dragFollowTimer_, &QTimer::timeout, this, [this]() { followTitleDrag(); });
+
+  if (QCoreApplication::instance()) {
+    QCoreApplication::instance()->installEventFilter(this);
+  }
 
   playlist_.setOnChanged([this]() {
     if (playback_) playback_->onPlaylistChanged();
@@ -238,10 +246,9 @@ void TrampSession::bootstrap(const QStringList& argvFiles) {
     pl_->setPlaylistLogicalSize(
         QSize(int(*settings_.playlist.width), int(*settings_.playlist.height)));
   }
-  restoreFrames_ = QFileInfo::exists(QDir(store_.dir()).filePath(QStringLiteral("settings.json")));
-  if (restoreFrames_) {
-    applyFramesToWindows();
-  }
+  docking_.nudgeOffMainIfStacked(WindowId::equalizer);
+  docking_.nudgeOffMainIfStacked(WindowId::playlist);
+  applyFramesToWindows();
   if (settings_.about.visible) refreshAboutFigures();
   applyAlwaysOnTop();
   refreshChrome();
@@ -401,6 +408,9 @@ SessionView TrampSession::view() const {
   v.skins = skins_.catalog();
   v.activeSkinId = settings_.activeSkinId;
   v.skinsError = skins_.lastError();
+  const QRectF skinsViewport = skinsListViewport(settingsPane(kSettings));
+  v.skinsScroll = std::max(0, std::min(skinsScroll_, skinsListMaxScroll(skins_.catalog().size(),
+                                                                        skinsViewport.height())));
 
   const auto tracks = playlist_.tracks();
   qint64 total = 0;
@@ -488,7 +498,10 @@ void TrampSession::setZoomPercent(int percent) {
 void TrampSession::setWindowVisible(WindowId id, bool visible) {
   docking_.setVisible(id, visible);
   if (visible) {
+    docking_.nudgeOffMainIfStacked(id);
     emit requestShow(id);
+    applyDockToWindows();
+    QTimer::singleShot(0, this, [this]() { applyDockToWindows(); });
     if (id == WindowId::settings) emit requestRaise(WindowId::settings);
     if (id == WindowId::about) refreshAboutFigures();
   } else {
@@ -545,27 +558,39 @@ void TrampSession::windowMoved(WindowId id, QPoint nativeTopLeft, bool finalize)
   if (applyingDock_) return;
   if (titleDragging_ && id != titleDragId_ && !finalize) return;
   if (!titleDragging_ && !finalize) return;
-  docking_.move(id, nativeToLogical(nativeTopLeft), false, finalize);
-  if (finalize) {
-    applyDockToWindows();
-    schedulePersist();
-  } else {
-    applyDockToWindows(id);
-  }
+  applyTitleMove(id, nativeTopLeft, finalize, !finalize);
+  if (finalize) schedulePersist();
+}
+
+void TrampSession::applyTitleMove(WindowId id, QPoint nativeTopLeft, bool snap, bool skipSelf) {
+  docking_.move(id, nativeToLogical(nativeTopLeft), false, snap);
+  if (skipSelf) applyDockToWindows(id);
+  else applyDockToWindows();
 }
 
 void TrampSession::titleDragBegan(WindowId id) {
   titleDragId_ = id;
   titleDragging_ = true;
+  HostWindow* w = windowFor(id);
+  dragWindowOrigin_ = w ? w->pos() : QPoint();
+  dragCursorOrigin_ = QCursor::pos();
   if (!dragFollowTimer_.isActive()) dragFollowTimer_.start();
 }
 
 void TrampSession::titleDragEnded(WindowId id) {
+  if (!titleDragging_) return;
   dragFollowTimer_.stop();
-  titleDragging_ = false;
   HostWindow* w = windowFor(id);
-  if (w) windowMoved(id, w->pos(), id != WindowId::main);
-  else schedulePersist();
+  if (w) {
+    const QPoint pos =
+        followDragNative(w->pos(), dragWindowOrigin_, QCursor::pos(), dragCursorOrigin_);
+    windowMoved(id, pos, id != WindowId::main);
+  } else {
+    schedulePersist();
+  }
+  titleDragging_ = false;
+  QTimer::singleShot(0, this, [this, id]() { settleTitleDrag(id); });
+  QTimer::singleShot(50, this, [this, id]() { settleTitleDrag(id); });
 }
 
 void TrampSession::followTitleDrag() {
@@ -573,33 +598,34 @@ void TrampSession::followTitleDrag() {
     dragFollowTimer_.stop();
     return;
   }
-  if (QGuiApplication::mouseButtons() == Qt::NoButton) {
-    titleDragEnded(titleDragId_);
-    return;
-  }
   HostWindow* w = windowFor(titleDragId_);
-  if (w) windowMoved(titleDragId_, w->pos(), false);
+  if (!w) return;
+  const QPoint pos =
+      followDragNative(w->pos(), dragWindowOrigin_, QCursor::pos(), dragCursorOrigin_);
+  windowMoved(titleDragId_, pos, false);
+}
+
+bool TrampSession::eventFilter(QObject* watched, QEvent* event) {
+  if (titleDragging_ && event &&
+      (event->type() == QEvent::MouseButtonRelease ||
+       event->type() == QEvent::NonClientAreaMouseButtonRelease)) {
+    titleDragEnded(titleDragId_);
+  }
+  return QObject::eventFilter(watched, event);
+}
+
+void TrampSession::settleTitleDrag(WindowId id) {
+  if (titleDragging_) return;
+  HostWindow* w = windowFor(id);
+  if (!w) return;
+  const QPoint pos =
+      followDragNative(w->pos(), dragWindowOrigin_, QCursor::pos(), dragCursorOrigin_);
+  applyTitleMove(id, pos, false, true);
+  schedulePersist();
 }
 
 void TrampSession::reapplyWindowFrames() {
-  if (restoreFrames_) applyFramesToWindows();
-  else syncFramesFromWindows();
-}
-
-void TrampSession::syncFramesFromWindows() {
-  applyingDock_ = true;
-  for (WindowId id : {WindowId::main, WindowId::equalizer, WindowId::playlist, WindowId::settings,
-                      WindowId::about}) {
-    HostWindow* w = windowFor(id);
-    if (!w) continue;
-    const QPointF logical = nativeToLogical(w->pos());
-    WindowFrame& f = docking_.layout().frameOf(id);
-    if (!(w->pos().x() == 0 && w->pos().y() == 0 && (f.left != 0 || f.top != 0))) {
-      f.left = logical.x();
-      f.top = logical.y();
-    }
-  }
-  applyingDock_ = false;
+  applyFramesToWindows();
 }
 
 void TrampSession::applyDockToWindows(std::optional<WindowId> skip) {
@@ -701,6 +727,14 @@ void TrampSession::handleRelease(WindowId id) {
 }
 
 void TrampSession::handleWheel(WindowId id, int delta) {
+  if (id == WindowId::settings && settingsTab_ == 1) {
+    const QRectF viewport = skinsListViewport(settingsPane(kSettings));
+    const int maxScroll = skinsListMaxScroll(skins_.catalog().size(), viewport.height());
+    const int step = delta > 0 ? -kSkinRowStride : kSkinRowStride;
+    skinsScroll_ = std::max(0, std::min(skinsScroll_ + step, maxScroll));
+    refreshChrome();
+    return;
+  }
   if (id != WindowId::playlist) return;
   const int step = delta > 0 ? -1 : 1;
   trackScroll_ = std::max(0, std::min(trackScroll_ + step, std::max(0, int(playlist_.tracks().size()) - 1)));

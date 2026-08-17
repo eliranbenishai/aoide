@@ -433,6 +433,20 @@ int main() {
   }
 #endif
 
+  {
+    tramp::LookManifest overlay = parseLookManifest(obj(QStringLiteral(R"({
+      "formatVersion": 1, "id": "green-close", "name": "Green", "extends": "builtin",
+      "colors": { "accent": { "default": "#00cc44", "dim": "#007722" } }
+    })")));
+    const auto tokens = ChromeTokens::from(resolveLook(QStringLiteral("green-close"), {overlay}));
+    REQUIRE(hex(tokens.wbtnClose0) != QStringLiteral("#9c2a60"));
+    REQUIRE(hex(tokens.closeGlyph) != QStringLiteral("#ffd6e8"));
+    const int accentHue = QColor(QStringLiteral("#00cc44")).hslHue();
+    REQUIRE(tokens.wbtnClose0.hslHue() >= 0);
+    REQUIRE(qAbs(tokens.wbtnClose0.hslHue() - accentHue) <= 40);
+    REQUIRE(qAbs(tokens.closeGlyph.hslHue() - accentHue) <= 40);
+  }
+
   if (gFails != 0) {
     std::fprintf(stderr, "%d assertion(s) failed\n", gFails);
     return 1;

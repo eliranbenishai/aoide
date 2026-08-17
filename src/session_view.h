@@ -77,6 +77,7 @@ struct SessionView {
   QVector<SkinCatalogEntry> skins;
   QString activeSkinId = QStringLiteral("builtin");
   QString skinsError;
+  int skinsScroll = 0;
 
   static SessionView golden();
 };

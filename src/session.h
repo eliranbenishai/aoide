@@ -21,6 +21,7 @@
 #include <optional>
 
 class HostWindow;
+class QEvent;
 class QMenu;
 
 namespace tramp {
@@ -73,6 +74,9 @@ class TrampSession : public QObject {
   void requestHide(WindowId id);
   void requestRaise(WindowId id);
 
+ protected:
+  bool eventFilter(QObject* watched, QEvent* event) override;
+
  private:
   void bindPlayback();
   void applyEq();
@@ -80,7 +84,6 @@ class TrampSession : public QObject {
   void refreshEqChrome();
   void applyAlwaysOnTop();
   void applyFramesToWindows();
-  void syncFramesFromWindows();
   void schedulePersist();
   QString bundledSkinsDir() const;
   SkinController::ConflictFn skinConflictPrompt();
@@ -93,6 +96,8 @@ class TrampSession : public QObject {
   void openPaths(const QStringList& paths, bool enqueue);
   void loadCollectionRow(int index);
   void applyDockToWindows(std::optional<WindowId> skip = {});
+  void applyTitleMove(WindowId id, QPoint nativeTopLeft, bool snap, bool skipSelf);
+  void settleTitleDrag(WindowId id);
   QPointF nativeToLogical(QPoint native) const;
   QPoint logicalToNative(QPointF logical) const;
   void showOptionsMenu(QRect logicalHit);
@@ -140,10 +145,12 @@ class TrampSession : public QObject {
   QTimer dragFollowTimer_;
   CollectionFigures figures_;
   bool figuresLoaded_ = false;
-  bool restoreFrames_ = false;
   bool applyingDock_ = false;
   bool titleDragging_ = false;
   WindowId titleDragId_ = WindowId::main;
+  QPoint dragWindowOrigin_;
+  QPoint dragCursorOrigin_;
+  int skinsScroll_ = 0;
 };
 
 }  // namespace tramp

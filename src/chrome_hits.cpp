@@ -1,9 +1,11 @@
 #include "chrome_hits.h"
 
+#include "chrome_layout.h"
 #include "mockup_draw.h"
 #include "tramp_metrics.h"
 
 #include <QFontMetrics>
+#include <QPointF>
 
 namespace tramp {
 namespace {
@@ -216,36 +218,38 @@ ChromeHit hitSettings(QSize logical, QPoint pos, const SessionView& view) {
   if (auto h = hitIf(reset, pos, ChromeHit::Kind::settingsReset); h.kind != ChromeHit::Kind::none) {
     return h;
   }
-  const QRectF pane(body.left() + 108, body.top(), body.width() - 108, body.height() - 40);
+  const QRectF pane = settingsPane(logical);
   if (view.settingsTab == 1) {
-    for (int i = 0; i < view.skins.size(); ++i) {
-      const QRect row(int(pane.left() + 12), int(pane.top() + 10 + i * 36), int(pane.width() - 24),
-                      32);
-      if (auto h = hitIf(row, pos, ChromeHit::Kind::settingsSkinRow, i);
-          h.kind != ChromeHit::Kind::none) {
-        return h;
-      }
-    }
-    const int btnY = int(pane.bottom() - 58);
-    if (auto h = hitIf(QRect(int(pane.left() + 12), btnY, 148, 26), pos,
+    const qreal btnY = pane.bottom() - kSkinsBtnStackH;
+    if (auto h = hitIf(QRect(int(pane.left() + 12), int(btnY), 148, 26), pos,
                        ChromeHit::Kind::settingsInstallZip);
         h.kind != ChromeHit::Kind::none) {
       return h;
     }
-    if (auto h = hitIf(QRect(int(pane.left() + 168), btnY, 160, 26), pos,
+    if (auto h = hitIf(QRect(int(pane.left() + 168), int(btnY), 160, 26), pos,
                        ChromeHit::Kind::settingsInstallFolder);
         h.kind != ChromeHit::Kind::none) {
       return h;
     }
-    if (auto h = hitIf(QRect(int(pane.left() + 12), btnY + 30, 148, 26), pos,
+    if (auto h = hitIf(QRect(int(pane.left() + 12), int(btnY + 30), 148, 26), pos,
                        ChromeHit::Kind::settingsSkinsFolder);
         h.kind != ChromeHit::Kind::none) {
       return h;
     }
-    if (auto h = hitIf(QRect(int(pane.left() + 168), btnY + 30, 160, 26), pos,
+    if (auto h = hitIf(QRect(int(pane.left() + 168), int(btnY + 30), 160, 26), pos,
                        ChromeHit::Kind::settingsResetSkinsFolder);
         h.kind != ChromeHit::Kind::none) {
       return h;
+    }
+    const QRectF viewport = skinsListViewport(pane);
+    if (viewport.contains(QPointF(pos))) {
+      for (int i = 0; i < view.skins.size(); ++i) {
+        const QRectF row = skinsListRow(viewport, i, view.skinsScroll);
+        if (auto h = hitIf(row.toRect(), pos, ChromeHit::Kind::settingsSkinRow, i);
+            h.kind != ChromeHit::Kind::none) {
+          return h;
+        }
+      }
     }
     return {};
   }

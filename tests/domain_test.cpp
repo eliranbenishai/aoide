@@ -584,6 +584,37 @@ int main() {
     REQUIRE(!engine.stopped);
   }
 
+  {
+    REQUIRE_EQ(tramp::followDragNative(QPoint(40, 20), QPoint(10, 10), QPoint(80, 90), QPoint(10, 10)),
+               QPoint(40, 20));
+    REQUIRE_EQ(tramp::followDragNative(QPoint(10, 10), QPoint(10, 10), QPoint(80, 90), QPoint(10, 10)),
+               QPoint(80, 90));
+  }
+
+  {
+    tramp::DockLayout layout;
+    layout.main = {true, false, 100, 80, {}, {}};
+    layout.equalizer = {true, false, 100, 80, {}, {}};
+    layout.playlist = {true, false, 102, 82, {}, {}};
+    tramp::DockingCoordinator dock(layout);
+    dock.nudgeOffMainIfStacked(tramp::WindowId::equalizer);
+    dock.nudgeOffMainIfStacked(tramp::WindowId::playlist);
+    REQUIRE_EQ(dock.layout().equalizer.left, 100.0);
+    REQUIRE_EQ(dock.layout().equalizer.top, 80.0 + 348.0);
+    REQUIRE_EQ(dock.layout().playlist.left, 100.0 + 825.0);
+    REQUIRE_EQ(dock.layout().playlist.top, 80.0);
+  }
+
+  {
+    tramp::DockLayout layout;
+    layout.main = {true, false, 40, 20, {}, {}};
+    layout.equalizer = {true, false, 40, 368, {}, {}};
+    tramp::DockingCoordinator dock(layout);
+    dock.nudgeOffMainIfStacked(tramp::WindowId::equalizer);
+    REQUIRE_EQ(dock.layout().equalizer.left, 40.0);
+    REQUIRE_EQ(dock.layout().equalizer.top, 368.0);
+  }
+
   if (gFails != 0) {
     std::fprintf(stderr, "%d assertion(s) failed\n", gFails);
     return 1;
