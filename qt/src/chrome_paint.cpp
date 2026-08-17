@@ -1,8 +1,8 @@
 #include "chrome_paint.h"
 
 #include "chrome_bodies.h"
+#include "look.h"
 #include "mockup_draw.h"
-#include "mockup_tokens.h"
 #include "tramp_fonts.h"
 #include "tramp_metrics.h"
 
@@ -15,23 +15,25 @@
 namespace tramp {
 namespace {
 
+const ChromeTokens& T() { return currentLook(); }
+
 void drawShell(QPainter& p, const QRectF& rect) {
   QPainterPath path;
   path.addRoundedRect(rect, kShellRadius, kShellRadius);
   QLinearGradient face(rect.topLeft(), rect.bottomLeft());
-  face.setColorAt(0, kShellHi);
-  face.setColorAt(0.03, kShell);
-  face.setColorAt(0.46, kShellMid);
-  face.setColorAt(0.92, kShellLo);
-  face.setColorAt(1, kShellDeep);
+  face.setColorAt(0, T().shellHi);
+  face.setColorAt(0.03, T().shell);
+  face.setColorAt(0.46, T().shellMid);
+  face.setColorAt(0.92, T().shellLo);
+  face.setColorAt(1, T().shellDeep);
   p.fillPath(path, face);
 
   p.save();
   p.setClipPath(path);
-  p.setPen(QPen(kBevelLight, 1));
+  p.setPen(QPen(T().bevelLight, 1));
   p.drawLine(QPointF(rect.left() + 1, rect.top() + 1),
              QPointF(rect.right() - 1, rect.top() + 1));
-  p.setPen(QPen(kBevelSoft, 1));
+  p.setPen(QPen(T().bevelSoft, 1));
   p.drawLine(QPointF(rect.left() + 1, rect.top() + 1),
              QPointF(rect.left() + 1, rect.bottom() - 1));
   p.setPen(QPen(QColor(0, 0, 0, 140), 1));
@@ -63,10 +65,10 @@ void drawTitleFace(QPainter& p, const QRectF& bar) {
   p.save();
   p.setClipRect(bar);
   QLinearGradient face(bar.topLeft(), bar.bottomLeft());
-  face.setColorAt(0, kTitleBar0);
-  face.setColorAt(0.26, kTitleBar26);
-  face.setColorAt(0.62, kTitleBar62);
-  face.setColorAt(1, kTitleBar100);
+  face.setColorAt(0, T().titleBar0);
+  face.setColorAt(0.26, T().titleBar26);
+  face.setColorAt(0.62, T().titleBar62);
+  face.setColorAt(1, T().titleBar100);
   p.fillRect(bar, face);
 
   QLinearGradient lift(bar.topLeft(), QPointF(bar.left(), bar.top() + bar.height() * 0.5));
@@ -74,7 +76,7 @@ void drawTitleFace(QPainter& p, const QRectF& bar) {
   lift.setColorAt(1, QColor(232, 240, 255, 0));
   p.fillRect(QRectF(bar.left(), bar.top(), bar.width(), bar.height() * 0.5), lift);
 
-  p.setPen(QPen(QColor(kCoolSheen.red(), kCoolSheen.green(), kCoolSheen.blue(), 56), 1));
+  p.setPen(QPen(QColor(T().coolSheen.red(), T().coolSheen.green(), T().coolSheen.blue(), 56), 1));
   p.drawLine(QPointF(bar.left(), bar.top() + 0.5),
              QPointF(bar.right(), bar.top() + 0.5));
   p.setPen(QPen(QColor(0, 0, 0, 191), 1));
@@ -90,20 +92,23 @@ void drawGrip(QPainter& p, const QRectF& slot) {
   const QRectF rail(slot.left(), slot.top() + (slot.height() - 2) / 2, slot.width(), 2);
   paintBlurred(p, rail.adjusted(0, -8, 0, 10), 3.5, [&](QPainter& bp) {
     QLinearGradient bloom(rail.topLeft(), rail.topRight());
-    bloom.setColorAt(0, QColor(61, 231, 255, 0));
-    bloom.setColorAt(0.12, QColor(61, 231, 255, 77));
-    bloom.setColorAt(0.88, QColor(61, 231, 255, 77));
-    bloom.setColorAt(1, QColor(61, 231, 255, 0));
+    bloom.setColorAt(0, withAlpha(T().phos, 0));
+    bloom.setColorAt(0.12, withAlpha(T().phos, 77));
+    bloom.setColorAt(0.88, withAlpha(T().phos, 77));
+    bloom.setColorAt(1, withAlpha(T().phos, 0));
     bp.setPen(Qt::NoPen);
     bp.setBrush(bloom);
     bp.drawRect(rail);
   });
 
+  const QColor rail0 = T().railStops.value(0, T().phosDim);
+  const QColor rail1 = T().railStops.value(1, T().accentDim);
+  const QColor rail2 = T().railStops.value(2, T().phosDim);
   QLinearGradient railFill(rail.topLeft(), rail.topRight());
   railFill.setColorAt(0, Qt::transparent);
-  railFill.setColorAt(0.12, kPhosDim);
-  railFill.setColorAt(0.5, kAccentDim);
-  railFill.setColorAt(0.88, kPhosDim);
+  railFill.setColorAt(0.12, rail0);
+  railFill.setColorAt(0.5, rail1);
+  railFill.setColorAt(0.88, rail2);
   railFill.setColorAt(1, Qt::transparent);
   p.setPen(Qt::NoPen);
   p.setBrush(railFill);
@@ -112,7 +117,7 @@ void drawGrip(QPainter& p, const QRectF& slot) {
   const QRectF under(rail.left(), rail.bottom() + 2, rail.width(), 1);
   QLinearGradient magenta(under.topLeft(), under.topRight());
   magenta.setColorAt(0, Qt::transparent);
-  magenta.setColorAt(0.5, QColor(255, 61, 154, 89));
+  magenta.setColorAt(0.5, withAlpha(T().accent, 89));
   magenta.setColorAt(1, Qt::transparent);
   p.setBrush(magenta);
   p.drawRect(under);
@@ -156,13 +161,13 @@ void drawWinBtn(QPainter& p, const QRect& btn, bool close, TitleChromeLayout::Hi
 
   QLinearGradient face(r.topLeft(), r.bottomLeft());
   if (close) {
-    face.setColorAt(0, kWbtnClose0);
-    face.setColorAt(0.55, kWbtnClose55);
-    face.setColorAt(1, kWbtnClose100);
+    face.setColorAt(0, T().wbtnClose0);
+    face.setColorAt(0.55, T().wbtnClose55);
+    face.setColorAt(1, T().wbtnClose100);
   } else {
-    face.setColorAt(0, kWbtn0);
-    face.setColorAt(0.55, kWbtn55);
-    face.setColorAt(1, kWbtn100);
+    face.setColorAt(0, T().wbtn0);
+    face.setColorAt(0.55, T().wbtn55);
+    face.setColorAt(1, T().wbtn100);
   }
   p.fillPath(path, face);
 
@@ -172,7 +177,7 @@ void drawWinBtn(QPainter& p, const QRect& btn, bool close, TitleChromeLayout::Hi
   p.fillRect(QRectF(r.left(), r.bottom() - 1, r.width(), 1), QColor(0, 0, 0, 153));
   p.restore();
 
-  drawGlyph(p, btn, kind, close ? kCloseGlyph : kGlyphInk);
+  drawGlyph(p, btn, kind, close ? T().closeGlyph : T().glyphInk);
 }
 
 void drawLogo(QPainter& p, const QRectF& disc, const QImage* logo) {
@@ -182,11 +187,11 @@ void drawLogo(QPainter& p, const QRectF& disc, const QImage* logo) {
 void drawWordmark(QPainter& p, const QRectF& box) {
   QFont font = condensedFont(24, 0.2);
   const QString text = QStringLiteral("TRAMP");
-  drawStyledText(p, box, text, font, kWordmark, Qt::AlignVCenter | Qt::AlignLeft,
+  drawStyledText(p, box, text, font, T().wordmark, Qt::AlignVCenter | Qt::AlignLeft,
                  {
                      {QColor(232, 240, 255, 77), QPointF(0, -1), 0},
                      {QColor(0, 0, 0, 217), QPointF(0, 1), 0},
-                     {QColor(61, 231, 255, 77), QPointF(), 5},
+                     {withAlpha(T().phos, 77), QPointF(), 5},
                  });
 }
 
@@ -199,7 +204,7 @@ void drawRole(QPainter& p, const QRectF& box, const QString& name) {
   const QString text = name.toUpper();
   p.setPen(QColor(0, 0, 0, 179));
   p.drawText(box.translated(0, 1), Qt::AlignCenter, text);
-  p.setPen(kWindowName);
+  p.setPen(T().windowName);
   p.drawText(box, Qt::AlignCenter, text);
 }
 
@@ -253,6 +258,7 @@ void paintMockupWindow(QPainter& painter,
                        const QImage* logo,
                        const SessionView& view,
                        BodyPaint pass) {
+  LookPaintScope scope(view.look);
   if (pass == BodyPaint::live) {
     paintWindowBody(painter, id, logical, logo, view, pass);
     return;

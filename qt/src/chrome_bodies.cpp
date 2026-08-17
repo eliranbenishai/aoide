@@ -1,7 +1,7 @@
 #include "chrome_bodies.h"
 
+#include "look.h"
 #include "mockup_draw.h"
-#include "mockup_tokens.h"
 #include "tramp_metrics.h"
 
 #include <QFontMetrics>
@@ -13,6 +13,8 @@
 
 namespace tramp {
 namespace {
+
+const ChromeTokens& T() { return currentLook(); }
 
 QRectF bodyRect(QSize logical) {
   return QRectF(0, kTitleBar, logical.width(), logical.height() - kTitleBar);
@@ -109,14 +111,14 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
     const qreal timeW = tm.horizontalAdvance(time);
     const QRectF timeBox(inner.left(), inner.top() - 9, timeW + 8, 50);
     if (glow) {
-      drawStyledText(p, timeBox, time, timeFont, kPhos, Qt::AlignLeft | Qt::AlignTop,
+      drawStyledText(p, timeBox, time, timeFont, T().phos, Qt::AlignLeft | Qt::AlignTop,
                      {
-                         {QColor(0x3d, 0xe7, 0xff, 0xd9), QPointF(), 1},
-                         {QColor(0x3d, 0xe7, 0xff, 0x73), QPointF(), 8},
+                         {withAlpha(T().phos, 0xd9), QPointF(), 1},
+                         {withAlpha(T().phos, 0x73), QPointF(), 8},
                      });
     } else {
       p.setFont(timeFont);
-      p.setPen(kPhos);
+      p.setPen(T().phos);
       p.drawText(timeBox, Qt::AlignLeft | Qt::AlignTop, time);
     }
     const QFont elFont = condensedFont(12, 0.22);
@@ -124,12 +126,12 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
     const qreal baseline = inner.top() - 9 + tm.ascent();
     const QRectF elBox(inner.left() + timeW + 10, baseline - em.ascent(), 90, em.height());
     if (glow) {
-      drawStyledText(p, elBox, timeLabel, elFont, QColor(61, 231, 255, 128),
+      drawStyledText(p, elBox, timeLabel, elFont, withAlpha(T().phos, 128),
                      Qt::AlignLeft | Qt::AlignTop,
-                     {{QColor(0x3d, 0xe7, 0xff, 0x40), QPointF(), 8}});
+                     {{withAlpha(T().phos, 0x40), QPointF(), 8}});
     } else {
       p.setFont(elFont);
-      p.setPen(QColor(61, 231, 255, 128));
+      p.setPen(withAlpha(T().phos, 128));
       p.drawText(elBox, Qt::AlignLeft | Qt::AlignTop, timeLabel);
     }
 
@@ -138,17 +140,12 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
       const qreal x = viz.left() + i * 12;
       const qreal h = viz.height() * bars[size_t(i)];
       QRectF bar(x, viz.bottom() - h, 9, h);
-      QLinearGradient g(bar.topLeft(), bar.bottomLeft());
-      g.setColorAt(0, kSpectrum0);
-      g.setColorAt(0.26, kPhos);
-      g.setColorAt(0.62, kSpectrum2);
-      g.setColorAt(1, kAccent);
-      p.fillRect(bar, g);
+      p.fillRect(bar, T().spectrumGradient(bar.topLeft(), bar.bottomLeft()));
       if (glow) {
         paintBlurred(p, bar.adjusted(-4, -4, 4, 4), 2.5, [&](QPainter& bp) {
           bp.setPen(Qt::NoPen);
-          bp.setBrush(QColor(61, 231, 255, 77));
-          bp.fillRect(bar, QColor(61, 231, 255, 77));
+          bp.setBrush(withAlpha(T().phos, 77));
+          bp.fillRect(bar, withAlpha(T().phos, 77));
         });
       }
       const qreal py = viz.bottom() - viz.height() * peaks[size_t(i)];
@@ -165,11 +162,11 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
       titleBuf.fill(Qt::transparent);
       QPainter tp(&titleBuf);
       tp.setRenderHint(QPainter::TextAntialiasing);
-      drawStyledText(tp, QRectF(0, 0, 720, 28), title, titleFont, kPhosHot,
+      drawStyledText(tp, QRectF(0, 0, 720, 28), title, titleFont, T().phosHot,
                      Qt::AlignLeft | Qt::AlignVCenter,
                      {
-                         {QColor(0x3d, 0xe7, 0xff, 0xe6), QPointF(), 1.5},
-                         {QColor(0x3d, 0xe7, 0xff, 0x80), QPointF(), 10},
+                         {withAlpha(T().phos, 0xe6), QPointF(), 1.5},
+                         {withAlpha(T().phos, 0x80), QPointF(), 10},
                      });
       QLinearGradient fade(QPointF(meta.width() * 0.84, 0), QPointF(meta.width(), 0));
       fade.setColorAt(0, QColor(255, 255, 255, 255));
@@ -182,23 +179,23 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
 
     drawStyledText(p, QRectF(meta.left(), meta.top() + 32, meta.width(), 18),
                    subtitle, condensedFont(14, 0.14),
-                   QColor(61, 231, 255, 128), Qt::AlignLeft | Qt::AlignVCenter,
-                   {{QColor(0x3d, 0xe7, 0xff, 0x40), QPointF(), 8}});
+                   withAlpha(T().phos, 128), Qt::AlignLeft | Qt::AlignVCenter,
+                   {{withAlpha(T().phos, 0x40), QPointF(), 8}});
 
     const qreal metaY = inner.bottom() - 18;
     const QFont metaFont = monoFont(13, 0.04);
     drawStyledText(p, QRectF(meta.left(), metaY, 80, 18), bitrate, metaFont,
-                   QColor(61, 231, 255, 128), Qt::AlignVCenter | Qt::AlignLeft,
-                   {{QColor(0x3d, 0xe7, 0xff, 0x40), QPointF(), 8}});
+                   withAlpha(T().phos, 128), Qt::AlignVCenter | Qt::AlignLeft,
+                   {{withAlpha(T().phos, 0x40), QPointF(), 8}});
     drawStyledText(p, QRectF(meta.left() + 80 + 22, metaY, 80, 18), rate,
-                   metaFont, QColor(61, 231, 255, 128), Qt::AlignVCenter | Qt::AlignLeft,
-                   {{QColor(0x3d, 0xe7, 0xff, 0x40), QPointF(), 8}});
+                   metaFont, withAlpha(T().phos, 128), Qt::AlignVCenter | Qt::AlignLeft,
+                   {{withAlpha(T().phos, 0x40), QPointF(), 8}});
     drawStyledText(p, QRectF(meta.left() + 80 + 22 + 80 + 22, metaY, 70, 18),
-                   channels, condensedFont(12, 0.2), kPhos,
+                   channels, condensedFont(12, 0.2), T().phos,
                    Qt::AlignVCenter | Qt::AlignLeft,
                    {
-                       {QColor(0x3d, 0xe7, 0xff, 0xd9), QPointF(), 1},
-                       {QColor(0x3d, 0xe7, 0xff, 0x73), QPointF(), 12},
+                       {withAlpha(T().phos, 0xd9), QPointF(), 1},
+                       {withAlpha(T().phos, 0x73), QPointF(), 12},
                    });
 
     const QFont fmtFont = condensedFont(12, 0.18);
@@ -207,12 +204,12 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
     const QRectF fmt(inner.right() - fmtW, inner.bottom() - fmtH, fmtW, fmtH);
     paintBlurred(p, fmt.adjusted(-18, -18, 18, 18), 12 * 0.57735, [&](QPainter& bp) {
       bp.setPen(Qt::NoPen);
-      bp.setBrush(QColor(255, 61, 154, 102));
+      bp.setBrush(withAlpha(T().accent, 102));
       bp.drawRoundedRect(fmt, 2, 2);
     });
     QLinearGradient badge(fmt.topLeft(), fmt.bottomLeft());
     badge.setColorAt(0, QColor(0xff, 0xb3, 0xd4));
-    badge.setColorAt(0.55, kAccent);
+    badge.setColorAt(0.55, T().accent);
     badge.setColorAt(1, QColor(0xb8, 0x22, 0x6a));
     fillRound(p, fmt, 2, badge);
     p.setPen(QColor(0x2b, 0x06, 0x16));
@@ -224,10 +221,10 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
     const qreal reload = 11;
     const qreal chipW = reload + 4 + textWidth(chipFont, chipLabel);
     const QRectF chip(fmt.left() - 10 - chipW, inner.bottom() - 18, chipW, 16);
-    drawReload(p, QRectF(chip.left(), chip.center().y() - reload / 2, reload, reload), kPhos);
+    drawReload(p, QRectF(chip.left(), chip.center().y() - reload / 2, reload, reload), T().phos);
     drawStyledText(p, QRectF(chip.left() + reload + 4, chip.top(), chip.width() - reload - 4, 16),
-                   chipLabel, chipFont, kPhos, Qt::AlignVCenter | Qt::AlignLeft,
-                   {{QColor(61, 231, 255, 217), QPointF(), 8}});
+                   chipLabel, chipFont, T().phos, Qt::AlignVCenter | Qt::AlignLeft,
+                   {{withAlpha(T().phos, 217), QPointF(), 8}});
   }
 
   if (live) {
@@ -238,7 +235,7 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
     const QRectF volRow(body.left() + 22, body.top() + 156, body.width() - 44, 40);
     drawGlyphBtn(p, QRectF(volRow.left(), volRow.top(), 40, 40), MockupIcon::mute, view.muted, 21);
     p.setFont(condensedFont(11, 0.2));
-    p.setPen(kInkFaint);
+    p.setPen(T().inkFaint);
     const qreal volLabelLeft = volRow.left() + 40 + 14;
     p.drawText(QRectF(volLabelLeft, volRow.top(), 34, 40), Qt::AlignVCenter,
                QStringLiteral("VOL"));
@@ -261,7 +258,7 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
     const qreal posW = sm.horizontalAdvance(pos);
     const qreal durW = sm.horizontalAdvance(dur);
     p.setFont(stamp);
-    p.setPen(kInkDim);
+    p.setPen(T().inkDim);
     p.drawText(QRectF(seekRow.left(), seekRow.top(), posW, 32), Qt::AlignVCenter, pos);
     p.drawText(QRectF(seekRow.right() - durW, seekRow.top(), durW, 32), Qt::AlignVCenter, dur);
     drawSlider(p, QRectF(seekRow.left() + posW + 14, seekRow.center().y() - 8,
@@ -340,12 +337,12 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
     drawMenuCaret(p, presets);
     hx += presetsW + 14;
     p.setFont(condensedFont(11, 0.2));
-    p.setPen(kInkFaint);
+    p.setPen(T().inkFaint);
     p.drawText(QRectF(hx, hy, 180, 38), Qt::AlignVCenter,
                QStringLiteral("CURVE · %1").arg(curveName));
     drawScreenWell(p, curveWell);
     p.setFont(monoFont(11));
-    p.setPen(kInkFaint);
+    p.setPen(T().inkFaint);
     p.drawText(QRectF(bandRow.left(), bandRow.top() + 18, 36, 14),
                Qt::AlignRight | Qt::AlignVCenter, QStringLiteral("+12"));
     p.drawText(QRectF(bandRow.left(), bandRow.top() + 18 + 67, 36, 14),
@@ -356,7 +353,7 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
     for (int i = 0; i < 11; ++i) {
       const qreal w = i == 0 ? 62 : 50;
       p.setFont(condensedFont(11, i == 0 ? 0.18 : 0.1));
-      p.setPen(i == 0 ? QColor(61, 231, 255, 140) : kInkFaint);
+      p.setPen(i == 0 ? withAlpha(T().phos, 140) : T().inkFaint);
       p.drawText(QRectF(lx, bandRow.top() + 166, w, 26), Qt::AlignHCenter | Qt::AlignVCenter,
                  QString::fromLatin1(labels[i]));
       lx += w + (i == 0 ? 16 : 0);
@@ -394,18 +391,18 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
     fill.lineTo(curveWell.bottomLeft());
     fill.closeSubpath();
     QLinearGradient wash(curveWell.topLeft(), curveWell.bottomLeft());
-    wash.setColorAt(0, QColor(61, 231, 255, 102));
-    wash.setColorAt(1, QColor(61, 231, 255, 0));
+    wash.setColorAt(0, withAlpha(T().phos, 102));
+    wash.setColorAt(1, withAlpha(T().phos, 0));
     p.fillPath(fill, wash);
     if (glow) {
       paintBlurred(p, curveWell.adjusted(-8, -8, 8, 8), 2.5, [&](QPainter& bp) {
         bp.setBrush(Qt::NoBrush);
-        bp.setPen(QPen(QColor(61, 231, 255, 153), 2.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        bp.setPen(QPen(withAlpha(T().phos, 153), 2.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         bp.drawPath(curve);
       });
     }
     p.setBrush(Qt::NoBrush);
-    p.setPen(QPen(kCurveStroke, 2.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    p.setPen(QPen(T().curveStroke, 2.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     p.drawPath(curve);
     drawScreenOverlay(p, curveWell);
 
@@ -413,7 +410,7 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
     for (int i = 0; i < 11; ++i) {
       const qreal w = i == 0 ? 62 : 50;
       p.setFont(monoFont(11));
-      p.setPen(kInk);
+      p.setPen(T().ink);
       p.drawText(QRectF(x, bandRow.top(), w, 18), Qt::AlignHCenter | Qt::AlignVCenter,
                  formatGain(allGains[i]));
       drawVBand(p, QRectF(x, bandRow.top() + 18, w, 148), allGains[i]);
@@ -465,13 +462,13 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   const QRectF tracksPane(divider.right(), body.top(), body.width() - collectionW - divider.width(),
                           body.height());
   if (collectionW > 0) {
-    p.fillRect(divider, kShellDeep);
+    p.fillRect(divider, T().shellDeep);
     drawFooterSep(p, QRectF(divider.center().x() - 1, divider.top() + 24, 1,
                             divider.height() - 48));
 
   const QRectF colInner = collection.adjusted(12, 12, -6, -12);
   p.setFont(condensedFont(11, 0.2));
-  p.setPen(kInkFaint);
+  p.setPen(T().inkFaint);
   p.drawText(QRectF(colInner.left(), colInner.top(), colInner.width() - 30, 20),
              Qt::AlignVCenter, QStringLiteral("PLAYLISTS"));
   const QRectF collapse(colInner.right() - 24, colInner.top(), 24, 20);
@@ -490,15 +487,15 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
     QRectF row(colWell.left(), colWell.top() + 4 + i * 26, colWell.width(), 26);
     if (lists[i].selected) {
       QLinearGradient g(row.topLeft(), row.bottomLeft());
-      g.setColorAt(0, QColor(61, 231, 255, 33));
-      g.setColorAt(1, QColor(61, 231, 255, 10));
+      g.setColorAt(0, withAlpha(T().phos, 33));
+      g.setColorAt(1, withAlpha(T().phos, 10));
       p.fillRect(row, g);
     }
     p.setFont(condensedFont(11, 0.1));
-    p.setPen(lists[i].disabled ? kInkFaint : (lists[i].selected ? kPhosHot : kInkDim));
+    p.setPen(lists[i].disabled ? T().inkFaint : (lists[i].selected ? T().phosHot : T().inkDim));
     p.drawText(row.adjusted(10, 0, -36, 0), Qt::AlignVCenter, lists[i].name.toUpper());
     p.setFont(monoFont(12));
-    p.setPen(lists[i].selected ? kPhos : kPhosDim);
+    p.setPen(lists[i].selected ? T().phos : T().phosDim);
     p.drawText(row.adjusted(10, 0, -10, 0), Qt::AlignVCenter | Qt::AlignRight,
                QString::number(lists[i].count));
   }
@@ -558,23 +555,23 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
     const QRectF row(listWell.left(), listWell.top() + 6 + vis * 37, listWell.width(), 37);
     const bool playing = rows[i].playing;
     const bool selected = rows[i].selected;
-    const QColor color = playing ? kPhosHot : QColor(0x9a, 0xe2, 0xf0, 115);
+    const QColor color = playing ? T().phosHot : QColor(0x9a, 0xe2, 0xf0, 115);
     if (selected) {
       QLinearGradient g(row.topLeft(), row.bottomLeft());
-      g.setColorAt(0, QColor(61, 231, 255, 33));
-      g.setColorAt(1, QColor(61, 231, 255, 10));
+      g.setColorAt(0, withAlpha(T().phos, 33));
+      g.setColorAt(1, withAlpha(T().phos, 10));
       p.fillRect(row, g);
     }
     if (playing) {
       const QRectF bar(row.left(), row.top() + 6, 3, row.height() - 12);
       paintBlurred(p, bar.adjusted(-18, -18, 18, 18), 12 * 0.57735, [&](QPainter& bp) {
         bp.setPen(Qt::NoPen);
-        bp.setBrush(QColor(255, 61, 154, 230));
+        bp.setBrush(withAlpha(T().accent, 230));
         bp.drawRoundedRect(bar, 0, 2);
       });
       QPainterPath barPath;
       barPath.addRoundedRect(bar, 0, 2);
-      p.fillPath(barPath, kAccent);
+      p.fillPath(barPath, T().accent);
     }
     const QFont lcd = monoFont(15);
     const QFont lcdTrack = monoFont(15, 0.15 / 15.0);
@@ -583,12 +580,12 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
                               : QStringLiteral("%1 — %2").arg(rows[i].artist, rows[i].title);
     if (playing) {
       drawStyledText(p, QRectF(row.left() + 16, row.top(), 34, 37),
-                     QStringLiteral("%1.").arg(i + 1), lcd, kPhos,
+                     QStringLiteral("%1.").arg(i + 1), lcd, T().phos,
                      Qt::AlignVCenter | Qt::AlignRight,
-                     {{QColor(0x3d, 0xe7, 0xff, 0x80), QPointF(), 10}});
+                     {{withAlpha(T().phos, 0x80), QPointF(), 10}});
       drawStyledText(p, QRectF(row.left() + 64, row.top(), row.width() - 16 - 52 - 64, 37),
                      label, lcdTrack, color, Qt::AlignVCenter | Qt::AlignLeft,
-                     {{QColor(0x3d, 0xe7, 0xff, 0x80), QPointF(), 10}});
+                     {{withAlpha(T().phos, 0x80), QPointF(), 10}});
     } else {
       p.setFont(lcd);
       p.setPen(QColor(color.red(), color.green(), color.blue(), 179));
@@ -652,16 +649,16 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   const QRectF total(plateInner.right() - totalW, fy + (52 - 34) / 2, totalW, 34);
   drawScreenWell(p, total);
   p.setFont(totalLabel);
-  p.setPen(kPhosDim);
+  p.setPen(T().phosDim);
   p.drawText(total.adjusted(18, 0, 0, 0), Qt::AlignVCenter | Qt::AlignLeft,
              QStringLiteral("TOTAL"));
-  drawGlowText(p, total.adjusted(0, 0, -18, 0), totalText, totalValue, kPhos,
-               QColor(61, 231, 255, 115), 4, Qt::AlignVCenter | Qt::AlignRight);
+  drawGlowText(p, total.adjusted(0, 0, -18, 0), totalText, totalValue, T().phos,
+               withAlpha(T().phos, 115), 4, Qt::AlignVCenter | Qt::AlignRight);
   drawScreenOverlay(p, total);
 
   const QFont statusFont = condensedFont(12, 0.18);
   p.setFont(statusFont);
-  p.setPen(kInkFaint);
+  p.setPen(T().inkFaint);
   const QRectF status(footer.left() + 6, footer.bottom() - 26, footer.width() - 28, 26);
   qreal sx = status.left();
   auto statusBit = [&](const QString& text) {
@@ -690,15 +687,15 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view) {
   const bool minimize = view.goldenDemo ? false : view.minimizeHidesSecondaries;
   const int snap = view.goldenDemo ? 1 : view.dockSnap;
 
-  p.fillRect(QRectF(body.left(), body.top(), 108, body.height()), kShellDeep);
+  p.fillRect(QRectF(body.left(), body.top(), 108, body.height()), T().shellDeep);
   auto tab = [&](qreal y, const QString& label, bool on) {
     const QRectF r(body.left(), y, 108, 42);
     if (on) {
-      p.fillRect(r, QColor(kShellHi.red(), kShellHi.green(), kShellHi.blue(), 102));
-      p.fillRect(QRectF(r.left(), r.top(), 3, r.height()), kPhos);
+      p.fillRect(r, QColor(T().shellHi.red(), T().shellHi.green(), T().shellHi.blue(), 102));
+      p.fillRect(QRectF(r.left(), r.top(), 3, r.height()), T().phos);
     }
     p.setFont(condensedFont(12, 0.1));
-    p.setPen(on ? kPhos : kInkDim);
+    p.setPen(on ? T().phos : T().inkDim);
     p.drawText(r.adjusted(12, 0, 0, 0), Qt::AlignVCenter, label);
   };
   tab(body.top(), QStringLiteral("General"), tabIndex == 0);
@@ -706,13 +703,38 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view) {
 
   const QRectF pane(body.left() + 108, body.top(), body.width() - 108, body.height() - 40);
   if (tabIndex == 1) {
-    p.setFont(condensedFont(12, 0.08));
-    p.setPen(kInkDim);
-    p.drawText(pane.adjusted(16, 16, -16, -16), Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap,
-               QStringLiteral("Builtin chrome is active. Skin packs stay in the Dart "
-                              "reference tree; this host paints the mockup tokens."));
+    const QVector<SkinCatalogEntry> skins = view.goldenDemo ? QVector<SkinCatalogEntry>{} : view.skins;
+    const QString active = view.goldenDemo ? QStringLiteral("builtin") : view.activeSkinId;
+    for (int i = 0; i < skins.size(); ++i) {
+      const QRectF row(pane.left() + 12, pane.top() + 10 + i * 36, pane.width() - 24, 32);
+      const bool on = skins[i].id == active;
+      if (on) {
+        p.fillRect(row, QColor(T().shellHi.red(), T().shellHi.green(), T().shellHi.blue(), 115));
+      }
+      p.setFont(condensedFont(12, 0.08));
+      p.setPen(on ? T().phos : T().ink);
+      p.drawText(row.adjusted(10, 0, -10, 0), Qt::AlignVCenter | Qt::AlignLeft, skins[i].name);
+      if (!skins[i].author.isEmpty()) {
+        p.setFont(monoFont(10));
+        p.setPen(T().inkDim);
+        const qreal nameW = textWidth(condensedFont(12, 0.08), skins[i].name);
+        p.drawText(row.adjusted(14 + nameW, 0, -10, 0), Qt::AlignVCenter | Qt::AlignLeft,
+                   skins[i].author);
+      }
+    }
+    if (!view.skinsError.isEmpty() && !view.goldenDemo) {
+      p.setFont(monoFont(10));
+      p.setPen(T().accent);
+      p.drawText(QRectF(pane.left() + 12, pane.bottom() - 92, pane.width() - 24, 28),
+                 Qt::AlignLeft | Qt::AlignVCenter | Qt::TextWordWrap, view.skinsError);
+    }
+    const qreal btnY = pane.bottom() - 58;
+    drawBtn(p, QRectF(pane.left() + 12, btnY, 148, 26), false, QStringLiteral("Install zip"));
+    drawBtn(p, QRectF(pane.left() + 168, btnY, 160, 26), false, QStringLiteral("Install folder"));
+    drawBtn(p, QRectF(pane.left() + 12, btnY + 30, 148, 26), false, QStringLiteral("Skins folder"));
+    drawBtn(p, QRectF(pane.left() + 168, btnY + 30, 160, 26), false, QStringLiteral("Reset folder"));
     p.setFont(condensedFont(12, 0.1));
-    p.setPen(kAccent);
+    p.setPen(T().accent);
     p.drawText(QRectF(body.left() + 12, body.bottom() - 36, 160, 24), Qt::AlignVCenter,
                QStringLiteral("Reset Settings"));
     return;
@@ -730,17 +752,17 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view) {
   for (int i = 0; i < 4; ++i) {
     const QRectF row(pane.left() + 16, pane.top() + 12 + i * 36, pane.width() - 32, 32);
     p.setFont(condensedFont(12, 0.08));
-    p.setPen(kInk);
+    p.setPen(T().ink);
     p.drawText(row, Qt::AlignVCenter, QString::fromLatin1(rows[i].label));
     const QRectF sw(row.right() - 40, row.center().y() - 10, 36, 20);
-    fillRound(p, sw, 10, rows[i].on ? kPhosDeep : QColor(0x2b, 0x31, 0x3e));
-    p.setBrush(rows[i].on ? kPhos : kInkDim);
+    fillRound(p, sw, 10, rows[i].on ? T().phosDeep : QColor(0x2b, 0x31, 0x3e));
+    p.setBrush(rows[i].on ? T().phos : T().inkDim);
     p.setPen(Qt::NoPen);
     p.drawEllipse(QPointF(rows[i].on ? sw.right() - 10 : sw.left() + 10, sw.center().y()), 7,
                   7);
   }
   p.setFont(condensedFont(12, 0.08));
-  p.setPen(kInk);
+  p.setPen(T().ink);
   p.drawText(QRectF(pane.left() + 16, pane.top() + 168, pane.width() - 32, 20),
              Qt::AlignVCenter, QStringLiteral("Dock snap strength"));
   const char* segs[] = {"Off", "Normal", "Strong"};
@@ -750,7 +772,7 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view) {
     sx += 96;
   }
   p.setFont(condensedFont(12, 0.1));
-  p.setPen(kAccent);
+  p.setPen(T().accent);
   p.drawText(QRectF(body.left() + 12, body.bottom() - 36, 160, 24), Qt::AlignVCenter,
              QStringLiteral("Reset Settings"));
 }
@@ -762,11 +784,11 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
 
   const qreal textLeft = badge.right() + 15;
   drawStyledText(p, QRectF(badge.right() + 18, inner.top() + 4, 220, 32), QStringLiteral("TRAMP"),
-                 condensedFont(28, 0.22), kWordmark, Qt::AlignLeft | Qt::AlignVCenter,
+                 condensedFont(28, 0.22), T().wordmark, Qt::AlignLeft | Qt::AlignVCenter,
                  {
                      {QColor(232, 240, 255, 77), QPointF(0, -1), 0},
                      {QColor(0, 0, 0, 217), QPointF(0, 2), 0},
-                     {QColor(61, 231, 255, 87), QPointF(), 10},
+                     {withAlpha(T().phos, 87), QPointF(), 10},
                  });
 
   const QString words = QStringLiteral("THE RIDICULOUSLY ATTRACTIVE MUSIC PLAYER");
@@ -780,11 +802,11 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
     const QString initial = word.left(1);
     const QString rest = word.mid(1) + QStringLiteral(" ");
     drawStyledText(p, QRectF(tx, ty, fm.horizontalAdvance(initial) + 4, 14), initial, spaced,
-                   kPhos, Qt::AlignLeft | Qt::AlignVCenter,
-                   {{QColor(61, 231, 255, 115), QPointF(), 7}});
+                   T().phos, Qt::AlignLeft | Qt::AlignVCenter,
+                   {{withAlpha(T().phos, 115), QPointF(), 7}});
     tx += fm.horizontalAdvance(initial);
     p.setFont(spaced);
-    p.setPen(kInkDim);
+    p.setPen(T().inkDim);
     p.drawText(QPointF(tx, ty + fm.ascent()), rest);
     tx += fm.horizontalAdvance(rest);
   }
@@ -794,11 +816,11 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
   const qreal verW = 7 + textWidth(verFont, ver) + 7;
   const qreal verH = 22;
   const QRectF verBox(inner.right() - verW, inner.top() + (58 - verH) / 2, verW, verH);
-  fillRound(p, verBox, 2, kWell);
+  fillRound(p, verBox, 2, T().well);
   p.setPen(QPen(QColor(0, 0, 0, 179), 1));
   p.setBrush(Qt::NoBrush);
   p.drawRoundedRect(verBox.adjusted(0.5, 0.5, -0.5, -0.5), 2, 2);
-  drawGlowText(p, verBox, ver, verFont, kPhos, QColor(61, 231, 255, 140), 7, Qt::AlignCenter);
+  drawGlowText(p, verBox, ver, verFont, T().phos, withAlpha(T().phos, 140), 7, Qt::AlignCenter);
 
   const qreal taglineTop = inner.top() + 58 + 12;
   {
@@ -807,7 +829,7 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
     p.translate(inner.left(), taglineTop);
     p.scale(ts, ts);
     p.setFont(monoFont(10));
-    p.setPen(QColor(kInk.red(), kInk.green(), kInk.blue(), 214));
+    p.setPen(QColor(T().ink.red(), T().ink.green(), T().ink.blue(), 214));
     p.drawText(QRectF(0, 0, inner.width() / ts, 16 / ts), Qt::AlignVCenter,
                QStringLiteral("Local files, honest tags, and chrome you can feel."));
     p.restore();
@@ -822,7 +844,7 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
     QFont kicker = condensedFont(9, 0);
     kicker.setLetterSpacing(QFont::AbsoluteSpacing, 2.6);
     p.setFont(kicker);
-    p.setPen(QColor(61, 231, 255, 153));
+    p.setPen(withAlpha(T().phos, 153));
     p.drawText(QRectF(well.left(), well.top() + 11, well.width(), 14), Qt::AlignHCenter,
                QStringLiteral("ON THIS MACHINE"));
   }
@@ -854,10 +876,10 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
     const QRectF row(well.left() + 18, well.top() + 28 + i * ((well.height() - 40) / 4.0),
                      well.width() - 36, (well.height() - 40) / 4.0);
     p.setFont(labSpaced);
-    p.setPen(kInkDim);
+    p.setPen(T().inkDim);
     p.drawText(row, Qt::AlignVCenter | Qt::AlignLeft, QString::fromLatin1(stats[i].label));
     drawGlowText(p, row, stats[i].value, valFont,
-                 QColor(61, 231, 255, 230), QColor(61, 231, 255, 77), 6,
+                 withAlpha(T().phos, 230), withAlpha(T().phos, 77), 6,
                  Qt::AlignVCenter | Qt::AlignRight);
     const QFontMetricsF lm(labSpaced);
     const QFontMetricsF vm(valFont);
@@ -866,21 +888,21 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
     const qreal right =
         row.right() - vm.horizontalAdvance(stats[i].value) - 9;
     for (qreal x = right; x >= left; x -= 4) {
-      p.fillRect(QRectF(x, row.center().y(), 1, 1), QColor(kInkDim.red(), kInkDim.green(),
-                                                          kInkDim.blue(), 102));
+      p.fillRect(QRectF(x, row.center().y(), 1, 1), QColor(T().inkDim.red(), T().inkDim.green(),
+                                                          T().inkDim.blue(), 102));
     }
   }
   drawScreenOverlay(p, well);
 
   const QRectF plate(inner.left(), inner.bottom() - 48, inner.width(), 48);
   QLinearGradient pg(plate.topLeft(), plate.bottomLeft());
-  pg.setColorAt(0, kPlateFace);
-  pg.setColorAt(1, kShellLo);
+  pg.setColorAt(0, T().plateFace);
+  pg.setColorAt(1, T().shellLo);
   fillRound(p, plate, 4, pg);
   p.setPen(QPen(QColor(0, 0, 0, 153), 1));
   p.setBrush(Qt::NoBrush);
   p.drawRoundedRect(plate.adjusted(0.5, 0.5, -0.5, -0.5), 4, 4);
-  p.setPen(QPen(QColor(kCoolSheen.red(), kCoolSheen.green(), kCoolSheen.blue(), 15), 1));
+  p.setPen(QPen(QColor(T().coolSheen.red(), T().coolSheen.green(), T().coolSheen.blue(), 15), 1));
   p.drawLine(QPointF(plate.left() + 4, plate.top() + 1),
              QPointF(plate.right() - 4, plate.top() + 1));
   const QImage proxima = loadProximaMark();
@@ -904,18 +926,18 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
              Qt::AlignLeft | Qt::AlignVCenter, QStringLiteral("PROXIMA MAGNIFICA"));
   p.restore();
   p.setFont(monoFont(9));
-  p.setPen(kInkDim);
+  p.setPen(T().inkDim);
   p.drawText(QRectF(companyLeft, plate.top() + 26, 220, 14), Qt::AlignLeft | Qt::AlignVCenter,
              QStringLiteral("© 2026 Free Forever"));
   const QString web = QStringLiteral("tramp.music");
   const QFont webFont = monoFont(10);
   const qreal webW = 9 + textWidth(webFont, web) + 9;
   const QRectF webBox(plate.right() - 13 - webW, plate.center().y() - 12, webW, 24);
-  fillRound(p, webBox, 3, QColor(kWell.red(), kWell.green(), kWell.blue(), 217));
-  p.setPen(QPen(QColor(61, 231, 255, 71), 1));
+  fillRound(p, webBox, 3, QColor(T().well.red(), T().well.green(), T().well.blue(), 217));
+  p.setPen(QPen(withAlpha(T().phos, 71), 1));
   p.setBrush(Qt::NoBrush);
   p.drawRoundedRect(webBox.adjusted(0.5, 0.5, -0.5, -0.5), 3, 3);
-  drawGlowText(p, webBox, web, webFont, kPhos, QColor(61, 231, 255, 128), 7, Qt::AlignCenter);
+  drawGlowText(p, webBox, web, webFont, T().phos, withAlpha(T().phos, 128), 7, Qt::AlignCenter);
 }
 
 }  // namespace

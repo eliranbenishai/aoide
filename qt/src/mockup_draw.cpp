@@ -1,6 +1,6 @@
 #include "mockup_draw.h"
 
-#include "mockup_tokens.h"
+#include "look.h"
 #include "tramp_fonts.h"
 
 #include <QFontMetrics>
@@ -14,6 +14,8 @@
 
 namespace tramp {
 namespace {
+
+const ChromeTokens& T() { return currentLook(); }
 
 QImage g_noise;
 
@@ -339,6 +341,7 @@ namespace {
 struct CachedWell {
   int w = 0;
   int h = 0;
+  QString lookId;
   QImage bloom;
   int bloomPad = 0;
   QImage inner;
@@ -347,12 +350,14 @@ struct CachedWell {
 
 const CachedWell& cachedWell(int w, int h) {
   static std::vector<CachedWell> cache;
+  const QString lookId = T().id;
   for (const CachedWell& c : cache) {
-    if (c.w == w && c.h == h) return c;
+    if (c.w == w && c.h == h && c.lookId == lookId) return c;
   }
   CachedWell c;
   c.w = w;
   c.h = h;
+  c.lookId = lookId;
   const QRectF well(0, 0, w, h);
   {
     constexpr qreal sigma = 12;
@@ -367,7 +372,7 @@ const CachedWell& cachedWell(int w, int h) {
     bp.setRenderHint(QPainter::Antialiasing);
     bp.translate(pad - bounds.left(), pad - bounds.top());
     bp.setPen(Qt::NoPen);
-    bp.setBrush(QColor(61, 231, 255, 13));
+    bp.setBrush(withAlpha(T().phos, 13));
     bp.drawRoundedRect(well.adjusted(0.5, 0.5, -0.5, -0.5), 2.5, 2.5);
     bp.end();
     c.bloom = gaussianBlur(buf, sigma);
@@ -413,14 +418,14 @@ void drawScreenWell(QPainter& p, const QRectF& well) {
   QRadialGradient wash(QPointF(well.left() + well.width() * 0.18,
                                well.top() - well.height() * 0.20),
                        well.width() * 0.9);
-  wash.setColorAt(0, QColor(0x0f, 0x1c, 0x2a));
-  wash.setColorAt(0.48, QColor(0x07, 0x10, 0x18));
-  wash.setColorAt(1, QColor(0x04, 0x07, 0x0c));
+  wash.setColorAt(0, T().screenWash0);
+  wash.setColorAt(0.48, T().screenWash1);
+  wash.setColorAt(1, T().screenWash2);
   p.fillRect(well, wash);
-  p.setPen(QPen(QColor(kCoolSheen.red(), kCoolSheen.green(), kCoolSheen.blue(), 31), 1));
+  p.setPen(QPen(QColor(T().coolSheen.red(), T().coolSheen.green(), T().coolSheen.blue(), 31), 1));
   p.drawLine(QPointF(well.left(), well.top() + 0.5),
              QPointF(well.right(), well.top() + 0.5));
-  p.setPen(QPen(QColor(61, 231, 255, 26), 1));
+  p.setPen(QPen(withAlpha(T().phos, 26), 1));
   p.setBrush(Qt::NoBrush);
   p.drawRoundedRect(well.adjusted(0.5, 0.5, -0.5, -0.5), 2.5, 2.5);
   p.restore();
@@ -472,7 +477,7 @@ void drawListWell(QPainter& p, const QRectF& well) {
     p.fillRect(QRectF(well.left(), y + row, well.width(), row), QColor(0, 0, 0, 31));
   }
   p.restore();
-  p.setPen(QPen(QColor(61, 231, 255, 20), 1));
+  p.setPen(QPen(withAlpha(T().phos, 20), 1));
   p.setBrush(Qt::NoBrush);
   p.drawRect(well.adjusted(0.5, 0.5, -0.5, -0.5));
 }
@@ -483,28 +488,28 @@ void drawBtn(QPainter& p, const QRectF& r, bool on, const QString& label) {
   if (on) {
     paintBlurred(p, r.adjusted(-18, -18, 18, 18), 4, [&](QPainter& bp) {
       bp.setPen(Qt::NoPen);
-      bp.setBrush(QColor(61, 231, 255, 77));
+      bp.setBrush(withAlpha(T().phos, 77));
       bp.drawRoundedRect(r.adjusted(-3, -3, 3, 3), 7, 7);
     });
   }
   QLinearGradient face(r.topLeft(), r.bottomLeft());
   if (on) {
-    face.setColorAt(0, kBtnOn0);
-    face.setColorAt(0.45, kPhos);
-    face.setColorAt(1, QColor(0x12, 0x95, 0xa8));
+    face.setColorAt(0, T().btnOn0);
+    face.setColorAt(0.45, T().btnOn1);
+    face.setColorAt(1, T().btnOn2);
   } else {
-    face.setColorAt(0, kBtnIdle0);
-    face.setColorAt(0.48, kBtnIdle48);
-    face.setColorAt(1, kBtnIdle100);
+    face.setColorAt(0, T().btnIdle0);
+    face.setColorAt(0.48, T().btnIdle48);
+    face.setColorAt(1, T().btnIdle100);
   }
   p.fillPath(path, face);
   p.save();
   p.setClipPath(path);
   if (on) {
-    p.setPen(QPen(QColor(kBtnOnLip.red(), kBtnOnLip.green(), kBtnOnLip.blue(), 179), 1));
+    p.setPen(QPen(QColor(T().btnOnLip.red(), T().btnOnLip.green(), T().btnOnLip.blue(), 179), 1));
     p.drawLine(QPointF(r.left() + 2, r.top() + 1), QPointF(r.right() - 2, r.top() + 1));
     p.fillRect(QRectF(r.left() + 1, r.bottom() - 4, r.width() - 2, 3),
-               QColor(kBtnOnFoot.red(), kBtnOnFoot.green(), kBtnOnFoot.blue(), 140));
+               QColor(T().btnOnFoot.red(), T().btnOnFoot.green(), T().btnOnFoot.blue(), 140));
   } else {
     QLinearGradient rim(r.topLeft(), r.bottomLeft());
     rim.setColorAt(0, QColor(232, 240, 255, 51));
@@ -526,7 +531,7 @@ void drawBtn(QPainter& p, const QRectF& r, bool on, const QString& label) {
   });
   if (!label.isEmpty()) {
     p.setFont(condensedFont(13, 0.18));
-    p.setPen(on ? kBtnOnInk : kBtnLabelIdle);
+    p.setPen(on ? T().btnOnInk : T().btnLabelIdle);
     p.drawText(r, Qt::AlignCenter, label.toUpper());
   }
 }
@@ -589,7 +594,7 @@ void drawGlyphBtn(QPainter& p, const QRectF& r, MockupIcon icon, bool on, qreal 
   drawBtn(p, r, on, {});
   const QRectF box(r.center().x() - iconSize / 2, r.center().y() - iconSize / 2, iconSize,
                    iconSize);
-  drawIcon(p, box, icon, on ? kBtnOnInk : QColor(214, 226, 245, 217));
+  drawIcon(p, box, icon, on ? T().btnOnInk : QColor(214, 226, 245, 217));
 }
 
 void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle, bool glow) {
@@ -628,16 +633,16 @@ void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle, bool 
     if (glow) {
       paintBlurred(p, fill.adjusted(-8, -8, 8, 8), 4, [&](QPainter& bp) {
         bp.setPen(Qt::NoPen);
-        bp.setBrush(QColor(61, 231, 255, 102));
+        bp.setBrush(withAlpha(T().phos, 102));
         bp.drawPath(fillPath);
       });
     }
     QLinearGradient g(fill.topLeft(), fill.bottomLeft());
-    g.setColorAt(0, kSliderFillHi);
-    g.setColorAt(0.4, kPhos);
-    g.setColorAt(1, kSliderFillLo);
+    g.setColorAt(0, T().sliderFillHi);
+    g.setColorAt(0.4, T().phos);
+    g.setColorAt(1, T().sliderFillLo);
     p.fillPath(fillPath, g);
-    p.setPen(QPen(QColor(kBtnOnLip.red(), kBtnOnLip.green(), kBtnOnLip.blue(), 153), 1));
+    p.setPen(QPen(QColor(T().btnOnLip.red(), T().btnOnLip.green(), T().btnOnLip.blue(), 153), 1));
     p.setBrush(Qt::NoBrush);
     p.drawPath(fillPath);
   }
@@ -693,12 +698,7 @@ void drawVBand(QPainter& p, const QRectF& column, qreal gainDb) {
     p.setClipPath(trough);
     p.setClipRect(QRectF(track.left(), thumbY, trackW, track.bottom() - thumbY),
                   Qt::IntersectClip);
-    QLinearGradient spec(track.bottomLeft(), track.topLeft());
-    spec.setColorAt(0, kSpectrum0);
-    spec.setColorAt(0.26, kPhos);
-    spec.setColorAt(0.62, kSpectrum2);
-    spec.setColorAt(1, kAccent);
-    p.fillRect(track, spec);
+    p.fillRect(track, T().spectrumGradient(track.bottomLeft(), track.topLeft()));
     p.restore();
   }
 
@@ -716,8 +716,8 @@ void drawVBand(QPainter& p, const QRectF& column, qreal gainDb) {
   p.drawRoundedRect(thumb.adjusted(0.5, 0.5, -0.5, -0.5), 3, 3);
   const QRectF line(thumb.center().x() - 11, thumb.center().y() - 1, 22, 2);
   QLinearGradient lg(line.topLeft(), line.topRight());
-  lg.setColorAt(0, kSpectrum0);
-  lg.setColorAt(1, kPhos);
+  lg.setColorAt(0, T().spectrumStops.value(0, T().phosHot));
+  lg.setColorAt(1, T().phos);
   fillRound(p, line, 1, lg);
 }
 
@@ -727,26 +727,26 @@ void drawLed(QPainter& p, QPointF c, bool on, qreal size) {
     paintBlurred(p, QRectF(c.x() - r - 12, c.y() - r - 12, (r + 12) * 2, (r + 12) * 2), 6,
                  [&](QPainter& bp) {
                    bp.setPen(Qt::NoPen);
-                   bp.setBrush(QColor(kAccent.red(), kAccent.green(), kAccent.blue(), 89));
+                   bp.setBrush(QColor(T().accent.red(), T().accent.green(), T().accent.blue(), 89));
                    bp.drawEllipse(c, r + 5, r + 5);
                  });
     paintBlurred(p, QRectF(c.x() - r - 8, c.y() - r - 8, (r + 8) * 2, (r + 8) * 2), 3,
                  [&](QPainter& bp) {
                    bp.setPen(Qt::NoPen);
-                   bp.setBrush(QColor(kAccent.red(), kAccent.green(), kAccent.blue(), 179));
+                   bp.setBrush(QColor(T().accent.red(), T().accent.green(), T().accent.blue(), 179));
                    bp.drawEllipse(c, r + 1.5, r + 1.5);
                  });
     QRadialGradient g(c + QPointF(-r * 0.2, -r * 0.3), r);
-    g.setColorAt(0, kAccentHot);
-    g.setColorAt(0.45, kAccent);
-    g.setColorAt(1, kAccentDim);
+    g.setColorAt(0, T().accentHot);
+    g.setColorAt(0.45, T().accent);
+    g.setColorAt(1, T().accentDim);
     p.setBrush(g);
-    p.setPen(QPen(QColor(kLitLedRim.red(), kLitLedRim.green(), kLitLedRim.blue(), 153), 1));
+    p.setPen(QPen(QColor(T().litLedRim.red(), T().litLedRim.green(), T().litLedRim.blue(), 153), 1));
     p.drawEllipse(c, r, r);
   } else {
     QRadialGradient g(c + QPointF(-r * 0.2, -r * 0.3), r);
-    g.setColorAt(0, kIdleLedHi);
-    g.setColorAt(1, kIdleLedLo);
+    g.setColorAt(0, T().idleLedHi);
+    g.setColorAt(1, T().idleLedLo);
     p.setBrush(g);
     p.setPen(QPen(QColor(0, 0, 0, 204), 1));
     p.drawEllipse(c, r, r);
@@ -754,7 +754,7 @@ void drawLed(QPainter& p, QPointF c, bool on, qreal size) {
 }
 
 void drawPlate(QPainter& p, const QRectF& r) {
-  fillRound(p, r, 4, kPlateFace);
+  fillRound(p, r, 4, T().plateFace);
   p.save();
   QPainterPath clip;
   clip.addRoundedRect(r, 4, 4);
@@ -773,7 +773,7 @@ void drawPlate(QPainter& p, const QRectF& r) {
 void drawRail(QPainter& p, const QRectF& r) {
   p.save();
   p.setOpacity(0.9);
-  fillRound(p, r, 3, kPlateFace);
+  fillRound(p, r, 3, T().plateFace);
   QPainterPath clip;
   clip.addRoundedRect(r, 3, 3);
   p.setClipPath(clip);
@@ -938,7 +938,7 @@ void drawFooterSep(QPainter& p, const QRectF& r) {
 
 void drawStatusDot(QPainter& p, QPointF c) {
   p.setPen(Qt::NoPen);
-  p.setBrush(QColor(kInkFaint.red(), kInkFaint.green(), kInkFaint.blue(), 160));
+  p.setBrush(QColor(T().inkFaint.red(), T().inkFaint.green(), T().inkFaint.blue(), 160));
   p.drawEllipse(c, 1.5, 1.5);
 }
 
@@ -987,7 +987,7 @@ void drawDiscLogo(QPainter& p, const QRectF& disc, const QImage* logo, bool inse
   paintBlurred(p, disc.adjusted(-bloomRadius, -bloomRadius, bloomRadius, bloomRadius),
                bloomSigma, [&](QPainter& bp) {
                  bp.setPen(Qt::NoPen);
-                 bp.setBrush(QColor(kAccent.red(), kAccent.green(), kAccent.blue(), bloomA));
+                 bp.setBrush(QColor(T().accent.red(), T().accent.green(), T().accent.blue(), bloomA));
                  bp.drawEllipse(disc);
                });
   const qreal dropY = disc.width() <= 32 ? 2.0 : 3.0;
@@ -999,7 +999,7 @@ void drawDiscLogo(QPainter& p, const QRectF& disc, const QImage* logo, bool inse
                  bp.drawEllipse(disc.translated(0, dropY));
                });
   p.setPen(Qt::NoPen);
-  p.setBrush(kLogoDisc);
+  p.setBrush(T().logoDisc);
   p.drawEllipse(disc);
   if (logo && !logo->isNull()) {
     p.save();

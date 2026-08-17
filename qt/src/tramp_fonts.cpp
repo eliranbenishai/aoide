@@ -9,6 +9,8 @@ namespace {
 
 QString g_chromeFamily = QStringLiteral("TrampCondensed");
 QString g_lcdFamily = QStringLiteral("TrampMono");
+QString g_lookChrome;
+QString g_lookLcd;
 
 }  // namespace
 
@@ -35,12 +37,17 @@ void loadTrampFonts() {
   }
 }
 
+void setLookFamilies(const QString& chrome, const QString& lcd) {
+  g_lookChrome = chrome;
+  g_lookLcd = lcd;
+}
+
 QString chromeFamily() {
-  return g_chromeFamily;
+  return g_lookChrome.isEmpty() ? g_chromeFamily : g_lookChrome;
 }
 
 QString lcdFamily() {
-  return g_lcdFamily;
+  return g_lookLcd.isEmpty() ? g_lcdFamily : g_lookLcd;
 }
 
 }  // namespace tramp

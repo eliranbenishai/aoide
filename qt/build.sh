@@ -27,6 +27,7 @@ INC=(
 DEFS=(
   -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DTRAMP_HAVE_X11 -DTRAMP_HAVE_MPV
   -DTRAMP_ASSET_DIR="\"$ROOT/assets\""
+  -DTRAMP_SKINS_DIR="\"$ROOT/skins\""
 )
 LIBS=(
   -L"$QT/lib" -L"$BREW/lib" -L"$MPV_LIB" -L"$STUB"
@@ -73,6 +74,7 @@ SRCS=(
   "$ROOT/qt/src/stft.cpp"
   "$ROOT/qt/src/spectrum.cpp"
   "$ROOT/qt/src/docking.cpp"
+  "$ROOT/qt/src/look.cpp"
   "$ROOT/qt/src/session.cpp"
   "$ROOT/qt/src/host_window.cpp"
   "$ROOT/qt/src/main.cpp"
@@ -92,5 +94,13 @@ SRCS=(
   -L"$QT/lib" -lQt6Core -lstdc++ -lm -lgcc_s -Wl,-rpath,"$QT/lib" \
   -o "$BUILD/domain_test"
 "$BUILD/domain_test"
+
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -DQT_GUI_LIB -DQT_CORE_LIB \
+  "$ROOT/qt/src/look.cpp" "$ROOT/qt/src/settings.cpp" "$ROOT/qt/src/equalizer.cpp" \
+  "$ROOT/qt/src/tramp_fonts.cpp" \
+  "$ROOT/qt/tests/look_test.cpp" \
+  -L"$QT/lib" -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -Wl,-rpath,"$QT/lib" \
+  -o "$BUILD/look_test"
+"$BUILD/look_test"
 
 echo "built $BUILD/tramp"

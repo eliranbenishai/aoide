@@ -11,6 +11,7 @@ find_package(X11)
 qt_standard_project_setup()
 
 file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../assets" TRAMP_ASSET_DIR)
+file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../skins" TRAMP_SKINS_DIR)
 file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/libmpv" TRAMP_MPV_ROOT)
 
 add_library(tramp_window_spec STATIC
@@ -84,6 +85,7 @@ set(TRAMP_SOURCES
   src/files.cpp
   src/playback.cpp
   src/docking.cpp
+  src/look.cpp
   src/wav_reader.cpp
   src/stft.cpp
   src/spectrum.cpp
@@ -96,6 +98,7 @@ qt_add_executable(tramp WIN32 ${TRAMP_SOURCES})
 target_include_directories(tramp PRIVATE src "${TRAMP_MPV_ROOT}/include")
 target_compile_definitions(tramp PRIVATE
   TRAMP_ASSET_DIR="${TRAMP_ASSET_DIR}"
+  TRAMP_SKINS_DIR="${TRAMP_SKINS_DIR}"
 )
 if(TRAMP_HAVE_MPV)
   target_compile_definitions(tramp PRIVATE TRAMP_HAVE_MPV)
@@ -137,7 +140,18 @@ qt_add_executable(domain_test
 target_include_directories(domain_test PRIVATE src)
 target_link_libraries(domain_test PRIVATE Qt6::Core)
 
+qt_add_executable(look_test
+  tests/look_test.cpp
+  src/look.cpp
+  src/settings.cpp
+  src/equalizer.cpp
+  src/tramp_fonts.cpp
+)
+target_include_directories(look_test PRIVATE src)
+target_link_libraries(look_test PRIVATE Qt6::Gui)
+
 enable_testing()
 add_test(NAME window_spec COMMAND window_spec_test)
 add_test(NAME chrome_spec COMMAND chrome_spec_test)
 add_test(NAME domain COMMAND domain_test)
+add_test(NAME look COMMAND look_test)

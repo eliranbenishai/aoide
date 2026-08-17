@@ -3,6 +3,7 @@
 #include "chrome_hits.h"
 #include "collection.h"
 #include "docking.h"
+#include "look.h"
 #include "persist.h"
 #include "playback.h"
 #include "player_engine.h"
@@ -74,6 +75,8 @@ class TrampSession : public QObject {
   void applyAlwaysOnTop();
   void applyFramesToWindows();
   void schedulePersist();
+  QString bundledSkinsDir() const;
+  SkinController::ConflictFn skinConflictPrompt();
   void scheduleAltered();
   void scheduleUsage();
   void refreshAboutFigures();
@@ -107,6 +110,7 @@ class TrampSession : public QObject {
   int spectrumGen_ = 0;
   bool spectrumReady_ = false;
   DockingCoordinator docking_;
+  SkinController skins_;
   HostWindow* main_ = nullptr;
   HostWindow* eq_ = nullptr;
   HostWindow* pl_ = nullptr;

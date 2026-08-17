@@ -2,6 +2,7 @@
 
 #include "files.h"
 #include "host_window.h"
+#include "look.h"
 #include "m3u.h"
 #ifdef TRAMP_HAVE_MPV
 #include "mpv_engine.h"
@@ -105,6 +106,7 @@ TrampSession::TrampSession(QObject* parent)
   bindPlayback();
   engine_->setForceMono(settings_.forceMono);
   applyEq();
+  skins_.bootstrap(trampSupportDirectory(), bundledSkinsDir(), settings_);
 }
 
 TrampSession::~TrampSession() {
@@ -378,6 +380,10 @@ SessionView TrampSession::view() const {
   v.aboutTimeMs = figures_.totalDurationMs;
   v.aboutSpins = playback_->spins();
   v.aboutMeasured = figuresLoaded_;
+  v.look = skins_.tokens();
+  v.skins = skins_.catalog();
+  v.activeSkinId = settings_.activeSkinId;
+  v.skinsError = skins_.lastError();
 
   const auto tracks = playlist_.tracks();
   qint64 total = 0;
@@ -894,6 +900,51 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       break;
     case K::settingsSkins:
       settingsTab_ = 1;
+      skins_.rescan();
+      refreshChrome();
+      break;
+    case K::settingsSkinRow: {
+      const auto catalog = skins_.catalog();
+      if (hit.index >= 0 && hit.index < catalog.size()) {
+        if (skins_.activate(catalog[hit.index].id, settings_)) {
+          schedulePersist();
+        }
+        refreshChrome();
+      }
+      break;
+    }
+    case K::settingsInstallZip: {
+      const QString path = QFileDialog::getOpenFileName(
+          settingsWin_, QStringLiteral("Install skin"), QString(),
+          QStringLiteral("Skin zip (*.zip)"));
+      if (!path.isEmpty() && skins_.installZip(path, skinConflictPrompt())) {
+        schedulePersist();
+      }
+      refreshChrome();
+      break;
+    }
+    case K::settingsInstallFolder: {
+      const QString path =
+          QFileDialog::getExistingDirectory(settingsWin_, QStringLiteral("Install skin folder"));
+      if (!path.isEmpty() && skins_.installDirectory(path, skinConflictPrompt())) {
+        schedulePersist();
+      }
+      refreshChrome();
+      break;
+    }
+    case K::settingsSkinsFolder: {
+      const QString path =
+          QFileDialog::getExistingDirectory(settingsWin_, QStringLiteral("Skins folder"));
+      if (!path.isEmpty()) {
+        skins_.setSkinsDirectory(path, settings_);
+        schedulePersist();
+      }
+      refreshChrome();
+      break;
+    }
+    case K::settingsResetSkinsFolder:
+      skins_.setSkinsDirectory({}, settings_);
+      schedulePersist();
       refreshChrome();
       break;
     case K::settingsResume:
@@ -940,6 +991,7 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       engine_->setForceMono(false);
       docking_.setSnapThreshold(20);
       applyAlwaysOnTop();
+      skins_.setSkinsDirectory({}, settings_);
       schedulePersist();
       refreshChrome();
       break;
@@ -1021,6 +1073,33 @@ bool TrampSession::confirmReplaceAltered() {
 
 void TrampSession::quitFromMenu() {
   if (main_) main_->close();
+}
+
+QString TrampSession::bundledSkinsDir() const {
+#ifdef TRAMP_SKINS_DIR
+  return QStringLiteral(TRAMP_SKINS_DIR);
+#else
+  return {};
+#endif
+}
+
+SkinController::ConflictFn TrampSession::skinConflictPrompt() {
+  return [this](const SkinConflict& conflict) {
+    QWidget* parent = settingsWin_ ? static_cast<QWidget*>(settingsWin_) : main_;
+    const QString text =
+        QStringLiteral("A skin named \"%1\" is already installed%2.\nReplace it with \"%3\"%4?")
+            .arg(conflict.installedName,
+                 conflict.installedAuthor.isEmpty()
+                     ? QString()
+                     : QStringLiteral(" (%1)").arg(conflict.installedAuthor),
+                 conflict.incomingName,
+                 conflict.incomingAuthor.isEmpty()
+                     ? QString()
+                     : QStringLiteral(" (%1)").arg(conflict.incomingAuthor));
+    const auto reply = QMessageBox::question(parent, QStringLiteral("Replace skin?"), text,
+                                             QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+    return reply == QMessageBox::Yes ? SkinConflictChoice::replace : SkinConflictChoice::cancel;
+  };
 }
 
 }  // namespace tramp

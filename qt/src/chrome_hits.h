@@ -59,6 +59,11 @@ struct ChromeHit {
     settingsSnapNormal,
     settingsSnapStrong,
     settingsReset,
+    settingsSkinRow,
+    settingsInstallZip,
+    settingsInstallFolder,
+    settingsSkinsFolder,
+    settingsResetSkinsFolder,
     aboutWeb,
     plResize,
   };

@@ -200,7 +200,7 @@ ChromeHit hitPlaylist(QSize logical, QPoint pos, const SessionView& view) {
   return {};
 }
 
-ChromeHit hitSettings(QSize logical, QPoint pos) {
+ChromeHit hitSettings(QSize logical, QPoint pos, const SessionView& view) {
   const QRectF body = bodyRect(logical);
   if (auto h = hitIf(QRect(int(body.left()), int(body.top()), 108, 42), pos,
                      ChromeHit::Kind::settingsGeneral);
@@ -212,7 +212,43 @@ ChromeHit hitSettings(QSize logical, QPoint pos) {
       h.kind != ChromeHit::Kind::none) {
     return h;
   }
+  const QRect reset(int(body.left() + 12), int(body.bottom() - 36), 160, 24);
+  if (auto h = hitIf(reset, pos, ChromeHit::Kind::settingsReset); h.kind != ChromeHit::Kind::none) {
+    return h;
+  }
   const QRectF pane(body.left() + 108, body.top(), body.width() - 108, body.height() - 40);
+  if (view.settingsTab == 1) {
+    for (int i = 0; i < view.skins.size(); ++i) {
+      const QRect row(int(pane.left() + 12), int(pane.top() + 10 + i * 36), int(pane.width() - 24),
+                      32);
+      if (auto h = hitIf(row, pos, ChromeHit::Kind::settingsSkinRow, i);
+          h.kind != ChromeHit::Kind::none) {
+        return h;
+      }
+    }
+    const int btnY = int(pane.bottom() - 58);
+    if (auto h = hitIf(QRect(int(pane.left() + 12), btnY, 148, 26), pos,
+                       ChromeHit::Kind::settingsInstallZip);
+        h.kind != ChromeHit::Kind::none) {
+      return h;
+    }
+    if (auto h = hitIf(QRect(int(pane.left() + 168), btnY, 160, 26), pos,
+                       ChromeHit::Kind::settingsInstallFolder);
+        h.kind != ChromeHit::Kind::none) {
+      return h;
+    }
+    if (auto h = hitIf(QRect(int(pane.left() + 12), btnY + 30, 148, 26), pos,
+                       ChromeHit::Kind::settingsSkinsFolder);
+        h.kind != ChromeHit::Kind::none) {
+      return h;
+    }
+    if (auto h = hitIf(QRect(int(pane.left() + 168), btnY + 30, 160, 26), pos,
+                       ChromeHit::Kind::settingsResetSkinsFolder);
+        h.kind != ChromeHit::Kind::none) {
+      return h;
+    }
+    return {};
+  }
   const ChromeHit::Kind toggles[] = {ChromeHit::Kind::settingsResume, ChromeHit::Kind::settingsConfirm,
                                      ChromeHit::Kind::settingsScroll, ChromeHit::Kind::settingsMinimize};
   for (int i = 0; i < 4; ++i) {
@@ -226,10 +262,6 @@ ChromeHit hitSettings(QSize logical, QPoint pos) {
     const QRect r(int(sx), int(pane.top() + 194), 88, 28);
     if (auto h = hitIf(r, pos, snaps[i]); h.kind != ChromeHit::Kind::none) return h;
     sx += 96;
-  }
-  const QRect reset(int(body.left() + 12), int(body.bottom() - 36), 160, 24);
-  if (auto h = hitIf(reset, pos, ChromeHit::Kind::settingsReset); h.kind != ChromeHit::Kind::none) {
-    return h;
   }
   return {};
 }
@@ -254,7 +286,7 @@ ChromeHit hitTest(WindowId id, QSize logical, QPoint pos, const SessionView& vie
     case WindowId::playlist:
       return hitPlaylist(logical, pos, view);
     case WindowId::settings:
-      return hitSettings(logical, pos);
+      return hitSettings(logical, pos, view);
     case WindowId::about:
       return hitAbout(logical, pos);
   }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "equalizer.h"
+#include "look.h"
 #include "track.h"
 
 #include <QSet>
@@ -71,6 +72,10 @@ struct SessionView {
   qint64 aboutTimeMs = 0;
   int aboutSpins = 0;
   bool aboutMeasured = false;
+  ChromeTokens look = ChromeTokens::builtin();
+  QVector<SkinCatalogEntry> skins;
+  QString activeSkinId = QStringLiteral("builtin");
+  QString skinsError;
 
   static SessionView golden();
 };
