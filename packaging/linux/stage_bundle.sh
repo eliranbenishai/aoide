@@ -2,7 +2,7 @@
 # Install the Qt tramp binary plus assets/skins/desktop into build/linux/bundle.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-BUILD="${TRAMP_BUILD_DIR:-$ROOT/qt/build}"
+BUILD="${TRAMP_BUILD_DIR:-$ROOT/build}"
 DEST="${TRAMP_BUNDLE_DIR:-$ROOT/build/linux/bundle}"
 
 if [[ ! -x "$BUILD/tramp" ]]; then

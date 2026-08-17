@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/../VERSION" TRAMP_VERSION_RAW LIMIT_COUNT 1)
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" TRAMP_VERSION_RAW LIMIT_COUNT 1)
 string(STRIP "${TRAMP_VERSION_RAW}" TRAMP_VERSION)
 project(tramp VERSION ${TRAMP_VERSION} LANGUAGES C CXX)
 
@@ -12,9 +12,9 @@ find_package(X11)
 
 qt_standard_project_setup()
 
-file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../assets" TRAMP_ASSET_DIR)
-file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../skins" TRAMP_SKINS_DIR)
-file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/libmpv" TRAMP_MPV_ROOT)
+file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/assets" TRAMP_ASSET_DIR)
+file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/skins" TRAMP_SKINS_DIR)
+file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libmpv" TRAMP_MPV_ROOT)
 
 add_library(tramp_window_spec STATIC
   src/window_spec.cpp
@@ -161,12 +161,12 @@ add_test(NAME domain COMMAND domain_test)
 add_test(NAME look COMMAND look_test)
 
 install(TARGETS tramp RUNTIME DESTINATION .)
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../assets" DESTINATION .)
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../skins" DESTINATION .)
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/assets" DESTINATION .)
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/skins" DESTINATION .)
 if(UNIX AND NOT APPLE)
-  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../packaging/linux/com.tramp.tramp.desktop"
+  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/packaging/linux/com.tramp.tramp.desktop"
     DESTINATION share/applications)
-  install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../packaging/linux/icons/hicolor"
+  install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/packaging/linux/icons/hicolor"
     DESTINATION share/icons)
   file(GLOB TRAMP_LINUX_MPV "${TRAMP_MPV_ROOT}/linux/x86_64/libmpv.so*")
   if(TRAMP_LINUX_MPV)

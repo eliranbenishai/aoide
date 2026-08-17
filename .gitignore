@@ -24,7 +24,6 @@ migrate_working_dir/
 #.vscode/
 
 /build/
-/qt/build/
 /coverage/
 .dart_tool/
 

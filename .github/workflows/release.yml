@@ -38,9 +38,9 @@ jobs:
           fi
       - name: Configure and test
         run: |
-          cmake -S qt -B qt/build -DCMAKE_BUILD_TYPE=Release
-          cmake --build qt/build --config Release
-          ctest --test-dir qt/build -C Release --output-on-failure
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+          ctest --test-dir build -C Release --output-on-failure
 
   windows:
     name: Windows EXE + MSIX
@@ -58,9 +58,9 @@ jobs:
         run: powershell -ExecutionPolicy Bypass -File tool/fetch_full_libmpv.ps1
       - name: Configure and build
         run: |
-          cmake -S qt -B qt/build -DCMAKE_BUILD_TYPE=Release
-          cmake --build qt/build --config Release
-          ctest --test-dir qt/build -C Release --output-on-failure
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+          ctest --test-dir build -C Release --output-on-failure
         shell: bash
       - name: Stage
         shell: pwsh
@@ -113,9 +113,9 @@ jobs:
           ./tool/stage_linux_libmpv.sh
       - name: Configure, build, stage
         run: |
-          cmake -S qt -B qt/build -DCMAKE_BUILD_TYPE=Release
-          cmake --build qt/build --config Release
-          ctest --test-dir qt/build -C Release --output-on-failure
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+          ctest --test-dir build -C Release --output-on-failure
           ./packaging/linux/stage_bundle.sh
       - name: AppImage + tarball
         run: |

@@ -13,7 +13,7 @@ Tramp is a multi-platform desktop music player — a spiritual successor to Wina
 ## Platforms
 
 - **Windows, Linux, and macOS** desktop.
-- One codebase; shippable artifacts via the Qt host (`qt/`) and platform installers.
+- One codebase; shippable artifacts via the Qt host (`src/`) and platform installers.
 - **Official download** is `https://tramp.music`. Windows lists on the **Microsoft Store** as **tramp.music** (MSIX) **and** offers an unsigned website EXE ([ADR 0011](adr/0011-windows-store-and-exe.md)). Linux lists on **Flathub** **and** offers an AppImage ([ADR 0013](adr/0013-linux-flathub-and-appimage.md)). macOS is a notarized DMG from the site. Mac App Store and Snap are **not** v1.
 - License: **GPL-3.0-or-later** ([ADR 0012](adr/0012-gpl-3.md)).
 - Release artifacts are built on **GitHub Actions**. v1 CPUs: Windows x64, Linux x86_64, macOS universal ([ADR 0014](adr/0014-ci-and-architectures.md)).
@@ -23,7 +23,7 @@ Tramp is a multi-platform desktop music player — a spiritual successor to Wina
 
 | Locked | Preferred default (swappable for same job) | Not locked |
 |--------|--------------------------------------------|------------|
-| **Qt 6** (desktop, QWidget + QPainter) | Multi-window host + docking coordinator — app chrome | State helpers inside `qt/src/` |
+| **Qt 6** (desktop, QWidget + QPainter) | Multi-window host + docking coordinator — app chrome | State helpers inside `src/` |
 | CMake; version in [`VERSION`](../VERSION) | **full libmpv** — playback / decode / EQ / mono | |
 
 **Not v1:** Flutter, Tauri, Electron, or a second UI toolkit. See [ADR 0016](adr/0016-qt-for-v1.md) and [ADR 0005](adr/0005-full-libmpv.md).

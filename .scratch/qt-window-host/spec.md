@@ -14,7 +14,7 @@ This is the product host ([ADR 0016](../../docs/adr/0016-qt-for-v1.md)).
 
 ## Build
 
-See [`qt/README.md`](../../qt/README.md).
+See [`README.md`](../../README.md).
 
 ## Verdict
 

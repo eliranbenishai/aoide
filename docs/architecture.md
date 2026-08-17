@@ -4,7 +4,7 @@ Living map of how Tramp is structured. Domain terms: [`CONTEXT.md`](../CONTEXT.m
 
 ## Host
 
-**Qt 6 C++** is the only build ([ADR 0016](adr/0016-qt-for-v1.md)). One process, five frameless windows, QWidget + QPainter in [`qt/src/`](../qt/src/). Binary: `qt/build/tramp` ([`qt/README.md`](../qt/README.md)).
+**Qt 6 C++** is the only build ([ADR 0016](adr/0016-qt-for-v1.md)). One process, five frameless windows, QWidget + QPainter in [`src/`](../src/). Binary: `build/tramp`.
 
 `TrampSession` owns playback (libmpv), playlist/collection, EQ, spectrum, docking, zoom, skins, and persistence. Extra windows are extra views, not extra engines. Title-bar drag is `QWindow::startSystemMove()`. Extras are `Qt::Dialog` transients of main and skip the taskbar. `--dump-chrome` writes 1× logical PNGs from `SessionView::golden()`.
 
@@ -84,7 +84,7 @@ flowchart TB
   Eng --> Mpv
 ```
 
-## Modules (`qt/src/`)
+## Modules (`src/`)
 
 | Area | Owns |
 |------|------|

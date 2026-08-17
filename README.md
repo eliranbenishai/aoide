@@ -3,29 +3,53 @@
 Multi-platform desktop music player. See [`docs/tramp-v1-spec.md`](docs/tramp-v1-spec.md)
 for product scope.
 
-The app is **Qt 6** in [`qt/`](qt/). That is the only build.
+The app is **Qt 6** (QWidget + QPainter) in [`src/`](src/).
 
 ## Development
 
+Homebrew Qt / no CMake on `PATH`:
+
 ```bash
-./qt/build.sh
-./qt/build/tramp
+./build.sh
+./build/tramp
 ```
 
-Or with system CMake (see [`qt/README.md`](qt/README.md)):
+System Qt + CMake:
 
 ```bash
-cmake -S qt -B qt/build -G Ninja
-cmake --build qt/build
-ctest --test-dir qt/build --output-on-failure
-./qt/build/tramp
+# Fedora
+sudo dnf install qt6-qtbase-devel qt6-qtwayland libX11-devel cmake ninja-build gcc-c++ mpv-libs-devel
+
+# Arch
+sudo pacman -S qt6-base qt6-wayland cmake ninja gcc mpv
+```
+
+```bash
+cmake -S . -B build -G Ninja
+cmake --build build
+ctest --test-dir build --output-on-failure
+./build/tramp
+```
+
+CMake prefers `pkg-config mpv`. If that is missing and
+`third_party/libmpv/linux/x86_64/libmpv.so` exists, it links the bundle plus
+SONAME stubs under `src/mpv_stubs/`. Without either, the binary still runs with
+a silent `NullEngine`.
+
+X11 (proven dock follow):
+
+```bash
+QT_QPA_PLATFORM=xcb ./build/tramp
 ```
 
 Dump 1× logical chrome (no windows):
 
 ```bash
-QT_QPA_PLATFORM=offscreen ./qt/build/tramp --dump-chrome /tmp/tramp-chrome
+QT_QPA_PLATFORM=offscreen ./build/tramp --dump-chrome /tmp/tramp-chrome
 ```
+
+Let the binary see `WAYLAND_DISPLAY` unless you opt into xcb. Drag the title
+strip (not the window buttons) to move a window. Closing **Tramp** (main) quits.
 
 ## Packaging
 
@@ -51,14 +75,14 @@ From [`docs/tramp-v1-spec.md`](docs/tramp-v1-spec.md).
 
 | Criterion | Status |
 |-----------|--------|
-| Install/run on Win/Linux/macOS (build artifacts) | Linux Qt host is the product binary (`qt/build/tramp`); Windows CI compiles the host; macOS later |
+| Install/run on Win/Linux/macOS (build artifacts) | Linux binary is `build/tramp`; Windows CI compiles the host; macOS later |
 | Open local audio + playlists | Implemented (file picker, DnD, argv, folder expand) |
 | Manage playlist (add/remove/reorder/save/restore) | Implemented (`PlaylistController`, M3U/M3U8) |
 | Transport chrome controls + tags when present | Implemented (Qt chrome + libmpv) |
-| Frameless mockup chrome (zoom-sized main/EQ, resizable playlist) | Implemented (`qt/src/` QPainter chrome) |
+| Frameless mockup chrome (zoom-sized main/EQ, resizable playlist) | Implemented (`src/` QPainter chrome) |
 | No library/WSZ skins/store dependency | Confirmed (non-goals excluded) |
 
-Automated gate: `ctest` in `qt/build`.
+Automated gate: `ctest` in `build/`.
 
 ## File associations
 
@@ -85,7 +109,6 @@ wait on the Qt Mac host.
 - [`CONTEXT.md`](CONTEXT.md) — domain vocabulary
 - [`docs/architecture.md`](docs/architecture.md) — structure map
 - [`docs/distribution.md`](docs/distribution.md) — CI, artifacts, secrets
-- [`qt/README.md`](qt/README.md) — Qt build
 
 ## License
 

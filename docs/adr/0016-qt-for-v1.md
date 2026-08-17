@@ -10,11 +10,11 @@ Supersedes [ADR 0001](0001-flutter-for-v1.md) and [ADR 0015](0015-one-engine-win
 
 ## Context
 
-Flutter was locked so one desktop codebase could own custom chrome ([ADR 0001](0001-flutter-for-v1.md)). Five product windows then meant five engines; collapsing them onto one isolate ([ADR 0015](0015-one-engine-windows.md)) still left drag, compositor teardown, and experimental windowing as product risks. The Qt tracer in `qt/` already painted the mockup chassis and hosted live session state.
+Flutter was locked so one desktop codebase could own custom chrome ([ADR 0001](0001-flutter-for-v1.md)). Five product windows then meant five engines; collapsing them onto one isolate ([ADR 0015](0015-one-engine-windows.md)) still left drag, compositor teardown, and experimental windowing as product risks. A Qt tracer already painted the mockup chassis and hosted live session state; that tree is now the product (`src/` at the repo root).
 
 ## Decision
 
-The product is **Qt 6 C++** (QWidget + QPainter) in `qt/`. One process, five frameless windows. Playback talks to **libmpv directly** (`MpvEngine`), not media_kit. The Flutter/Dart tree is retired; there is no second build.
+The product is **Qt 6 C++** (QWidget + QPainter) in `src/`. One process, five frameless windows. Playback talks to **libmpv directly** (`MpvEngine`), not media_kit. The Flutter/Dart tree is retired; there is no second build.
 
 Linux and Windows are the pairing hosts. macOS packaging waits on a Qt Mac host.
 
@@ -26,4 +26,4 @@ Linux and Windows are the pairing hosts. macOS packaging waits on a Qt Mac host.
 
 ## Consequences
 
-CI and release build `qt/` with CMake. Version lives in `VERSION`. Docking, zoom, and mockup-chrome *product* rules in ADRs 0002 / 0006 / 0007 still apply; their Flutter implementation pins do not. ADR 0005’s full-libmpv requirement still applies; the control seam is `PlayerEngine`, not media_kit.
+CI and release build with CMake at the repo root. Version lives in `VERSION`. Docking, zoom, and mockup-chrome *product* rules in ADRs 0002 / 0006 / 0007 still apply; their Flutter implementation pins do not. ADR 0005’s full-libmpv requirement still applies; the control seam is `PlayerEngine`, not media_kit.

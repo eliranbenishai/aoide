@@ -2,12 +2,12 @@
 $ErrorActionPreference = "Stop"
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $Candidates = @(
-  (Join-Path $Root "qt\build\Release\tramp.exe"),
-  (Join-Path $Root "qt\build\tramp.exe")
+  (Join-Path $Root "build\Release\tramp.exe"),
+  (Join-Path $Root "build\tramp.exe")
 )
 $Exe = $Candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $Exe) {
-  throw "stage: missing tramp.exe under qt/build — build the Qt host first"
+  throw "stage: missing tramp.exe under build/ — cmake --build build first"
 }
 $Stage = Join-Path $Root "build\windows\stage"
 if (Test-Path $Stage) { Remove-Item $Stage -Recurse -Force }

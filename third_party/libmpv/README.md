@@ -50,7 +50,7 @@ Community CMake path used by the script.
 | Platform | Hook |
 |----------|------|
 | Windows | `packaging/windows/stage.ps1` copies `libmpv-2.dll` next to `tramp.exe` when present. |
-| Linux | `qt/CMakeLists.txt` install stages `third_party/libmpv/linux/x86_64/libmpv.so*` into the bundle `lib/` when present (else system libmpv). |
+| Linux | Root `CMakeLists.txt` install stages `third_party/libmpv/linux/x86_64/libmpv.so*` into the bundle `lib/` when present (else system libmpv). |
 | macOS | After `fetch_full_libmpv.sh`, the Qt Mac host will load the staged frameworks. Do not ship slim `audio-default`. |
 
 ## Do not commit slim libs

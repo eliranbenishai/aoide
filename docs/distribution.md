@@ -6,7 +6,7 @@ How Tramp is built and handed to listeners. Decisions: [ADR 0010](adr/0010-open-
 
 | Workflow | When | What |
 |----------|------|------|
-| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PR and `main` | CMake build + `ctest` of `qt/` on Ubuntu and Windows |
+| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PR and `main` | CMake build + `ctest` on Ubuntu and Windows |
 | [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Tag `v*` or **Run workflow** | Test, then Windows / Linux packages; tags also attach a GitHub Release |
 
 Cut a release by bumping [`VERSION`](../VERSION), committing, then:
@@ -66,10 +66,10 @@ Same scripts the workflows call, after a Release Qt build on that OS:
 ```bash
 # Linux
 ./tool/stage_linux_libmpv.sh
-cmake -S qt -B qt/build -DCMAKE_BUILD_TYPE=Release
-cmake --build qt/build
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
 ./packaging/linux/stage_bundle.sh
 ./packaging/linux/make_appimage.sh
 ```
 
-Windows (on a Windows host): `tool/fetch_full_libmpv.ps1`, CMake Release build of `qt/`, then `packaging/windows/stage.ps1`, Inno (`packaging/windows/tramp.iss`) and `packaging/windows/make_msix.ps1`. The EXE installer runs `vc_redist.x64.exe` when `MSVCP140.dll` / `VCRUNTIME140.dll` are missing. The MSIX declares `Microsoft.VCLibs.140.00.UWPDesktop` so the Store supplies that runtime.
+Windows (on a Windows host): `tool/fetch_full_libmpv.ps1`, CMake Release build, then `packaging/windows/stage.ps1`, Inno (`packaging/windows/tramp.iss`) and `packaging/windows/make_msix.ps1`. The EXE installer runs `vc_redist.x64.exe` when `MSVCP140.dll` / `VCRUNTIME140.dll` are missing. The MSIX declares `Microsoft.VCLibs.140.00.UWPDesktop` so the Store supplies that runtime.

@@ -2,9 +2,9 @@
 
 Date: 2026-08-09  
 Status: Implemented  
-Branch intent: shareable pack format for recoloring / retyping mockup chrome (`qt/src/look.*`)
+Branch intent: shareable pack format for recoloring / retyping mockup chrome (`src/look.*`)
 
-Related: [`qt/src/mockup_tokens.h`](../../../qt/src/mockup_tokens.h), [ADR 0007](../../adr/0007-code-constructed-mockup-chrome.md), [`architecture.md`](../../architecture.md), [`CONTEXT.md`](../../../CONTEXT.md).
+Related: [`src/mockup_tokens.h`](../../../src/mockup_tokens.h), [ADR 0007](../../adr/0007-code-constructed-mockup-chrome.md), [`architecture.md`](../../architecture.md), [`CONTEXT.md`](../../../CONTEXT.md).
 
 ## Problem
 
@@ -224,4 +224,4 @@ The embedded `builtin` pack is the current mockup palette and materials (from `p
 
 ## Implementation
 
-Implemented in `qt/src/look.*` (parse, merge, catalog, install) and `SkinController` on the session; chrome reads `ChromeTokens` from the active look. Install UI: Settings → Skins.
+Implemented in `src/look.*` (parse, merge, catalog, install) and `SkinController` on the session; chrome reads `ChromeTokens` from the active look. Install UI: Settings → Skins.
