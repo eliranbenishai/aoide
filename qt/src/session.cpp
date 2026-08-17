@@ -10,6 +10,7 @@
 #endif
 #include "player_engine.h"
 #include "support_dir.h"
+#include "tramp_fonts.h"
 #include "tramp_metrics.h"
 
 #include <QAction>
@@ -1080,13 +1081,7 @@ void TrampSession::quitFromMenu() {
   if (main_) main_->close();
 }
 
-QString TrampSession::bundledSkinsDir() const {
-#ifdef TRAMP_SKINS_DIR
-  return QStringLiteral(TRAMP_SKINS_DIR);
-#else
-  return {};
-#endif
-}
+QString TrampSession::bundledSkinsDir() const { return tramp::bundledSkinsDir(); }
 
 SkinController::ConflictFn TrampSession::skinConflictPrompt() {
   return [this](const SkinConflict& conflict) {

@@ -4,7 +4,9 @@ Date: 2026-08-16
 
 ## Status
 
-Accepted
+Superseded by [ADR 0016](0016-qt-for-v1.md).
+
+The surviving product rule is **one process, several OS windows**. The Flutter engine / isolate mechanics below are historical.
 
 ## Context
 

@@ -3,9 +3,9 @@
 # No-ops with a warning when certificate / notary secrets are unset.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-APP="$ROOT/build/macos/Build/Products/Release/tramp.app"
+APP="${TRAMP_MAC_APP:-$ROOT/build/macos/tramp.app}"
 # shellcheck disable=SC1090
-eval "$(bash "$ROOT/tool/pubspec_version.sh")"
+eval "$(bash "$ROOT/tool/version.sh")"
 DMG="${1:-$ROOT/build/macos/Tramp-${version}-macos-universal.dmg}"
 
 if [[ ! -d "$APP" ]]; then

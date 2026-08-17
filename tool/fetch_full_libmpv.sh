@@ -23,7 +23,6 @@ PY
     rm -rf "$OUT"/*
     tar -xvf "$ARCHIVE" -C "$OUT"
     echo "Staged macOS full frameworks under $OUT"
-    echo "Replace media_kit slim Frameworks with these before archiving the app."
     ;;
   Linux)
     OUT="$ROOT/third_party/libmpv/linux/x86_64"

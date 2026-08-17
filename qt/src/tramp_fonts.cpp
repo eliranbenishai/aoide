@@ -1,8 +1,12 @@
 #include "tramp_fonts.h"
 
+#include <QCoreApplication>
 #include <QDir>
+#include <QFileInfo>
 #include <QFontDatabase>
 #include <QString>
+#include <QStringList>
+#include <cstring>
 
 namespace tramp {
 namespace {
@@ -14,12 +18,34 @@ QString g_lookLcd;
 
 }  // namespace
 
-QString assetPath(const char* relative) {
+QString bundledDataDir(const char* leaf) {
+  const QString name = QString::fromUtf8(leaf);
+  QStringList roots;
+  if (QCoreApplication::instance()) {
+    const QString appDir = QCoreApplication::applicationDirPath();
+    roots << QDir(appDir).filePath(name);
+    roots << QDir::cleanPath(QDir(appDir).filePath(QStringLiteral("../share/tramp/") + name));
+  }
 #ifdef TRAMP_ASSET_DIR
-  return QDir(QStringLiteral(TRAMP_ASSET_DIR)).filePath(QString::fromUtf8(relative));
-#else
-  return QString::fromUtf8(relative);
+  if (std::strcmp(leaf, "assets") == 0) {
+    roots << QStringLiteral(TRAMP_ASSET_DIR);
+  }
 #endif
+#ifdef TRAMP_SKINS_DIR
+  if (std::strcmp(leaf, "skins") == 0) {
+    roots << QStringLiteral(TRAMP_SKINS_DIR);
+  }
+#endif
+  for (const QString& root : roots) {
+    if (QFileInfo::exists(root)) return root;
+  }
+  return roots.isEmpty() ? name : roots.front();
+}
+
+QString bundledSkinsDir() { return bundledDataDir("skins"); }
+
+QString assetPath(const char* relative) {
+  return QDir(bundledDataDir("assets")).filePath(QString::fromUtf8(relative));
 }
 
 void loadTrampFonts() {

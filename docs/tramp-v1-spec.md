@@ -1,8 +1,8 @@
 # Tramp v1 product spec
 
-Product requirements for the first shippable Tramp desktop player. Domain vocabulary: [`CONTEXT.md`](../CONTEXT.md). Architecture map: [`architecture.md`](architecture.md). Stack decision: [`adr/0001-flutter-for-v1.md`](adr/0001-flutter-for-v1.md).
+Product requirements for the first shippable Tramp desktop player. Domain vocabulary: [`CONTEXT.md`](../CONTEXT.md). Architecture map: [`architecture.md`](architecture.md). Stack decision: [`adr/0016-qt-for-v1.md`](adr/0016-qt-for-v1.md).
 
-**UI authority:** [`player-mockup-2.html`](../player-mockup-2.html) (visual + geometry), the redesign design doc [`superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md`](superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md), and polish rules in [`superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md`](superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md) (product overrides such as compact EQ/PL titles and EQ band fill). Earlier PNG-graphite / single-window docs are historical and must not steer new work.
+**UI authority:** [`player-mockup-2.html`](../player-mockup-2.html) (visual + geometry), the redesign design doc [`superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md`](superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md), and polish rules in [`superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md`](superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md) (product overrides such as compact EQ/PL titles and EQ band fill). Earlier PNG-graphite / single-window docs are historical and must not steer new work. Flutter-era host wording in those design docs is historical; the host is Qt ([ADR 0016](adr/0016-qt-for-v1.md)).
 
 Wayfinding decisions that produced the prior single-window graphite direction live under [`.scratch/tramp-v1-spec/`](../.scratch/tramp-v1-spec/).
 
@@ -13,7 +13,7 @@ Tramp is a multi-platform desktop music player — a spiritual successor to Wina
 ## Platforms
 
 - **Windows, Linux, and macOS** desktop.
-- One codebase; shippable artifacts via Flutter desktop packaging (`flutter build` / normal platform installers as appropriate).
+- One codebase; shippable artifacts via the Qt host (`qt/`) and platform installers.
 - **Official download** is `https://tramp.music`. Windows lists on the **Microsoft Store** as **tramp.music** (MSIX) **and** offers an unsigned website EXE ([ADR 0011](adr/0011-windows-store-and-exe.md)). Linux lists on **Flathub** **and** offers an AppImage ([ADR 0013](adr/0013-linux-flathub-and-appimage.md)). macOS is a notarized DMG from the site. Mac App Store and Snap are **not** v1.
 - License: **GPL-3.0-or-later** ([ADR 0012](adr/0012-gpl-3.md)).
 - Release artifacts are built on **GitHub Actions**. v1 CPUs: Windows x64, Linux x86_64, macOS universal ([ADR 0014](adr/0014-ci-and-architectures.md)).
@@ -23,18 +23,17 @@ Tramp is a multi-platform desktop music player — a spiritual successor to Wina
 
 | Locked | Preferred default (swappable for same job) | Not locked |
 |--------|--------------------------------------------|------------|
-| **Flutter** (desktop) | Multi-window host + docking coordinator — app chrome | State management |
-| Flutter **3.47.0** / Dart **3.13** (CI pin) | media_kit control seam + **full libmpv** binaries — playback / decode / EQ / mono | Routing |
-| | | Design-system packages |
+| **Qt 6** (desktop, QWidget + QPainter) | Multi-window host + docking coordinator — app chrome | State helpers inside `qt/src/` |
+| CMake; version in [`VERSION`](../VERSION) | **full libmpv** — playback / decode / EQ / mono | |
 
-**Not v1:** Tauri, Electron, or a second UI toolkit. Fall back to direct libmpv FFI only if the media_kit + custom-binary spike fails. See [ADR 0005](adr/0005-full-libmpv.md).
+**Not v1:** Flutter, Tauri, Electron, or a second UI toolkit. See [ADR 0016](adr/0016-qt-for-v1.md) and [ADR 0005](adr/0005-full-libmpv.md).
 
 ## Window and chrome
 
 - **Three detachable windows** — Main Player, Equalizer, and Playlist Manager — with **Winamp-style docking**. EQ and playlist may both be open; main EQ/PL toggles show/hide those windows ([ADR 0006](adr/0006-multi-window-docking.md)). The playlist window holds the **playlist collection** beside the current playlist ([ADR 0008](adr/0008-playlist-collection-stores-references.md)); its default canvas is 1073×696.
 - **Move / snap ownership** — main title-bar drag moves every **visible** EQ/playlist window (whether snapped or not). EQ/playlist title-bar drag moves only that window. Snap only from EQ/playlist: EQ any side of any window; playlist **top/bottom only**, with left/right flush when already within threshold. Details: [`2026-08-09-ui-polish-docking-taskbar-design.md`](superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md).
 - **App chrome** — no OS title bar or standard window frame; the visible UI is the app surface. Title-bar window buttons match mockup `.wbtn` bevel chrome. Main title bar shows logo + TRAMP wordmark; EQ/playlist title bars show **role title only**.
-- **No version in the title bar** — the mockup's `TRAMP<sup>1.0</sup>` superscript is dropped (approved delta). The version belongs to the About window's readout, where it is real and comes from `trampAppVersion`.
+- **No version in the title bar** — the mockup's `TRAMP<sup>1.0</sup>` superscript is dropped (approved delta). The version belongs to the About window's readout, where it is real and comes from [`VERSION`](../VERSION).
 - **Main / equalizer never stretch** — permanent. On-screen size follows the global zoom step only (logical canvases: main **825×348**, EQ **825×348**). Playlist is freely resizable (default logical **825×696**); user size is stored in logical coordinates and scaled by zoom ([ADR 0002](adr/0002-fixed-canvas-zoom.md), [ADR 0006](adr/0006-multi-window-docking.md)).
 - **Controls:** in-app minimize (main hides/restores visible secondaries then minimizes), zoom-in / zoom-out on the main title bar (global), and close (main quits; EQ/PL hide). No maximize-as-size-control.
 - **Taskbar (Windows):** only the main player appears in the taskbar while EQ/playlist windows are open.
@@ -45,7 +44,7 @@ Tramp is a multi-platform desktop music player — a spiritual successor to Wina
 
 ## UI direction
 
-Dark shell chrome with **cyan phosphor** — multi-stop shell gradients, screen wells, brushed plates/rails — matching `player-mockup-2.html` at 100% zoom (geometry, tokens, type, materials). Look is **code-constructed** in Flutter from the mockup recipe ([ADR 0007](adr/0007-code-constructed-mockup-chrome.md)); no PNG panel faces, no nine-slice graphite pack. Dense, playlist-centric, control-forward. Not Material/Fluent defaults; not whole-chrome “Scalable UI”; not the retired PNG-graphite skin path.
+Dark shell chrome with **cyan phosphor** — multi-stop shell gradients, screen wells, brushed plates/rails — matching `player-mockup-2.html` at 100% zoom (geometry, tokens, type, materials). Look is **code-constructed** in Qt from the mockup recipe ([ADR 0007](adr/0007-code-constructed-mockup-chrome.md)); no PNG panel faces, no nine-slice graphite pack. Dense, playlist-centric, control-forward. Not Material/Fluent defaults; not whole-chrome “Scalable UI”; not the retired PNG-graphite skin path.
 
 Fidelity contract and palette: design doc §3. Fonts: **Tramp Condensed** (700) and **Tramp Mono** (500), embedded and used on chrome. Classic Winamp **WSZ** skin loading remains a non-goal for v1.
 
@@ -58,7 +57,7 @@ Must decode and play: **MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus**.
 ### Engine
 
 - Bundle **full libmpv** (+ required FFmpeg) on Windows, macOS, and Linux — features first; binary size later ([ADR 0005](adr/0005-full-libmpv.md)).
-- Keep media_kit as the control seam for open, transport, seek, volume, and playlist advance; packaging must load our full binaries, not stock slim ones.
+- Talk to libmpv through the in-process `PlayerEngine` seam (`MpvEngine`).
 - **Audible 10-band EQ** (measurement-gated before the UI claims it), **real** LCD spectrum (**20** bars), and **Mono** (force downmix when on). Synthetic spectrum levels are a failure/dev signal, not the product end-state.
 
 ### Controls
@@ -92,7 +91,6 @@ Associate Tramp with v1 audio formats and `.m3u` / `.m3u8` so “Open with Tramp
 ## Accessibility
 
 - Keyboard can drive transport and playlist selection.
-- Use Flutter semantics defaults where cheap.
 - No WCAG certification or full a11y audit as a v1 gate.
 
 ## Non-goals (v1)
@@ -126,7 +124,8 @@ v1 is done when a user can install Tramp on Windows, Linux, and macOS, open loca
 | [`player-mockup-2.html`](../player-mockup-2.html) | Visual + geometric authority |
 | [`superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md`](superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md) | Redesign design (multi-window cutover) |
 | [`superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md`](superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md) | Docking / title / EQ fill / taskbar polish |
-| [`adr/0001-flutter-for-v1.md`](adr/0001-flutter-for-v1.md) | Flutter stack ADR |
+| [`adr/0016-qt-for-v1.md`](adr/0016-qt-for-v1.md) | Qt 6 host ADR |
+| [`adr/0001-flutter-for-v1.md`](adr/0001-flutter-for-v1.md) | Historical Flutter stack lock (superseded) |
 | [`adr/0002-fixed-canvas-zoom.md`](adr/0002-fixed-canvas-zoom.md) | Fixed-canvas zoom ADR (revised) |
 | [`adr/0005-full-libmpv.md`](adr/0005-full-libmpv.md) | Full libmpv bundling ADR |
 | [`adr/0006-multi-window-docking.md`](adr/0006-multi-window-docking.md) | Multi-window + docking ADR |

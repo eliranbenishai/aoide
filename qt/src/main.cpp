@@ -7,6 +7,7 @@
 #include "title_chrome.h"
 #include "tramp_fonts.h"
 #include "tramp_metrics.h"
+#include "tramp_version.h"
 #include "window_spec.h"
 
 #include <QApplication>
@@ -196,7 +197,7 @@ int main(int argc, char** argv) {
   QApplication app(argc, argv);
   std::setlocale(LC_NUMERIC, "C");
   app.setApplicationName(QStringLiteral("Tramp"));
-  app.setApplicationVersion(QStringLiteral("0.1.0"));
+  app.setApplicationVersion(QLatin1String(TRAMP_VERSION));
   app.setOrganizationName(QStringLiteral("Proxima Magnifica"));
   app.setDesktopFileName(QStringLiteral("com.tramp.tramp"));
   app.setQuitOnLastWindowClosed(false);

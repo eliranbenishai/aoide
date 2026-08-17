@@ -1,12 +1,12 @@
 # Full libmpv bundle
 
-Tramp ships **full** libmpv (+ FFmpeg filter graph support), not the compressed
-`media_kit_libs_*` “audio-default” / slim binaries. See
+Tramp ships **full** libmpv (+ FFmpeg filter graph support), not a compressed
+“audio-default” / slim build. See
 [`docs/adr/0005-full-libmpv.md`](../../docs/adr/0005-full-libmpv.md).
 
-Slim media_kit Windows builds embed `--disable-filters`. That removes
-`aresample` from libavfilter, so EQ filter graphs silently no-op. Our packaging
-must load the binaries under this tree instead.
+Slim builds often embed `--disable-filters`. That removes `aresample` from
+libavfilter, so EQ filter graphs silently no-op. Packaging must load the
+binaries under this tree (or a distro full libmpv) instead.
 
 ## Layout
 
@@ -39,31 +39,21 @@ Community CMake path used by the script.
 ./tool/fetch_full_libmpv.sh
 ```
 
-- **macOS:** downloads media-kit `audio-full` xcframeworks into
-  `macos/universal/` (see `pins.json`). After fetch, point the app at these
-  frameworks instead of the pod’s slim `audio-default` (see below).
+- **macOS:** downloads `audio-full` xcframeworks into `macos/universal/` (see
+  `pins.json`). Used when the Qt Mac host exists.
 - **Linux:** documents system package expectation; optionally copies a local
-  full `libmpv.so*` if you place it under `linux/x86_64/`.
+  full `libmpv.so*` if you place it under `linux/x86_64/`. Prefer
+  `./tool/stage_linux_libmpv.sh` to copy the distro full libmpv into that dir.
 
 ## Packaging hooks
 
 | Platform | Hook |
 |----------|------|
-| Windows | `windows/CMakeLists.txt` replaces `media_kit_libs_windows_audio`’s bundled `libmpv-2.dll` with `third_party/libmpv/windows/x86_64/libmpv-2.dll` (configure fails if missing). |
-| Linux | `linux/CMakeLists.txt` installs `third_party/libmpv/linux/x86_64/libmpv.so*` into the bundle `lib/` when present (else system libmpv). |
-| macOS | After `fetch_full_libmpv.sh`, copy/replace `Mpv.xcframework` into the media_kit pod Frameworks **or** add a vendored framework copy step before archive. Do not ship `audio-default`. |
-
-`pubspec.yaml` still depends on `media_kit_libs_audio` for plugin registration;
-the native load path is overridden so the process cannot silently use slim DLLs
-on Windows.
-
-## Runtime verification
-
-`LibmpvBundle.verify()` resolves the loaded library path and scans for the slim
-marker `--disable-filters`. Debug/profile startup fails if a slim binary is
-detected.
+| Windows | `packaging/windows/stage.ps1` copies `libmpv-2.dll` next to `tramp.exe` when present. |
+| Linux | `qt/CMakeLists.txt` install stages `third_party/libmpv/linux/x86_64/libmpv.so*` into the bundle `lib/` when present (else system libmpv). |
+| macOS | After `fetch_full_libmpv.sh`, the Qt Mac host will load the staged frameworks. Do not ship slim `audio-default`. |
 
 ## Do not commit slim libs
 
-Never vendor the ~15 MB media_kit audio DLL. Prefer the fetch script + pins.
+Never vendor a slim ~15 MB media_kit-style audio DLL. Prefer the fetch script + pins.
 Git LFS is optional if you later choose to commit the full DLL (~114 MB).

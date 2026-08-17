@@ -3,6 +3,7 @@
 #include "look.h"
 #include "mockup_draw.h"
 #include "tramp_metrics.h"
+#include "tramp_version.h"
 
 #include <QFontMetrics>
 #include <QImage>
@@ -811,7 +812,7 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
     tx += fm.horizontalAdvance(rest);
   }
 
-  const QString ver = QStringLiteral("V 0.1.0");
+  const QString ver = QLatin1String("V ") + QLatin1String(TRAMP_VERSION);
   const QFont verFont = monoFont(10, 0.1);
   const qreal verW = 7 + textWidth(verFont, ver) + 7;
   const qreal verH = 22;

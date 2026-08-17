@@ -41,7 +41,7 @@ Tramp's own window decoration — no OS title bar or standard window frame; the 
 _Avoid_: borderless (alone), frameless window (implementation jargon in product talk), Scalable UI (retired as a whole-chrome free-resize mode), stretching the main or EQ canvas, single-window EQ/PL swap (retired product model)
 
 **Mockup chrome** / **code-constructed chrome**:
-The built-in look for main, equalizer, and playlist — painted in Flutter from the recipe in `player-mockup-2.html` (tokens, geometry, gradients, type, icon paths). No PNG panel faces or nine-slice graphite pack on the product path.
+The built-in look for main, equalizer, and playlist — painted from the recipe in `player-mockup-2.html` (tokens, geometry, gradients, type, icon paths). No PNG panel faces or nine-slice graphite pack on the product path.
 _Avoid_: graphite skin (as the *current* look), PNG skin, coded chrome (vague), vector chrome (alone), theme (when meaning this construction), Classic skin (Winamp WSZ — different thing)
 
 **Graphite skin** *(historical)*:
@@ -49,7 +49,7 @@ The retired PNG-first chrome look (panel faces under `assets/skin/graphite/`). K
 _Avoid_: using this term for the current product look
 
 **Session host**:
-The single Flutter process that owns shared controllers (playback, playlist, EQ, zoom, settings) and the docking coordinator; the five OS windows are views onto that session.
+The single process that owns shared controllers (playback, playlist, EQ, zoom, settings) and the docking coordinator; the five OS windows are views onto that session.
 _Avoid_: multi-process, separate apps per window
 
 **Docking** / **dock group**:

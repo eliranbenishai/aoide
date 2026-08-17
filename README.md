@@ -3,8 +3,7 @@
 Multi-platform desktop music player. See [`docs/tramp-v1-spec.md`](docs/tramp-v1-spec.md)
 for product scope.
 
-The running app is the **Qt 6 host** in [`qt/`](qt/). The Dart/Flutter tree is a
-frozen chrome and domain reference (goldens, vocabulary).
+The app is **Qt 6** in [`qt/`](qt/). That is the only build.
 
 ## Development
 
@@ -28,20 +27,11 @@ Dump 1× logical chrome (no windows):
 QT_QPA_PLATFORM=offscreen ./qt/build/tramp --dump-chrome /tmp/tramp-chrome
 ```
 
-Flutter **3.47** / Dart **3.13** remains the pin for the frozen reference tests:
-
-```bash
-flutter pub get
-flutter test
-```
-
 ## Packaging
 
 Listener installers are built by GitHub Actions. See [`docs/distribution.md`](docs/distribution.md).
-Linux/Windows product packaging still needs the Qt host wired into those
-workflows; the Flutter `flutter build …` bundles are leftover until that cutover.
 
-A version tag `v*` (matching `pubspec.yaml`) runs the Release workflow and
+A version tag `v*` (matching [`VERSION`](VERSION)) runs the Release workflow and
 attaches artifacts to a GitHub Release (a mirror; the product page is tramp.music).
 
 ## Known v1 limits
@@ -51,7 +41,6 @@ attaches artifacts to a GitHub Release (a mirror; the product page is tramp.musi
 | Linux MPRIS | OS media keys / Now Playing via D-Bus not implemented. In-app media keys work when Tramp is focused. |
 | Second-instance “Open with” | Cold-start argv and file associations work; a second running instance does not forward paths to the first. |
 | Spectrum | Real 20-bar analyser (offline PCM + STFT). Honest silence until the spectrogram for the current track is ready. |
-| Skin packs | Builtin mockup tokens. Recolor packs remain in the Dart reference tree. |
 | macOS host | Qt pairing comes after Linux + Windows. |
 
 Windows Store and Flathub are v1 channels; Mac App Store and Snap are not.
@@ -69,7 +58,7 @@ From [`docs/tramp-v1-spec.md`](docs/tramp-v1-spec.md).
 | Frameless mockup chrome (zoom-sized main/EQ, resizable playlist) | Implemented (`qt/src/` QPainter chrome) |
 | No library/WSZ skins/store dependency | Confirmed (non-goals excluded) |
 
-Automated gate: `ctest` in `qt/build` (and `flutter test` for the frozen reference).
+Automated gate: `ctest` in `qt/build`.
 
 ## File associations
 
@@ -78,8 +67,8 @@ register the OS handler to pass those paths to the executable (`Exec=tramp %F`).
 
 ### Linux
 
-`linux/com.tramp.tramp.desktop` lists `MimeType=` entries for common audio types
-and M3U playlists.
+`packaging/linux/com.tramp.tramp.desktop` lists `MimeType=` entries for common
+audio types and M3U playlists.
 
 ```bash
 xdg-mime default com.tramp.tramp.desktop audio/mpeg
@@ -88,16 +77,15 @@ update-desktop-database ~/.local/share/applications
 
 ### Windows / macOS
 
-Windows file-type registration and `Info.plist` document types still describe
-the Flutter packaging path; they need a Qt-host pass when those installers
-switch.
+Windows file-type registration lives in the Inno script. macOS document types
+wait on the Qt Mac host.
 
 ## Related docs
 
 - [`CONTEXT.md`](CONTEXT.md) — domain vocabulary
 - [`docs/architecture.md`](docs/architecture.md) — structure map
 - [`docs/distribution.md`](docs/distribution.md) — CI, artifacts, secrets
-- [`qt/README.md`](qt/README.md) — Qt host build
+- [`qt/README.md`](qt/README.md) — Qt build
 
 ## License
 
@@ -108,7 +96,7 @@ the terms of the GNU General Public License as published by the Free
 Software Foundation, either version 3 of the License, or (at your option)
 any later version.
 
-Tramp is distributed in the hope that it will be useful, but WITHOUT ANY
+Tramp is distributed in the hope that it is useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
 details.

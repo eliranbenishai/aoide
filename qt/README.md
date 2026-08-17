@@ -1,15 +1,13 @@
 # Qt host (the Tramp app)
 
 Five frameless windows in one process. QWidget + QPainter. This directory is
-the **product binary** (`tramp`), not a tracer.
+the **product binary** (`tramp`).
 
 Live session: libmpv playback, playlist / collection, audible EQ (`af` lavfi),
 real 20-bar spectrum (offline PCM + STFT), settings persistence, docking, file
 open (picker, DnD, argv). Title-strip drag uses `startSystemMove()`. Extras skip
 the taskbar. Closing **Tramp** (main) quits; extra close hides. `--dump-chrome DIR`
 writes 1× logical PNGs from the golden fixture.
-
-The Dart tree is a frozen chrome/domain reference.
 
 Windows: CI compiles this target. Drag feel on Windows comes later.
 
@@ -61,7 +59,6 @@ Dump logical chrome (no windows) for golden diffs:
 QT_QPA_PLATFORM=offscreen ./qt/build/tramp --dump-chrome /tmp/tramp-chrome
 ```
 
-Do not use `~/.config/tramp-flutter-env.sh` (it forces X11 and Mesa for Flutter).
 This binary is Qt; let it see `WAYLAND_DISPLAY` unless you opt into xcb.
 
 Drag the title strip (not the window buttons) to move a window. Closing **Tramp**

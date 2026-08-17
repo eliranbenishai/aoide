@@ -3,7 +3,7 @@
 Date: 2026-08-09  
 Status: Implemented  
 Branch intent: follow-on to mockup multi-window redesign  
-UI authority: [`player-mockup-2.html`](../../../player-mockup-2.html) for button chrome and spectrum gradient; product rules below override mockup where noted.
+UI authority: [`player-mockup-2.html`](../../../player-mockup-2.html) for button chrome and spectrum gradient; product rules below override mockup where noted. Host is Qt 6 ([ADR 0016](../../adr/0016-qt-for-v1.md)).
 
 Related: [`2026-08-08-mockup-multiwindow-redesign-design.md`](2026-08-08-mockup-multiwindow-redesign-design.md), [ADR 0006](../../adr/0006-multi-window-docking.md), [ADR 0007](../../adr/0007-code-constructed-mockup-chrome.md), [`architecture.md`](../../architecture.md), [`tramp-v1-spec.md`](../../tramp-v1-spec.md).
 
@@ -81,7 +81,7 @@ Update EQ goldens / widget tests with a non-zero band so fill is covered.
 - EQ and playlist: `skipTaskbar: true` on create/show (session host / client / `WindowOptions` as appropriate).
 - **Windows:** call `windowManager.waitUntilReadyToShow()` on each secondary engine **before** `setSkipTaskbar` — the plugin only creates `ITaskbarList` there; skipping it null-derefs and kills the process (`Lost connection to device`).
 - Minimize-group behavior unchanged: main minimize still hides/restores visible secondaries; taskbar / Alt-Tab activate only main.
-- Verify on Windows (`flutter run -d windows`). If secondary engines ignore `skipTaskbar`, add a Windows-only fallback (extended window style / tool-window flag). Target remains **windows-x64**; “Win32” means the Windows API, not a 32-bit build.
+- Verify on Windows. Extras skip the taskbar as `Qt::Dialog` transients of main. Target remains **windows-x64**.
 - macOS Dock / Linux taskbar parity: out of scope unless free.
 
 ## Documentation updates (same change)

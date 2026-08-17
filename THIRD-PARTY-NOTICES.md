@@ -6,26 +6,9 @@ Tramp is **GPL-3.0-or-later**. This file lists other works shipped in the source
 
 `TrampCondensed` and `TrampMono` are modified versions of **Barlow** (The Barlow Project Authors) and **IBM Plex** (IBM Corp., reserved name “Plex”). The font software remains under the OFL; the full text is [`assets/fonts/OFL.txt`](assets/fonts/OFL.txt). Modified versions must not use the reserved names Barlow or Plex.
 
-## Flutter and Dart packages
+## Qt
 
-The UI is built with [Flutter](https://flutter.dev/) (BSD-style license, Copyright Flutter Authors / Google). Direct Dart dependencies and their typical licenses:
-
-| Package | License (upstream) |
-|---------|-------------------|
-| `window_manager` (git pin) | MIT |
-| `desktop_multi_window` (vendored fork) | Apache-2.0 — [`third_party/desktop_multi_window/LICENSE`](third_party/desktop_multi_window/LICENSE) |
-| `media_kit` / `media_kit_libs_audio` | MIT |
-| `file_picker` | MIT |
-| `desktop_drop` | MIT |
-| `path_provider` | BSD-3-Clause |
-| `path` | BSD-3-Clause |
-| `archive` | Apache-2.0 |
-| `smtc_windows` | MIT |
-| `flutter_svg` | MIT |
-| `ffi` | BSD-3-Clause |
-| `flutter_rust_bridge` (override) | MIT |
-
-Each package’s own `LICENSE` in the pub cache / GitHub repo is authoritative. Transitive dependencies are not listed here.
+The UI is built with [Qt](https://www.qt.io/) 6 (LGPL-3.0 / GPL-3.0 / commercial, Copyright The Qt Company and Qt contributors). Tramp links Qt Widgets / Gui / Core. Typical Linux builds use the distro Qt; Windows installers stage Qt libraries next to `tramp.exe` via `windeployqt`.
 
 ## Playback engine (binaries)
 

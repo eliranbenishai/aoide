@@ -11,13 +11,13 @@ if ($Version -notmatch '^\d+\.\d+\.\d+\.0$') {
   throw "Store MSIX version must be Major.Minor.Build.0 (got '$Version'). The Store reserves the revision digit."
 }
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
-$Release = Join-Path $Root "build\windows\x64\runner\Release"
+$Release = Join-Path $Root "build\windows\stage"
 $Stage = Join-Path $Root "build\windows\msix_stage"
 $OutDir = Join-Path $Root "build\windows\msix"
-$Png = Join-Path $Root "linux\runner\resources\app_icon.png"
+$Png = Join-Path $Root "packaging\linux\icons\hicolor\256x256\apps\com.tramp.tramp.png"
 
-if (-not (Test-Path $Release)) {
-  throw "Missing $Release — flutter build windows --release first"
+if (-not (Test-Path (Join-Path $Release "tramp.exe"))) {
+  throw "Missing $Release\tramp.exe — run packaging/windows/stage.ps1 first"
 }
 
 $makeappx = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\makeappx.exe" -ErrorAction SilentlyContinue |

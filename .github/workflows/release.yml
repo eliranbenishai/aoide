@@ -15,35 +15,32 @@ env:
 
 jobs:
   test:
-    name: Test (Linux goldens)
+    name: Test (Linux Qt)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: "3.47.0"
-          cache: true
-      - name: Linux build deps
+      - name: Qt deps
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            clang cmake ninja-build pkg-config \
-            libgtk-3-dev liblzma-dev libstdc++-14-dev \
-            libmpv-dev xvfb
-      - run: flutter pub get
-      - name: Tag matches pubspec
+            cmake ninja-build g++ pkg-config \
+            qt6-base-dev qt6-wayland libgl1-mesa-dev libx11-dev \
+            libmpv-dev
+      - name: Tag matches VERSION
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          chmod +x tool/pubspec_version.sh
-          eval "$(./tool/pubspec_version.sh)"
+          chmod +x tool/version.sh
+          eval "$(./tool/version.sh)"
           tag="${GITHUB_REF_NAME#v}"
           if [[ "$tag" != "$version" ]]; then
-            echo "Tag $GITHUB_REF_NAME does not match pubspec version $version" >&2
+            echo "Tag $GITHUB_REF_NAME does not match VERSION $version" >&2
             exit 1
           fi
-      - run: flutter analyze
-      - run: xvfb-run -a flutter test
+      - name: Configure and test
+        run: |
+          cmake -S qt -B qt/build -DCMAKE_BUILD_TYPE=Release
+          cmake --build qt/build --config Release
+          ctest --test-dir qt/build -C Release --output-on-failure
 
   windows:
     name: Windows EXE + MSIX
@@ -51,22 +48,29 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: subosito/flutter-action@v2
+      - uses: jurplel/install-qt-action@v4
         with:
-          channel: stable
-          flutter-version: "3.47.0"
+          version: "6.8.3"
           cache: true
-      - run: flutter pub get
+          archives: qtbase
       - name: Fetch full libmpv
         shell: pwsh
         run: powershell -ExecutionPolicy Bypass -File tool/fetch_full_libmpv.ps1
-      - run: flutter build windows --release
+      - name: Configure and build
+        run: |
+          cmake -S qt -B qt/build -DCMAKE_BUILD_TYPE=Release
+          cmake --build qt/build --config Release
+          ctest --test-dir qt/build -C Release --output-on-failure
+        shell: bash
+      - name: Stage
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -File packaging/windows/stage.ps1
       - name: Inno Setup installer
         shell: pwsh
         run: |
           choco install innosetup --no-progress -y
           powershell -ExecutionPolicy Bypass -File tool/fetch_vc_redist.ps1
-          $ver = (Select-String -Path pubspec.yaml -Pattern '^version:\s*([0-9.]+)').Matches[0].Groups[1].Value
+          $ver = (Get-Content VERSION -First 1).Trim()
           $iscc = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Inno Setup *","${env:ProgramFiles}\Inno Setup *" -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue |
             Select-Object -First 1
           if (-not $iscc) { throw 'ISCC.exe not found' }
@@ -77,18 +81,12 @@ jobs:
           MSIX_PUBLISHER: ${{ vars.MSIX_PUBLISHER }}
           MSIX_IDENTITY_NAME: ${{ vars.MSIX_IDENTITY_NAME }}
         run: |
-          $fields = @{}
-          Get-Content pubspec.yaml | ForEach-Object {
-            if ($_ -match '^version:\s*([0-9.]+)(?:\+\d+)?') {
-              $v = $Matches[1]
-              $parts = $v.Split('.'); while ($parts.Count -lt 3) { $parts += '0' }
-              # Store Identity.Version revision must be 0 (not the pubspec +build).
-              $fields.msix = "$($parts[0]).$($parts[1]).$($parts[2]).0"
-            }
-          }
+          $ver = (Get-Content VERSION -First 1).Trim()
+          $parts = $ver.Split('.'); while ($parts.Count -lt 3) { $parts += '0' }
+          $msix = "$($parts[0]).$($parts[1]).$($parts[2]).0"
           $pub = if ($env:MSIX_PUBLISHER) { $env:MSIX_PUBLISHER } else { $env:MSIX_PUBLISHER_DEFAULT }
           $id = if ($env:MSIX_IDENTITY_NAME) { $env:MSIX_IDENTITY_NAME } else { $env:MSIX_IDENTITY_DEFAULT }
-          & packaging\windows\make_msix.ps1 -Version $fields.msix -Publisher $pub -IdentityName $id
+          & packaging\windows\make_msix.ps1 -Version $msix -Publisher $pub -IdentityName $id
       - uses: actions/upload-artifact@v6
         with:
           name: windows
@@ -102,29 +100,28 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: "3.47.0"
-          cache: true
       - name: Linux build deps
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            clang cmake ninja-build pkg-config \
-            libgtk-3-dev liblzma-dev libstdc++-14-dev \
+            cmake ninja-build g++ pkg-config \
+            qt6-base-dev qt6-wayland libgl1-mesa-dev libx11-dev \
             libmpv-dev libmpv2
-      - run: flutter pub get
-      - name: Stage full libmpv into the bundle
+      - name: Stage full libmpv into the tree
         run: |
           chmod +x tool/*.sh packaging/linux/*.sh
           ./tool/stage_linux_libmpv.sh
-      - run: flutter build linux --release
+      - name: Configure, build, stage
+        run: |
+          cmake -S qt -B qt/build -DCMAKE_BUILD_TYPE=Release
+          cmake --build qt/build --config Release
+          ctest --test-dir qt/build -C Release --output-on-failure
+          ./packaging/linux/stage_bundle.sh
       - name: AppImage + tarball
         run: |
           ./packaging/linux/make_appimage.sh
-          eval "$(./tool/pubspec_version.sh)"
-          tar -C build/linux/x64/release -czf \
+          eval "$(./tool/version.sh)"
+          tar -C build/linux -czf \
             "build/linux/Tramp-${version}-linux-x86_64.tar.gz" bundle
       - uses: actions/upload-artifact@v6
         with:
@@ -148,64 +145,27 @@ jobs:
         run: |
           tarball="$(find artifacts -name 'Tramp-*-linux-x86_64.tar.gz' | head -n 1)"
           test -n "$tarball"
-          mkdir -p build/linux/x64/release
-          tar -C build/linux/x64/release -xzf "$tarball"
+          mkdir -p build/linux
+          tar -C build/linux -xzf "$tarball"
       - name: Install flatpak-builder
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends flatpak flatpak-builder
           sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          sudo flatpak install -y flathub org.gnome.Platform//47 org.gnome.Sdk//47
+          sudo flatpak install -y flathub org.kde.Platform//6.8 org.kde.Sdk//6.8
       - name: Build .flatpak
         run: |
-          chmod +x packaging/linux/make_flatpak.sh tool/pubspec_version.sh
+          chmod +x packaging/linux/make_flatpak.sh tool/version.sh
           ./packaging/linux/make_flatpak.sh
       - uses: actions/upload-artifact@v6
         with:
           name: linux-flatpak
           path: build/linux/Tramp-*-linux-x86_64.flatpak
 
-  macos:
-    name: macOS DMG
-    needs: test
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: "3.47.0"
-          cache: true
-      - run: flutter pub get
-      - name: Fetch and stage full libmpv
-        run: |
-          chmod +x tool/*.sh packaging/macos/*.sh
-          ./tool/fetch_full_libmpv.sh
-          cd macos && pod install && cd ..
-          ./tool/stage_macos_libmpv.sh
-      - run: flutter build macos --release
-      - name: DMG
-        run: ./packaging/macos/make_dmg.sh
-      - name: Notarize
-        env:
-          MACOS_CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
-          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
-          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: ./packaging/macos/notarize.sh
-      - uses: actions/upload-artifact@v6
-        with:
-          name: macos
-          path: build/macos/Tramp-*-macos-universal.dmg
-
   github-release:
     name: Attach to GitHub Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [windows, linux, macos]
+    needs: [windows, linux]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v7
@@ -227,3 +187,4 @@ jobs:
             Source: this tag. Product downloads: https://tramp.music
 
             Windows Store and Flathub listings are submitted separately from these bits.
+            macOS DMG waits on the Qt Mac host.

@@ -19,10 +19,9 @@ chrome cutover.
 
 ## Decision
 
-- Deliver built-in chrome as **code-constructed** Flutter UI (layered boxes,
-  `CustomPainter`, shaders as needed) that matches the mockup CSS/markup at
-  100% zoom — geometry, tokens, type, gradients, shadows, radii, spacing, icon
-  paths.
+- Deliver built-in chrome as **code-constructed** Qt painting (QPainter layered
+  fills, paths, and type) that matches the mockup CSS/markup at 100% zoom —
+  geometry, tokens, type, gradients, shadows, radii, spacing, icon paths.
 - The HTML/CSS mockup is the recipe; checked-in token + geometry maps mirror
   mockup `:root` / rules. Do not invent a parallel theme.
 - **Retire** PNG panel faces, nine-slice graphite pack, and the crop pipeline

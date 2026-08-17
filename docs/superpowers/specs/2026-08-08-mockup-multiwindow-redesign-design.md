@@ -1,5 +1,7 @@
 # Tramp mockup multi-window redesign — design
 
+Host is Qt 6 ([ADR 0016](../../adr/0016-qt-for-v1.md)); Flutter mentions below are historical.
+
 Rebuild Tramp around [`player-mockup-2.html`](../../../player-mockup-2.html):
 three Winamp-style dockable windows, **code-constructed** chrome that matches the
 mockup exactly, and **full libmpv** (features first) so audible EQ, real

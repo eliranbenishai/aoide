@@ -18,12 +18,10 @@ product as chrome-only EQ forever.
 ## Decision
 
 - Bundle **full libmpv** (+ required FFmpeg) for Windows, macOS, and Linux.
-- Keep **media_kit** as the preferred control seam for open, transport, seek,
-  volume, and playlist advance.
+- Talk to libmpv through the in-process `PlayerEngine` seam (`MpvEngine` in the Qt host).
 - Packaging and load paths must use **our** full binaries so the process cannot
   silently fall back to stock slim libs.
 - Prioritize **features** (EQ, formats, filters) over binary size for v1.
-- Fall back to direct libmpv FFI only if the media_kit + custom-binary spike fails.
 - Ship audible EQ in the UI only after a **measurement gate**: prove the loaded
   binary is our full build on each OS, and prove measured band response.
 

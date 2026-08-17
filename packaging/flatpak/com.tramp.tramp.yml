@@ -1,9 +1,9 @@
-# Binary Flatpak of the CI Linux bundle. Flathub listing is a human PR;
+# Binary Flatpak of the staged Qt Linux bundle. Flathub listing is a human PR;
 # this is the sandbox/permissions contract and a local test bundle.
 app-id: com.tramp.tramp
-runtime: org.gnome.Platform
-runtime-version: "47"
-sdk: org.gnome.Sdk
+runtime: org.kde.Platform
+runtime-version: "6.8"
+sdk: org.kde.Sdk
 command: tramp
 finish-args:
   - --share=ipc
@@ -37,4 +37,4 @@ modules:
         fi
     sources:
       - type: dir
-        path: ../../build/linux/x64/release/bundle
+        path: ../../build/linux/bundle

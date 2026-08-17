@@ -24,8 +24,9 @@ behavior; see
 
 ## Decision
 
-- One Flutter process hosts **three** frameless OS windows: Main Player
-  (825×348), Equalizer (825×348), Playlist Editor (default 825×696).
+- One Qt process hosts **five** frameless OS windows: Main Player
+  (825×348), Equalizer (825×348), Playlist Editor (default 1073×696),
+  plus freestanding settings and about.
 - EQ and playlist may **both** be open. Main EQ/PL toggles show/hide those
   windows.
 - **Move ownership:** dragging the **main** title bar translates its
@@ -37,9 +38,7 @@ behavior; see
   side of any other visible window. Playlist may snap only **top/bottom**; on
   that snap, also flush left or right if that edge is already within the snap
   threshold. Main never initiates snap. Thresholds live in the coordinator /
-  polish design. On Linux, `window_manager` never emits `onWindowMoved`, so
-  quiet soft-end finalize must still snap (and apply the snapped frame) or
-  dock edges never form and main cannot carry satellites.
+  polish design. Snap runs on EQ/PL drag end (not during `startSystemMove`).
 - Undock via peel-on-EQ/PL-drag, break-threshold separation, and/or Shift.
 - **Zoom-only** sizing for main and EQ; **free resize** for playlist (logical
   size persisted, scaled by global zoom) — see [ADR 0002](0002-fixed-canvas-zoom.md).
@@ -48,8 +47,8 @@ behavior; see
   windows. Windowshade on EQ/PL collapses to title bar; docking uses shaded
   height.
 - **Taskbar (Windows):** only the main window appears in the taskbar
-  (`skipTaskbar` on secondaries; Windows-only style fallback if the plugin
-  ignores it). Target platform remains **windows-x64**.
+  (extras are `Qt::Dialog` transients / skip-taskbar). Target platform remains
+  **windows-x64**.
 - Persist dock graph, positions, visibility, shade, and playlist logical size.
 
 ## Consequences
@@ -63,15 +62,7 @@ ADR 0002; its single-window framing does not.
 
 ## Implementation pins
 
-- One Flutter engine / one Dart isolate; extra OS windows via 3.47 experimental
-  windowing (`OsWindow` + native GTK/Win32). See [ADR 0015](0015-one-engine-windows.md).
-- `window_manager` still owns the **main** HWND (frameless, skip-taskbar, OS
-  drag). Git fork pin:
-
-  ```yaml
-  window_manager:
-    git:
-      url: https://github.com/boyan01/window_manager.git
-      path: packages/window_manager
-      ref: 6fae92d21b4c80ce1b8f71c1190d7970cf722bd4
-  ```
+- One Qt process; extra OS windows are `HostWindow` views on `TrampSession`.
+  See [ADR 0016](0016-qt-for-v1.md).
+- Title-bar drag is `QWindow::startSystemMove()`. Extras skip the taskbar as
+  `Qt::Dialog` transients of main.

@@ -1,35 +1,33 @@
 # Distribution and CI
 
-How Tramp is built and handed to listeners. Decisions: [ADR 0010](adr/0010-open-source-website-download.md)–[0014](adr/0014-ci-and-architectures.md). Product page: `https://tramp.music`. GitHub Releases on a version tag are a **mirror**, not the product surface.
+How Tramp is built and handed to listeners. Decisions: [ADR 0010](adr/0010-open-source-website-download.md)–[0014](adr/0014-ci-and-architectures.md), [ADR 0016](adr/0016-qt-for-v1.md). Product page: `https://tramp.music`. GitHub Releases on a version tag are a **mirror**, not the product surface.
 
 ## Workflows
 
 | Workflow | When | What |
 |----------|------|------|
-| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PR and `main` | Linux `flutter analyze` + `flutter test` (goldens are Linux) |
-| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Tag `v*` or **Run workflow** | Test, then Windows / Linux / macOS packages; tags also attach a GitHub Release |
+| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PR and `main` | CMake build + `ctest` of `qt/` on Ubuntu and Windows |
+| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Tag `v*` or **Run workflow** | Test, then Windows / Linux packages; tags also attach a GitHub Release |
 
-Workflows pin **Flutter 3.47.0** (`flutter-action` `flutter-version`). Do not leave the channel floating — a newer stable will fail analyze or goldens without a deliberate bump.
-
-Cut a release by bumping `pubspec.yaml` `version` (and `trampAppVersion` in `lib/app.dart`), committing, then:
+Cut a release by bumping [`VERSION`](../VERSION), committing, then:
 
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
-The tag name without `v` must equal the pubspec version.
+The tag name without `v` must equal the `VERSION` file.
 
 ## Artifacts
 
 | File | Channel |
 |------|---------|
 | `Tramp-<ver>-windows-x64.exe` | Official download (unsigned Inno; SmartScreen click-through) |
-| `Tramp-<ver>-windows-x64.msix` | Microsoft Store listing **tramp.music** (unsigned here; Store re-signs). Identity version is `x.y.z.0` from pubspec `x.y.z`; the fourth number must be **0** or Partner Center rejects the package. Bump `x.y.z` for each Store upload. |
+| `Tramp-<ver>-windows-x64.msix` | Microsoft Store listing **tramp.music** (unsigned here; Store re-signs). Identity version is `x.y.z.0` from `VERSION` `x.y.z`; the fourth number must be **0** or Partner Center rejects the package. Bump `x.y.z` for each Store upload. |
 | `Tramp-<ver>-linux-x86_64.AppImage` | Official download |
 | `Tramp-<ver>-linux-x86_64.tar.gz` | Input for a Flathub recipe |
 | `Tramp-<ver>-linux-x86_64.flatpak` | Optional CI bundle (job may fail without blocking the rest) |
-| `Tramp-<ver>-macos-universal.dmg` | Official download (notarized when secrets are set) |
+| `Tramp-<ver>-macos-universal.dmg` | Official download once the Qt Mac host exists (notarized when secrets are set) |
 
 Partner Center and Flathub submit stay **human**. Packaging scripts live under `packaging/`.
 
@@ -46,7 +44,7 @@ The MSIX **display name** is `tramp.music` (the reserved Store listing). Paste P
 
 ### Secrets (macOS notarization)
 
-Skip any of these and the Mac job still uploads a DMG; it will not be notarized.
+Skip any of these and the Mac job still uploads a DMG; it will not be notarized. The Mac job itself waits on the Qt Mac host.
 
 | Secret | Purpose |
 |--------|---------|
@@ -63,21 +61,15 @@ Create the `.p12` from a **Developer ID Application** certificate (not Apple Dev
 
 ## Local packaging
 
-Same scripts the workflows call, after a release build on that OS:
+Same scripts the workflows call, after a Release Qt build on that OS:
 
 ```bash
 # Linux
 ./tool/stage_linux_libmpv.sh
-flutter build linux --release
+cmake -S qt -B qt/build -DCMAKE_BUILD_TYPE=Release
+cmake --build qt/build
+./packaging/linux/stage_bundle.sh
 ./packaging/linux/make_appimage.sh
-
-# macOS
-./tool/fetch_full_libmpv.sh
-(cd macos && pod install)
-./tool/stage_macos_libmpv.sh
-flutter build macos --release
-./packaging/macos/make_dmg.sh
-./packaging/macos/notarize.sh   # no-ops without cert env
 ```
 
-Windows (on a Windows host): `tool/fetch_vc_redist.ps1`, then `flutter build windows --release`, then Inno (`packaging/windows/tramp.iss`) and `packaging/windows/make_msix.ps1`. The EXE installer runs `vc_redist.x64.exe` when `MSVCP140.dll` / `VCRUNTIME140.dll` are missing. The MSIX declares `Microsoft.VCLibs.140.00.UWPDesktop` so the Store supplies that runtime.
+Windows (on a Windows host): `tool/fetch_full_libmpv.ps1`, CMake Release build of `qt/`, then `packaging/windows/stage.ps1`, Inno (`packaging/windows/tramp.iss`) and `packaging/windows/make_msix.ps1`. The EXE installer runs `vc_redist.x64.exe` when `MSVCP140.dll` / `VCRUNTIME140.dll` are missing. The MSIX declares `Microsoft.VCLibs.140.00.UWPDesktop` so the Store supplies that runtime.

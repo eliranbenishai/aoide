@@ -24,8 +24,10 @@ INC=(
   -I"$MPV_INC"
   -I"$ROOT/qt/src" -I"$BUILD"
 )
+VERSION="$(head -n 1 "$ROOT/VERSION" | tr -d '\r[:space:]')"
 DEFS=(
   -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DTRAMP_HAVE_X11 -DTRAMP_HAVE_MPV
+  -DTRAMP_VERSION="\"$VERSION\""
   -DTRAMP_ASSET_DIR="\"$ROOT/assets\""
   -DTRAMP_SKINS_DIR="\"$ROOT/skins\""
 )

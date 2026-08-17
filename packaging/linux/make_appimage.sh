@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Wrap the Flutter Linux bundle as an x86_64 AppImage (bundle layout preserved).
+# Wrap the staged Qt Linux bundle as an x86_64 AppImage.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 # shellcheck disable=SC1090
-eval "$(bash "$ROOT/tool/pubspec_version.sh")"
-BUNDLE="$ROOT/build/linux/x64/release/bundle"
+eval "$(bash "$ROOT/tool/version.sh")"
+BUNDLE="${TRAMP_BUNDLE_DIR:-$ROOT/build/linux/bundle}"
 APPDIR="$ROOT/build/linux/AppDir"
 OUT="$ROOT/build/linux/Tramp-${version}-linux-x86_64.AppImage"
 
 if [[ ! -x "$BUNDLE/tramp" ]]; then
-  echo "make_appimage: missing $BUNDLE/tramp" >&2
+  echo "make_appimage: missing $BUNDLE/tramp — run packaging/linux/stage_bundle.sh" >&2
   exit 1
 fi
 
@@ -22,12 +22,12 @@ cp -f "$ROOT/THIRD-PARTY-NOTICES.md" "$APPDIR/"
 if [[ -f "$APPDIR/share/applications/com.tramp.tramp.desktop" ]]; then
   cp "$APPDIR/share/applications/com.tramp.tramp.desktop" "$APPDIR/com.tramp.tramp.desktop"
 else
-  cp "$ROOT/linux/com.tramp.tramp.desktop" "$APPDIR/com.tramp.tramp.desktop"
+  cp "$ROOT/packaging/linux/com.tramp.tramp.desktop" "$APPDIR/com.tramp.tramp.desktop"
 fi
 sed -i 's|^Exec=.*|Exec=tramp %F|' "$APPDIR/com.tramp.tramp.desktop"
 sed -i 's|^Icon=.*|Icon=com.tramp.tramp|' "$APPDIR/com.tramp.tramp.desktop"
 
-icon_src="$ROOT/linux/icons/hicolor/256x256/apps/com.tramp.tramp.png"
+icon_src="$ROOT/packaging/linux/icons/hicolor/256x256/apps/com.tramp.tramp.png"
 if [[ -f "$icon_src" ]]; then
   cp "$icon_src" "$APPDIR/com.tramp.tramp.png"
 fi

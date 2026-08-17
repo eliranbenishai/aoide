@@ -21,7 +21,7 @@ LicenseFile=..\..\LICENSE
 PrivilegesRequired=admin
 OutputDir=..\..\build\windows\installer
 OutputBaseFilename=Tramp-{#MyAppVersion}-windows-x64
-SetupIconFile=..\..\windows\runner\resources\app_icon.ico
+SetupIconFile=app_icon.ico
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -34,7 +34,7 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
-Source: "..\..\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\build\windows\stage\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\THIRD-PARTY-NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
