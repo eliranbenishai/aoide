@@ -126,4 +126,12 @@ QT_QPA_PLATFORM=offscreen "$BUILD/font_metrics_test"
   -o "$BUILD/chrome_spec_test"
 "$BUILD/chrome_spec_test"
 
+"$MOC" "$ROOT/tests/skip_taskbar_test.cpp" -o "$BUILD/skip_taskbar_test.moc"
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_GUI_LIB -DQT_CORE_LIB \
+  "$ROOT/src/skip_taskbar.cpp" \
+  "$ROOT/tests/skip_taskbar_test.cpp" \
+  -L"$QT/lib" -lQt6Test -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
+  -o "$BUILD/skip_taskbar_test"
+QT_QPA_PLATFORM=offscreen "$BUILD/skip_taskbar_test"
+
 echo "built $BUILD/tramp"

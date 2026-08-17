@@ -412,15 +412,7 @@ int main(int argc, char** argv) {
   for (HostWindow* window : windows) {
     if (window == mainWindow) continue;
     window->winId();
-    // Transient-for-main makes KWin/GNOME center the dialog on the player.
-    // Windows still wants it for taskbar grouping; skip-taskbar covers Linux.
-#ifdef Q_OS_WIN
-    if (QWindow* native = window->windowHandle()) {
-      native->setTransientParent(mainHandle);
-    }
-#else
-    Q_UNUSED(mainHandle);
-#endif
+    tramp::attachExtraWindow(window->windowHandle(), mainHandle);
   }
   if (session.view().eqOn) eqWindow->show();
   if (session.view().plOn) plWindow->show();

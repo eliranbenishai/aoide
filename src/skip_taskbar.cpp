@@ -81,4 +81,10 @@ void applySkipTaskbar(QWindow* window) {
 #endif
 }
 
+void attachExtraWindow(QWindow* extra, QWindow* main) {
+  if (extra == nullptr || main == nullptr) return;
+  extra->setTransientParent(main);
+  applySkipTaskbar(extra);
+}
+
 }  // namespace tramp

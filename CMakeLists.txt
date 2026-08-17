@@ -170,9 +170,18 @@ target_compile_definitions(font_metrics_test PRIVATE
 )
 target_link_libraries(font_metrics_test PRIVATE Qt6::Gui)
 
+qt_add_executable(skip_taskbar_test
+  tests/skip_taskbar_test.cpp
+  src/skip_taskbar.cpp
+)
+target_include_directories(skip_taskbar_test PRIVATE src)
+target_link_libraries(skip_taskbar_test PRIVATE Qt6::Test Qt6::Gui)
+set_target_properties(skip_taskbar_test PROPERTIES AUTOMOC ON)
+
 enable_testing()
 add_test(NAME window_spec COMMAND window_spec_test)
 add_test(NAME chrome_spec COMMAND chrome_spec_test)
+add_test(NAME skip_taskbar COMMAND skip_taskbar_test)
 add_test(NAME domain COMMAND domain_test)
 add_test(NAME look COMMAND look_test)
 add_test(NAME font_metrics COMMAND font_metrics_test)
