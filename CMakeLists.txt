@@ -154,11 +154,23 @@ qt_add_executable(look_test
 target_include_directories(look_test PRIVATE src)
 target_link_libraries(look_test PRIVATE Qt6::Gui)
 
+qt_add_executable(font_metrics_test
+  tests/font_metrics_test.cpp
+  src/tramp_fonts.cpp
+)
+target_include_directories(font_metrics_test PRIVATE src)
+target_compile_definitions(font_metrics_test PRIVATE
+  TRAMP_ASSET_DIR="${TRAMP_ASSET_DIR}"
+  TRAMP_SKINS_DIR="${TRAMP_SKINS_DIR}"
+)
+target_link_libraries(font_metrics_test PRIVATE Qt6::Gui)
+
 enable_testing()
 add_test(NAME window_spec COMMAND window_spec_test)
 add_test(NAME chrome_spec COMMAND chrome_spec_test)
 add_test(NAME domain COMMAND domain_test)
 add_test(NAME look COMMAND look_test)
+add_test(NAME font_metrics COMMAND font_metrics_test)
 
 install(TARGETS tramp RUNTIME DESTINATION .)
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/assets" DESTINATION .)

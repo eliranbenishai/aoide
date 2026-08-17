@@ -30,6 +30,10 @@ inline int prevZoomPercent(int current) {
 inline constexpr int kTitleBar = 42;
 inline constexpr int kShellRadius = 6;
 
+/// Mockup `.time b` is 46px in a 50px slot (`player-mockup-2.html`).
+inline constexpr int kElapsedTimePx = 46;
+inline constexpr int kElapsedTimeBoxH = 50;
+
 inline constexpr QSize kMainPlayer{825, 348};
 inline constexpr QSize kEqualizer{825, 348};
 inline constexpr QSize kPlaylistDefault{1073, 696};

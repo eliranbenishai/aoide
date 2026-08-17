@@ -4,8 +4,10 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QFontDatabase>
+#include <QFontMetrics>
 #include <QString>
 #include <QStringList>
+#include <cmath>
 #include <cstring>
 
 namespace tramp {
@@ -74,6 +76,30 @@ QString chromeFamily() {
 
 QString lcdFamily() {
   return g_lookLcd.isEmpty() ? g_lcdFamily : g_lookLcd;
+}
+
+int pixelSizeFittingLineHeight(QFont font, int requestedPx, qreal maxLineHeight) {
+  if (requestedPx <= 0) return 1;
+  if (maxLineHeight <= 0) return requestedPx;
+
+  auto lineBottom = [](const QFont& f) {
+    const QFontMetricsF metrics(f);
+    const QRectF ink = metrics.tightBoundingRect(QStringLiteral("0123456789:"));
+    return metrics.ascent() + qMax(ink.bottom(), qreal(0));
+  };
+  auto usedAt = [&](int px) {
+    font.setPixelSize(px);
+    return lineBottom(font);
+  };
+
+  const qreal used = usedAt(requestedPx);
+  if (used <= maxLineHeight) return requestedPx;
+
+  int px = qMax(1, int(std::floor(qreal(requestedPx) * maxLineHeight / used)));
+  while (px > 1 && usedAt(px) > maxLineHeight) {
+    --px;
+  }
+  return px;
 }
 
 }  // namespace tramp

@@ -2,6 +2,7 @@
 
 #include "look.h"
 #include "mockup_draw.h"
+#include "tramp_fonts.h"
 #include "tramp_metrics.h"
 #include "tramp_version.h"
 
@@ -107,10 +108,12 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
   }
 
   if (live) {
-    const QFont timeFont = monoFont(46, 0.02);
+    const int timePx =
+        pixelSizeFittingLineHeight(monoFont(kElapsedTimePx), kElapsedTimePx, kElapsedTimeBoxH);
+    const QFont timeFont = monoFont(timePx, 0.02);
     const QFontMetricsF tm(timeFont);
     const qreal timeW = tm.horizontalAdvance(time);
-    const QRectF timeBox(inner.left(), inner.top() - 9, timeW + 8, 50);
+    const QRectF timeBox(inner.left(), inner.top() - 9, timeW + 8, kElapsedTimeBoxH);
     if (glow) {
       drawStyledText(p, timeBox, time, timeFont, T().phos, Qt::AlignLeft | Qt::AlignTop,
                      {

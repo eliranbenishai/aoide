@@ -106,6 +106,14 @@ SRCS=(
   -o "$BUILD/look_test"
 "$BUILD/look_test"
 
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -DQT_GUI_LIB -DQT_CORE_LIB \
+  -DTRAMP_ASSET_DIR="\"$ROOT/assets\"" -DTRAMP_SKINS_DIR="\"$ROOT/skins\"" \
+  "$ROOT/src/tramp_fonts.cpp" \
+  "$ROOT/tests/font_metrics_test.cpp" \
+  -L"$QT/lib" -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
+  -o "$BUILD/font_metrics_test"
+QT_QPA_PLATFORM=offscreen "$BUILD/font_metrics_test"
+
 "$MOC" "$ROOT/tests/chrome_spec_test.cpp" -o "$BUILD/chrome_spec_test.moc"
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
   "$ROOT/src/window_spec.cpp" "$ROOT/src/title_chrome.cpp" \
