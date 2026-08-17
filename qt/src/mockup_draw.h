@@ -56,7 +56,8 @@ qreal labelBtnWidth(const QString& label, qreal padL = 16, qreal padR = 16);
 void drawIcon(QPainter& p, const QRectF& box, MockupIcon icon, const QColor& color);
 void drawGlyphBtn(QPainter& p, const QRectF& r, MockupIcon icon, bool on,
                   qreal iconSize = 22);
-void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle = false);
+void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle = false,
+                bool glow = true);
 void drawVBand(QPainter& p, const QRectF& column, qreal gainDb);
 void drawLed(QPainter& p, QPointF c, bool on, qreal size = 8);
 qreal toggleBtnWidth(const QString& label);

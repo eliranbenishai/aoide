@@ -5,6 +5,7 @@
 #include "m3u.h"
 #ifdef TRAMP_HAVE_MPV
 #include "mpv_engine.h"
+#include "pcm_decoder.h"
 #endif
 #include "player_engine.h"
 #include "support_dir.h"
@@ -19,6 +20,7 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QMessageBox>
+#include <QPointer>
 #include <QPushButton>
 #include <QUrl>
 #include <QWidget>
@@ -26,6 +28,10 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <thread>
+#ifdef Q_OS_UNIX
+#include <unistd.h>
+#endif
 
 namespace tramp {
 
@@ -46,6 +52,12 @@ TrampSession::TrampSession(QObject* parent)
 #endif
   playback_ = std::make_unique<PlaybackController>(&playlist_, engine_.get());
   playback_->setSpins(store_.readUsage().spins);
+#ifdef TRAMP_HAVE_MPV
+  analyzer_ = SpectrumAnalyzer([](const QString& path) { return MpvPcmDecoder().decode(path); });
+#endif
+  spectrumTimer_.setInterval(33);
+  spectrumTimer_.setTimerType(Qt::CoarseTimer);
+  QObject::connect(&spectrumTimer_, &QTimer::timeout, this, [this]() { tickSpectrum(); });
   DockLayout layout;
   layout.main = settings_.main;
   layout.equalizer = settings_.equalizer;
@@ -92,7 +104,11 @@ TrampSession::TrampSession(QObject* parent)
   applyEq();
 }
 
-TrampSession::~TrampSession() { persistNow(); }
+TrampSession::~TrampSession() {
+  ++spectrumGen_;
+  spectrumTimer_.stop();
+  persistNow();
+}
 
 void TrampSession::detachWindows() {
   persistNow();
@@ -104,8 +120,70 @@ void TrampSession::detachWindows() {
 }
 
 void TrampSession::bindPlayback() {
-  playback_->setOnChanged([this]() { refreshChrome(); });
+  playback_->setOnChanged([this]() {
+    syncSpectrum();
+    refreshChrome();
+  });
+  playback_->setOnPosition([this]() {
+    if (!spectrumTimer_.isActive()) emit mainChromeChanged();
+  });
   playback_->setOnSpin([this](int) { scheduleUsage(); refreshChrome(); });
+}
+
+void TrampSession::syncSpectrum() {
+  QString path;
+  if (const auto track = playback_->currentTrack()) {
+    path = track->path;
+  }
+  if (path != spectrumPath_) {
+    ++spectrumGen_;
+    spectrumPath_ = path;
+    spectrumReady_ = false;
+    spectrogram_ = {};
+    spectrumHold_.reset();
+    if (!path.isEmpty()) startSpectrumDecode(path, spectrumGen_);
+  }
+  if (playback_->playing()) {
+    if (!spectrumTimer_.isActive()) {
+      tickSpectrum();
+      spectrumTimer_.start();
+    }
+    return;
+  }
+  if (spectrumTimer_.isActive()) {
+    spectrumTimer_.stop();
+    spectrumHold_.apply(AudioLevels::silent());
+  }
+}
+
+void TrampSession::tickSpectrum() {
+  playback_->pollClock();
+  const AudioLevels frame =
+      spectrumFrame(spectrogram_, playback_->playing() && spectrumReady_, playback_->positionMs());
+  spectrumHold_.apply(frame);
+  emit mainChromeChanged();
+}
+
+void TrampSession::startSpectrumDecode(const QString& path, int gen) {
+  const SpectrumAnalyzer analyzer = analyzer_;
+  const QPointer<TrampSession> session(this);
+  std::thread([path, gen, analyzer, session]() {
+#ifdef Q_OS_UNIX
+    nice(19);
+#endif
+    const Spectrogram spec = analyzer.load(path);
+    TrampSession* host = session.data();
+    if (!host) return;
+    QMetaObject::invokeMethod(
+        host,
+        [session, spec, gen]() {
+          if (!session || gen != session->spectrumGen_) return;
+          session->spectrogram_ = spec;
+          session->spectrumReady_ = true;
+          session->tickSpectrum();
+        },
+        Qt::QueuedConnection);
+  }).detach();
 }
 
 void TrampSession::setWindows(HostWindow* main, HostWindow* eq, HostWindow* pl,
@@ -269,6 +347,8 @@ SessionView TrampSession::view() const {
   v.paused = playback_->paused();
   v.shuffle = playback_->shuffle();
   v.repeat = playback_->repeatMode();
+  v.spectrum = spectrumHold_.bars;
+  v.spectrumPeaks = spectrumHold_.peaks;
   v.eq = settings_.equalizerCurve;
   v.playingIndex = playback_->playingIndex();
   v.selectedIndices = playlist_.selectedIndices();
@@ -349,6 +429,16 @@ SessionView TrampSession::view() const {
     v.collection.push_back(row);
   }
   return v;
+}
+
+MainLiveReadouts TrampSession::mainLive() const {
+  MainLiveReadouts live;
+  live.positionMs = playback_->positionMs();
+  live.durationMs = playback_->durationMs();
+  live.showElapsed = showElapsed_;
+  live.spectrum = spectrumHold_.bars;
+  live.spectrumPeaks = spectrumHold_.peaks;
+  return live;
 }
 
 void TrampSession::refreshChrome() { emit chromeChanged(); }

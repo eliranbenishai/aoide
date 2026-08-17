@@ -46,7 +46,7 @@ void drawLogoMark(QPainter& p, const QRectF& box, const QImage* logo, qreal opac
   p.restore();
 }
 
-void paintMain(QPainter& p, const QRectF& body, const SessionView& view) {
+void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPaint pass) {
   QString time = formatClock(view.showElapsed
                                  ? view.positionMs
                                  : qMax<qint64>(0, view.durationMs - view.positionMs));
@@ -90,183 +90,211 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view) {
              0.55, 0.42, 0.47, 0.36, 0.40, 0.30, 0.33, 0.24, 0.27, 0.19};
   }
 
+  const bool chassis = pass != BodyPaint::live;
+  const bool live = pass != BodyPaint::chassis;
+  const bool glow = pass == BodyPaint::full;
+
   const QRectF well(body.left() + 96, body.top() + 14, 705, 132);
-  drawScreenWell(p, well);
-
-  drawGlyphBtn(p, QRectF(body.left() + 22, body.top() + 18, 26, 26), MockupIcon::options,
-               false, 16);
-
   const QRectF inner = well.adjusted(16, 12, -16, -12);
-  const QFont timeFont = monoFont(46, 0.02);
-  const QFontMetricsF tm(timeFont);
-  const QString timeText = time;
-  const qreal timeW = tm.horizontalAdvance(timeText);
-  // Flutter `fontSize: 46, height: 0.9` — top-aligned in the well padding.
-  // Qt's em-box sits ~8px lower than Skia's for this 46px mono cut; pin the
-  // visible cap height to the Flutter well (golden cyan starts at y=73).
-  const QRectF timeBox(inner.left(), inner.top() - 9, timeW + 8, 50);
-  drawStyledText(p, timeBox, timeText, timeFont, kPhos, Qt::AlignLeft | Qt::AlignTop,
-                 {
-                     {QColor(0x3d, 0xe7, 0xff, 0xd9), QPointF(), 1},
-                     {QColor(0x3d, 0xe7, 0xff, 0x73), QPointF(), 8},
-                 });
-  const QFont elFont = condensedFont(12, 0.22);
-  const QFontMetricsF em(elFont);
-  const qreal baseline = inner.top() - 9 + tm.ascent();
-  const QRectF elBox(inner.left() + timeW + 10, baseline - em.ascent(), 90, em.height());
-  drawStyledText(p, elBox, timeLabel, elFont, QColor(61, 231, 255, 128),
-                 Qt::AlignLeft | Qt::AlignTop,
-                 {{QColor(0x3d, 0xe7, 0xff, 0x40), QPointF(), 8}});
 
-  const QRectF viz(inner.left(), inner.bottom() - 42, 248, 42);
-  for (int i = 0; i < 20; ++i) {
-    const qreal x = viz.left() + i * 12;
-    const qreal h = viz.height() * bars[size_t(i)];
-    QRectF bar(x, viz.bottom() - h, 9, h);
-    QLinearGradient g(bar.topLeft(), bar.bottomLeft());
-    g.setColorAt(0, kSpectrum0);
-    g.setColorAt(0.26, kPhos);
-    g.setColorAt(0.62, kSpectrum2);
-    g.setColorAt(1, kAccent);
-    p.fillRect(bar, g);
-    paintBlurred(p, bar.adjusted(-4, -4, 4, 4), 2.5, [&](QPainter& bp) {
-      bp.setPen(Qt::NoPen);
-      bp.setBrush(QColor(61, 231, 255, 77));
-      bp.fillRect(bar, QColor(61, 231, 255, 77));
-    });
-    const qreal py = viz.bottom() - viz.height() * peaks[size_t(i)];
-    p.fillRect(QRectF(x, py, 9, 2), QColor(0xea, 0xff, 0xff));
+  if (chassis) {
+    drawScreenWell(p, well);
+    drawGlyphBtn(p, QRectF(body.left() + 22, body.top() + 18, 26, 26), MockupIcon::options,
+                 false, 16);
   }
 
-  const QRectF meta(inner.left() + 268 + 20, inner.top(), inner.width() - 288,
-                    inner.height());
-  const QFont titleFont = condensedFont(24, 0.03);
-  {
-    QImage titleBuf(int(std::ceil(meta.width())), 32, QImage::Format_ARGB32_Premultiplied);
-    titleBuf.fill(Qt::transparent);
-    QPainter tp(&titleBuf);
-    tp.setRenderHint(QPainter::TextAntialiasing);
-    drawStyledText(tp, QRectF(0, 0, 720, 28), title, titleFont, kPhosHot,
-                   Qt::AlignLeft | Qt::AlignVCenter,
+  if (live) {
+    const QFont timeFont = monoFont(46, 0.02);
+    const QFontMetricsF tm(timeFont);
+    const qreal timeW = tm.horizontalAdvance(time);
+    const QRectF timeBox(inner.left(), inner.top() - 9, timeW + 8, 50);
+    if (glow) {
+      drawStyledText(p, timeBox, time, timeFont, kPhos, Qt::AlignLeft | Qt::AlignTop,
+                     {
+                         {QColor(0x3d, 0xe7, 0xff, 0xd9), QPointF(), 1},
+                         {QColor(0x3d, 0xe7, 0xff, 0x73), QPointF(), 8},
+                     });
+    } else {
+      p.setFont(timeFont);
+      p.setPen(kPhos);
+      p.drawText(timeBox, Qt::AlignLeft | Qt::AlignTop, time);
+    }
+    const QFont elFont = condensedFont(12, 0.22);
+    const QFontMetricsF em(elFont);
+    const qreal baseline = inner.top() - 9 + tm.ascent();
+    const QRectF elBox(inner.left() + timeW + 10, baseline - em.ascent(), 90, em.height());
+    if (glow) {
+      drawStyledText(p, elBox, timeLabel, elFont, QColor(61, 231, 255, 128),
+                     Qt::AlignLeft | Qt::AlignTop,
+                     {{QColor(0x3d, 0xe7, 0xff, 0x40), QPointF(), 8}});
+    } else {
+      p.setFont(elFont);
+      p.setPen(QColor(61, 231, 255, 128));
+      p.drawText(elBox, Qt::AlignLeft | Qt::AlignTop, timeLabel);
+    }
+
+    const QRectF viz(inner.left(), inner.bottom() - 42, 248, 42);
+    for (int i = 0; i < 20; ++i) {
+      const qreal x = viz.left() + i * 12;
+      const qreal h = viz.height() * bars[size_t(i)];
+      QRectF bar(x, viz.bottom() - h, 9, h);
+      QLinearGradient g(bar.topLeft(), bar.bottomLeft());
+      g.setColorAt(0, kSpectrum0);
+      g.setColorAt(0.26, kPhos);
+      g.setColorAt(0.62, kSpectrum2);
+      g.setColorAt(1, kAccent);
+      p.fillRect(bar, g);
+      if (glow) {
+        paintBlurred(p, bar.adjusted(-4, -4, 4, 4), 2.5, [&](QPainter& bp) {
+          bp.setPen(Qt::NoPen);
+          bp.setBrush(QColor(61, 231, 255, 77));
+          bp.fillRect(bar, QColor(61, 231, 255, 77));
+        });
+      }
+      const qreal py = viz.bottom() - viz.height() * peaks[size_t(i)];
+      p.fillRect(QRectF(x, py, 9, 2), QColor(0xea, 0xff, 0xff));
+    }
+  }
+
+  if (chassis) {
+    const QRectF meta(inner.left() + 268 + 20, inner.top(), inner.width() - 288,
+                      inner.height());
+    const QFont titleFont = condensedFont(24, 0.03);
+    {
+      QImage titleBuf(int(std::ceil(meta.width())), 32, QImage::Format_ARGB32_Premultiplied);
+      titleBuf.fill(Qt::transparent);
+      QPainter tp(&titleBuf);
+      tp.setRenderHint(QPainter::TextAntialiasing);
+      drawStyledText(tp, QRectF(0, 0, 720, 28), title, titleFont, kPhosHot,
+                     Qt::AlignLeft | Qt::AlignVCenter,
+                     {
+                         {QColor(0x3d, 0xe7, 0xff, 0xe6), QPointF(), 1.5},
+                         {QColor(0x3d, 0xe7, 0xff, 0x80), QPointF(), 10},
+                     });
+      QLinearGradient fade(QPointF(meta.width() * 0.84, 0), QPointF(meta.width(), 0));
+      fade.setColorAt(0, QColor(255, 255, 255, 255));
+      fade.setColorAt(1, QColor(255, 255, 255, 0));
+      tp.setCompositionMode(QPainter::CompositionMode_DestinationIn);
+      tp.fillRect(QRectF(0, 0, meta.width(), 32), fade);
+      tp.end();
+      p.drawImage(meta.topLeft(), titleBuf);
+    }
+
+    drawStyledText(p, QRectF(meta.left(), meta.top() + 32, meta.width(), 18),
+                   subtitle, condensedFont(14, 0.14),
+                   QColor(61, 231, 255, 128), Qt::AlignLeft | Qt::AlignVCenter,
+                   {{QColor(0x3d, 0xe7, 0xff, 0x40), QPointF(), 8}});
+
+    const qreal metaY = inner.bottom() - 18;
+    const QFont metaFont = monoFont(13, 0.04);
+    drawStyledText(p, QRectF(meta.left(), metaY, 80, 18), bitrate, metaFont,
+                   QColor(61, 231, 255, 128), Qt::AlignVCenter | Qt::AlignLeft,
+                   {{QColor(0x3d, 0xe7, 0xff, 0x40), QPointF(), 8}});
+    drawStyledText(p, QRectF(meta.left() + 80 + 22, metaY, 80, 18), rate,
+                   metaFont, QColor(61, 231, 255, 128), Qt::AlignVCenter | Qt::AlignLeft,
+                   {{QColor(0x3d, 0xe7, 0xff, 0x40), QPointF(), 8}});
+    drawStyledText(p, QRectF(meta.left() + 80 + 22 + 80 + 22, metaY, 70, 18),
+                   channels, condensedFont(12, 0.2), kPhos,
+                   Qt::AlignVCenter | Qt::AlignLeft,
                    {
-                       {QColor(0x3d, 0xe7, 0xff, 0xe6), QPointF(), 1.5},
-                       {QColor(0x3d, 0xe7, 0xff, 0x80), QPointF(), 10},
+                       {QColor(0x3d, 0xe7, 0xff, 0xd9), QPointF(), 1},
+                       {QColor(0x3d, 0xe7, 0xff, 0x73), QPointF(), 12},
                    });
-    QLinearGradient fade(QPointF(meta.width() * 0.84, 0), QPointF(meta.width(), 0));
-    fade.setColorAt(0, QColor(255, 255, 255, 255));
-    fade.setColorAt(1, QColor(255, 255, 255, 0));
-    tp.setCompositionMode(QPainter::CompositionMode_DestinationIn);
-    tp.fillRect(QRectF(0, 0, meta.width(), 32), fade);
-    tp.end();
-    p.drawImage(meta.topLeft(), titleBuf);
+
+    const QFont fmtFont = condensedFont(12, 0.18);
+    const qreal fmtW = 9 + textWidth(fmtFont, fmtLabel) + 9;
+    const qreal fmtH = 18;
+    const QRectF fmt(inner.right() - fmtW, inner.bottom() - fmtH, fmtW, fmtH);
+    paintBlurred(p, fmt.adjusted(-18, -18, 18, 18), 12 * 0.57735, [&](QPainter& bp) {
+      bp.setPen(Qt::NoPen);
+      bp.setBrush(QColor(255, 61, 154, 102));
+      bp.drawRoundedRect(fmt, 2, 2);
+    });
+    QLinearGradient badge(fmt.topLeft(), fmt.bottomLeft());
+    badge.setColorAt(0, QColor(0xff, 0xb3, 0xd4));
+    badge.setColorAt(0.55, kAccent);
+    badge.setColorAt(1, QColor(0xb8, 0x22, 0x6a));
+    fillRound(p, fmt, 2, badge);
+    p.setPen(QColor(0x2b, 0x06, 0x16));
+    p.setFont(fmtFont);
+    p.drawText(fmt, Qt::AlignCenter, fmtLabel);
+
+    const QFont chipFont = condensedFont(12, 0.14);
+    const QString chipLabel = QStringLiteral("PLAYLIST");
+    const qreal reload = 11;
+    const qreal chipW = reload + 4 + textWidth(chipFont, chipLabel);
+    const QRectF chip(fmt.left() - 10 - chipW, inner.bottom() - 18, chipW, 16);
+    drawReload(p, QRectF(chip.left(), chip.center().y() - reload / 2, reload, reload), kPhos);
+    drawStyledText(p, QRectF(chip.left() + reload + 4, chip.top(), chip.width() - reload - 4, 16),
+                   chipLabel, chipFont, kPhos, Qt::AlignVCenter | Qt::AlignLeft,
+                   {{QColor(61, 231, 255, 217), QPointF(), 8}});
   }
 
-  drawStyledText(p, QRectF(meta.left(), meta.top() + 32, meta.width(), 18),
-                 subtitle, condensedFont(14, 0.14),
-                 QColor(61, 231, 255, 128), Qt::AlignLeft | Qt::AlignVCenter,
-                 {{QColor(0x3d, 0xe7, 0xff, 0x40), QPointF(), 8}});
-
-  const qreal metaY = inner.bottom() - 18;
-  const QFont metaFont = monoFont(13, 0.04);
-  drawStyledText(p, QRectF(meta.left(), metaY, 80, 18), bitrate, metaFont,
-                 QColor(61, 231, 255, 128), Qt::AlignVCenter | Qt::AlignLeft,
-                 {{QColor(0x3d, 0xe7, 0xff, 0x40), QPointF(), 8}});
-  drawStyledText(p, QRectF(meta.left() + 80 + 22, metaY, 80, 18), rate,
-                 metaFont, QColor(61, 231, 255, 128), Qt::AlignVCenter | Qt::AlignLeft,
-                 {{QColor(0x3d, 0xe7, 0xff, 0x40), QPointF(), 8}});
-  drawStyledText(p, QRectF(meta.left() + 80 + 22 + 80 + 22, metaY, 70, 18),
-                 channels, condensedFont(12, 0.2), kPhos,
-                 Qt::AlignVCenter | Qt::AlignLeft,
-                 {
-                     {QColor(0x3d, 0xe7, 0xff, 0xd9), QPointF(), 1},
-                     {QColor(0x3d, 0xe7, 0xff, 0x73), QPointF(), 12},
-                 });
-
-  const QFont fmtFont = condensedFont(12, 0.18);
-  const qreal fmtW = 9 + textWidth(fmtFont, fmtLabel) + 9;
-  const qreal fmtH = 18;
-  const QRectF fmt(inner.right() - fmtW, inner.bottom() - fmtH, fmtW, fmtH);
-  paintBlurred(p, fmt.adjusted(-18, -18, 18, 18), 12 * 0.57735, [&](QPainter& bp) {
-    bp.setPen(Qt::NoPen);
-    bp.setBrush(QColor(255, 61, 154, 102));
-    bp.drawRoundedRect(fmt, 2, 2);
-  });
-  QLinearGradient badge(fmt.topLeft(), fmt.bottomLeft());
-  badge.setColorAt(0, QColor(0xff, 0xb3, 0xd4));
-  badge.setColorAt(0.55, kAccent);
-  badge.setColorAt(1, QColor(0xb8, 0x22, 0x6a));
-  fillRound(p, fmt, 2, badge);
-  p.setPen(QColor(0x2b, 0x06, 0x16));
-  p.setFont(fmtFont);
-  p.drawText(fmt, Qt::AlignCenter, fmtLabel);
-
-  const QFont chipFont = condensedFont(12, 0.14);
-  const QString chipLabel = QStringLiteral("PLAYLIST");
-  const qreal reload = 11;
-  const qreal chipW = reload + 4 + textWidth(chipFont, chipLabel);
-  const QRectF chip(fmt.left() - 10 - chipW, inner.bottom() - 18, chipW, 16);
-  drawReload(p, QRectF(chip.left(), chip.center().y() - reload / 2, reload, reload), kPhos);
-  drawStyledText(p, QRectF(chip.left() + reload + 4, chip.top(), chip.width() - reload - 4, 16),
-                 chipLabel, chipFont, kPhos, Qt::AlignVCenter | Qt::AlignLeft,
-                 {{QColor(61, 231, 255, 217), QPointF(), 8}});
-
-  drawScreenOverlay(p, well);
-
-  const QRectF volRow(body.left() + 22, body.top() + 156, body.width() - 44, 40);
-  drawGlyphBtn(p, QRectF(volRow.left(), volRow.top(), 40, 40), MockupIcon::mute, view.muted, 21);
-  p.setFont(condensedFont(11, 0.2));
-  p.setPen(kInkFaint);
-  const qreal volLabelLeft = volRow.left() + 40 + 14;
-  p.drawText(QRectF(volLabelLeft, volRow.top(), 34, 40), Qt::AlignVCenter,
-             QStringLiteral("VOL"));
-  const qreal plLeft = volRow.right() - 74;
-  const qreal eqLeft = plLeft - 8 - 74;
-  const qreal monoLeft = eqLeft - 14 - 86;
-  const qreal sliderLeft = volLabelLeft + 34 + 10;
-  const qreal sliderRight = monoLeft - 14;
-  drawSlider(p, QRectF(sliderLeft, volRow.center().y() - 7, sliderRight - sliderLeft, 14),
-             volume);
-  drawBtn(p, QRectF(monoLeft, volRow.top() + 1, 86, 38), view.forceMono, QStringLiteral("MONO"));
-  drawBtn(p, QRectF(eqLeft, volRow.top() + 1, 74, 38), view.eqOn, QStringLiteral("EQ"));
-  drawBtn(p, QRectF(plLeft, volRow.top() + 1, 74, 38), view.plOn, QStringLiteral("PL"));
-
-  const QRectF seekRow(body.left() + 22, body.top() + 206, body.width() - 44, 32);
-  const QFont stamp = monoFont(14);
-  const QFontMetricsF sm(stamp);
-  const qreal posW = sm.horizontalAdvance(pos);
-  const qreal durW = sm.horizontalAdvance(dur);
-  p.setFont(stamp);
-  p.setPen(kInkDim);
-  p.drawText(QRectF(seekRow.left(), seekRow.top(), posW, 32), Qt::AlignVCenter, pos);
-  p.drawText(QRectF(seekRow.right() - durW, seekRow.top(), durW, 32), Qt::AlignVCenter, dur);
-  drawSlider(p, QRectF(seekRow.left() + posW + 14, seekRow.center().y() - 8,
-                       seekRow.width() - posW - durW - 28, 16),
-             seek, true);
-
-  const QRectF playRow(body.left() + 22, body.top() + 246, body.width() - 44, 50);
-  qreal x = playRow.left();
-  auto place = [&](qreal w, MockupIcon icon, bool on) {
-    drawGlyphBtn(p, QRectF(x, playRow.top(), w, 50), icon, on, 22);
-    x += w + 6;
-  };
-  place(66, MockupIcon::previous, false);
-  place(78, MockupIcon::play, playOn);
-  place(66, MockupIcon::pause, pauseOn);
-  place(66, MockupIcon::stop, false);
-  place(66, MockupIcon::next, false);
-  x += 10;  // 16 total from next (6 already added) → +10 more to make 16
-  place(66, MockupIcon::eject, false);
-  x += 6;  // 12 after eject (6 already from place)
-  const qreal shuffleW = toggleBtnWidth(QStringLiteral("SHUFFLE"));
-  const qreal repeatW = toggleBtnWidth(QStringLiteral("REPEAT"));
-  const QRectF repeat(playRow.right() - repeatW, playRow.top(), repeatW, 50);
-  const QRectF shuffle(repeat.left() - 6 - shuffleW, playRow.top(), shuffleW, 50);
-  const qreal railW = shuffle.left() - 12 - x;
-  if (railW > 8) {
-    drawRail(p, QRectF(x, playRow.center().y() - 11, railW, 22));
+  if (live) {
+    drawScreenOverlay(p, well);
   }
-  drawToggleBtn(p, shuffle, QStringLiteral("SHUFFLE"), shuffleOn);
-  drawToggleBtn(p, repeat, QStringLiteral("REPEAT"), repeatOn);
+
+  if (chassis) {
+    const QRectF volRow(body.left() + 22, body.top() + 156, body.width() - 44, 40);
+    drawGlyphBtn(p, QRectF(volRow.left(), volRow.top(), 40, 40), MockupIcon::mute, view.muted, 21);
+    p.setFont(condensedFont(11, 0.2));
+    p.setPen(kInkFaint);
+    const qreal volLabelLeft = volRow.left() + 40 + 14;
+    p.drawText(QRectF(volLabelLeft, volRow.top(), 34, 40), Qt::AlignVCenter,
+               QStringLiteral("VOL"));
+    const qreal plLeft = volRow.right() - 74;
+    const qreal eqLeft = plLeft - 8 - 74;
+    const qreal monoLeft = eqLeft - 14 - 86;
+    const qreal sliderLeft = volLabelLeft + 34 + 10;
+    const qreal sliderRight = monoLeft - 14;
+    drawSlider(p, QRectF(sliderLeft, volRow.center().y() - 7, sliderRight - sliderLeft, 14),
+               volume);
+    drawBtn(p, QRectF(monoLeft, volRow.top() + 1, 86, 38), view.forceMono, QStringLiteral("MONO"));
+    drawBtn(p, QRectF(eqLeft, volRow.top() + 1, 74, 38), view.eqOn, QStringLiteral("EQ"));
+    drawBtn(p, QRectF(plLeft, volRow.top() + 1, 74, 38), view.plOn, QStringLiteral("PL"));
+  }
+
+  if (live) {
+    const QRectF seekRow(body.left() + 22, body.top() + 206, body.width() - 44, 32);
+    const QFont stamp = monoFont(14);
+    const QFontMetricsF sm(stamp);
+    const qreal posW = sm.horizontalAdvance(pos);
+    const qreal durW = sm.horizontalAdvance(dur);
+    p.setFont(stamp);
+    p.setPen(kInkDim);
+    p.drawText(QRectF(seekRow.left(), seekRow.top(), posW, 32), Qt::AlignVCenter, pos);
+    p.drawText(QRectF(seekRow.right() - durW, seekRow.top(), durW, 32), Qt::AlignVCenter, dur);
+    drawSlider(p, QRectF(seekRow.left() + posW + 14, seekRow.center().y() - 8,
+                         seekRow.width() - posW - durW - 28, 16),
+               seek, true, glow);
+  }
+
+  if (chassis) {
+    const QRectF playRow(body.left() + 22, body.top() + 246, body.width() - 44, 50);
+    qreal x = playRow.left();
+    auto place = [&](qreal w, MockupIcon icon, bool on) {
+      drawGlyphBtn(p, QRectF(x, playRow.top(), w, 50), icon, on, 22);
+      x += w + 6;
+    };
+    place(66, MockupIcon::previous, false);
+    place(78, MockupIcon::play, playOn);
+    place(66, MockupIcon::pause, pauseOn);
+    place(66, MockupIcon::stop, false);
+    place(66, MockupIcon::next, false);
+    x += 10;
+    place(66, MockupIcon::eject, false);
+    x += 6;
+    const qreal shuffleW = toggleBtnWidth(QStringLiteral("SHUFFLE"));
+    const qreal repeatW = toggleBtnWidth(QStringLiteral("REPEAT"));
+    const QRectF repeat(playRow.right() - repeatW, playRow.top(), repeatW, 50);
+    const QRectF shuffle(repeat.left() - 6 - shuffleW, playRow.top(), shuffleW, 50);
+    const qreal railW = shuffle.left() - 12 - x;
+    if (railW > 8) {
+      drawRail(p, QRectF(x, playRow.center().y() - 11, railW, 22));
+    }
+    drawToggleBtn(p, shuffle, QStringLiteral("SHUFFLE"), shuffleOn);
+    drawToggleBtn(p, repeat, QStringLiteral("REPEAT"), repeatOn);
+  }
 }
 
 void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionView& view) {
@@ -881,11 +909,11 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
 }  // namespace
 
 void paintWindowBody(QPainter& painter, WindowId id, QSize logical, const QImage* logo,
-                     const SessionView& view) {
+                     const SessionView& view, BodyPaint pass) {
   const QRectF body = bodyRect(logical);
   switch (id) {
     case WindowId::main:
-      paintMain(painter, body, view);
+      paintMain(painter, body, view, pass);
       break;
     case WindowId::equalizer:
       paintEq(painter, body, logo, view);

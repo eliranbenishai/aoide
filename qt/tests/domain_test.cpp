@@ -1,15 +1,23 @@
 #include "equalizer.h"
 #include "m3u.h"
 #include "playlist.h"
+#include "spectrum.h"
 #include "support_dir.h"
 #include "track.h"
 #include "transport.h"
+#include "wav_reader.h"
 
 #include <QDir>
 #include <QFile>
+#include <QByteArray>
+#include <QtEndian>
 #include <QVariant>
+#include <QVector>
+#include <array>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <stdexcept>
 
 namespace {
 
@@ -37,15 +45,22 @@ void require(bool cond, const char* file, int line, const char* expr) {
 
 }  // namespace
 
+using tramp::AudioLevels;
 using tramp::EqualizerSettings;
 using tramp::M3uCodec;
 using tramp::PlaylistController;
+using tramp::PcmBuffer;
 using tramp::RepeatMode;
+using tramp::Spectrogram;
+using tramp::SpectrumAnalyzer;
+using tramp::SpectrumHold;
 using tramp::Track;
+using tramp::WavReader;
 using tramp::buildEqualizerAf;
 using tramp::nextIndex;
 using tramp::previousIndex;
 using tramp::resolveLinuxSupportPath;
+using tramp::spectrumFrame;
 
 int main() {
   {
@@ -243,6 +258,166 @@ int main() {
             QStringLiteral("3 d 22 h"));
     REQUIRE(tramp::groupedInt(1284) == QStringLiteral("1,284"));
     REQUIRE(tramp::groupedInt(4096) == QStringLiteral("4,096"));
+  }
+
+  auto appendU16 = [](QByteArray& b, quint16 v) {
+    char d[2];
+    qToLittleEndian(v, d);
+    b.append(d, 2);
+  };
+  auto appendU32 = [](QByteArray& b, quint32 v) {
+    char d[4];
+    qToLittleEndian(v, d);
+    b.append(d, 4);
+  };
+  auto makePcm16Wav = [&](const QVector<qint16>& interleaved, int channels, int sampleRate) {
+    const quint32 dataBytes = quint32(interleaved.size() * 2);
+    QByteArray out;
+    out.append("RIFF", 4);
+    appendU32(out, 36 + dataBytes);
+    out.append("WAVE", 4);
+    out.append("fmt ", 4);
+    appendU32(out, 16);
+    appendU16(out, 1);
+    appendU16(out, quint16(channels));
+    appendU32(out, quint32(sampleRate));
+    appendU32(out, quint32(sampleRate * channels * 2));
+    appendU16(out, quint16(channels * 2));
+    appendU16(out, 16);
+    out.append("data", 4);
+    appendU32(out, dataBytes);
+    for (qint16 s : interleaved) appendU16(out, quint16(s));
+    return out;
+  };
+  auto argmax = [](const std::array<double, AudioLevels::kBandCount>& bands) {
+    int best = 0;
+    for (int i = 1; i < AudioLevels::kBandCount; ++i) {
+      if (bands[size_t(i)] > bands[size_t(best)]) best = i;
+    }
+    return best;
+  };
+
+  {
+    const QByteArray wav = makePcm16Wav({0, 16384, -16384}, 1, 44100);
+    const PcmBuffer pcm = WavReader().read(wav);
+    REQUIRE(pcm.sampleRateHz == 44100);
+    REQUIRE(pcm.samples.size() == 3);
+    REQUIRE(qAbs(pcm.samples[0]) < 1e-9);
+    REQUIRE(qAbs(pcm.samples[1] - 0.5) < 1e-4);
+    REQUIRE(qAbs(pcm.samples[2] + 0.5) < 1e-4);
+  }
+
+  {
+    const QByteArray wav = makePcm16Wav({32767, 0}, 2, 48000);
+    const PcmBuffer pcm = WavReader().read(wav);
+    REQUIRE(pcm.sampleRateHz == 48000);
+    REQUIRE(pcm.samples.size() == 1);
+    REQUIRE(qAbs(pcm.samples[0] - 0.5) < 1e-3);
+  }
+
+  {
+    constexpr int sampleRate = 44100;
+    QVector<double> samples(4096, 0.0);
+    samples[512] = 1.0;
+    const Spectrogram spec = SpectrumAnalyzer().analyzeMonoPcm(samples, sampleRate);
+    REQUIRE(!spec.frames.isEmpty());
+    const AudioLevels frame = spec.levelsAt(0);
+    REQUIRE(!frame.synthetic);
+    int lit = 0;
+    for (double b : frame.bands) {
+      if (b > 0.05) ++lit;
+    }
+    REQUIRE(lit >= 8);
+  }
+
+  {
+    constexpr int sampleRate = 44100;
+    QVector<double> samples(sampleRate);
+    for (int i = 0; i < samples.size(); ++i) {
+      samples[i] = 0.5 * std::sin(2.0 * 3.14159265358979323846 * 1000.0 * double(i) / sampleRate);
+    }
+    const Spectrogram spec = SpectrumAnalyzer().analyzeMonoPcm(samples, sampleRate);
+    const AudioLevels frame = spec.levelsAt(500);
+    REQUIRE(!frame.synthetic);
+    const int peakIndex = argmax(frame.bands);
+    const double peakHz = SpectrumAnalyzer::bandCenterHz(peakIndex, sampleRate);
+    REQUIRE(peakHz >= 500.0);
+    REQUIRE(peakHz <= 2000.0);
+    REQUIRE(frame.bands[size_t(peakIndex)] > 0.3);
+  }
+
+  {
+    const Spectrogram spec = SpectrumAnalyzer().analyzeMonoPcm(QVector<double>(2048, 0.0), 44100);
+    const AudioLevels frame = spec.levelsAt(0);
+    REQUIRE(!frame.synthetic);
+    bool quiet = true;
+    for (double b : frame.bands) {
+      if (b >= 0.01) quiet = false;
+    }
+    REQUIRE(quiet);
+  }
+
+  {
+    Spectrogram spec;
+    spec.framesPerSecond = 10;
+    spec.frames = {std::array<double, AudioLevels::kBandCount>{},
+                   std::array<double, AudioLevels::kBandCount>{}};
+    spec.frames[0].fill(0.1);
+    spec.frames[1].fill(0.9);
+    REQUIRE(qAbs(spec.levelsAt(0).bands[0] - 0.1) < 1e-12);
+    REQUIRE(qAbs(spec.levelsAt(100).bands[0] - 0.9) < 1e-12);
+  }
+
+  {
+    constexpr int sampleRate = 44100;
+    QVector<double> samples(8192);
+    for (int i = 0; i < samples.size(); ++i) {
+      samples[i] = 0.4 * std::sin(2.0 * 3.14159265358979323846 * 440.0 * double(i) / sampleRate);
+    }
+    SpectrumAnalyzer analyzer([samples](const QString&) {
+      return PcmBuffer{samples, sampleRate};
+    });
+    const Spectrogram spec = analyzer.load(QStringLiteral("fixture://tone.wav"));
+    const AudioLevels paused = spectrumFrame(spec, false, 100);
+    REQUIRE(!paused.synthetic);
+    bool pausedQuiet = true;
+    for (double b : paused.bands) {
+      if (b != 0.0) pausedQuiet = false;
+    }
+    REQUIRE(pausedQuiet);
+    const AudioLevels live = spectrumFrame(spec, true, 100);
+    REQUIRE(!live.synthetic);
+    bool lit = false;
+    for (double b : live.bands) {
+      if (b > 0.05) lit = true;
+    }
+    REQUIRE(lit);
+  }
+
+  {
+    SpectrumAnalyzer analyzer([](const QString&) -> PcmBuffer {
+      throw std::runtime_error("decode failed");
+    });
+    const Spectrogram spec = analyzer.load(QStringLiteral("missing.wav"));
+    const AudioLevels frame = spec.levelsAt(0);
+    REQUIRE(!frame.synthetic);
+    bool quiet = true;
+    for (double b : frame.bands) {
+      if (b != 0.0) quiet = false;
+    }
+    REQUIRE(quiet);
+  }
+
+  {
+    SpectrumHold hold;
+    AudioLevels frame;
+    frame.bands[0] = 1.0;
+    hold.apply(frame);
+    REQUIRE(qAbs(hold.bars[0] - 1.0) < 1e-12);
+    REQUIRE(qAbs(hold.peaks[0] - 1.0) < 1e-12);
+    hold.apply(AudioLevels::silent());
+    REQUIRE(qAbs(hold.bars[0] - 0.86) < 1e-12);
+    REQUIRE(qAbs(hold.peaks[0] - 0.97) < 1e-12);
   }
 
   if (gFails != 0) {

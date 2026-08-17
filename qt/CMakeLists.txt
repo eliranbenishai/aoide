@@ -84,9 +84,12 @@ set(TRAMP_SOURCES
   src/files.cpp
   src/playback.cpp
   src/docking.cpp
+  src/wav_reader.cpp
+  src/stft.cpp
+  src/spectrum.cpp
 )
 if(TRAMP_HAVE_MPV)
-  list(APPEND TRAMP_SOURCES src/mpv_engine.cpp src/mpv_engine.h)
+  list(APPEND TRAMP_SOURCES src/mpv_engine.cpp src/mpv_engine.h src/pcm_decoder.cpp)
 endif()
 
 qt_add_executable(tramp WIN32 ${TRAMP_SOURCES})
@@ -127,6 +130,9 @@ qt_add_executable(domain_test
   src/support_dir.cpp
   src/playlist.cpp
   src/transport.cpp
+  src/wav_reader.cpp
+  src/stft.cpp
+  src/spectrum.cpp
 )
 target_include_directories(domain_test PRIVATE src)
 target_link_libraries(domain_test PRIVATE Qt6::Core)

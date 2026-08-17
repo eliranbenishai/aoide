@@ -334,6 +334,77 @@ void fillRound(QPainter& p, const QRectF& r, qreal radius, const QBrush& brush) 
   p.fillPath(path, brush);
 }
 
+namespace {
+
+struct CachedWell {
+  int w = 0;
+  int h = 0;
+  QImage bloom;
+  int bloomPad = 0;
+  QImage inner;
+  int innerPad = 0;
+};
+
+const CachedWell& cachedWell(int w, int h) {
+  static std::vector<CachedWell> cache;
+  for (const CachedWell& c : cache) {
+    if (c.w == w && c.h == h) return c;
+  }
+  CachedWell c;
+  c.w = w;
+  c.h = h;
+  const QRectF well(0, 0, w, h);
+  {
+    constexpr qreal sigma = 12;
+    const QRectF bounds = well.adjusted(-36, -36, 36, 36);
+    const int pad = qMax(2, int(std::ceil(sigma * 3)) + 1);
+    c.bloomPad = pad;
+    QImage buf(int(std::ceil(bounds.width())) + pad * 2,
+               int(std::ceil(bounds.height())) + pad * 2,
+               QImage::Format_ARGB32_Premultiplied);
+    buf.fill(Qt::transparent);
+    QPainter bp(&buf);
+    bp.setRenderHint(QPainter::Antialiasing);
+    bp.translate(pad - bounds.left(), pad - bounds.top());
+    bp.setPen(Qt::NoPen);
+    bp.setBrush(QColor(61, 231, 255, 13));
+    bp.drawRoundedRect(well.adjusted(0.5, 0.5, -0.5, -0.5), 2.5, 2.5);
+    bp.end();
+    c.bloom = gaussianBlur(buf, sigma);
+  }
+  {
+    constexpr qreal sigma = 3;
+    const int pad = qMax(2, int(std::ceil(sigma * 3)) + 1);
+    c.innerPad = pad;
+    QImage buf(w + pad * 2, h + pad * 2, QImage::Format_ARGB32_Premultiplied);
+    buf.fill(Qt::transparent);
+    QPainter bp(&buf);
+    bp.setRenderHint(QPainter::Antialiasing);
+    bp.setPen(Qt::NoPen);
+    bp.setBrush(QColor(0, 0, 0, 0xE6));
+    bp.drawRoundedRect(QRectF(pad + 1, pad + 1, w - 2, h - 2), 2, 2);
+    bp.end();
+    QImage blurred = gaussianBlur(buf, sigma);
+    QImage mask(buf.size(), QImage::Format_ARGB32_Premultiplied);
+    mask.fill(Qt::transparent);
+    QPainter mp(&mask);
+    mp.setRenderHint(QPainter::Antialiasing);
+    mp.setPen(Qt::NoPen);
+    mp.setBrush(Qt::white);
+    mp.drawRoundedRect(QRectF(pad, pad, w, h), 3, 3);
+    mp.end();
+    QPainter mix(&blurred);
+    mix.setCompositionMode(QPainter::CompositionMode_DestinationIn);
+    mix.drawImage(0, 0, mask);
+    mix.end();
+    c.inner = std::move(blurred);
+  }
+  cache.push_back(std::move(c));
+  return cache.back();
+}
+
+}  // namespace
+
 void drawScreenWell(QPainter& p, const QRectF& well) {
   QPainterPath path;
   path.addRoundedRect(well, 3, 3);
@@ -354,43 +425,10 @@ void drawScreenWell(QPainter& p, const QRectF& well) {
   p.drawRoundedRect(well.adjusted(0.5, 0.5, -0.5, -0.5), 2.5, 2.5);
   p.restore();
 
-  // Flutter: fill rrect with phosphor 0x0D + MaskFilter.blur(normal, 12).
-  // Interior is crushed by the inner shade below; the outer halo remains.
-  paintBlurred(p, well.adjusted(-36, -36, 36, 36), 12, [&](QPainter& bp) {
-    bp.setPen(Qt::NoPen);
-    bp.setBrush(QColor(61, 231, 255, 13));
-    bp.drawRoundedRect(well.adjusted(0.5, 0.5, -0.5, -0.5), 2.5, 2.5);
-  });
-
-  // Flutter: fill deflate(1) radius 2 with 0xE6000000 + BlurStyle.inner sigma 3.
-  {
-    const qreal sigma = 3;
-    const int pad = qMax(2, int(std::ceil(sigma * 3)) + 1);
-    QImage buf(int(std::ceil(well.width())) + pad * 2,
-               int(std::ceil(well.height())) + pad * 2,
-               QImage::Format_ARGB32_Premultiplied);
-    buf.fill(Qt::transparent);
-    QPainter bp(&buf);
-    bp.setRenderHint(QPainter::Antialiasing);
-    bp.setPen(Qt::NoPen);
-    bp.setBrush(QColor(0, 0, 0, 0xE6));
-    bp.drawRoundedRect(QRectF(pad + 1, pad + 1, well.width() - 2, well.height() - 2), 2, 2);
-    bp.end();
-    QImage blurred = gaussianBlur(buf, sigma);
-    QImage mask(buf.size(), QImage::Format_ARGB32_Premultiplied);
-    mask.fill(Qt::transparent);
-    QPainter mp(&mask);
-    mp.setRenderHint(QPainter::Antialiasing);
-    mp.setPen(Qt::NoPen);
-    mp.setBrush(Qt::white);
-    mp.drawRoundedRect(QRectF(pad, pad, well.width(), well.height()), 3, 3);
-    mp.end();
-    QPainter mix(&blurred);
-    mix.setCompositionMode(QPainter::CompositionMode_DestinationIn);
-    mix.drawImage(0, 0, mask);
-    mix.end();
-    p.drawImage(well.topLeft() - QPointF(pad, pad), blurred);
-  }
+  const CachedWell& fx =
+      cachedWell(int(std::lround(well.width())), int(std::lround(well.height())));
+  p.drawImage(well.topLeft() - QPointF(36 + fx.bloomPad, 36 + fx.bloomPad), fx.bloom);
+  p.drawImage(well.topLeft() - QPointF(fx.innerPad, fx.innerPad), fx.inner);
 }
 
 void drawScreenOverlay(QPainter& p, const QRectF& well, QColor scan, bool glass) {
@@ -554,7 +592,7 @@ void drawGlyphBtn(QPainter& p, const QRectF& r, MockupIcon icon, bool on, qreal 
   drawIcon(p, box, icon, on ? kBtnOnInk : QColor(214, 226, 245, 217));
 }
 
-void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle) {
+void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle, bool glow) {
   t = qBound(0.0, t, 1.0);
   QPainterPath trough;
   trough.addRoundedRect(track, track.height() / 2, track.height() / 2);
@@ -587,11 +625,13 @@ void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle) {
     } else {
       fillPath.addRoundedRect(fill, fill.height() / 2, fill.height() / 2);
     }
-    paintBlurred(p, fill.adjusted(-8, -8, 8, 8), 4, [&](QPainter& bp) {
-      bp.setPen(Qt::NoPen);
-      bp.setBrush(QColor(61, 231, 255, 102));
-      bp.drawPath(fillPath);
-    });
+    if (glow) {
+      paintBlurred(p, fill.adjusted(-8, -8, 8, 8), 4, [&](QPainter& bp) {
+        bp.setPen(Qt::NoPen);
+        bp.setBrush(QColor(61, 231, 255, 102));
+        bp.drawPath(fillPath);
+      });
+    }
     QLinearGradient g(fill.topLeft(), fill.bottomLeft());
     g.setColorAt(0, kSliderFillHi);
     g.setColorAt(0.4, kPhos);
@@ -608,11 +648,13 @@ void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle) {
                          track.right() - thumb.width() / 2);
   const QRectF thumbR(x - thumb.width() / 2, track.center().y() - thumb.height() / 2,
                       thumb.width(), thumb.height());
-  paintBlurred(p, thumbR.adjusted(-4, -2, 4, 6), 2, [&](QPainter& bp) {
-    bp.setPen(Qt::NoPen);
-    bp.setBrush(QColor(0, 0, 0, 166));
-    bp.drawRoundedRect(thumbR.translated(0, 1), 4, 4);
-  });
+  if (glow) {
+    paintBlurred(p, thumbR.adjusted(-4, -2, 4, 6), 2, [&](QPainter& bp) {
+      bp.setPen(Qt::NoPen);
+      bp.setBrush(QColor(0, 0, 0, 166));
+      bp.drawRoundedRect(thumbR.translated(0, 1), 4, 4);
+    });
+  }
   QLinearGradient face(thumbR.topLeft(), thumbR.bottomLeft());
   face.setColorAt(0, QColor(0x63, 0x68, 0x76));
   face.setColorAt(0.55, QColor(0x2a, 0x30, 0x3c));

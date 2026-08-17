@@ -75,4 +75,12 @@ struct SessionView {
   static SessionView golden();
 };
 
+struct MainLiveReadouts {
+  qint64 positionMs = 0;
+  qint64 durationMs = 0;
+  bool showElapsed = true;
+  std::array<qreal, 20> spectrum{};
+  std::array<qreal, 20> spectrumPeaks{};
+};
+
 }  // namespace tramp

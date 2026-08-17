@@ -29,6 +29,7 @@ class HostWindow : public QWidget {
   void setZoomPercent(int percent);
   void setShaded(bool shaded);
   void setSessionView(const tramp::SessionView& view);
+  void applyLiveReadouts(const tramp::MainLiveReadouts& live);
   void setPlaylistLogicalSize(QSize logical);
   void setQuitConfirmer(std::function<bool()> fn) { quitConfirmer_ = std::move(fn); }
   void setAlwaysOnTop(bool on);
@@ -71,11 +72,15 @@ class HostWindow : public QWidget {
   void applyNativeSize();
   QPoint logicalFrom(const QPointF& widgetPos) const;
   void applyHitCursor(const QPointF& widgetPos);
+  void invalidateChassis();
+  void rebuildChassis();
 
   tramp::WindowSpec spec_;
   tramp::TitleChromeLayout title_;
   tramp::SessionView view_;
   QImage logo_;
+  QImage chassis_;
+  bool chassisValid_ = false;
   int zoomPercent_ = tramp::kDefaultZoomPercent;
   bool shaded_ = false;
   bool draggingChrome_ = false;

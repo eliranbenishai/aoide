@@ -4,10 +4,10 @@ Five frameless windows in one process. QWidget + QPainter. This directory is
 the **product binary** (`tramp`), not a tracer.
 
 Live session: libmpv playback, playlist / collection, audible EQ (`af` lavfi),
-settings persistence, docking, file open (picker, DnD, argv). Title-strip drag
-uses `startSystemMove()`. Extras skip the taskbar. Closing **Tramp** (main)
-quits; extra close hides. `--dump-chrome DIR` writes 1× logical PNGs from the
-golden fixture.
+real 20-bar spectrum (offline PCM + STFT), settings persistence, docking, file
+open (picker, DnD, argv). Title-strip drag uses `startSystemMove()`. Extras skip
+the taskbar. Closing **Tramp** (main) quits; extra close hides. `--dump-chrome DIR`
+writes 1× logical PNGs from the golden fixture.
 
 The Dart tree is a frozen chrome/domain reference.
 

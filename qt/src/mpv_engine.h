@@ -3,6 +3,7 @@
 #include "player_engine.h"
 
 #include <QObject>
+#include <atomic>
 
 struct mpv_handle;
 
@@ -26,6 +27,7 @@ class MpvEngine : public QObject, public PlayerEngine {
   void setForceMono(bool enabled) override;
   void setEqualizerAf(const QString& af) override;
   void dispose() override;
+  qint64 queryPositionMs() override;
 
  private slots:
   void drainEvents();
@@ -35,6 +37,7 @@ class MpvEngine : public QObject, public PlayerEngine {
   void applyPending();
 
   mpv_handle* mpv_ = nullptr;
+  std::atomic<bool> drainQueued_{false};
   QString pendingAf_;
   double pendingVolume_ = 1.0;
   bool pendingMono_ = false;

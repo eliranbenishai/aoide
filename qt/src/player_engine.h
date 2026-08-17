@@ -26,6 +26,8 @@ class PlayerEngine {
   virtual void setForceMono(bool enabled) = 0;
   virtual void setEqualizerAf(const QString& af) = 0;
   virtual void dispose() = 0;
+  /// Snapshot of the playback clock. `-1` means the engine has no reading.
+  virtual qint64 queryPositionMs() { return -1; }
 
   std::function<void(bool)> onPlaying;
   std::function<void(qint64)> onPosition;

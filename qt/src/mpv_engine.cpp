@@ -28,7 +28,9 @@ MpvEngine::MpvEngine(QObject* parent) : QObject(parent) {
       mpv_,
       [](void* ctx) {
         auto* self = static_cast<MpvEngine*>(ctx);
-        QMetaObject::invokeMethod(self, "drainEvents", Qt::QueuedConnection);
+        if (!self->drainQueued_.exchange(true)) {
+          QMetaObject::invokeMethod(self, "drainEvents", Qt::QueuedConnection);
+        }
       },
       this);
   if (mpv_initialize(mpv_) < 0) {
@@ -37,10 +39,8 @@ MpvEngine::MpvEngine(QObject* parent) : QObject(parent) {
     return;
   }
   observe("pause", MPV_FORMAT_FLAG);
-  observe("time-pos", MPV_FORMAT_DOUBLE);
   observe("duration", MPV_FORMAT_DOUBLE);
   observe("eof-reached", MPV_FORMAT_FLAG);
-  observe("audio-bitrate", MPV_FORMAT_DOUBLE);
   observe("audio-params", MPV_FORMAT_NODE);
   observe("metadata", MPV_FORMAT_NODE);
 }
@@ -114,6 +114,14 @@ void MpvEngine::applyPending() {
   setEqualizerAf(pendingAf_);
 }
 
+qint64 MpvEngine::queryPositionMs() {
+  if (!mpv_) return -1;
+  double secs = 0;
+  if (mpv_get_property(mpv_, "time-pos", MPV_FORMAT_DOUBLE, &secs) < 0) return -1;
+  if (!std::isfinite(secs) || secs < 0) return -1;
+  return qint64(secs * 1000.0);
+}
+
 void MpvEngine::dispose() {
   if (!mpv_) return;
   mpv_set_wakeup_callback(mpv_, nullptr, nullptr);
@@ -122,6 +130,7 @@ void MpvEngine::dispose() {
 }
 
 void MpvEngine::drainEvents() {
+  drainQueued_.store(false);
   if (!mpv_) return;
   while (true) {
     mpv_event* event = mpv_wait_event(mpv_, 0);
@@ -143,17 +152,11 @@ void MpvEngine::drainEvents() {
         if (name == "pause" && prop->format == MPV_FORMAT_FLAG && prop->data) {
           const bool paused = *static_cast<int*>(prop->data) != 0;
           if (onPlaying) onPlaying(!paused);
-        } else if (name == "time-pos" && prop->format == MPV_FORMAT_DOUBLE && prop->data) {
-          const double secs = *static_cast<double*>(prop->data);
-          if (onPosition) onPosition(qint64(secs * 1000.0));
         } else if (name == "duration" && prop->format == MPV_FORMAT_DOUBLE && prop->data) {
           const double secs = *static_cast<double*>(prop->data);
-          if (onDuration) onDuration(qint64(secs * 1000.0));
-        } else if (name == "audio-bitrate" && prop->format == MPV_FORMAT_DOUBLE && prop->data) {
-          AudioFormatInfo info;
-          // merged in metadata handler via last known — emit bitrate-only
-          info.bitrateKbps = int(std::round(*static_cast<double*>(prop->data) / 1000.0));
-          if (onFormat) onFormat(info);
+          if (std::isfinite(secs) && secs >= 0 && onDuration) {
+            onDuration(qint64(secs * 1000.0));
+          }
         } else if (name == "audio-params" && prop->format == MPV_FORMAT_NODE && prop->data) {
           const auto* node = static_cast<mpv_node*>(prop->data);
           AudioFormatInfo info;
@@ -168,6 +171,11 @@ void MpvEngine::drainEvents() {
                 info.channels = int(val.u.int64);
               }
             }
+          }
+          double br = 0;
+          if (mpv_get_property(mpv_, "audio-bitrate", MPV_FORMAT_DOUBLE, &br) >= 0 &&
+              std::isfinite(br) && br > 0) {
+            info.bitrateKbps = int(std::round(br / 1000.0));
           }
           if (onFormat) onFormat(info);
         } else if (name == "metadata" && prop->format == MPV_FORMAT_NODE && prop->data &&

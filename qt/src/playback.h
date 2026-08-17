@@ -30,6 +30,7 @@ class PlaybackController {
 
   void setSpins(int spins) { spins_ = spins; }
   void setOnChanged(std::function<void()> cb) { onChanged_ = std::move(cb); }
+  void setOnPosition(std::function<void()> cb) { onPosition_ = std::move(cb); }
   void setOnSpin(std::function<void(int)> cb) { onSpin_ = std::move(cb); }
 
   void playPause();
@@ -45,6 +46,7 @@ class PlaybackController {
   void setShuffle(bool on);
   void setRepeatMode(RepeatMode mode);
 
+  void pollClock();
   void onPlaylistChanged();
 
  private:
@@ -75,6 +77,7 @@ class PlaybackController {
   QString failureMessage_;
   int spins_ = 0;
   std::function<void()> onChanged_;
+  std::function<void()> onPosition_;
   std::function<void(int)> onSpin_;
 };
 

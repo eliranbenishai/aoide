@@ -9,6 +9,7 @@
 #include "playlist.h"
 #include "session_view.h"
 #include "settings.h"
+#include "spectrum.h"
 
 #include <QObject>
 #include <QPoint>
@@ -31,6 +32,7 @@ class TrampSession : public QObject {
                   HostWindow* about);
   void bootstrap(const QStringList& argvFiles);
   SessionView view() const;
+  MainLiveReadouts mainLive() const;
   int zoomPercent() const { return settings_.zoomPercent; }
   bool confirmQuit() const;
   bool windowShouldShow(WindowId id) const;
@@ -58,6 +60,7 @@ class TrampSession : public QObject {
 
  signals:
   void chromeChanged();
+  void mainChromeChanged();
   void zoomChanged(int percent);
   void requestShow(WindowId id);
   void requestHide(WindowId id);
@@ -84,6 +87,9 @@ class TrampSession : public QObject {
   void showTrackInfo();
   bool confirmReplaceAltered();
   void quitFromMenu();
+  void syncSpectrum();
+  void tickSpectrum();
+  void startSpectrumDecode(const QString& path, int gen);
 
   SupportStore store_;
   TrampSettings settings_;
@@ -91,6 +97,13 @@ class TrampSession : public QObject {
   PlaylistCollection collection_;
   std::unique_ptr<PlayerEngine> engine_;
   std::unique_ptr<PlaybackController> playback_;
+  SpectrumAnalyzer analyzer_;
+  Spectrogram spectrogram_;
+  SpectrumHold spectrumHold_;
+  QTimer spectrumTimer_;
+  QString spectrumPath_;
+  int spectrumGen_ = 0;
+  bool spectrumReady_ = false;
   DockingCoordinator docking_;
   HostWindow* main_ = nullptr;
   HostWindow* eq_ = nullptr;

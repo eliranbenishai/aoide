@@ -50,7 +50,7 @@ attaches artifacts to a GitHub Release (a mirror; the product page is tramp.musi
 |-------|--------|
 | Linux MPRIS | OS media keys / Now Playing via D-Bus not implemented. In-app media keys work when Tramp is focused. |
 | Second-instance “Open with” | Cold-start argv and file associations work; a second running instance does not forward paths to the first. |
-| Spectrum | Honest silence until a Qt analyser exists (bars stay at 0 in live play). |
+| Spectrum | Real 20-bar analyser (offline PCM + STFT). Honest silence until the spectrogram for the current track is ready. |
 | Skin packs | Builtin mockup tokens. Recolor packs remain in the Dart reference tree. |
 | macOS host | Qt pairing comes after Linux + Windows. |
 

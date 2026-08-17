@@ -12,6 +12,7 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QImage>
 #include <QMessageBox>
 #include <QPainter>
@@ -19,6 +20,7 @@
 #include <QTimer>
 #include <QWindow>
 #include <clocale>
+#include <cstdio>
 #include <vector>
 
 namespace {
@@ -59,6 +61,58 @@ int dumpChrome(const QString& dirPath) {
   return 0;
 }
 
+int benchChrome() {
+  tramp::loadTrampFonts();
+  QImage logo = tramp::loadTrampLogo();
+  tramp::SessionView view = tramp::SessionView::golden();
+  const tramp::WindowSpec spec = tramp::windowSpecs().front();
+  const auto title = tramp::TitleChromeLayout::forWindow(spec.id, spec.logicalSize);
+
+  auto paintPass = [&](tramp::BodyPaint pass) {
+    QImage img(spec.logicalSize, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
+    QPainter p(&img);
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setRenderHint(QPainter::TextAntialiasing);
+    tramp::paintMockupWindow(p, spec.logicalSize, spec.id, title, &logo, view, pass);
+    p.end();
+  };
+
+  paintPass(tramp::BodyPaint::full);
+
+  QElapsedTimer timer;
+  constexpr int kFull = 8;
+  timer.start();
+  for (int i = 0; i < kFull; ++i) paintPass(tramp::BodyPaint::full);
+  const qint64 fullNs = timer.nsecsElapsed();
+
+  timer.restart();
+  paintPass(tramp::BodyPaint::chassis);
+  const qint64 chassisNs = timer.nsecsElapsed();
+
+  constexpr int kLive = 30;
+  timer.restart();
+  for (int i = 0; i < kLive; ++i) paintPass(tramp::BodyPaint::live);
+  const qint64 liveNs = timer.nsecsElapsed();
+
+  const double fullMs = (fullNs / 1e6) / kFull;
+  const double chassisMs = chassisNs / 1e6;
+  const double liveMs = (liveNs / 1e6) / kLive;
+  std::fprintf(stdout,
+               "chrome bench: full %.2f ms/frame, chassis %.2f ms, live %.2f ms/frame\n",
+               fullMs, chassisMs, liveMs);
+  if (liveMs > 8.0) {
+    std::fprintf(stderr, "FAIL live paint %.2f ms/frame exceeds 8 ms budget\n", liveMs);
+    return 1;
+  }
+  if (fullMs > 4.0 && liveMs * 4.0 > fullMs) {
+    std::fprintf(stderr, "FAIL live is not 4x cheaper than full (%.2f vs %.2f)\n", liveMs,
+                 fullMs);
+    return 1;
+  }
+  return 0;
+}
+
 QStringList launchFiles(const QStringList& args) {
   QStringList files;
   bool skipNext = false;
@@ -72,6 +126,7 @@ QStringList launchFiles(const QStringList& args) {
       skipNext = true;
       continue;
     }
+    if (a == QLatin1String("--bench-chrome")) continue;
     if (a.startsWith(QLatin1Char('-'))) continue;
     files << a;
   }
@@ -95,6 +150,9 @@ int main(int argc, char** argv) {
     const QString dir =
         dumpAt + 1 < args.size() ? args.at(dumpAt + 1) : QStringLiteral(".");
     return dumpChrome(dir);
+  }
+  if (args.contains(QStringLiteral("--bench-chrome"))) {
+    return benchChrome();
   }
 
   tramp::loadTrampFonts();
@@ -147,6 +205,9 @@ int main(int argc, char** argv) {
   };
 
   QObject::connect(&session, &tramp::TrampSession::chromeChanged, mainWindow, refresh);
+  QObject::connect(&session, &tramp::TrampSession::mainChromeChanged, mainWindow, [&]() {
+    mainWindow->applyLiveReadouts(session.mainLive());
+  });
   QObject::connect(&session, &tramp::TrampSession::zoomChanged, mainWindow, [&](int z) {
     for (HostWindow* window : windows) window->setZoomPercent(z);
   });

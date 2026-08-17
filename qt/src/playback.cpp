@@ -12,23 +12,35 @@ PlaybackController::PlaybackController(PlaylistController* playlist, PlayerEngin
 
 void PlaybackController::bindEngine() {
   engine_->onPlaying = [this](bool value) {
+    if (playing_ == value) return;
     playing_ = value;
     notify();
   };
   engine_->onPosition = [this](qint64 ms) {
     positionMs_ = ms;
-    notify();
+    if (onPosition_) onPosition_();
   };
   engine_->onDuration = [this](qint64 ms) {
+    if (durationMs_ == ms) return;
     durationMs_ = ms;
     notify();
   };
   engine_->onCompleted = [this]() { onCompleted(); };
   engine_->onFormat = [this](AudioFormatInfo info) {
-    if (info.bitrateKbps) format_.bitrateKbps = info.bitrateKbps;
-    if (info.sampleRateHz) format_.sampleRateHz = info.sampleRateHz;
-    if (info.channels) format_.channels = info.channels;
-    notify();
+    bool changed = false;
+    if (info.bitrateKbps && format_.bitrateKbps != info.bitrateKbps) {
+      format_.bitrateKbps = info.bitrateKbps;
+      changed = true;
+    }
+    if (info.sampleRateHz && format_.sampleRateHz != info.sampleRateHz) {
+      format_.sampleRateHz = info.sampleRateHz;
+      changed = true;
+    }
+    if (info.channels && format_.channels != info.channels) {
+      format_.channels = info.channels;
+      changed = true;
+    }
+    if (changed && !playing_) notify();
   };
   engine_->onError = [this](const QString& message) { onEngineError(message); };
   engine_->onMetadata = [this](const QString& path, const QString& title, const QString& artist,
@@ -136,7 +148,16 @@ void PlaybackController::pauseOrResumeCurrent() {
   engine_->play();
 }
 
-void PlaybackController::seekMs(qint64 positionMs) { engine_->seekMs(positionMs); }
+void PlaybackController::seekMs(qint64 positionMs) {
+  positionMs_ = positionMs;
+  engine_->seekMs(positionMs);
+  if (onPosition_) onPosition_();
+}
+
+void PlaybackController::pollClock() {
+  const qint64 ms = engine_->queryPositionMs();
+  if (ms >= 0) positionMs_ = ms;
+}
 
 void PlaybackController::setVolume(double volume) {
   volume_ = std::clamp(volume, 0.0, 1.0);

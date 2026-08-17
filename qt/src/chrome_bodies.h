@@ -10,7 +10,10 @@
 
 namespace tramp {
 
+enum class BodyPaint { full, chassis, live };
+
 void paintWindowBody(QPainter& painter, WindowId id, QSize logical,
-                     const QImage* logo = nullptr, const SessionView& view = {});
+                     const QImage* logo = nullptr, const SessionView& view = {},
+                     BodyPaint pass = BodyPaint::full);
 
 }  // namespace tramp

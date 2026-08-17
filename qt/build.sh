@@ -30,7 +30,14 @@ DEFS=(
 )
 LIBS=(
   -L"$QT/lib" -L"$BREW/lib" -L"$MPV_LIB" -L"$STUB"
-  -lQt6Widgets -lQt6Gui -lQt6Core -lmpv -lX11 -lstdc++ -lm -lgcc_s
+  -lQt6Widgets -lQt6Gui -lQt6Core -lmpv -lX11 -lstdc++ -lm -lgcc_s -pthread
+  -Wl,--no-as-needed
+  "$STUB/libmujs.so.0.1"
+  "$STUB/liblua-5.1.so"
+  "$STUB/libuchardet.so.0"
+  "$STUB/libvapoursynth-script.so.0"
+  "$STUB/libXpresent.so.1"
+  -Wl,--as-needed
   -Wl,--allow-shlib-undefined
   -Wl,-rpath,"$QT/lib" -Wl,-rpath,"$BREW/lib" -Wl,-rpath,"$MPV_LIB" -Wl,-rpath,"$STUB"
 )
@@ -61,6 +68,10 @@ SRCS=(
   "$ROOT/qt/src/files.cpp"
   "$ROOT/qt/src/playback.cpp"
   "$ROOT/qt/src/mpv_engine.cpp"
+  "$ROOT/qt/src/pcm_decoder.cpp"
+  "$ROOT/qt/src/wav_reader.cpp"
+  "$ROOT/qt/src/stft.cpp"
+  "$ROOT/qt/src/spectrum.cpp"
   "$ROOT/qt/src/docking.cpp"
   "$ROOT/qt/src/session.cpp"
   "$ROOT/qt/src/host_window.cpp"
@@ -75,7 +86,9 @@ SRCS=(
 # Domain tests (no widgets / mpv)
 "$CXX" "${CXXFLAGS[@]}" -I"$QT/include" -I"$QT/include/QtCore" -I"$ROOT/qt/src" -DQT_CORE_LIB \
   "$ROOT/qt/src/m3u.cpp" "$ROOT/qt/src/equalizer.cpp" "$ROOT/qt/src/support_dir.cpp" \
-  "$ROOT/qt/src/playlist.cpp" "$ROOT/qt/src/transport.cpp" "$ROOT/qt/tests/domain_test.cpp" \
+  "$ROOT/qt/src/playlist.cpp" "$ROOT/qt/src/transport.cpp" \
+  "$ROOT/qt/src/wav_reader.cpp" "$ROOT/qt/src/stft.cpp" "$ROOT/qt/src/spectrum.cpp" \
+  "$ROOT/qt/tests/domain_test.cpp" \
   -L"$QT/lib" -lQt6Core -lstdc++ -lm -lgcc_s -Wl,-rpath,"$QT/lib" \
   -o "$BUILD/domain_test"
 "$BUILD/domain_test"

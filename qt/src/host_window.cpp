@@ -12,6 +12,7 @@
 #include <QPainter>
 #include <QUrl>
 #include <QWindow>
+#include <cmath>
 
 HostWindow::HostWindow(const tramp::WindowSpec& spec, QWidget* parent)
     : QWidget(parent),
@@ -49,6 +50,7 @@ void HostWindow::applyNativeSize() {
   } else {
     setFixedSize(native);
   }
+  invalidateChassis();
   update();
 }
 
@@ -69,8 +71,46 @@ void HostWindow::setSessionView(const tramp::SessionView& view) {
   const bool collectionChanged =
       spec_.id == tramp::WindowId::playlist && view_.collectionCollapsed != view.collectionCollapsed;
   view_ = view;
+  invalidateChassis();
   if (collectionChanged) applyNativeSize();
   update();
+}
+
+void HostWindow::applyLiveReadouts(const tramp::MainLiveReadouts& live) {
+  view_.positionMs = live.positionMs;
+  view_.durationMs = live.durationMs;
+  view_.showElapsed = live.showElapsed;
+  view_.spectrum = live.spectrum;
+  view_.spectrumPeaks = live.spectrumPeaks;
+  if (spec_.id != tramp::WindowId::main || !chassisValid_ || shaded_) {
+    update();
+    return;
+  }
+  const QSize logical = paintLogical();
+  const qreal sx = qreal(width()) / qMax(1, logical.width());
+  const qreal sy = qreal(height()) / qMax(1, logical.height());
+  auto mapRect = [&](qreal x, qreal y, qreal w, qreal h) {
+    return QRect(int(std::floor(x * sx)), int(std::floor(y * sy)),
+                 int(std::ceil(w * sx)) + 2, int(std::ceil(h * sy)) + 2);
+  };
+  // CRT well (clock + bars) and seek row — the only live pixels.
+  update(mapRect(90, tramp::kTitleBar + 8, 720, 150));
+  update(mapRect(16, tramp::kTitleBar + 198, 800, 52));
+}
+
+void HostWindow::invalidateChassis() { chassisValid_ = false; }
+
+void HostWindow::rebuildChassis() {
+  const QSize logical = paintLogical();
+  chassis_ = QImage(logical, QImage::Format_ARGB32_Premultiplied);
+  chassis_.fill(Qt::transparent);
+  QPainter p(&chassis_);
+  p.setRenderHint(QPainter::Antialiasing);
+  p.setRenderHint(QPainter::TextAntialiasing);
+  tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_,
+                           tramp::BodyPaint::chassis);
+  p.end();
+  chassisValid_ = true;
 }
 
 void HostWindow::setAlwaysOnTop(bool on) {
@@ -130,6 +170,13 @@ void HostWindow::paintEvent(QPaintEvent*) {
   const qreal sx = qreal(width()) / qMax(1, logical.width());
   const qreal sy = qreal(height()) / qMax(1, logical.height());
   p.scale(sx, sy);
+  if (spec_.id == tramp::WindowId::main && !view_.goldenDemo && !shaded_) {
+    if (!chassisValid_) rebuildChassis();
+    p.drawImage(0, 0, chassis_);
+    tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_,
+                             tramp::BodyPaint::live);
+    return;
+  }
   tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_);
 }
 
