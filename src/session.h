@@ -21,7 +21,6 @@
 #include <optional>
 
 class HostWindow;
-class QEvent;
 class QMenu;
 
 namespace tramp {
@@ -63,6 +62,7 @@ class TrampSession : public QObject {
   void windowMoved(WindowId id, QPoint nativeTopLeft, bool finalize);
   void titleDragBegan(WindowId id);
   void titleDragEnded(WindowId id);
+  void extraWasMapped(WindowId id);
   void playlistResized(QSize native);
   void refreshChrome();
 
@@ -73,9 +73,6 @@ class TrampSession : public QObject {
   void requestShow(WindowId id);
   void requestHide(WindowId id);
   void requestRaise(WindowId id);
-
- protected:
-  bool eventFilter(QObject* watched, QEvent* event) override;
 
  private:
   void bindPlayback();
@@ -98,6 +95,8 @@ class TrampSession : public QObject {
   void applyDockToWindows(std::optional<WindowId> skip = {});
   void applyTitleMove(WindowId id, QPoint nativeTopLeft, bool snap, bool skipSelf);
   void settleTitleDrag(WindowId id);
+  void syncLayoutFromWindows(std::optional<WindowId> skip = {});
+  void pinNewlyShown(WindowId id);
   QPointF nativeToLogical(QPoint native) const;
   QPoint logicalToNative(QPointF logical) const;
   void showOptionsMenu(QRect logicalHit);
@@ -143,6 +142,10 @@ class TrampSession : public QObject {
   QTimer aboutTimer_;
   QTimer eqApplyTimer_;
   QTimer dragFollowTimer_;
+  QTimer extraPinTimer_;
+  QSet<WindowId> pinnedExtras_;
+  QPoint lastFollowPos_;
+  int followSettledTicks_ = 0;
   CollectionFigures figures_;
   bool figuresLoaded_ = false;
   bool applyingDock_ = false;

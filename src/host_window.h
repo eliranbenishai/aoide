@@ -42,6 +42,7 @@ class HostWindow : public QWidget {
   void zoomOutRequested();
   void zoomInRequested();
   void extraHidden();
+  void extraMapped();
   void chromePressed(tramp::ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical);
   void chromeDragged(tramp::ChromeHit hit, QPoint logical);
   void chromeReleased();
@@ -90,6 +91,7 @@ class HostWindow : public QWidget {
   bool shaded_ = false;
   bool draggingChrome_ = false;
   bool draggingTitle_ = false;
+  bool usedSystemMove_ = false;
   tramp::ChromeHit dragHit_;
   std::function<bool()> quitConfirmer_;
 };

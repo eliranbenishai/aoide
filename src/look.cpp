@@ -313,6 +313,16 @@ QColor mapUsingAccent(const QColor& accent, const QColor& fromAccent, const QCol
   return out;
 }
 
+QColor closeHueSource(const LookPalette& p) {
+  float ih = 0, is = 0, il = 0, ia = 0;
+  p.ink.getHslF(&ih, &is, &il, &ia);
+  float ah = 0, as = 0, al = 0, aa = 0;
+  p.accent.getHslF(&ah, &as, &al, &aa);
+  if (is < 0) is = 0;
+  if (as < 0) as = 0;
+  return as >= is ? p.accent : p.ink;
+}
+
 bool copyDir(const QString& src, const QString& dst) {
   QDir().mkpath(dst);
   const QFileInfoList entries =
@@ -570,11 +580,15 @@ ChromeTokens ChromeTokens::from(const ResolvedLook& look) {
   t.wbtn0 = lift(p.shellHi, 19, 22, 28);
   t.wbtn55 = lift(p.shell, 9, 10, 11);
   t.wbtn100 = lift(p.shellMid, 6, 7, 8);
-  t.wbtnClose0 = mapUsingAccent(p.accent, kAccent, kWbtnClose0);
-  t.wbtnClose55 = mapUsingAccent(p.accent, kAccent, kWbtnClose55);
-  t.wbtnClose100 = mapUsingAccent(p.accent, kAccent, kWbtnClose100);
+  const QColor closeSrc = closeHueSource(p);
+  t.wbtnClose0 = mapUsingAccent(closeSrc, kAccent, kWbtnClose0);
+  t.wbtnClose55 = mapUsingAccent(closeSrc, kAccent, kWbtnClose55);
+  t.wbtnClose100 = mapUsingAccent(closeSrc, kAccent, kWbtnClose100);
   t.glyphInk = withAlpha(lift(p.ink, -18, -8, 5), 0xD1);
-  t.closeGlyph = mapUsingAccent(p.accent, kAccent, kCloseGlyph);
+  const bool closeFromAccent = closeSrc.red() == p.accent.red() &&
+                               closeSrc.green() == p.accent.green() &&
+                               closeSrc.blue() == p.accent.blue();
+  t.closeGlyph = closeFromAccent ? mapUsingAccent(closeSrc, kAccent, kCloseGlyph) : t.glyphInk;
   t.bevelLight = withAlpha(t.coolSheen, int(std::round(m.bevelLightOpacity * 255)));
   t.bevelSoft = withAlpha(t.coolSheen, int(std::round(m.bevelSoftOpacity * 255)));
   t.btnIdle0 = lift(p.shellHi, 13, 15, 19);

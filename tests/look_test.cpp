@@ -417,6 +417,9 @@ int main() {
     REQUIRE_EQ(hex(arc.palette.ink), QStringLiteral("#ff2d3a"));
     REQUIRE_EQ(hex(arc.palette.phos), QStringLiteral("#ffc107"));
     REQUIRE_EQ(hex(arc.palette.accent), QStringLiteral("#c5ccd6"));
+    const auto arcTokens = ChromeTokens::from(arc);
+    REQUIRE(arcTokens.closeGlyph.red() > arcTokens.closeGlyph.green() + 40);
+    REQUIRE(arcTokens.closeGlyph.red() > arcTokens.closeGlyph.blue() + 40);
     QTemporaryDir support;
     TrampSettings settings;
     SkinController skins;
@@ -445,6 +448,23 @@ int main() {
     REQUIRE(tokens.wbtnClose0.hslHue() >= 0);
     REQUIRE(qAbs(tokens.wbtnClose0.hslHue() - accentHue) <= 40);
     REQUIRE(qAbs(tokens.closeGlyph.hslHue() - accentHue) <= 40);
+  }
+
+  {
+    tramp::LookManifest overlay = parseLookManifest(obj(QStringLiteral(R"({
+      "formatVersion": 1, "id": "arc-ink", "name": "Arc Ink", "extends": "builtin",
+      "colors": {
+        "ink": { "default": "#ff2d3a", "dim": "#c45a62", "faint": "#8a3e44" },
+        "accent": { "default": "#c5ccd6", "dim": "#6a7380" }
+      }
+    })")));
+    const auto tokens = ChromeTokens::from(resolveLook(QStringLiteral("arc-ink"), {overlay}));
+    REQUIRE(tokens.closeGlyph.red() > tokens.closeGlyph.green() + 40);
+    REQUIRE(tokens.closeGlyph.red() > tokens.closeGlyph.blue() + 40);
+    const int inkHue = QColor(QStringLiteral("#ff2d3a")).hslHue();
+    REQUIRE(tokens.closeGlyph.hslHue() >= 0);
+    const int dh = qAbs(tokens.closeGlyph.hslHue() - inkHue);
+    REQUIRE(dh <= 25 || dh >= 335);
   }
 
   if (gFails != 0) {

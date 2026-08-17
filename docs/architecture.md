@@ -6,9 +6,9 @@ Living map of how Tramp is structured. Domain terms: [`CONTEXT.md`](../CONTEXT.m
 
 **Qt 6 C++** is the only build ([ADR 0016](adr/0016-qt-for-v1.md)). One process, five frameless windows, QWidget + QPainter in [`src/`](../src/). Binary: `build/tramp`.
 
-`TrampSession` owns playback (libmpv), playlist/collection, EQ, spectrum, docking, zoom, skins, and persistence. Extra windows are extra views, not extra engines. Title-bar drag is `QWindow::startSystemMove()`; the session polls cursor delta (and the window origin when the WM reports it) and translates the dock cohort without writing the dragged window’s geometry back. After the grab ends it commits that follow even if the WM never emitted moves during the drag. Extras are `Qt::Dialog` transients of main and skip the taskbar. Frames are applied at bootstrap and again after map; newly shown EQ/PL that sit on top of main are nudged below / to the right. `--dump-chrome` writes 1× logical PNGs from `SessionView::golden()`.
+`TrampSession` owns playback (libmpv), playlist/collection, EQ, spectrum, docking, zoom, skins, and persistence. Extra windows are extra views, not extra engines. Title-bar drag is `QWindow::startSystemMove()`. The leftover mouse-release from that grab is ignored so follow can continue; main `move` events always translate the snapped cohort, and a cursor-delta poll covers compositors that stay silent until drop. Extras are `Qt::Dialog` and skip the taskbar. On Windows they are transients of main; on Linux they are not, so the compositor cannot recenter them on the player. Newly shown EQ/PL are placed from the dock layout, then pinned briefly against any remaining WM configure. `--dump-chrome` writes 1× logical PNGs from `SessionView::golden()`.
 
-Linux + Windows are the pairing hosts; macOS follows. Dock follow uses cursor delta so satellites keep up when the WM does not emit `move` during `startSystemMove` (Wayland).
+Linux + Windows are the pairing hosts; macOS follows. Dock follow uses live main `move` events plus cursor delta when the compositor does not emit configures during `startSystemMove`.
 
 ## Product shape (v1)
 
@@ -90,8 +90,8 @@ flowchart TB
 |------|------|
 | Host | `main.cpp`, `host_window.*`, `window_spec.*`, `skip_taskbar.*` — five frameless windows; main close persists then quits; extras hide |
 | Session | `session.*`, `session_view.*` — shared controllers, commands, `--dump-chrome` golden |
-| Docking | `docking.*` — main carries its dock-edge cohort; peel 8 logical px; EQ any side; playlist top/bottom; settings/about never snap. Title-bar follow uses cursor delta; host applies frames after map and nudges EQ/PL off main when they would open on top of it. |
-| Chrome | `chrome_paint.cpp`, `chrome_bodies.cpp`, `chrome_hits.cpp`, `chrome_layout.h`, `title_chrome.*`, `mockup_draw.cpp`, `mockup_tokens.h`, `tramp_metrics.h`, `tramp_fonts.*` — mockup `.win` / `.tbar` / `.wbtn` at discrete zoom (default 75%). Display-well STEREO/PLAYLIST keep a fixed gap; close buttons follow the skin accent. |
+| Docking | `docking.*` — main carries its dock-edge cohort; peel 8 logical px; EQ any side; playlist top/bottom; settings/about never snap. Flush-aligned visible EQ/PL follow main even without a stored dock edge. Host applies frames after map and pins newly shown EQ/PL off main while the compositor tries to center them. |
+| Chrome | `chrome_paint.cpp`, `chrome_bodies.cpp`, `chrome_hits.cpp`, `chrome_layout.h`, `title_chrome.*`, `mockup_draw.cpp`, `mockup_tokens.h`, `tramp_metrics.h`, `tramp_fonts.*` — mockup `.win` / `.tbar` / `.wbtn` at discrete zoom (default 75%). Display-well STEREO/PLAYLIST keep a fixed gap; close buttons take hue from the more saturated of skin ink vs accent. |
 | Skins | `look.*` — `skin.json` / legacy `look.json`; embedded **Tramp** (id `builtin`) plus bundled homage packs under `skins/` (Arc, Shield, Thunder, Gamma, Widow, Marksman, Chaos); catalog `<support>/skins`. Settings Skins tab is a clipped scrolling list. |
 | Playback | `playback.*`, `player_engine.h`, `mpv_engine.*`, `transport.*` — libmpv `vo=null`; playing **path** not index; stop unloads media |
 | EQ / mono | `equalizer.*` — lavfi `af`; On / Auto / Presets; ±12 dB; force-mono via `audio-channels` |

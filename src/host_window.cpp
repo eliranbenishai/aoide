@@ -215,6 +215,7 @@ void HostWindow::showEvent(QShowEvent* event) {
   if (spec_.skipTaskbar) {
     tramp::applySkipTaskbar(windowHandle());
   }
+  if (spec_.id != tramp::WindowId::main) emit extraMapped();
 }
 
 void HostWindow::changeEvent(QEvent* event) {
@@ -274,9 +275,13 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
       return;
     case tramp::TitleChromeLayout::Hit::drag:
       draggingTitle_ = true;
+      usedSystemMove_ = false;
       emit titleDragStarted();
+      // Wayland (and most X11 WMs) only move a frameless toplevel via
+      // startSystemMove(). That grab also synthesizes a mouse-release on this
+      // widget — swallow that leftover so the session keeps following.
       if (QWindow* win = windowHandle()) {
-        win->startSystemMove();
+        usedSystemMove_ = win->startSystemMove();
       }
       event->accept();
       return;
@@ -310,6 +315,11 @@ void HostWindow::mouseMoveEvent(QMouseEvent* event) {
 }
 
 void HostWindow::mouseReleaseEvent(QMouseEvent* event) {
+  if (draggingTitle_ && usedSystemMove_) {
+    usedSystemMove_ = false;
+    event->accept();
+    return;
+  }
   if (draggingTitle_) {
     draggingTitle_ = false;
     emit titleDragFinished();

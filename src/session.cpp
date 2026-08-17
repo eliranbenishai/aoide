@@ -16,11 +16,9 @@
 #include "tramp_metrics.h"
 
 #include <QAction>
-#include <QCoreApplication>
 #include <QCursor>
 #include <QDesktopServices>
 #include <QDir>
-#include <QEvent>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QGuiApplication>
@@ -32,6 +30,7 @@
 #include <QPushButton>
 #include <QUrl>
 #include <QWidget>
+#include <QWindow>
 #include <QtGlobal>
 #include <algorithm>
 #include <cmath>
@@ -107,10 +106,9 @@ TrampSession::TrampSession(QObject* parent)
   dragFollowTimer_.setInterval(16);
   dragFollowTimer_.setTimerType(Qt::PreciseTimer);
   QObject::connect(&dragFollowTimer_, &QTimer::timeout, this, [this]() { followTitleDrag(); });
-
-  if (QCoreApplication::instance()) {
-    QCoreApplication::instance()->installEventFilter(this);
-  }
+  extraPinTimer_.setSingleShot(true);
+  extraPinTimer_.setInterval(400);
+  QObject::connect(&extraPinTimer_, &QTimer::timeout, this, [this]() { pinnedExtras_.clear(); });
 
   playlist_.setOnChanged([this]() {
     if (playback_) playback_->onPlaylistChanged();
@@ -498,10 +496,15 @@ void TrampSession::setZoomPercent(int percent) {
 void TrampSession::setWindowVisible(WindowId id, bool visible) {
   docking_.setVisible(id, visible);
   if (visible) {
+    syncLayoutFromWindows();
     docking_.nudgeOffMainIfStacked(id);
+    applyDockToWindows();
+    pinNewlyShown(id);
     emit requestShow(id);
     applyDockToWindows();
     QTimer::singleShot(0, this, [this]() { applyDockToWindows(); });
+    QTimer::singleShot(50, this, [this]() { applyDockToWindows(); });
+    QTimer::singleShot(200, this, [this]() { applyDockToWindows(); });
     if (id == WindowId::settings) emit requestRaise(WindowId::settings);
     if (id == WindowId::about) refreshAboutFigures();
   } else {
@@ -556,10 +559,33 @@ void TrampSession::removeSelectedTracks() { playlist_.removeSelected(); }
 
 void TrampSession::windowMoved(WindowId id, QPoint nativeTopLeft, bool finalize) {
   if (applyingDock_) return;
-  if (titleDragging_ && id != titleDragId_ && !finalize) return;
-  if (!titleDragging_ && !finalize) return;
-  applyTitleMove(id, nativeTopLeft, finalize, !finalize);
-  if (finalize) schedulePersist();
+  if (pinnedExtras_.contains(id) && !titleDragging_) {
+    applyDockToWindows();
+    return;
+  }
+
+  // Main's compositor configures must always carry the snapped cohort. During
+  // startSystemMove the widget often never sees a drag session (the leftover
+  // mouse-release used to kill follow), but move events still arrive.
+  if (id == WindowId::main) {
+    applyTitleMove(id, nativeTopLeft, false, true);
+    if (titleDragging_ && titleDragId_ == WindowId::main) {
+      dragFollowTimer_.stop();
+      titleDragging_ = false;
+      schedulePersist();
+    }
+    return;
+  }
+
+  if (finalize || (titleDragging_ && id == titleDragId_)) {
+    applyTitleMove(id, nativeTopLeft, finalize, !finalize);
+    if (finalize) schedulePersist();
+    return;
+  }
+
+  const QPointF logical = nativeToLogical(nativeTopLeft);
+  docking_.layout().frameOf(id).left = logical.x();
+  docking_.layout().frameOf(id).top = logical.y();
 }
 
 void TrampSession::applyTitleMove(WindowId id, QPoint nativeTopLeft, bool snap, bool skipSelf) {
@@ -569,11 +595,16 @@ void TrampSession::applyTitleMove(WindowId id, QPoint nativeTopLeft, bool snap, 
 }
 
 void TrampSession::titleDragBegan(WindowId id) {
+  pinnedExtras_.clear();
+  extraPinTimer_.stop();
+  syncLayoutFromWindows();
   titleDragId_ = id;
   titleDragging_ = true;
+  followSettledTicks_ = 0;
   HostWindow* w = windowFor(id);
   dragWindowOrigin_ = w ? w->pos() : QPoint();
   dragCursorOrigin_ = QCursor::pos();
+  lastFollowPos_ = dragWindowOrigin_;
   if (!dragFollowTimer_.isActive()) dragFollowTimer_.start();
 }
 
@@ -602,16 +633,42 @@ void TrampSession::followTitleDrag() {
   if (!w) return;
   const QPoint pos =
       followDragNative(w->pos(), dragWindowOrigin_, QCursor::pos(), dragCursorOrigin_);
+  if (titleDragId_ != WindowId::main && w->pos() != dragWindowOrigin_ && pos == lastFollowPos_) {
+    ++followSettledTicks_;
+    if (followSettledTicks_ >= 15) {
+      titleDragEnded(titleDragId_);
+      return;
+    }
+  } else {
+    followSettledTicks_ = 0;
+  }
+  lastFollowPos_ = pos;
   windowMoved(titleDragId_, pos, false);
 }
 
-bool TrampSession::eventFilter(QObject* watched, QEvent* event) {
-  if (titleDragging_ && event &&
-      (event->type() == QEvent::MouseButtonRelease ||
-       event->type() == QEvent::NonClientAreaMouseButtonRelease)) {
-    titleDragEnded(titleDragId_);
+void TrampSession::extraWasMapped(WindowId id) {
+  if (id == WindowId::main) return;
+  applyDockToWindows();
+  pinNewlyShown(id);
+}
+
+void TrampSession::pinNewlyShown(WindowId id) {
+  if (id != WindowId::equalizer && id != WindowId::playlist) return;
+  pinnedExtras_.insert(id);
+  extraPinTimer_.start();
+}
+
+void TrampSession::syncLayoutFromWindows(std::optional<WindowId> skip) {
+  for (WindowId id : {WindowId::main, WindowId::equalizer, WindowId::playlist, WindowId::settings,
+                      WindowId::about}) {
+    if (skip && id == *skip) continue;
+    HostWindow* w = windowFor(id);
+    if (!w || !w->isVisible()) continue;
+    const QPointF logical = nativeToLogical(w->pos());
+    WindowFrame& frame = docking_.layout().frameOf(id);
+    frame.left = logical.x();
+    frame.top = logical.y();
   }
-  return QObject::eventFilter(watched, event);
 }
 
 void TrampSession::settleTitleDrag(WindowId id) {
@@ -636,7 +693,9 @@ void TrampSession::applyDockToWindows(std::optional<WindowId> skip) {
     HostWindow* w = windowFor(id);
     if (!w) continue;
     const WindowFrame& f = docking_.layout().frameOf(id);
-    w->move(logicalToNative(QPointF(f.left, f.top)));
+    const QPoint native = logicalToNative(QPointF(f.left, f.top));
+    w->move(native);
+    if (QWindow* handle = w->windowHandle()) handle->setPosition(native);
   }
   applyingDock_ = false;
 }
