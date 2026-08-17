@@ -295,6 +295,9 @@ int main(int argc, char** argv) {
       w->show();
       w->raise();
     }
+    if (id != tramp::WindowId::settings && settingsWindow->isVisible()) {
+      settingsWindow->raise();
+    }
     refresh();
   });
   QObject::connect(&session, &tramp::TrampSession::requestHide, mainWindow, [&](tramp::WindowId id) {

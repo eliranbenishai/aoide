@@ -535,6 +535,7 @@ void TrampSession::mainMinimized(bool minimized) {
     hiddenByMinimize_.clear();
     applyAlwaysOnTop();
     applyFramesToWindows();
+    if (settingsWin_ && settingsWin_->isVisible()) settingsWin_->raise();
   }
 }
 
