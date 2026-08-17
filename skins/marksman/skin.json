@@ -1,0 +1,48 @@
+{
+  "formatVersion": 1,
+  "id": "marksman",
+  "name": "Marksman",
+  "author": "Tramp",
+  "extends": "builtin",
+  "colors": {
+    "shell": {
+      "highlight": "#2c2834",
+      "base": "#1e1a24",
+      "mid": "#141018",
+      "low": "#0c0a10",
+      "deep": "#060508"
+    },
+    "ink": {
+      "default": "#ece8f0",
+      "dim": "#8a8494",
+      "faint": "#5a5664"
+    },
+    "phosphor": {
+      "default": "#9b6bff",
+      "hot": "#d4c0ff",
+      "dim": "#4a328a",
+      "deep": "#221848"
+    },
+    "accent": {
+      "default": "#6a2ec8",
+      "dim": "#3a1870"
+    },
+    "well": "#050408"
+  },
+  "materials": {
+    "bevel": {
+      "lightOpacity": 0.14,
+      "softOpacity": 0.06
+    },
+    "spectrum": {
+      "stops": ["#d4c0ff", "#9b6bff", "#4a328a", "#221848"]
+    },
+    "rail": {
+      "stops": ["#4a328a", "#6a2ec8", "#4a328a"]
+    }
+  },
+  "fonts": {
+    "chrome": { "file": "fonts/chrome.ttf", "weight": 700 },
+    "lcd": { "file": "fonts/lcd.ttf", "weight": 500 }
+  }
+}

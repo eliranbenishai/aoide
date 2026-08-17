@@ -77,7 +77,7 @@ QString skinsFile(const char* relative) {
 int main(int argc, char** argv) {
   QGuiApplication app(argc, argv);
 
-  const QString spaceMono = loadFamily(skinsFile("violet-pulse/fonts/lcd.ttf"));
+  const QString spaceMono = loadFamily(skinsFile("gamma/fonts/lcd.ttf"));
   const QString trampMono = loadFamily(tramp::assetPath("fonts/TrampMono-Medium.ttf"));
   REQUIRE(!spaceMono.isEmpty());
   REQUIRE(!trampMono.isEmpty());

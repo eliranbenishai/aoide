@@ -1,0 +1,48 @@
+{
+  "formatVersion": 1,
+  "id": "widow",
+  "name": "Widow",
+  "author": "Tramp",
+  "extends": "builtin",
+  "colors": {
+    "shell": {
+      "highlight": "#2a2428",
+      "base": "#1c181a",
+      "mid": "#121012",
+      "low": "#0c0a0c",
+      "deep": "#060506"
+    },
+    "ink": {
+      "default": "#ece6e6",
+      "dim": "#8a8080",
+      "faint": "#5a5252"
+    },
+    "phosphor": {
+      "default": "#ff2a3a",
+      "hot": "#ff8a94",
+      "dim": "#8a121c",
+      "deep": "#3c080c"
+    },
+    "accent": {
+      "default": "#c41e2a",
+      "dim": "#6a1018"
+    },
+    "well": "#050304"
+  },
+  "materials": {
+    "bevel": {
+      "lightOpacity": 0.12,
+      "softOpacity": 0.05
+    },
+    "spectrum": {
+      "stops": ["#ff8a94", "#ff2a3a", "#8a121c", "#3c080c"]
+    },
+    "rail": {
+      "stops": ["#8a121c", "#c41e2a", "#8a121c"]
+    }
+  },
+  "fonts": {
+    "chrome": { "file": "fonts/chrome.ttf", "weight": 700 },
+    "lcd": { "file": "fonts/lcd.ttf", "weight": 500 }
+  }
+}

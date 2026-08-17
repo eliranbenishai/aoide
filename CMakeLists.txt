@@ -156,6 +156,7 @@ qt_add_executable(look_test
   src/tramp_fonts.cpp
 )
 target_include_directories(look_test PRIVATE src)
+target_compile_definitions(look_test PRIVATE TRAMP_SKINS_DIR="${TRAMP_SKINS_DIR}")
 target_link_libraries(look_test PRIVATE Qt6::Gui)
 
 qt_add_executable(font_metrics_test

@@ -1,0 +1,48 @@
+{
+  "formatVersion": 1,
+  "id": "arc",
+  "name": "Arc",
+  "author": "Tramp",
+  "extends": "builtin",
+  "colors": {
+    "shell": {
+      "highlight": "#3a2e28",
+      "base": "#2a221e",
+      "mid": "#1c1614",
+      "low": "#12100e",
+      "deep": "#0a0807"
+    },
+    "ink": {
+      "default": "#f4ead4",
+      "dim": "#a89478",
+      "faint": "#6e5e4c"
+    },
+    "phosphor": {
+      "default": "#ffc107",
+      "hot": "#ffe082",
+      "dim": "#8a6a10",
+      "deep": "#3d2e08"
+    },
+    "accent": {
+      "default": "#e53935",
+      "dim": "#8a1e1c"
+    },
+    "well": "#080605"
+  },
+  "materials": {
+    "bevel": {
+      "lightOpacity": 0.16,
+      "softOpacity": 0.06
+    },
+    "spectrum": {
+      "stops": ["#ffe082", "#ffc107", "#e53935", "#8a1e1c"]
+    },
+    "rail": {
+      "stops": ["#8a6a10", "#e53935", "#8a6a10"]
+    }
+  },
+  "fonts": {
+    "chrome": { "file": "fonts/chrome.ttf", "weight": 700 },
+    "lcd": { "file": "fonts/lcd.ttf", "weight": 400 }
+  }
+}

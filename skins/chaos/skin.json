@@ -1,0 +1,48 @@
+{
+  "formatVersion": 1,
+  "id": "chaos",
+  "name": "Chaos",
+  "author": "Tramp",
+  "extends": "builtin",
+  "colors": {
+    "shell": {
+      "highlight": "#3a2228",
+      "base": "#28181c",
+      "mid": "#1a1014",
+      "low": "#120c0e",
+      "deep": "#0a0608"
+    },
+    "ink": {
+      "default": "#f4e4e8",
+      "dim": "#a88890",
+      "faint": "#705860"
+    },
+    "phosphor": {
+      "default": "#ff2d55",
+      "hot": "#ff8aa0",
+      "dim": "#8a1830",
+      "deep": "#3c0c18"
+    },
+    "accent": {
+      "default": "#b01040",
+      "dim": "#6a0828"
+    },
+    "well": "#080406"
+  },
+  "materials": {
+    "bevel": {
+      "lightOpacity": 0.16,
+      "softOpacity": 0.06
+    },
+    "spectrum": {
+      "stops": ["#ff8aa0", "#ff2d55", "#b01040", "#3c0c18"]
+    },
+    "rail": {
+      "stops": ["#8a1830", "#b01040", "#8a1830"]
+    }
+  },
+  "fonts": {
+    "chrome": { "file": "fonts/chrome.ttf", "weight": 700 },
+    "lcd": { "file": "fonts/lcd.ttf", "weight": 500 }
+  }
+}

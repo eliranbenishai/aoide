@@ -467,13 +467,13 @@ void drawListWell(QPainter& p, const QRectF& well) {
   QRadialGradient wash(QPointF(well.left() + well.width() * 0.2,
                                well.top() - well.height() * 0.10),
                        well.width() * 1.05);
-  wash.setColorAt(0, QColor(0x0d, 0x16, 0x22));
-  wash.setColorAt(0.7, QColor(0x05, 0x07, 0x0c));
-  wash.setColorAt(1, QColor(0x05, 0x07, 0x0c));
+  wash.setColorAt(0, T().screenWash0);
+  wash.setColorAt(0.7, T().screenWash1);
+  wash.setColorAt(1, T().screenWash2);
   p.fillRect(well, wash);
   constexpr qreal row = 37;
   for (qreal y = well.top(); y < well.bottom(); y += row * 2) {
-    p.fillRect(QRectF(well.left(), y, well.width(), row), QColor(226, 236, 255, 4));
+    p.fillRect(QRectF(well.left(), y, well.width(), row), withAlpha(T().coolSheen, 4));
     p.fillRect(QRectF(well.left(), y + row, well.width(), row), QColor(0, 0, 0, 31));
   }
   p.restore();
@@ -512,7 +512,7 @@ void drawBtn(QPainter& p, const QRectF& r, bool on, const QString& label) {
                QColor(T().btnOnFoot.red(), T().btnOnFoot.green(), T().btnOnFoot.blue(), 140));
   } else {
     QLinearGradient rim(r.topLeft(), r.bottomLeft());
-    rim.setColorAt(0, QColor(232, 240, 255, 51));
+    rim.setColorAt(0, withAlpha(T().hoverLift, 51));
     rim.setColorAt(0.5, Qt::transparent);
     rim.setColorAt(1, QColor(0, 0, 0, 128));
     p.setPen(QPen(QBrush(rim), 1));
@@ -520,8 +520,8 @@ void drawBtn(QPainter& p, const QRectF& r, bool on, const QString& label) {
     p.drawRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), 4, 4);
   }
   QLinearGradient gloss(r.topLeft(), QPointF(r.left(), r.top() + r.height() * 0.55));
-  gloss.setColorAt(0, QColor(232, 240, 255, on ? 71 : 31));
-  gloss.setColorAt(1, QColor(232, 240, 255, 0));
+  gloss.setColorAt(0, withAlpha(T().hoverLift, on ? 71 : 31));
+  gloss.setColorAt(1, withAlpha(T().hoverLift, 0));
   p.fillRect(QRectF(r.left() + 1, r.top() + 1, r.width() - 2, r.height() * 0.5), gloss);
   p.restore();
   paintBlurred(p, r.adjusted(-4, -2, 4, 6), 1.2, [&](QPainter& bp) {
@@ -594,7 +594,7 @@ void drawGlyphBtn(QPainter& p, const QRectF& r, MockupIcon icon, bool on, qreal 
   drawBtn(p, r, on, {});
   const QRectF box(r.center().x() - iconSize / 2, r.center().y() - iconSize / 2, iconSize,
                    iconSize);
-  drawIcon(p, box, icon, on ? T().btnOnInk : QColor(214, 226, 245, 217));
+  drawIcon(p, box, icon, on ? T().btnOnInk : T().glyphInk);
 }
 
 void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle, bool glow) {
@@ -602,11 +602,11 @@ void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle, bool 
   QPainterPath trough;
   trough.addRoundedRect(track, track.height() / 2, track.height() / 2);
   QLinearGradient tg(track.topLeft(), track.bottomLeft());
-  tg.setColorAt(0, QColor(0x06, 0x07, 0x0a));
-  tg.setColorAt(0.6, QColor(0x14, 0x18, 0x21));
-  tg.setColorAt(1, QColor(0x1e, 0x22, 0x2c));
+  tg.setColorAt(0, T().well);
+  tg.setColorAt(0.6, T().shellLo);
+  tg.setColorAt(1, T().metalLo);
   p.fillPath(trough, tg);
-  p.setPen(QPen(QColor(226, 236, 255, 20), 1));
+  p.setPen(QPen(withAlpha(T().coolSheen, 20), 1));
   p.setBrush(Qt::NoBrush);
   p.drawPath(trough);
 
@@ -661,19 +661,19 @@ void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle, bool 
     });
   }
   QLinearGradient face(thumbR.topLeft(), thumbR.bottomLeft());
-  face.setColorAt(0, QColor(0x63, 0x68, 0x76));
-  face.setColorAt(0.55, QColor(0x2a, 0x30, 0x3c));
-  face.setColorAt(1, QColor(0x1f, 0x22, 0x2c));
+  face.setColorAt(0, T().metalHi);
+  face.setColorAt(0.55, T().metalMid);
+  face.setColorAt(1, T().metalLo);
   fillRound(p, thumbR, 4, face);
   QLinearGradient rim(thumbR.topLeft(), thumbR.bottomRight());
-  rim.setColorAt(0, QColor(196, 210, 232, 140));
-  rim.setColorAt(1, QColor(0x22, 0x26, 0x2f));
+  rim.setColorAt(0, withAlpha(T().btnLabelIdle, 140));
+  rim.setColorAt(1, T().idleLedLo);
   p.setPen(QPen(QBrush(rim), 1));
   p.setBrush(Qt::NoBrush);
   p.drawRoundedRect(thumbR.adjusted(0.5, 0.5, -0.5, -0.5), 4, 4);
   const QRectF grip(thumbR.left() + 5, thumbR.top() + 8, thumbR.width() - 10,
                     thumbR.height() - 16);
-  p.setPen(QPen(QColor(232, 240, 255, 56), 1));
+  p.setPen(QPen(withAlpha(T().hoverLift, 56), 1));
   for (qreal y = grip.top(); y < grip.bottom(); y += 2.2) {
     p.drawLine(QPointF(grip.left(), y), QPointF(grip.right(), y));
   }
@@ -686,9 +686,9 @@ void drawVBand(QPainter& p, const QRectF& column, qreal gainDb) {
   QPainterPath trough;
   trough.addRoundedRect(track, 6, 6);
   QLinearGradient tg(track.topLeft(), track.topRight());
-  tg.setColorAt(0, QColor(0x06, 0x07, 0x0a));
-  tg.setColorAt(0.55, QColor(0x16, 0x1a, 0x22));
-  tg.setColorAt(1, QColor(0x1e, 0x22, 0x2c));
+  tg.setColorAt(0, T().well);
+  tg.setColorAt(0.55, T().shellLo);
+  tg.setColorAt(1, T().metalLo);
   p.fillPath(trough, tg);
 
   const qreal frac = qBound(0.0, (gainDb + 12.0) / 24.0, 1.0);
@@ -703,15 +703,15 @@ void drawVBand(QPainter& p, const QRectF& column, qreal gainDb) {
   }
 
   p.fillRect(QRectF(track.left() - 13, track.center().y() - 0.5, trackW + 26, 1),
-             QColor(226, 236, 255, 36));
+             withAlpha(T().coolSheen, 36));
 
   const QRectF thumb(column.center().x() - 17, thumbY - 9, 34, 18);
   QLinearGradient face(thumb.topLeft(), thumb.bottomLeft());
-  face.setColorAt(0, QColor(0x75, 0x7c, 0x8f));
-  face.setColorAt(0.42, QColor(0x3d, 0x43, 0x50));
-  face.setColorAt(1, QColor(0x1e, 0x22, 0x2c));
+  face.setColorAt(0, T().eqThumbHi);
+  face.setColorAt(0.42, T().idleLedHi);
+  face.setColorAt(1, T().metalLo);
   fillRound(p, thumb, 3, face);
-  p.setPen(QPen(QColor(236, 244, 255, 89), 1));
+  p.setPen(QPen(withAlpha(T().hoverLift, 89), 1));
   p.setBrush(Qt::NoBrush);
   p.drawRoundedRect(thumb.adjusted(0.5, 0.5, -0.5, -0.5), 3, 3);
   const QRectF line(thumb.center().x() - 11, thumb.center().y() - 1, 22, 2);
@@ -760,10 +760,10 @@ void drawPlate(QPainter& p, const QRectF& r) {
   clip.addRoundedRect(r, 4, 4);
   p.setClipPath(clip);
   for (qreal y = r.top(); y < r.bottom(); y += 3) {
-    p.fillRect(QRectF(r.left(), y, r.width(), 1), QColor(226, 236, 255, 11));
+    p.fillRect(QRectF(r.left(), y, r.width(), 1), withAlpha(T().coolSheen, 11));
     p.fillRect(QRectF(r.left(), y + 1, r.width(), 1), QColor(0, 0, 0, 26));
   }
-  p.setPen(QPen(QColor(226, 236, 255, 26), 1));
+  p.setPen(QPen(withAlpha(T().coolSheen, 26), 1));
   p.drawLine(QPointF(r.left() + 2, r.top() + 1), QPointF(r.right() - 2, r.top() + 1));
   p.setPen(QPen(QColor(0, 0, 0, 179), 1));
   p.drawLine(QPointF(r.left() + 2, r.bottom() - 1), QPointF(r.right() - 2, r.bottom() - 1));
@@ -778,7 +778,7 @@ void drawRail(QPainter& p, const QRectF& r) {
   clip.addRoundedRect(r, 3, 3);
   p.setClipPath(clip);
   for (qreal y = r.top(); y < r.bottom(); y += 3) {
-    p.fillRect(QRectF(r.left(), y, r.width(), 1), QColor(226, 236, 255, 11));
+    p.fillRect(QRectF(r.left(), y, r.width(), 1), withAlpha(T().coolSheen, 11));
     p.fillRect(QRectF(r.left(), y + 1, r.width(), 1), QColor(0, 0, 0, 26));
   }
   p.restore();
@@ -791,7 +791,7 @@ void drawMenuCaret(QPainter& p, const QRectF& btn) {
   path.lineTo(c.right(), c.bottom());
   path.lineTo(c.right(), c.top());
   path.closeSubpath();
-  p.fillPath(path, QColor(214, 226, 245, 115));
+  p.fillPath(path, withAlpha(T().glyphInk, 115));
 }
 
 void drawReload(QPainter& p, const QRectF& box, const QColor& color) {
@@ -880,7 +880,7 @@ void drawToggleBtn(QPainter& p, const QRectF& r, const QString& label, bool lit)
   drawBtn(p, r, false, {});
   drawLed(p, QPointF(r.left() + 15 + 4, r.center().y()), lit);
   p.setFont(condensedFont(13, 0.16));
-  p.setPen(QColor(196, 210, 232, 184));
+  p.setPen(T().btnLabelIdle);
   p.drawText(r.adjusted(15 + 8 + 9, 0, -15, 0), Qt::AlignVCenter | Qt::AlignLeft,
              label.toUpper());
 }
@@ -931,7 +931,7 @@ void drawRenameMark(QPainter& p, const QRectF& box, const QColor& color) {
 void drawFooterSep(QPainter& p, const QRectF& r) {
   QLinearGradient g(r.topLeft(), r.bottomLeft());
   g.setColorAt(0, QColor(0, 0, 0, 179));
-  g.setColorAt(0.5, QColor(226, 236, 255, 31));
+  g.setColorAt(0.5, withAlpha(T().coolSheen, 31));
   g.setColorAt(1, QColor(0, 0, 0, 179));
   p.fillRect(r, g);
 }
@@ -946,26 +946,26 @@ void drawScrollbar(QPainter& p, const QRectF& track, qreal thumbTop, qreal thumb
   QPainterPath trough;
   trough.addRoundedRect(track, track.width() / 2, track.width() / 2);
   QLinearGradient tg(track.topLeft(), track.topRight());
-  tg.setColorAt(0, QColor(0x05, 0x06, 0x0a));
-  tg.setColorAt(0.6, QColor(0x12, 0x15, 0x1c));
-  tg.setColorAt(1, QColor(0x1e, 0x22, 0x2c));
+  tg.setColorAt(0, T().well);
+  tg.setColorAt(0.6, T().shellLo);
+  tg.setColorAt(1, T().metalLo);
   p.fillPath(trough, tg);
   QLinearGradient inset(track.topLeft(), track.topRight());
   inset.setColorAt(0, QColor(0, 0, 0, 242));
   inset.setColorAt(0.55, Qt::transparent);
   p.fillPath(trough, inset);
-  p.setPen(QPen(QColor(226, 236, 255, 26), 1));
+  p.setPen(QPen(withAlpha(T().coolSheen, 26), 1));
   p.drawLine(QPointF(track.right() - 0.5, track.top() + 1),
              QPointF(track.right() - 0.5, track.bottom() - 1));
   const QRectF thumb(track.left() + 1, track.top() + thumbTop, track.width() - 2, thumbH);
   QLinearGradient face(thumb.topLeft(), thumb.topRight());
-  face.setColorAt(0, QColor(0x7d, 0x84, 0x96));
-  face.setColorAt(0.52, QColor(0x47, 0x4e, 0x5c));
-  face.setColorAt(1, QColor(0x22, 0x26, 0x2f));
+  face.setColorAt(0, T().scrollThumbHi);
+  face.setColorAt(0.52, T().scrollThumbMid);
+  face.setColorAt(1, T().idleLedLo);
   fillRound(p, thumb, thumb.width() / 2, face);
   QLinearGradient gloss(thumb.topLeft(), thumb.bottomLeft());
-  gloss.setColorAt(0, QColor(236, 244, 255, 128));
-  gloss.setColorAt(0.35, QColor(236, 244, 255, 0));
+  gloss.setColorAt(0, withAlpha(T().hoverLift, 128));
+  gloss.setColorAt(0.35, withAlpha(T().hoverLift, 0));
   p.save();
   QPainterPath clip;
   clip.addRoundedRect(thumb, thumb.width() / 2, thumb.width() / 2);
@@ -974,7 +974,7 @@ void drawScrollbar(QPainter& p, const QRectF& track, qreal thumbTop, qreal thumb
   const QRectF ridge(thumb.left() + 3, thumb.center().y() - 4, thumb.width() - 6, 8);
   for (qreal y = ridge.top(); y < ridge.bottom(); y += 2) {
     p.fillRect(QRectF(ridge.left(), y, ridge.width(), 1), QColor(0, 0, 0, 128));
-    p.fillRect(QRectF(ridge.left(), y + 1, ridge.width(), 1), QColor(226, 236, 255, 61));
+    p.fillRect(QRectF(ridge.left(), y + 1, ridge.width(), 1), withAlpha(T().coolSheen, 61));
   }
   p.restore();
 }
@@ -1028,8 +1028,8 @@ void drawDiscLogo(QPainter& p, const QRectF& disc, const QImage* logo, bool inse
   p.fillRect(QRectF(disc.left(), disc.top(), disc.width(), disc.height() * 0.55), sheen);
   QLinearGradient shade(QPointF(disc.left(), disc.top() + disc.height() * 0.45),
                         disc.bottomLeft());
-  shade.setColorAt(0, QColor(20, 34, 66, 0));
-  shade.setColorAt(1, QColor(20, 34, 66, 89));
+  shade.setColorAt(0, withAlpha(T().phosDeep, 0));
+  shade.setColorAt(1, withAlpha(T().phosDeep, 89));
   p.fillRect(QRectF(disc.left(), disc.top() + disc.height() * 0.45, disc.width(),
                     disc.height() * 0.55),
              shade);

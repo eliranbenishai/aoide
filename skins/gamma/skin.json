@@ -1,0 +1,48 @@
+{
+  "formatVersion": 1,
+  "id": "gamma",
+  "name": "Gamma",
+  "author": "Tramp",
+  "extends": "builtin",
+  "colors": {
+    "shell": {
+      "highlight": "#2e2438",
+      "base": "#221c2a",
+      "mid": "#16121c",
+      "low": "#0e0c14",
+      "deep": "#08060a"
+    },
+    "ink": {
+      "default": "#e8f0dc",
+      "dim": "#7a8a70",
+      "faint": "#525848"
+    },
+    "phosphor": {
+      "default": "#5cff4d",
+      "hot": "#c8ff9a",
+      "dim": "#2a8a22",
+      "deep": "#143c10"
+    },
+    "accent": {
+      "default": "#9b4dff",
+      "dim": "#5a288a"
+    },
+    "well": "#060508"
+  },
+  "materials": {
+    "bevel": {
+      "lightOpacity": 0.15,
+      "softOpacity": 0.06
+    },
+    "spectrum": {
+      "stops": ["#c8ff9a", "#5cff4d", "#2a8a22", "#9b4dff"]
+    },
+    "rail": {
+      "stops": ["#2a8a22", "#9b4dff", "#2a8a22"]
+    }
+  },
+  "fonts": {
+    "chrome": { "file": "fonts/chrome.ttf", "weight": 400 },
+    "lcd": { "file": "fonts/lcd.ttf", "weight": 400 }
+  }
+}

@@ -48,11 +48,11 @@ void drawShell(QPainter& p, const QRectF& rect) {
 void drawRivet(QPainter& p, QPointF center) {
   constexpr qreal r = 3.5;
   QRadialGradient g(center + QPointF(-1.0, -1.4), r);
-  g.setColorAt(0, QColor(0x5c, 0x63, 0x73));
-  g.setColorAt(0.6, QColor(0x26, 0x2b, 0x33));
-  g.setColorAt(1, QColor(0x10, 0x12, 0x18));
+  g.setColorAt(0, T().metalHi);
+  g.setColorAt(0.6, T().shell);
+  g.setColorAt(1, T().shellDeep);
   p.setPen(Qt::NoPen);
-  p.setBrush(QColor(226, 236, 255, 31));
+  p.setBrush(withAlpha(T().coolSheen, 31));
   p.drawEllipse(center + QPointF(0, 0.5), r, r);
   p.setBrush(g);
   p.drawEllipse(center, r, r);
@@ -76,11 +76,11 @@ void drawTitleFace(QPainter& p, const QRectF& bar) {
   p.fillPath(facePath, face);
 
   QLinearGradient lift(bar.topLeft(), QPointF(bar.left(), bar.top() + bar.height() * 0.5));
-  lift.setColorAt(0, QColor(232, 240, 255, 31));
-  lift.setColorAt(1, QColor(232, 240, 255, 0));
+  lift.setColorAt(0, withAlpha(T().hoverLift, 31));
+  lift.setColorAt(1, withAlpha(T().hoverLift, 0));
   p.fillRect(QRectF(bar.left(), bar.top(), bar.width(), bar.height() * 0.5), lift);
 
-  p.setPen(QPen(QColor(T().coolSheen.red(), T().coolSheen.green(), T().coolSheen.blue(), 56), 1));
+  p.setPen(QPen(withAlpha(T().coolSheen, 56), 1));
   p.drawLine(QPointF(bar.left(), bar.top() + 0.5),
              QPointF(bar.right(), bar.top() + 0.5));
   p.setPen(QPen(QColor(0, 0, 0, 191), 1));
@@ -177,7 +177,7 @@ void drawWinBtn(QPainter& p, const QRect& btn, bool close, TitleChromeLayout::Hi
 
   p.save();
   p.setClipPath(path);
-  p.fillRect(QRectF(r.left(), r.top(), r.width(), 1), QColor(232, 240, 255, 77));
+  p.fillRect(QRectF(r.left(), r.top(), r.width(), 1), withAlpha(T().hoverLift, 77));
   p.fillRect(QRectF(r.left(), r.bottom() - 1, r.width(), 1), QColor(0, 0, 0, 153));
   p.restore();
 
@@ -193,7 +193,7 @@ void drawWordmark(QPainter& p, const QRectF& box) {
   const QString text = QStringLiteral("TRAMP");
   drawStyledText(p, box, text, font, T().wordmark, Qt::AlignVCenter | Qt::AlignLeft,
                  {
-                     {QColor(232, 240, 255, 77), QPointF(0, -1), 0},
+                     {withAlpha(T().hoverLift, 77), QPointF(0, -1), 0},
                      {QColor(0, 0, 0, 217), QPointF(0, 1), 0},
                      {withAlpha(T().phos, 77), QPointF(), 5},
                  });

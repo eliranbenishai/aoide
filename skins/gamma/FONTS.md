@@ -1,6 +1,6 @@
-# Violet Pulse fonts
+# Gamma fonts
 
 | Role | Face | Source |
 |------|------|--------|
-| chrome | Barlow Condensed Bold | [Fontsource / Google Fonts](https://fontsource.org/fonts/barlow-condensed) (OFL) |
+| chrome | Anton Regular | [Fontsource / Google Fonts](https://fontsource.org/fonts/anton) (OFL) |
 | lcd | Space Mono Regular | [Fontsource / Google Fonts](https://fontsource.org/fonts/space-mono) (OFL) |

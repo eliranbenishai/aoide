@@ -102,6 +102,7 @@ SRCS=(
 "$BUILD/domain_test"
 
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -DQT_GUI_LIB -DQT_CORE_LIB \
+  -DTRAMP_SKINS_DIR="\"$ROOT/skins\"" \
   "$ROOT/src/look.cpp" "$ROOT/src/settings.cpp" "$ROOT/src/equalizer.cpp" \
   "$ROOT/src/tramp_fonts.cpp" \
   "$ROOT/tests/look_test.cpp" \

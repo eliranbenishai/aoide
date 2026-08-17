@@ -153,7 +153,7 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
         });
       }
       const qreal py = viz.bottom() - viz.height() * peaks[size_t(i)];
-      p.fillRect(QRectF(x, py, 9, 2), QColor(0xea, 0xff, 0xff));
+      p.fillRect(QRectF(x, py, 9, 2), T().phosHot);
     }
   }
 
@@ -212,11 +212,11 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
       bp.drawRoundedRect(fmt, 2, 2);
     });
     QLinearGradient badge(fmt.topLeft(), fmt.bottomLeft());
-    badge.setColorAt(0, QColor(0xff, 0xb3, 0xd4));
+    badge.setColorAt(0, T().accentHot);
     badge.setColorAt(0.55, T().accent);
-    badge.setColorAt(1, QColor(0xb8, 0x22, 0x6a));
+    badge.setColorAt(1, T().accentDim);
     fillRound(p, fmt, 2, badge);
-    p.setPen(QColor(0x2b, 0x06, 0x16));
+    p.setPen(T().litLedRim);
     p.setFont(fmtFont);
     p.drawText(fmt, Qt::AlignCenter, fmtLabel);
 
@@ -376,7 +376,7 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
       pts.push_back(QPointF(curveWell.left() + curveWell.width() * (i + 1) / 10.0,
                             yFor(gains[i])));
     }
-    p.setPen(QPen(QColor(226, 236, 255, 36), 1));
+    p.setPen(QPen(withAlpha(T().coolSheen, 36), 1));
     p.drawLine(QPointF(curveWell.left(), curveWell.center().y()),
                QPointF(curveWell.right(), curveWell.center().y()));
     QPainterPath curve;
@@ -478,7 +478,7 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   const QRectF collapse(colInner.right() - 24, colInner.top(), 24, 20);
   drawBtn(p, collapse, false, {});
   drawChevron(p, QRectF(collapse.center().x() - 2.8, collapse.center().y() - 4, 5.6, 8), true,
-              QColor(214, 226, 245, 217));
+              T().glyphInk);
 
   const QRectF colWell(colInner.left(), colInner.top() + 30, colInner.width(),
                        colInner.height() - 30 - 8 - 24);
@@ -519,25 +519,25 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   };
   cbtn([&](const QRectF& r) {
     drawIcon(p, QRectF(r.center().x() - 6.5, r.center().y() - 6.5, 13, 13), MockupIcon::add,
-             QColor(214, 226, 245, 217));
+             T().glyphInk);
   }, false);
   cbtn([&](const QRectF& r) {
     drawCreateMark(p, QRectF(r.center().x() - 6, r.center().y() - 6, 12, 12),
-                   QColor(214, 226, 245, 217));
+                   T().glyphInk);
   }, true);
   cbtn([&](const QRectF& r) {
     drawRenameMark(p, QRectF(r.center().x() - 6, r.center().y() - 6, 12, 12),
-                   QColor(214, 226, 245, 217));
+                   T().glyphInk);
   }, false);
   cbtn([&](const QRectF& r) {
     drawIcon(p, QRectF(r.center().x() - 6.5, r.center().y() - 6.5, 13, 13), MockupIcon::remove,
-             QColor(214, 226, 245, 217));
+             T().glyphInk);
   }, false);
   } else if (!view.goldenDemo) {
     const QRectF tab(tracksPane.left() + 4, tracksPane.top() + 12, 14, 56);
     drawBtn(p, tab, false, {});
     drawChevron(p, QRectF(tab.center().x() - 2.8, tab.center().y() - 4, 5.6, 8), false,
-                QColor(214, 226, 245, 217));
+                T().glyphInk);
   }
 
   const QRectF trackInner = tracksPane.adjusted(12, 12, -12, -12);
@@ -559,7 +559,7 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
     const QRectF row(listWell.left(), listWell.top() + 6 + vis * 37, listWell.width(), 37);
     const bool playing = rows[i].playing;
     const bool selected = rows[i].selected;
-    const QColor color = playing ? T().phosHot : QColor(0x9a, 0xe2, 0xf0, 115);
+    const QColor color = playing ? T().phosHot : withAlpha(T().phos, 115);
     if (selected) {
       QLinearGradient g(row.topLeft(), row.bottomLeft());
       g.setColorAt(0, withAlpha(T().phos, 33));
@@ -759,7 +759,7 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view) {
     p.setPen(T().ink);
     p.drawText(row, Qt::AlignVCenter, QString::fromLatin1(rows[i].label));
     const QRectF sw(row.right() - 40, row.center().y() - 10, 36, 20);
-    fillRound(p, sw, 10, rows[i].on ? T().phosDeep : QColor(0x2b, 0x31, 0x3e));
+    fillRound(p, sw, 10, rows[i].on ? T().phosDeep : T().btnIdle48);
     p.setBrush(rows[i].on ? T().phos : T().inkDim);
     p.setPen(Qt::NoPen);
     p.drawEllipse(QPointF(rows[i].on ? sw.right() - 10 : sw.left() + 10, sw.center().y()), 7,
@@ -790,7 +790,7 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
   drawStyledText(p, QRectF(badge.right() + 18, inner.top() + 4, 220, 32), QStringLiteral("TRAMP"),
                  condensedFont(28, 0.22), T().wordmark, Qt::AlignLeft | Qt::AlignVCenter,
                  {
-                     {QColor(232, 240, 255, 77), QPointF(0, -1), 0},
+                     {withAlpha(T().hoverLift, 77), QPointF(0, -1), 0},
                      {QColor(0, 0, 0, 217), QPointF(0, 2), 0},
                      {withAlpha(T().phos, 87), QPointF(), 10},
                  });
@@ -921,7 +921,7 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
   constexpr qreal companyScale = 11.5 / 11.0;
   QFont company = condensedFont(11, 0);
   company.setLetterSpacing(QFont::AbsoluteSpacing, 2.4 / companyScale);
-  p.setPen(QColor(232, 234, 240, 235));
+  p.setPen(withAlpha(T().ink, 235));
   p.save();
   p.setFont(company);
   p.translate(companyLeft, plate.top() + 8);

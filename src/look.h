@@ -130,6 +130,12 @@ struct ChromeTokens {
   QColor sliderFillHi;
   QColor sliderFillLo;
   QColor plateFace;
+  QColor metalHi;
+  QColor metalMid;
+  QColor metalLo;
+  QColor eqThumbHi;
+  QColor scrollThumbHi;
+  QColor scrollThumbMid;
   QColor hoverLift;
   QColor idleLedHi;
   QColor idleLedLo;

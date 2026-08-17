@@ -212,7 +212,7 @@ If `<looksDir>/<id>/` already exists when installing:
 
 ## Builtin look
 
-The embedded `builtin` pack is the current mockup palette and materials (from `player-mockup-2.html` / `MockupTokens`) plus bundled TrampCondensed and TrampMono. It is the root of every `extends` chain.
+The embedded `builtin` pack (picker name **Tramp**) is the current mockup palette and materials (from `player-mockup-2.html` / `MockupTokens`) plus bundled TrampCondensed and TrampMono. It is the root of every `extends` chain. The wire id stays `builtin`.
 
 ## Testing
 

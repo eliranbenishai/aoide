@@ -185,6 +185,16 @@ int main() {
   }
 
   {
+    REQUIRE_EQ(tramp::builtinLookManifest().name, QStringLiteral("Tramp"));
+    REQUIRE_EQ(tramp::builtinLookManifest().author, QStringLiteral("Tramp"));
+    tramp::SkinController skins;
+    REQUIRE_EQ(skins.catalog().size(), 1);
+    REQUIRE_EQ(skins.catalog()[0].id, QStringLiteral("builtin"));
+    REQUIRE_EQ(skins.catalog()[0].name, QStringLiteral("Tramp"));
+    REQUIRE_EQ(skins.catalog()[0].author, QStringLiteral("Tramp"));
+  }
+
+  {
     const ChromeTokens& t = ChromeTokens::builtin();
     REQUIRE_EQ(hex(t.titleBar0), QStringLiteral("#3c4356"));
     REQUIRE_EQ(hex(t.titleBar26), QStringLiteral("#2c3241"));
@@ -206,6 +216,11 @@ int main() {
     REQUIRE_EQ(hex(t.closeGlyph), QStringLiteral("#ffd6e8"));
     REQUIRE_EQ(hex(t.accentHot), QStringLiteral("#ffd6ea"));
     REQUIRE_EQ(hex(t.screenWash0), QStringLiteral("#0f1c2a"));
+    REQUIRE_EQ(hex(t.metalHi), QStringLiteral("#636876"));
+    REQUIRE_EQ(hex(t.metalMid), QStringLiteral("#2a303c"));
+    REQUIRE_EQ(hex(t.metalLo), QStringLiteral("#1e222c"));
+    REQUIRE_EQ(hex(t.eqThumbHi), QStringLiteral("#757c8f"));
+    REQUIRE_EQ(hex(t.scrollThumbHi), QStringLiteral("#7d8496"));
     REQUIRE(t.spectrumStops.size() == 4);
     REQUIRE_EQ(hex(t.phos), hex(tramp::kPhos));
   }
@@ -213,10 +228,11 @@ int main() {
   {
     tramp::LookManifest overlay = parseLookManifest(obj(QStringLiteral(R"({
       "formatVersion": 1, "id": "amber-shift", "name": "Amber", "extends": "builtin",
-      "colors": { "shell": { "mid": "#1c1812" } }
+      "colors": { "shell": { "highlight": "#3a3228", "mid": "#1c1812" } }
     })")));
     const auto resolved = resolveLook(QStringLiteral("amber-shift"), {overlay});
     REQUIRE_EQ(hex(ChromeTokens::from(resolved).plateFace), QStringLiteral("#201d18"));
+    REQUIRE_EQ(hex(ChromeTokens::from(resolved).metalHi), QStringLiteral("#6b635a"));
   }
 
   {
@@ -254,19 +270,71 @@ int main() {
   {
     QTemporaryDir support;
     QTemporaryDir bundled;
-    writePack(bundled.path(), QStringLiteral("violet-pulse"), QStringLiteral(R"({
-      "formatVersion": 1, "id": "violet-pulse", "name": "Violet Pulse", "author": "Tramp",
+    writePack(bundled.path(), QStringLiteral("gamma"), QStringLiteral(R"({
+      "formatVersion": 1, "id": "gamma", "name": "Gamma", "author": "Tramp",
       "extends": "builtin",
-      "colors": { "phosphor": { "default": "#c77dff", "hot": "#ebc8ff", "dim": "#6b3a8a", "deep": "#2e1840" } }
+      "colors": { "phosphor": { "default": "#5cff4d", "hot": "#c8ff9a", "dim": "#2a8a22", "deep": "#143c10" } }
+    })"));
+    writePack(bundled.path(), QStringLiteral("thunder"), QStringLiteral(R"({
+      "formatVersion": 1, "id": "thunder", "name": "Thunder", "author": "Tramp",
+      "extends": "builtin"
     })"));
     TrampSettings settings;
     SkinController skins;
     skins.bootstrap(support.path(), bundled.path(), settings);
-    REQUIRE(skins.catalog().size() >= 2);
-    REQUIRE(skins.activate(QStringLiteral("violet-pulse"), settings));
-    REQUIRE_EQ(settings.activeSkinId, QStringLiteral("violet-pulse"));
-    REQUIRE_EQ(hex(skins.tokens().phos), QStringLiteral("#c77dff"));
-    REQUIRE(QDir(QDir(support.path()).filePath(QStringLiteral("skins/violet-pulse"))).exists());
+    REQUIRE(skins.catalog().size() >= 3);
+    REQUIRE_EQ(skins.catalog()[0].id, QStringLiteral("builtin"));
+    REQUIRE_EQ(skins.catalog()[0].name, QStringLiteral("Tramp"));
+    REQUIRE_EQ(skins.catalog()[1].id, QStringLiteral("thunder"));
+    REQUIRE_EQ(skins.catalog()[2].id, QStringLiteral("gamma"));
+    REQUIRE(skins.activate(QStringLiteral("gamma"), settings));
+    REQUIRE_EQ(settings.activeSkinId, QStringLiteral("gamma"));
+    REQUIRE_EQ(hex(skins.tokens().phos), QStringLiteral("#5cff4d"));
+    REQUIRE(QDir(QDir(support.path()).filePath(QStringLiteral("skins/gamma"))).exists());
+  }
+
+  {
+    QTemporaryDir support;
+    QTemporaryDir bundled;
+    writePack(support.path() + QStringLiteral("/skins"), QStringLiteral("amber-terminal"),
+              QStringLiteral(R"({
+      "formatVersion": 1, "id": "amber-terminal", "name": "Amber Terminal", "extends": "builtin"
+    })"));
+    writePack(support.path() + QStringLiteral("/skins"), QStringLiteral("violet-pulse"),
+              QStringLiteral(R"({
+      "formatVersion": 1, "id": "violet-pulse", "name": "Violet Pulse", "extends": "builtin"
+    })"));
+    writePack(bundled.path(), QStringLiteral("arc"), QStringLiteral(R"({
+      "formatVersion": 1, "id": "arc", "name": "Arc", "extends": "builtin"
+    })"));
+    TrampSettings settings;
+    settings.activeSkinId = QStringLiteral("amber-terminal");
+    SkinController skins;
+    skins.bootstrap(support.path(), bundled.path(), settings);
+    REQUIRE_EQ(settings.activeSkinId, QStringLiteral("builtin"));
+    REQUIRE(!QDir(QDir(support.path()).filePath(QStringLiteral("skins/amber-terminal"))).exists());
+    REQUIRE(!QDir(QDir(support.path()).filePath(QStringLiteral("skins/violet-pulse"))).exists());
+    REQUIRE(QDir(QDir(support.path()).filePath(QStringLiteral("skins/arc"))).exists());
+  }
+
+  {
+    QTemporaryDir support;
+    QTemporaryDir custom;
+    writePack(custom.path(), QStringLiteral("amber-terminal"), QStringLiteral(R"({
+      "formatVersion": 1, "id": "amber-terminal", "name": "Amber Terminal", "extends": "builtin"
+    })"));
+    writePack(custom.path(), QStringLiteral("arc"), QStringLiteral(R"({
+      "formatVersion": 1, "id": "arc", "name": "Arc", "extends": "builtin"
+    })"));
+    TrampSettings settings;
+    settings.skinsDirectory = custom.path();
+    settings.activeSkinId = QStringLiteral("violet-pulse");
+    SkinController skins;
+    skins.bootstrap(support.path(), {}, settings);
+    REQUIRE_EQ(settings.activeSkinId, QStringLiteral("builtin"));
+    REQUIRE_EQ(skins.catalog()[0].id, QStringLiteral("builtin"));
+    REQUIRE_EQ(skins.catalog()[1].id, QStringLiteral("arc"));
+    REQUIRE_EQ(skins.catalog().size(), 2);
   }
 
   {
@@ -334,6 +402,34 @@ int main() {
     REQUIRE_EQ(loaded.playlist.top, 776.0);
     REQUIRE(loaded.playlist.width && *loaded.playlist.width == 900.0);
   }
+
+#ifdef TRAMP_SKINS_DIR
+  {
+    const auto bundled = scanLookCatalog(QStringLiteral(TRAMP_SKINS_DIR));
+    REQUIRE(bundled.warnings.isEmpty());
+    REQUIRE_EQ(bundled.manifests.size(), 7);
+    QStringList ids;
+    for (const auto& m : bundled.manifests) ids.push_back(m.id);
+    for (const char* id : {"arc", "shield", "thunder", "gamma", "widow", "marksman", "chaos"}) {
+      REQUIRE(ids.contains(QString::fromUtf8(id)));
+    }
+    const auto arc = resolveLook(QStringLiteral("arc"), bundled.manifests);
+    REQUIRE_EQ(hex(arc.palette.phos), QStringLiteral("#ffc107"));
+    QTemporaryDir support;
+    TrampSettings settings;
+    SkinController skins;
+    skins.bootstrap(support.path(), QStringLiteral(TRAMP_SKINS_DIR), settings);
+    REQUIRE_EQ(skins.catalog().size(), 8);
+    REQUIRE_EQ(skins.catalog()[0].name, QStringLiteral("Tramp"));
+    REQUIRE_EQ(skins.catalog()[1].id, QStringLiteral("arc"));
+    REQUIRE_EQ(skins.catalog()[2].id, QStringLiteral("shield"));
+    REQUIRE_EQ(skins.catalog()[3].id, QStringLiteral("thunder"));
+    REQUIRE_EQ(skins.catalog()[4].id, QStringLiteral("gamma"));
+    REQUIRE_EQ(skins.catalog()[5].id, QStringLiteral("widow"));
+    REQUIRE_EQ(skins.catalog()[6].id, QStringLiteral("marksman"));
+    REQUIRE_EQ(skins.catalog()[7].id, QStringLiteral("chaos"));
+  }
+#endif
 
   if (gFails != 0) {
     std::fprintf(stderr, "%d assertion(s) failed\n", gFails);

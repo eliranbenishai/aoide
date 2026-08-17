@@ -1,0 +1,48 @@
+{
+  "formatVersion": 1,
+  "id": "shield",
+  "name": "Shield",
+  "author": "Tramp",
+  "extends": "builtin",
+  "colors": {
+    "shell": {
+      "highlight": "#2c3a52",
+      "base": "#1e2838",
+      "mid": "#141c28",
+      "low": "#0e141c",
+      "deep": "#080c12"
+    },
+    "ink": {
+      "default": "#f4f7fb",
+      "dim": "#8b9bb0",
+      "faint": "#5a6a80"
+    },
+    "phosphor": {
+      "default": "#4d8bff",
+      "hot": "#c5dcff",
+      "dim": "#1a4a8a",
+      "deep": "#0d2446"
+    },
+    "accent": {
+      "default": "#e0243a",
+      "dim": "#7a1424"
+    },
+    "well": "#06080c"
+  },
+  "materials": {
+    "bevel": {
+      "lightOpacity": 0.18,
+      "softOpacity": 0.07
+    },
+    "spectrum": {
+      "stops": ["#ffffff", "#c5dcff", "#4d8bff", "#e0243a"]
+    },
+    "rail": {
+      "stops": ["#1a4a8a", "#e0243a", "#1a4a8a"]
+    }
+  },
+  "fonts": {
+    "chrome": { "file": "fonts/chrome.ttf", "weight": 700 },
+    "lcd": { "file": "fonts/lcd.ttf", "weight": 500 }
+  }
+}

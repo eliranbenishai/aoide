@@ -1,0 +1,48 @@
+{
+  "formatVersion": 1,
+  "id": "thunder",
+  "name": "Thunder",
+  "author": "Tramp",
+  "extends": "builtin",
+  "colors": {
+    "shell": {
+      "highlight": "#3a404c",
+      "base": "#2a3038",
+      "mid": "#1c2028",
+      "low": "#12161c",
+      "deep": "#0a0c10"
+    },
+    "ink": {
+      "default": "#e8eef4",
+      "dim": "#8a94a0",
+      "faint": "#5c6670"
+    },
+    "phosphor": {
+      "default": "#7ec8ff",
+      "hot": "#e8f4ff",
+      "dim": "#2a6a9a",
+      "deep": "#12344a"
+    },
+    "accent": {
+      "default": "#c62828",
+      "dim": "#7a1818"
+    },
+    "well": "#07080a"
+  },
+  "materials": {
+    "bevel": {
+      "lightOpacity": 0.17,
+      "softOpacity": 0.07
+    },
+    "spectrum": {
+      "stops": ["#e8f4ff", "#7ec8ff", "#4a6a8a", "#c62828"]
+    },
+    "rail": {
+      "stops": ["#8a94a0", "#c62828", "#8a94a0"]
+    }
+  },
+  "fonts": {
+    "chrome": { "file": "fonts/chrome.ttf", "weight": 700 },
+    "lcd": { "file": "fonts/lcd.ttf", "weight": 400 }
+  }
+}

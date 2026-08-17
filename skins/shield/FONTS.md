@@ -1,4 +1,4 @@
-# Amber Terminal fonts
+# Shield fonts
 
 | Role | Face | Source |
 |------|------|--------|

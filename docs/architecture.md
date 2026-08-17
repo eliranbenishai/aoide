@@ -92,7 +92,7 @@ flowchart TB
 | Session | `session.*`, `session_view.*` — shared controllers, commands, `--dump-chrome` golden |
 | Docking | `docking.*` — main carries visible EQ/PL; peel 8 logical px; EQ any side; playlist top/bottom; settings/about never snap. Host applies restored frames after map; only title-bar drags write back into the coordinator. |
 | Chrome | `chrome_paint.cpp`, `chrome_bodies.cpp`, `chrome_hits.cpp`, `title_chrome.*`, `mockup_draw.cpp`, `mockup_tokens.h`, `tramp_metrics.h`, `tramp_fonts.*` — mockup `.win` / `.tbar` / `.wbtn` at discrete zoom (default 75%) |
-| Skins | `look.*` — `skin.json` / legacy `look.json`; catalog `<support>/skins` + bundled `skins/` |
+| Skins | `look.*` — `skin.json` / legacy `look.json`; embedded **Tramp** (id `builtin`) plus bundled homage packs under `skins/` (Arc, Shield, Thunder, Gamma, Widow, Marksman, Chaos); catalog `<support>/skins` |
 | Playback | `playback.*`, `player_engine.h`, `mpv_engine.*`, `transport.*` — libmpv `vo=null`; playing **path** not index; stop unloads media |
 | EQ / mono | `equalizer.*` — lavfi `af`; On / Auto / Presets; ±12 dB; force-mono via `audio-channels` |
 | Spectrum | `spectrum.*`, `stft.*`, `pcm_decoder.*`, `wav_reader.*` — 20 log bands from a throwaway `ao=pcm` pass; honest silence until ready |

@@ -10,6 +10,7 @@
 #include <QJsonDocument>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QSet>
 #include <QTemporaryDir>
 #include <cmath>
 
@@ -22,6 +23,18 @@ const QRegularExpression kLookIdRe(QStringLiteral("^[a-z0-9]+(-[a-z0-9]+)*$"));
 const QRegularExpression kColorHexRe(
     QStringLiteral("^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$"));
 constexpr int kMaxChain = 8;
+const QStringList kBundledCatalogOrder = {
+    QStringLiteral("arc"),       QStringLiteral("shield"), QStringLiteral("thunder"),
+    QStringLiteral("gamma"),     QStringLiteral("widow"),  QStringLiteral("marksman"),
+    QStringLiteral("chaos"),
+};
+const QStringList kRetiredBundledIds = {QStringLiteral("amber-terminal"),
+                                        QStringLiteral("violet-pulse")};
+
+QString canonicalActiveSkinId(const QString& id) {
+  if (id.isEmpty() || kRetiredBundledIds.contains(id)) return QStringLiteral("builtin");
+  return id;
+}
 
 [[noreturn]] void fail(const QString& message) { throw LookError(message); }
 
@@ -353,7 +366,8 @@ LookManifest builtinLookManifest() {
   static const char* kJson = R"({
     "formatVersion": 1,
     "id": "builtin",
-    "name": "Builtin",
+    "name": "Tramp",
+    "author": "Tramp",
     "extends": "builtin",
     "colors": {
       "shell": {
@@ -545,6 +559,12 @@ ChromeTokens ChromeTokens::from(const ResolvedLook& look) {
   t.sliderFillHi = lift(p.phosHot, 19, 3, 0);
   t.sliderFillLo = lift(p.phosDim, -11, 5, 14);
   t.plateFace = lift(p.shellMid, 4, 5, 6);
+  t.metalHi = lift(p.shellHi, 49, 49, 50);
+  t.metalMid = lift(p.shell, 4, 5, 4);
+  t.metalLo = t.plateFace;
+  t.eqThumbHi = lift(p.shellHi, 67, 69, 75);
+  t.scrollThumbHi = lift(p.shellHi, 75, 77, 82);
+  t.scrollThumbMid = lift(p.shell, 33, 35, 36);
   t.hoverLift = lift(p.ink, 0, 6, 15);
   t.idleLedHi = lift(p.shell, 23, 24, 24);
   t.idleLedLo = lift(p.shellMid, 8, 9, 9);
@@ -637,8 +657,7 @@ void SkinController::bootstrap(const QString& supportDir, const QString& bundled
   QDir().mkpath(skinsDir_);
   if (settings.skinsDirectory.isEmpty()) seedBundled();
   rescan();
-  const QString requested = settings.activeSkinId.isEmpty() ? QStringLiteral("builtin")
-                                                            : settings.activeSkinId;
+  const QString requested = canonicalActiveSkinId(settings.activeSkinId);
   const bool available =
       requested == QLatin1String("builtin") || findInstalled(requested) != nullptr;
   activateInternal(available ? requested : QStringLiteral("builtin"), settings);
@@ -680,6 +699,9 @@ const LookManifest* SkinController::findInstalled(const QString& id) const {
 
 void SkinController::seedBundled() {
   if (bundledDir_.isEmpty() || bundledDir_ == skinsDir_) return;
+  for (const QString& retired : kRetiredBundledIds) {
+    QDir(QDir(skinsDir_).filePath(retired)).removeRecursively();
+  }
   const LookCatalogResult bundled = scanLookCatalog(bundledDir_);
   for (const LookManifest& m : bundled.manifests) {
     const QString dest = QDir(skinsDir_).filePath(m.id);
@@ -689,7 +711,7 @@ void SkinController::seedBundled() {
 }
 
 bool SkinController::activate(const QString& id, TrampSettings& settings) {
-  return activateInternal(id, settings);
+  return activateInternal(canonicalActiveSkinId(id), settings);
 }
 
 bool SkinController::activateInternal(const QString& id, TrampSettings& settings) {
@@ -764,10 +786,18 @@ void SkinController::applyFonts(const QString& id) {
 
 QVector<SkinCatalogEntry> SkinController::catalog() const {
   QVector<SkinCatalogEntry> entries;
-  entries.push_back({QStringLiteral("builtin"), QStringLiteral("Builtin"), {}});
-  for (const LookManifest& m : installed_) {
+  const LookManifest builtin = builtinLookManifest();
+  entries.push_back({builtin.id, builtin.name, builtin.author});
+  QSet<QString> seen{builtin.id};
+  auto add = [&](const LookManifest& m) {
+    if (seen.contains(m.id) || kRetiredBundledIds.contains(m.id)) return;
+    seen.insert(m.id);
     entries.push_back({m.id, m.name, m.author});
+  };
+  for (const QString& id : kBundledCatalogOrder) {
+    if (const LookManifest* m = findInstalled(id)) add(*m);
   }
+  for (const LookManifest& m : installed_) add(m);
   return entries;
 }
 
@@ -777,7 +807,7 @@ void SkinController::setSkinsDirectory(const QString& path, TrampSettings& setti
   QDir().mkpath(skinsDir_);
   if (path.isEmpty()) seedBundled();
   rescan();
-  const QString active = settings.activeSkinId;
+  const QString active = canonicalActiveSkinId(settings.activeSkinId);
   if (active != QLatin1String("builtin") && findInstalled(active) == nullptr) {
     activateInternal(QStringLiteral("builtin"), settings);
     return;

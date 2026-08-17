@@ -33,7 +33,7 @@ A Winamp-compatible skin that replaces the built-in chrome with the skin's own l
 _Avoid_: theme (when meaning a classic Winamp skin), skin pack (unless referring to a collection)
 
 **Skin** (mockup recolor):
-A shareable folder or zip (`skin.json` preferred, legacy `look.json` accepted + optional TTF/OTF) that recolors and optionally retypes the built-in mockup chrome — palette, a few named materials (bevel, spectrum/rail gradients), and font roles — without changing layout or art. Friendly slug ids; may extend `builtin` or another skin. Not a classic Winamp WSZ skin. Catalog default directory name is `skins`.
+A shareable folder or zip (`skin.json` preferred, legacy `look.json` accepted + optional TTF/OTF) that recolors and optionally retypes the built-in mockup chrome — palette, a few named materials (bevel, spectrum/rail gradients), and font roles — without changing layout or art. Friendly slug ids; the embedded default is **Tramp** (id `builtin`). Bundled homage skins (Arc, Shield, Thunder, Gamma, Widow, Marksman, Chaos) sit beside it. May extend `builtin` or another skin. Not a classic Winamp WSZ skin. Catalog default directory name is `skins`.
 _Avoid_: classic skin, WSZ, theme (when meaning this pack), graphite skin, look pack (retired product term — same concept)
 
 **App chrome**:
