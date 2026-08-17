@@ -46,6 +46,13 @@ inline QSize zoomed(QSize logical, int zoomPercent) {
   return QSize(qRound(logical.width() * z), qRound(logical.height() * z));
 }
 
+/// Backing-store size for chrome rasterized at the widget's device pixels.
+inline QSize chromePaintBufferSize(QSize widget, qreal devicePixelRatio) {
+  const qreal dpr = qMax(devicePixelRatio, qreal(0.5));
+  return QSize(qMax(1, qRound(widget.width() * dpr)),
+               qMax(1, qRound(widget.height() * dpr)));
+}
+
 /// Rounded 75% seed used as the native unmapped default (same as Dart
 /// `TrampMetrics.nativeUnmappedSeed`).
 inline QSize nativeUnmappedSeed(QSize logical) {

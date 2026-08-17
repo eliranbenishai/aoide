@@ -47,6 +47,7 @@ struct SessionView {
   bool paused = false;
   bool shuffle = false;
   RepeatMode repeat = RepeatMode::off;
+  int zoomPercent = 75;
   std::array<qreal, 20> spectrum{};
   std::array<qreal, 20> spectrumPeaks{};
   EqualizerSettings eq;

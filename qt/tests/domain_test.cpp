@@ -1,5 +1,7 @@
 #include "equalizer.h"
 #include "m3u.h"
+#include "playback.h"
+#include "player_engine.h"
 #include "playlist.h"
 #include "spectrum.h"
 #include "support_dir.h"
@@ -48,6 +50,8 @@ void require(bool cond, const char* file, int line, const char* expr) {
 using tramp::AudioLevels;
 using tramp::EqualizerSettings;
 using tramp::M3uCodec;
+using tramp::NullEngine;
+using tramp::PlaybackController;
 using tramp::PlaylistController;
 using tramp::PcmBuffer;
 using tramp::RepeatMode;
@@ -418,6 +422,32 @@ int main() {
     hold.apply(AudioLevels::silent());
     REQUIRE(qAbs(hold.bars[0] - 0.86) < 1e-12);
     REQUIRE(qAbs(hold.peaks[0] - 0.97) < 1e-12);
+  }
+
+  {
+    // MpvEngine only reports pause via a later property event. Pause must not
+    // wait for that callback or the button looks stuck.
+    class QuietEngine : public NullEngine {
+     public:
+      void play() override { played = true; }
+      void pause() override { paused = true; }
+      bool played = false;
+      bool paused = false;
+    };
+    PlaylistController playlist;
+    Track track;
+    track.path = QStringLiteral("/tmp/quiet.mp3");
+    track.title = QStringLiteral("Quiet");
+    playlist.setTracks({track});
+    QuietEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.playIndex(0);
+    REQUIRE(playback.playing());
+    REQUIRE(engine.played);
+    playback.playPause();
+    REQUIRE(!playback.playing());
+    REQUIRE(playback.paused());
+    REQUIRE(engine.paused);
   }
 
   if (gFails != 0) {

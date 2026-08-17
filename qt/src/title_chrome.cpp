@@ -11,6 +11,8 @@ constexpr int kBtnW = 26;
 constexpr int kBtnH = 22;
 constexpr int kBtnGap = 5;
 constexpr int kGapBeforeButtons = 12;
+constexpr int kZoomReadoutW = 44;
+constexpr int kGapBeforeZoomReadout = 8;
 
 }  // namespace
 
@@ -44,6 +46,11 @@ TitleChromeLayout TitleChromeLayout::forWindow(WindowId id, QSize logical) {
   layout.dragRight = layout.buttonsLeft - kGapBeforeButtons;
 
   const int btnY = (kTitleBar - kBtnH) / 2;
+  if (layout.showZoom) {
+    layout.zoomReadout =
+        QRect(layout.buttonsLeft - kGapBeforeButtons - kZoomReadoutW, btnY, kZoomReadoutW, kBtnH);
+    layout.dragRight = layout.zoomReadout.left() - kGapBeforeZoomReadout;
+  }
   int x = layout.buttonsLeft;
   auto place = [&](QRect& slot) {
     slot = QRect(x, btnY, kBtnW, kBtnH);

@@ -90,6 +90,7 @@ SRCS=(
   "$ROOT/qt/src/m3u.cpp" "$ROOT/qt/src/equalizer.cpp" "$ROOT/qt/src/support_dir.cpp" \
   "$ROOT/qt/src/playlist.cpp" "$ROOT/qt/src/transport.cpp" \
   "$ROOT/qt/src/wav_reader.cpp" "$ROOT/qt/src/stft.cpp" "$ROOT/qt/src/spectrum.cpp" \
+  "$ROOT/qt/src/playback.cpp" \
   "$ROOT/qt/tests/domain_test.cpp" \
   -L"$QT/lib" -lQt6Core -lstdc++ -lm -lgcc_s -Wl,-rpath,"$QT/lib" \
   -o "$BUILD/domain_test"
@@ -102,5 +103,13 @@ SRCS=(
   -L"$QT/lib" -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -Wl,-rpath,"$QT/lib" \
   -o "$BUILD/look_test"
 "$BUILD/look_test"
+
+"$MOC" "$ROOT/qt/tests/chrome_spec_test.cpp" -o "$BUILD/chrome_spec_test.moc"
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
+  "$ROOT/qt/src/window_spec.cpp" "$ROOT/qt/src/title_chrome.cpp" \
+  "$ROOT/qt/tests/chrome_spec_test.cpp" \
+  -L"$QT/lib" -lQt6Test -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
+  -o "$BUILD/chrome_spec_test"
+"$BUILD/chrome_spec_test"
 
 echo "built $BUILD/tramp"

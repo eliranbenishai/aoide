@@ -136,6 +136,7 @@ qt_add_executable(domain_test
   src/wav_reader.cpp
   src/stft.cpp
   src/spectrum.cpp
+  src/playback.cpp
 )
 target_include_directories(domain_test PRIVATE src)
 target_link_libraries(domain_test PRIVATE Qt6::Core)

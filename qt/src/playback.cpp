@@ -132,6 +132,7 @@ void PlaybackController::playIndex(int index) {
   engine_->open(tracks[index]);
   mediaOpen_ = true;
   engine_->play();
+  playing_ = true;
   notify();
 }
 
@@ -139,6 +140,8 @@ void PlaybackController::pauseOrResumeCurrent() {
   if (!playingIndex_) return;
   if (playing_) {
     engine_->pause();
+    playing_ = false;
+    notify();
     return;
   }
   if (!mediaOpen_) {
@@ -146,6 +149,8 @@ void PlaybackController::pauseOrResumeCurrent() {
     return;
   }
   engine_->play();
+  playing_ = true;
+  notify();
 }
 
 void PlaybackController::seekMs(qint64 positionMs) {

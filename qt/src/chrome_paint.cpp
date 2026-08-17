@@ -63,13 +63,17 @@ void drawRivet(QPainter& p, QPointF center) {
 
 void drawTitleFace(QPainter& p, const QRectF& bar) {
   p.save();
-  p.setClipRect(bar);
+  p.setClipRect(bar, Qt::IntersectClip);
+  QPainterPath facePath;
+  facePath.addRoundedRect(QRectF(bar.left(), bar.top(), bar.width(), bar.height() + kShellRadius),
+                          kShellRadius, kShellRadius);
+  p.setClipPath(facePath, Qt::IntersectClip);
   QLinearGradient face(bar.topLeft(), bar.bottomLeft());
   face.setColorAt(0, T().titleBar0);
   face.setColorAt(0.26, T().titleBar26);
   face.setColorAt(0.62, T().titleBar62);
   face.setColorAt(1, T().titleBar100);
-  p.fillRect(bar, face);
+  p.fillPath(facePath, face);
 
   QLinearGradient lift(bar.topLeft(), QPointF(bar.left(), bar.top() + bar.height() * 0.5));
   lift.setColorAt(0, QColor(232, 240, 255, 31));
@@ -208,7 +212,8 @@ void drawRole(QPainter& p, const QRectF& box, const QString& name) {
   p.drawText(box, Qt::AlignCenter, text);
 }
 
-void drawTitleContents(QPainter& p, const TitleChromeLayout& title, const QImage* logo) {
+void drawTitleContents(QPainter& p, const TitleChromeLayout& title, const QImage* logo,
+                       int zoomPercent) {
   constexpr int padL = 10;
   const QRect bar = title.titleBar;
   qreal x = padL;
@@ -238,6 +243,15 @@ void drawTitleContents(QPainter& p, const TitleChromeLayout& title, const QImage
   drawGrip(p, leftGrip);
   drawRole(p, nameBox, title.roleName);
   drawGrip(p, rightGrip);
+
+  if (title.showZoom && !title.zoomReadout.isEmpty()) {
+    const QString label = QString::number(zoomPercent) + QLatin1Char('%');
+    p.setFont(condensedFont(11, 0.12));
+    p.setPen(QColor(0, 0, 0, 179));
+    p.drawText(title.zoomReadout.translated(0, 1), Qt::AlignVCenter | Qt::AlignRight, label);
+    p.setPen(T().inkDim);
+    p.drawText(title.zoomReadout, Qt::AlignVCenter | Qt::AlignRight, label);
+  }
 
   if (title.showZoom) {
     drawWinBtn(p, title.minimize, false, TitleChromeLayout::Hit::minimize);
@@ -271,7 +285,7 @@ void paintMockupWindow(QPainter& painter,
   painter.setClipPath(shell);
   drawNoiseOverlay(painter, rect, kShellRadius);
   drawTitleFace(painter, QRectF(title.titleBar));
-  drawTitleContents(painter, title, logo);
+  drawTitleContents(painter, title, logo, view.zoomPercent);
   if (logical.height() > kTitleBar) {
     paintWindowBody(painter, id, logical, logo, view, pass);
   }

@@ -27,6 +27,7 @@ struct TitleChromeLayout {
   QRect zoomOut;
   QRect zoomIn;
   QRect close;
+  QRect zoomReadout;
   int buttonsLeft = 0;
   int dragRight = 0;
   bool showBrand = false;

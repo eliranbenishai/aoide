@@ -360,6 +360,7 @@ SessionView TrampSession::view() const {
   v.paused = playback_->paused();
   v.shuffle = playback_->shuffle();
   v.repeat = playback_->repeatMode();
+  v.zoomPercent = settings_.zoomPercent;
   v.spectrum = spectrumHold_.bars;
   v.spectrumPeaks = spectrumHold_.peaks;
   v.eq = settings_.equalizerCurve;
@@ -719,7 +720,11 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       playback_->previous();
       break;
     case K::play:
+      if (!playback_->playing()) playback_->playPause();
+      break;
     case K::pause:
+      if (playback_->playing()) playback_->playPause();
+      break;
     case K::plPlay:
       playback_->playPause();
       break;

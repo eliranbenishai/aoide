@@ -55,6 +55,13 @@ int dumpChrome(const QString& dirPath) {
     const auto title = tramp::TitleChromeLayout::forWindow(spec.id, spec.logicalSize);
     tramp::paintMockupWindow(p, spec.logicalSize, spec.id, title, &logo, golden);
     p.end();
+    const QRgb tl = img.pixel(0, 0);
+    const QRgb tr = img.pixel(img.width() - 1, 0);
+    if (qAlpha(tl) != 0 || qAlpha(tr) != 0) {
+      std::fprintf(stderr, "dump-chrome: square title corners in %s (tl a=%d tr a=%d)\n",
+                   qPrintable(dumpName(spec.id)), qAlpha(tl), qAlpha(tr));
+      return 1;
+    }
     const QString path = QDir(dirPath).filePath(dumpName(spec.id) + QStringLiteral(".png"));
     if (!img.save(path)) return 1;
   }

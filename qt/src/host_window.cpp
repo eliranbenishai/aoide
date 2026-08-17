@@ -110,11 +110,18 @@ void HostWindow::invalidateChassis() { chassisValid_ = false; }
 
 void HostWindow::rebuildChassis() {
   const QSize logical = paintLogical();
-  chassis_ = QImage(logical, QImage::Format_ARGB32_Premultiplied);
+  const QSize widget = size();
+  const qreal dpr = qMax(devicePixelRatioF(), qreal(0.5));
+  chassis_ = QImage(tramp::chromePaintBufferSize(widget, dpr), QImage::Format_ARGB32_Premultiplied);
+  chassis_.setDevicePixelRatio(dpr);
   chassis_.fill(Qt::transparent);
   QPainter p(&chassis_);
   p.setRenderHint(QPainter::Antialiasing);
   p.setRenderHint(QPainter::TextAntialiasing);
+  p.setRenderHint(QPainter::SmoothPixmapTransform);
+  const qreal sx = qreal(qMax(1, widget.width())) / qMax(1, logical.width());
+  const qreal sy = qreal(qMax(1, widget.height())) / qMax(1, logical.height());
+  p.scale(sx, sy);
   tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_,
                            tramp::BodyPaint::chassis);
   p.end();
@@ -174,18 +181,21 @@ void HostWindow::applyHitCursor(const QPointF& widgetPos) {
 void HostWindow::paintEvent(QPaintEvent*) {
   QPainter p(this);
   p.setRenderHint(QPainter::Antialiasing);
+  p.setRenderHint(QPainter::TextAntialiasing);
+  p.setRenderHint(QPainter::SmoothPixmapTransform);
   const QSize logical = paintLogical();
   const qreal sx = qreal(width()) / qMax(1, logical.width());
   const qreal sy = qreal(height()) / qMax(1, logical.height());
-  p.scale(sx, sy);
   if ((spec_.id == tramp::WindowId::main || spec_.id == tramp::WindowId::equalizer) &&
       !view_.goldenDemo && !shaded_) {
     if (!chassisValid_) rebuildChassis();
-    p.drawImage(0, 0, chassis_);
+    p.drawImage(QPointF(0, 0), chassis_);
+    p.scale(sx, sy);
     tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_,
                              tramp::BodyPaint::live);
     return;
   }
+  p.scale(sx, sy);
   tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_);
 }
 
@@ -198,6 +208,10 @@ void HostWindow::showEvent(QShowEvent* event) {
 
 void HostWindow::changeEvent(QEvent* event) {
   QWidget::changeEvent(event);
+  if (event->type() == QEvent::DevicePixelRatioChange) {
+    invalidateChassis();
+    update();
+  }
   if (spec_.id != tramp::WindowId::main) return;
   if (event->type() == QEvent::WindowStateChange) {
     emit mainMinimized(windowState() & Qt::WindowMinimized);

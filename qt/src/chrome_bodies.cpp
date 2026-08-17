@@ -63,8 +63,8 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
   qreal seek = view.durationMs > 0 ? qreal(view.positionMs) / qreal(view.durationMs) : 0;
   QString pos = formatClock(view.positionMs);
   QString dur = formatClock(view.durationMs);
-  bool pauseOn = view.playing;
-  bool playOn = view.paused;
+  bool playOn = view.playing;
+  bool pauseOn = view.paused;
   bool shuffleOn = view.shuffle;
   bool repeatOn = view.repeat != RepeatMode::off;
   std::array<qreal, 20> bars = view.spectrum;
@@ -82,8 +82,8 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
     seek = 161.0 / 347.0;
     pos = QStringLiteral("2:41");
     dur = QStringLiteral("5:47");
-    pauseOn = true;
-    playOn = false;
+    playOn = true;
+    pauseOn = false;
     shuffleOn = true;
     repeatOn = true;
     bars = {0.26, 0.52, 0.71, 0.88, 0.64, 0.47, 0.58, 0.39, 0.31, 0.44,
@@ -615,9 +615,9 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   const QRectF plateInner = plate.adjusted(12, 10, -12, -10);
   qreal fx = plateInner.left();
   const qreal fy = plateInner.top();
-  auto fbtn = [&](qreal w, MockupIcon icon, bool menu, qreal iconSize) {
+  auto fbtn = [&](qreal w, MockupIcon icon, bool menu, qreal iconSize, bool on = false) {
     const QRectF r(fx, fy, w, 52);
-    drawGlyphBtn(p, r, icon, false, iconSize);
+    drawGlyphBtn(p, r, icon, on, iconSize);
     if (menu) {
       drawMenuCaret(p, r);
     }
@@ -644,7 +644,7 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   }
   fx = railRight + 8;
   fbtn(52, MockupIcon::previous, false, 18);
-  fbtn(52, MockupIcon::play, false, 18);
+  fbtn(52, view.playing ? MockupIcon::pause : MockupIcon::play, false, 18, view.playing);
   fbtn(52, MockupIcon::next, false, 18);
   const QRectF total(plateInner.right() - totalW, fy + (52 - 34) / 2, totalW, 34);
   drawScreenWell(p, total);

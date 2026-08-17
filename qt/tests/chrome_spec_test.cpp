@@ -16,6 +16,8 @@ class ChromeSpecTest : public QObject {
   void mainTitleDragExcludesWindowButtons();
   void extrasOmitBrandAndZoomAndUseCollapse();
   void zoomStepsMoveAcrossTheDiscreteLadder();
+  void mainTitleShowsZoomReadoutLeftOfButtons();
+  void chromePaintBufferMatchesWidgetTimesDpr();
 };
 
 void ChromeSpecTest::tokensMatchMockupCssRoot() {
@@ -108,6 +110,30 @@ void ChromeSpecTest::zoomStepsMoveAcrossTheDiscreteLadder() {
   QCOMPARE(tramp::nextZoomPercent(300), 300);
   QCOMPARE(tramp::prevZoomPercent(50), 50);
   QCOMPARE(tramp::zoomed(tramp::kMainPlayer, 75), QSize(619, 261));
+}
+
+void ChromeSpecTest::mainTitleShowsZoomReadoutLeftOfButtons() {
+  const auto layout =
+      tramp::TitleChromeLayout::forWindow(tramp::WindowId::main, tramp::kMainPlayer);
+  QCOMPARE(layout.close, QRect(790, 10, 26, 22));
+  QCOMPARE(layout.minimize, QRect(697, 10, 26, 22));
+  QCOMPARE(layout.zoomReadout, QRect(641, 10, 44, 22));
+  QVERIFY(layout.zoomReadout.right() < layout.minimize.left());
+  QVERIFY(layout.dragRight <= layout.zoomReadout.left());
+  QCOMPARE(layout.hit(layout.zoomReadout.center()), tramp::TitleChromeLayout::Hit::none);
+  QVERIFY(!layout.inDragRegion(layout.zoomReadout.center()));
+
+  const auto eq = tramp::TitleChromeLayout::forWindow(
+      tramp::WindowId::equalizer, tramp::kEqualizer);
+  QVERIFY(eq.zoomReadout.isEmpty());
+}
+
+void ChromeSpecTest::chromePaintBufferMatchesWidgetTimesDpr() {
+  // 75% of 825×348 is 619×261. A 2× display must rasterize at 1238×522, not
+  // upscale a 1× chassis. 1.25× DPR rounds 619×1.25 = 773.75 → 774.
+  QCOMPARE(tramp::chromePaintBufferSize(QSize(619, 261), 2.0), QSize(1238, 522));
+  QCOMPARE(tramp::chromePaintBufferSize(QSize(619, 261), 1.0), QSize(619, 261));
+  QCOMPARE(tramp::chromePaintBufferSize(QSize(619, 261), 1.25), QSize(774, 326));
 }
 
 QTEST_APPLESS_MAIN(ChromeSpecTest)
