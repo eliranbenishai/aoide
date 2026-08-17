@@ -15,6 +15,6 @@ void paintMockupWindow(QPainter& painter,
                        WindowId id,
                        const TitleChromeLayout& title,
                        const QImage* logo,
-                       const BodyChrome& chrome = {});
+                       const SessionView& view = {});
 
 }  // namespace tramp

@@ -1,0 +1,115 @@
+#pragma once
+
+#include "chrome_hits.h"
+#include "collection.h"
+#include "docking.h"
+#include "persist.h"
+#include "playback.h"
+#include "player_engine.h"
+#include "playlist.h"
+#include "session_view.h"
+#include "settings.h"
+
+#include <QObject>
+#include <QPoint>
+#include <QSet>
+#include <QTimer>
+#include <memory>
+
+class HostWindow;
+
+namespace tramp {
+
+class TrampSession : public QObject {
+  Q_OBJECT
+
+ public:
+  explicit TrampSession(QObject* parent = nullptr);
+  ~TrampSession() override;
+
+  void setWindows(HostWindow* main, HostWindow* eq, HostWindow* pl, HostWindow* settings,
+                  HostWindow* about);
+  void bootstrap(const QStringList& argvFiles);
+  SessionView view() const;
+  int zoomPercent() const { return settings_.zoomPercent; }
+  bool confirmQuit() const;
+  bool windowShouldShow(WindowId id) const;
+  void persistNow();
+  void detachWindows();
+  void applyDroppedPaths(const QStringList& paths, bool replace);
+  void extraClosed(WindowId id);
+  void mainMinimized(bool minimized);
+  void mainActivated();
+  void playTrackAt(int index);
+  void selectAllTracks();
+  void removeSelectedTracks();
+
+ public slots:
+  void handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical);
+  void handleDrag(WindowId id, ChromeHit hit, QPoint logical);
+  void handleRelease(WindowId id);
+  void handleWheel(WindowId id, int delta);
+  void setZoomPercent(int percent);
+  void setWindowVisible(WindowId id, bool visible);
+  void setShaded(WindowId id, bool shaded);
+  void windowMoved(WindowId id, QPoint nativeTopLeft, bool finalize);
+  void playlistResized(QSize native);
+  void refreshChrome();
+
+ signals:
+  void chromeChanged();
+  void zoomChanged(int percent);
+  void requestShow(WindowId id);
+  void requestHide(WindowId id);
+  void requestRaise(WindowId id);
+
+ private:
+  void bindPlayback();
+  void applyEq();
+  void applyAlwaysOnTop();
+  void applyFramesToWindows();
+  void schedulePersist();
+  void scheduleAltered();
+  void scheduleUsage();
+  void refreshAboutFigures();
+  HostWindow* windowFor(WindowId id) const;
+  QString pickAudio(bool multiple);
+  QString pickPlaylist(bool save);
+  void openPaths(const QStringList& paths, bool enqueue);
+  void loadCollectionRow(int index);
+  void applyDockToWindows();
+  QPointF nativeToLogical(QPoint native) const;
+  QPoint logicalToNative(QPointF logical) const;
+  void showOptionsMenu();
+  void showTrackInfo();
+  bool confirmReplaceAltered();
+  void quitFromMenu();
+
+  SupportStore store_;
+  TrampSettings settings_;
+  PlaylistController playlist_;
+  PlaylistCollection collection_;
+  std::unique_ptr<PlayerEngine> engine_;
+  std::unique_ptr<PlaybackController> playback_;
+  DockingCoordinator docking_;
+  HostWindow* main_ = nullptr;
+  HostWindow* eq_ = nullptr;
+  HostWindow* pl_ = nullptr;
+  HostWindow* settingsWin_ = nullptr;
+  HostWindow* about_ = nullptr;
+  bool showElapsed_ = true;
+  int settingsTab_ = 0;
+  int trackScroll_ = 0;
+  ChromeHit::Kind sliderKind_ = ChromeHit::Kind::none;
+  int sliderIndex_ = -1;
+  QPoint dragOrigin_;
+  QSet<WindowId> hiddenByMinimize_;
+  QTimer persistTimer_;
+  QTimer alteredTimer_;
+  QTimer usageTimer_;
+  QTimer aboutTimer_;
+  CollectionFigures figures_;
+  bool figuresLoaded_ = false;
+};
+
+}  // namespace tramp

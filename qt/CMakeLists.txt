@@ -1,14 +1,17 @@
 cmake_minimum_required(VERSION 3.16)
-project(tramp-qt-tracer LANGUAGES CXX)
+project(tramp LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets Test)
+find_package(PkgConfig QUIET)
+find_package(X11)
 
 qt_standard_project_setup()
 
 file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../assets" TRAMP_ASSET_DIR)
+file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/libmpv" TRAMP_MPV_ROOT)
 
 add_library(tramp_window_spec STATIC
   src/window_spec.cpp
@@ -17,28 +20,96 @@ add_library(tramp_window_spec STATIC
 target_include_directories(tramp_window_spec PUBLIC src)
 target_link_libraries(tramp_window_spec PUBLIC Qt6::Widgets)
 
-set(TRAMP_SKIP_TASKBAR_SRC src/skip_taskbar.cpp)
-qt_add_executable(tramp-qt-tracer WIN32
+set(TRAMP_HAVE_MPV OFF)
+set(TRAMP_MPV_LIBS "")
+set(BUNDLED_MPV_SO "${TRAMP_MPV_ROOT}/linux/x86_64/libmpv.so")
+
+if(PkgConfig_FOUND)
+  pkg_check_modules(MPV IMPORTED_TARGET mpv)
+endif()
+
+if(TARGET PkgConfig::MPV)
+  set(TRAMP_HAVE_MPV ON)
+  set(TRAMP_MPV_LIBS PkgConfig::MPV)
+elseif(UNIX AND NOT APPLE AND EXISTS "${BUNDLED_MPV_SO}")
+  set(TRAMP_HAVE_MPV ON)
+  set(STUB_DIR "${CMAKE_CURRENT_BINARY_DIR}/mpv-stubs")
+  file(MAKE_DIRECTORY "${STUB_DIR}")
+  foreach(spec IN ITEMS
+      libmujs.so.0.1
+      liblua-5.1.so
+      libuchardet.so.0
+      libvapoursynth-script.so.0
+      libXpresent.so.1)
+    add_library(stub_${spec} SHARED "src/mpv_stubs/${spec}.c")
+    set_target_properties(stub_${spec} PROPERTIES
+      PREFIX ""
+      SUFFIX ""
+      OUTPUT_NAME "${spec}"
+      LIBRARY_OUTPUT_DIRECTORY "${STUB_DIR}"
+    )
+    target_link_options(stub_${spec} PRIVATE "-Wl,-soname,${spec}")
+  endforeach()
+  list(APPEND TRAMP_MPV_LIBS
+    "${BUNDLED_MPV_SO}"
+    stub_libmujs.so.0.1
+    stub_liblua-5.1.so
+    stub_libuchardet.so.0
+    stub_libvapoursynth-script.so.0
+    stub_libXpresent.so.1
+  )
+endif()
+
+set(TRAMP_SOURCES
   src/main.cpp
   src/host_window.cpp
   src/host_window.h
+  src/session.cpp
+  src/session.h
   src/chrome_paint.cpp
   src/chrome_bodies.cpp
+  src/chrome_hits.cpp
+  src/session_view.cpp
   src/mockup_draw.cpp
   src/tramp_fonts.cpp
-  ${TRAMP_SKIP_TASKBAR_SRC}
+  src/skip_taskbar.cpp
+  src/m3u.cpp
+  src/equalizer.cpp
+  src/support_dir.cpp
+  src/playlist.cpp
+  src/transport.cpp
+  src/settings.cpp
+  src/persist.cpp
+  src/collection.cpp
+  src/files.cpp
+  src/playback.cpp
+  src/docking.cpp
 )
-target_compile_definitions(tramp-qt-tracer PRIVATE
+if(TRAMP_HAVE_MPV)
+  list(APPEND TRAMP_SOURCES src/mpv_engine.cpp src/mpv_engine.h)
+endif()
+
+qt_add_executable(tramp WIN32 ${TRAMP_SOURCES})
+target_include_directories(tramp PRIVATE src "${TRAMP_MPV_ROOT}/include")
+target_compile_definitions(tramp PRIVATE
   TRAMP_ASSET_DIR="${TRAMP_ASSET_DIR}"
 )
-target_link_libraries(tramp-qt-tracer PRIVATE tramp_window_spec Qt6::Widgets)
-
-if(UNIX AND NOT APPLE)
-  find_package(X11)
-  if(X11_FOUND)
-    target_compile_definitions(tramp-qt-tracer PRIVATE TRAMP_HAVE_X11)
-    target_link_libraries(tramp-qt-tracer PRIVATE X11::X11)
+if(TRAMP_HAVE_MPV)
+  target_compile_definitions(tramp PRIVATE TRAMP_HAVE_MPV)
+  target_link_libraries(tramp PRIVATE ${TRAMP_MPV_LIBS})
+  if(UNIX AND NOT APPLE AND EXISTS "${BUNDLED_MPV_SO}" AND NOT TARGET PkgConfig::MPV)
+    target_link_options(tramp PRIVATE
+      "-Wl,--allow-shlib-undefined"
+      "-Wl,-rpath,${TRAMP_MPV_ROOT}/linux/x86_64"
+      "-Wl,-rpath,${CMAKE_CURRENT_BINARY_DIR}/mpv-stubs"
+    )
   endif()
+endif()
+target_link_libraries(tramp PRIVATE tramp_window_spec Qt6::Widgets)
+
+if(UNIX AND NOT APPLE AND X11_FOUND)
+  target_compile_definitions(tramp PRIVATE TRAMP_HAVE_X11)
+  target_link_libraries(tramp PRIVATE X11::X11)
 endif()
 
 qt_add_executable(window_spec_test tests/window_spec_test.cpp)
@@ -49,6 +120,18 @@ qt_add_executable(chrome_spec_test tests/chrome_spec_test.cpp)
 target_link_libraries(chrome_spec_test PRIVATE tramp_window_spec Qt6::Test)
 set_target_properties(chrome_spec_test PROPERTIES AUTOMOC ON)
 
+qt_add_executable(domain_test
+  tests/domain_test.cpp
+  src/m3u.cpp
+  src/equalizer.cpp
+  src/support_dir.cpp
+  src/playlist.cpp
+  src/transport.cpp
+)
+target_include_directories(domain_test PRIVATE src)
+target_link_libraries(domain_test PRIVATE Qt6::Core)
+
 enable_testing()
 add_test(NAME window_spec COMMAND window_spec_test)
 add_test(NAME chrome_spec COMMAND chrome_spec_test)
+add_test(NAME domain COMMAND domain_test)

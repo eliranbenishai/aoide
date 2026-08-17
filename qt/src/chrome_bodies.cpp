@@ -8,6 +8,7 @@
 #include <QImage>
 #include <QPainterPath>
 #include <QVector>
+#include <array>
 #include <cmath>
 
 namespace tramp {
@@ -45,7 +46,50 @@ void drawLogoMark(QPainter& p, const QRectF& box, const QImage* logo, qreal opac
   p.restore();
 }
 
-void paintMain(QPainter& p, const QRectF& body, const BodyChrome& chrome) {
+void paintMain(QPainter& p, const QRectF& body, const SessionView& view) {
+  QString time = formatClock(view.showElapsed
+                                 ? view.positionMs
+                                 : qMax<qint64>(0, view.durationMs - view.positionMs));
+  QString timeLabel = view.showElapsed ? QStringLiteral("ELAPSED") : QStringLiteral("REMAIN");
+  QString title = view.title;
+  QString subtitle = view.subtitle.toUpper();
+  QString bitrate = view.bitrate;
+  QString rate = view.sampleRate;
+  QString channels = view.channels;
+  QString fmtLabel = view.formatChip;
+  qreal volume = view.muted ? 0 : view.volume;
+  qreal seek = view.durationMs > 0 ? qreal(view.positionMs) / qreal(view.durationMs) : 0;
+  QString pos = formatClock(view.positionMs);
+  QString dur = formatClock(view.durationMs);
+  bool pauseOn = view.playing;
+  bool playOn = view.paused;
+  bool shuffleOn = view.shuffle;
+  bool repeatOn = view.repeat != RepeatMode::off;
+  std::array<qreal, 20> bars = view.spectrum;
+  std::array<qreal, 20> peaks = view.spectrumPeaks;
+  if (view.goldenDemo) {
+    time = QStringLiteral("2:41");
+    timeLabel = QStringLiteral("ELAPSED");
+    title = QStringLiteral("3. Velvet Static — Neon Boulevard (Extended Mix)");
+    subtitle = QStringLiteral("COPPER RAIN EP · TRACK 3 OF 12");
+    bitrate = QStringLiteral("192 kbps");
+    rate = QStringLiteral("44.1 kHz");
+    channels = QStringLiteral("STEREO");
+    fmtLabel = QStringLiteral("MP3");
+    volume = 0.66;
+    seek = 161.0 / 347.0;
+    pos = QStringLiteral("2:41");
+    dur = QStringLiteral("5:47");
+    pauseOn = true;
+    playOn = false;
+    shuffleOn = true;
+    repeatOn = true;
+    bars = {0.26, 0.52, 0.71, 0.88, 0.64, 0.47, 0.58, 0.39, 0.31, 0.44,
+            0.35, 0.24, 0.29, 0.19, 0.22, 0.14, 0.17, 0.10, 0.12, 0.07};
+    peaks = {0.44, 0.70, 0.88, 0.96, 0.80, 0.66, 0.74, 0.57, 0.52, 0.61,
+             0.55, 0.42, 0.47, 0.36, 0.40, 0.30, 0.33, 0.24, 0.27, 0.19};
+  }
+
   const QRectF well(body.left() + 96, body.top() + 14, 705, 132);
   drawScreenWell(p, well);
 
@@ -55,13 +99,13 @@ void paintMain(QPainter& p, const QRectF& body, const BodyChrome& chrome) {
   const QRectF inner = well.adjusted(16, 12, -16, -12);
   const QFont timeFont = monoFont(46, 0.02);
   const QFontMetricsF tm(timeFont);
-  const QString time = QStringLiteral("2:41");
-  const qreal timeW = tm.horizontalAdvance(time);
+  const QString timeText = time;
+  const qreal timeW = tm.horizontalAdvance(timeText);
   // Flutter `fontSize: 46, height: 0.9` — top-aligned in the well padding.
   // Qt's em-box sits ~8px lower than Skia's for this 46px mono cut; pin the
   // visible cap height to the Flutter well (golden cyan starts at y=73).
   const QRectF timeBox(inner.left(), inner.top() - 9, timeW + 8, 50);
-  drawStyledText(p, timeBox, time, timeFont, kPhos, Qt::AlignLeft | Qt::AlignTop,
+  drawStyledText(p, timeBox, timeText, timeFont, kPhos, Qt::AlignLeft | Qt::AlignTop,
                  {
                      {QColor(0x3d, 0xe7, 0xff, 0xd9), QPointF(), 1},
                      {QColor(0x3d, 0xe7, 0xff, 0x73), QPointF(), 8},
@@ -70,20 +114,14 @@ void paintMain(QPainter& p, const QRectF& body, const BodyChrome& chrome) {
   const QFontMetricsF em(elFont);
   const qreal baseline = inner.top() - 9 + tm.ascent();
   const QRectF elBox(inner.left() + timeW + 10, baseline - em.ascent(), 90, em.height());
-  drawStyledText(p, elBox, QStringLiteral("ELAPSED"), elFont, QColor(61, 231, 255, 128),
+  drawStyledText(p, elBox, timeLabel, elFont, QColor(61, 231, 255, 128),
                  Qt::AlignLeft | Qt::AlignTop,
                  {{QColor(0x3d, 0xe7, 0xff, 0x40), QPointF(), 8}});
 
-  const qreal bars[] = {0.26, 0.52, 0.71, 0.88, 0.64, 0.47, 0.58, 0.39, 0.31,
-                        0.44, 0.35, 0.24, 0.29, 0.19, 0.22, 0.14, 0.17, 0.10,
-                        0.12, 0.07};
-  const qreal peaks[] = {0.44, 0.70, 0.88, 0.96, 0.80, 0.66, 0.74, 0.57, 0.52,
-                         0.61, 0.55, 0.42, 0.47, 0.36, 0.40, 0.30, 0.33, 0.24,
-                         0.27, 0.19};
   const QRectF viz(inner.left(), inner.bottom() - 42, 248, 42);
   for (int i = 0; i < 20; ++i) {
     const qreal x = viz.left() + i * 12;
-    const qreal h = viz.height() * bars[i];
+    const qreal h = viz.height() * bars[size_t(i)];
     QRectF bar(x, viz.bottom() - h, 9, h);
     QLinearGradient g(bar.topLeft(), bar.bottomLeft());
     g.setColorAt(0, kSpectrum0);
@@ -96,13 +134,12 @@ void paintMain(QPainter& p, const QRectF& body, const BodyChrome& chrome) {
       bp.setBrush(QColor(61, 231, 255, 77));
       bp.fillRect(bar, QColor(61, 231, 255, 77));
     });
-    const qreal py = viz.bottom() - viz.height() * peaks[i];
+    const qreal py = viz.bottom() - viz.height() * peaks[size_t(i)];
     p.fillRect(QRectF(x, py, 9, 2), QColor(0xea, 0xff, 0xff));
   }
 
   const QRectF meta(inner.left() + 268 + 20, inner.top(), inner.width() - 288,
                     inner.height());
-  const QString title = QStringLiteral("3. Velvet Static — Neon Boulevard (Extended Mix)");
   const QFont titleFont = condensedFont(24, 0.03);
   {
     QImage titleBuf(int(std::ceil(meta.width())), 32, QImage::Format_ARGB32_Premultiplied);
@@ -125,20 +162,20 @@ void paintMain(QPainter& p, const QRectF& body, const BodyChrome& chrome) {
   }
 
   drawStyledText(p, QRectF(meta.left(), meta.top() + 32, meta.width(), 18),
-                 QStringLiteral("COPPER RAIN EP · TRACK 3 OF 12"), condensedFont(14, 0.14),
+                 subtitle, condensedFont(14, 0.14),
                  QColor(61, 231, 255, 128), Qt::AlignLeft | Qt::AlignVCenter,
                  {{QColor(0x3d, 0xe7, 0xff, 0x40), QPointF(), 8}});
 
   const qreal metaY = inner.bottom() - 18;
   const QFont metaFont = monoFont(13, 0.04);
-  drawStyledText(p, QRectF(meta.left(), metaY, 80, 18), QStringLiteral("192 kbps"), metaFont,
+  drawStyledText(p, QRectF(meta.left(), metaY, 80, 18), bitrate, metaFont,
                  QColor(61, 231, 255, 128), Qt::AlignVCenter | Qt::AlignLeft,
                  {{QColor(0x3d, 0xe7, 0xff, 0x40), QPointF(), 8}});
-  drawStyledText(p, QRectF(meta.left() + 80 + 22, metaY, 80, 18), QStringLiteral("44.1 kHz"),
+  drawStyledText(p, QRectF(meta.left() + 80 + 22, metaY, 80, 18), rate,
                  metaFont, QColor(61, 231, 255, 128), Qt::AlignVCenter | Qt::AlignLeft,
                  {{QColor(0x3d, 0xe7, 0xff, 0x40), QPointF(), 8}});
   drawStyledText(p, QRectF(meta.left() + 80 + 22 + 80 + 22, metaY, 70, 18),
-                 QStringLiteral("STEREO"), condensedFont(12, 0.2), kPhos,
+                 channels, condensedFont(12, 0.2), kPhos,
                  Qt::AlignVCenter | Qt::AlignLeft,
                  {
                      {QColor(0x3d, 0xe7, 0xff, 0xd9), QPointF(), 1},
@@ -146,7 +183,6 @@ void paintMain(QPainter& p, const QRectF& body, const BodyChrome& chrome) {
                  });
 
   const QFont fmtFont = condensedFont(12, 0.18);
-  const QString fmtLabel = QStringLiteral("MP3");
   const qreal fmtW = 9 + textWidth(fmtFont, fmtLabel) + 9;
   const qreal fmtH = 18;
   const QRectF fmt(inner.right() - fmtW, inner.bottom() - fmtH, fmtW, fmtH);
@@ -177,7 +213,7 @@ void paintMain(QPainter& p, const QRectF& body, const BodyChrome& chrome) {
   drawScreenOverlay(p, well);
 
   const QRectF volRow(body.left() + 22, body.top() + 156, body.width() - 44, 40);
-  drawGlyphBtn(p, QRectF(volRow.left(), volRow.top(), 40, 40), MockupIcon::mute, false, 21);
+  drawGlyphBtn(p, QRectF(volRow.left(), volRow.top(), 40, 40), MockupIcon::mute, view.muted, 21);
   p.setFont(condensedFont(11, 0.2));
   p.setPen(kInkFaint);
   const qreal volLabelLeft = volRow.left() + 40 + 14;
@@ -189,16 +225,14 @@ void paintMain(QPainter& p, const QRectF& body, const BodyChrome& chrome) {
   const qreal sliderLeft = volLabelLeft + 34 + 10;
   const qreal sliderRight = monoLeft - 14;
   drawSlider(p, QRectF(sliderLeft, volRow.center().y() - 7, sliderRight - sliderLeft, 14),
-             0.66);
-  drawBtn(p, QRectF(monoLeft, volRow.top() + 1, 86, 38), false, QStringLiteral("MONO"));
-  drawBtn(p, QRectF(eqLeft, volRow.top() + 1, 74, 38), chrome.eqOn, QStringLiteral("EQ"));
-  drawBtn(p, QRectF(plLeft, volRow.top() + 1, 74, 38), chrome.plOn, QStringLiteral("PL"));
+             volume);
+  drawBtn(p, QRectF(monoLeft, volRow.top() + 1, 86, 38), view.forceMono, QStringLiteral("MONO"));
+  drawBtn(p, QRectF(eqLeft, volRow.top() + 1, 74, 38), view.eqOn, QStringLiteral("EQ"));
+  drawBtn(p, QRectF(plLeft, volRow.top() + 1, 74, 38), view.plOn, QStringLiteral("PL"));
 
   const QRectF seekRow(body.left() + 22, body.top() + 206, body.width() - 44, 32);
   const QFont stamp = monoFont(14);
   const QFontMetricsF sm(stamp);
-  const QString pos = QStringLiteral("2:41");
-  const QString dur = QStringLiteral("5:47");
   const qreal posW = sm.horizontalAdvance(pos);
   const qreal durW = sm.horizontalAdvance(dur);
   p.setFont(stamp);
@@ -207,7 +241,7 @@ void paintMain(QPainter& p, const QRectF& body, const BodyChrome& chrome) {
   p.drawText(QRectF(seekRow.right() - durW, seekRow.top(), durW, 32), Qt::AlignVCenter, dur);
   drawSlider(p, QRectF(seekRow.left() + posW + 14, seekRow.center().y() - 8,
                        seekRow.width() - posW - durW - 28, 16),
-             161.0 / 347.0, true);
+             seek, true);
 
   const QRectF playRow(body.left() + 22, body.top() + 246, body.width() - 44, 50);
   qreal x = playRow.left();
@@ -216,8 +250,8 @@ void paintMain(QPainter& p, const QRectF& body, const BodyChrome& chrome) {
     x += w + 6;
   };
   place(66, MockupIcon::previous, false);
-  place(78, MockupIcon::play, false);
-  place(66, MockupIcon::pause, true);
+  place(78, MockupIcon::play, playOn);
+  place(66, MockupIcon::pause, pauseOn);
   place(66, MockupIcon::stop, false);
   place(66, MockupIcon::next, false);
   x += 10;  // 16 total from next (6 already added) → +10 more to make 16
@@ -231,19 +265,34 @@ void paintMain(QPainter& p, const QRectF& body, const BodyChrome& chrome) {
   if (railW > 8) {
     drawRail(p, QRectF(x, playRow.center().y() - 11, railW, 22));
   }
-  drawToggleBtn(p, shuffle, QStringLiteral("SHUFFLE"), true);
-  drawToggleBtn(p, repeat, QStringLiteral("REPEAT"), true);
+  drawToggleBtn(p, shuffle, QStringLiteral("SHUFFLE"), shuffleOn);
+  drawToggleBtn(p, repeat, QStringLiteral("REPEAT"), repeatOn);
 }
 
-void paintEq(QPainter& p, const QRectF& body, const QImage* logo) {
+void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionView& view) {
+  bool on = view.eq.enabled;
+  bool autoOn = view.eq.auto_;
+  QString curveName = view.eq.presetName.isEmpty() ? QStringLiteral("CUSTOM") : view.eq.presetName.toUpper();
+  qreal preamp = view.eq.preamp;
+  qreal gains[10];
+  for (int i = 0; i < 10; ++i) gains[i] = view.eq.gains[size_t(i)];
+  if (view.goldenDemo) {
+    on = true;
+    autoOn = false;
+    curveName = QStringLiteral("LATE NIGHT");
+    preamp = 3.8;
+    const qreal demo[] = {6.2, 4.6, 1.0, -1.9, -0.5, 2.2, 3.4, 1.4, 0.0, 5.0};
+    for (int i = 0; i < 10; ++i) gains[i] = demo[i];
+  }
+
   const qreal onW = labelBtnWidth(QStringLiteral("ON"));
   const qreal autoW = labelBtnWidth(QStringLiteral("AUTO"));
   const qreal presetsW = labelBtnWidth(QStringLiteral("PRESETS"), 16, 22);
   qreal hx = body.left() + 22;
   const qreal hy = body.top() + 16;
-  drawBtn(p, QRectF(hx, hy, onW, 38), true, QStringLiteral("ON"));
+  drawBtn(p, QRectF(hx, hy, onW, 38), on, QStringLiteral("ON"));
   hx += onW + 8;
-  drawBtn(p, QRectF(hx, hy, autoW, 38), false, QStringLiteral("AUTO"));
+  drawBtn(p, QRectF(hx, hy, autoW, 38), autoOn, QStringLiteral("AUTO"));
   hx += autoW + 8;
   const QRectF presets(hx, hy, presetsW, 38);
   drawBtn(p, presets, false, QStringLiteral("PRESETS"));
@@ -252,12 +301,10 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo) {
   p.setFont(condensedFont(11, 0.2));
   p.setPen(kInkFaint);
   p.drawText(QRectF(hx, hy, 180, 38), Qt::AlignVCenter,
-             QStringLiteral("CURVE · LATE NIGHT"));
+             QStringLiteral("CURVE · %1").arg(curveName));
 
   const QRectF curveWell(body.right() - 22 - 372, body.top() + 16, 372, 62);
   drawScreenWell(p, curveWell);
-  const qreal preamp = 3.8;
-  const qreal gains[] = {6.2, 4.6, 1.0, -1.9, -0.5, 2.2, 3.4, 1.4, 0.0, 5.0};
   QVector<QPointF> pts;
   pts.reserve(11);
   auto yFor = [&](qreal g) {
@@ -336,15 +383,51 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo) {
   drawLogoMark(p, QRectF(body.right() - 36 - 120, body.top() + 120, 120, 120), logo, 0.14);
 }
 
-void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo) {
-  const qreal collectionW = 240;
+void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const SessionView& view) {
+  QVector<CollectionRowView> lists = view.collection;
+  QVector<TrackRowView> rows = view.tracks;
+  QString totalText = formatClock(view.playlistTotalMs);
+  QString statusName = view.playlistName.toUpper();
+  if (statusName.isEmpty()) statusName = QStringLiteral("UNTITLED");
+  if (view.playlistAltered) statusName += QStringLiteral(" *");
+  int playingN = view.playingIndex ? *view.playingIndex + 1 : 0;
+  qreal collectionW = view.collectionCollapsed ? 0 : view.collectionWidth;
+  if (view.goldenDemo) {
+    collectionW = 240;
+    lists = {
+        {QStringLiteral("ANALOGUE GHOSTS"), 24, false, false},
+        {QStringLiteral("COPPER RAIN EP"), 13, true, false},
+        {QStringLiteral("NIGHTBUS CHOIR — LIVE"), 8, false, false},
+    };
+    rows = {
+        {QStringLiteral("Cassette Mirage"), QStringLiteral("Low Orbit Lullaby"), QStringLiteral("4:12"), false, false},
+        {QStringLiteral("The Brass Cassini"), QStringLiteral("Slow Dial"), QStringLiteral("3:38"), false, false},
+        {QStringLiteral("Velvet Static"), QStringLiteral("Neon Boulevard (Extended Mix)"), QStringLiteral("5:47"), true, true},
+        {QStringLiteral("Halogen Youth"), QStringLiteral("Parking Garage Sunset"), QStringLiteral("4:03"), false, false},
+        {QStringLiteral("Moth & Marrow"), QStringLiteral("Analogue Ghosts"), QStringLiteral("6:21"), false, false},
+        {QStringLiteral("Ruby Transit"), QStringLiteral("Bakelite Heart"), QStringLiteral("3:55"), false, false},
+        {QStringLiteral("Slow Signal"), QStringLiteral("Copper Rain"), QStringLiteral("4:44"), false, false},
+        {QStringLiteral("Aurora Kiosk"), QStringLiteral("Departure Lounge B"), QStringLiteral("5:09"), false, false},
+        {QStringLiteral("Pale Antenna"), QStringLiteral("Tramp Theme (Demo)"), QStringLiteral("2:58"), false, false},
+        {QStringLiteral("Nightbus Choir"), QStringLiteral("Fluorescent Hymn"), QStringLiteral("6:02"), false, false},
+        {QStringLiteral("Second Cassette"), QStringLiteral("Static Blonde"), QStringLiteral("3:27"), false, false},
+        {QStringLiteral("Velvet Static"), QStringLiteral("Neon Boulevard (Reprise)"), QStringLiteral("2:02"), false, false},
+        {QStringLiteral("Long Wave Motel"), QStringLiteral("Untitled Sketch"), QStringLiteral("3:16"), false, false},
+    };
+    totalText = QStringLiteral("55:34");
+    statusName = QStringLiteral("COPPER RAIN — NIGHT SET.M3U8");
+    playingN = 3;
+  }
+
   const QRectF collection(body.left(), body.top(), collectionW, body.height());
-  const QRectF divider(collection.right(), collection.top(), 8, collection.height());
-  const QRectF tracks(divider.right(), body.top(), body.width() - collectionW - 8,
-                      body.height());
-  p.fillRect(divider, kShellDeep);
-  drawFooterSep(p, QRectF(divider.center().x() - 1, divider.top() + 24, 1,
-                          divider.height() - 48));
+  const QRectF divider(collection.right(), collection.top(), collectionW > 0 ? 8 : 0,
+                       collection.height());
+  const QRectF tracksPane(divider.right(), body.top(), body.width() - collectionW - divider.width(),
+                          body.height());
+  if (collectionW > 0) {
+    p.fillRect(divider, kShellDeep);
+    drawFooterSep(p, QRectF(divider.center().x() - 1, divider.top() + 24, 1,
+                            divider.height() - 48));
 
   const QRectF colInner = collection.adjusted(12, 12, -6, -12);
   p.setFont(condensedFont(11, 0.2));
@@ -359,21 +442,11 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo) {
   const QRectF colWell(colInner.left(), colInner.top() + 30, colInner.width(),
                        colInner.height() - 30 - 8 - 24);
   drawScreenWell(p, colWell);
-  struct ListRow {
-    const char* name;
-    const char* count;
-    bool selected;
-  };
-  const ListRow lists[] = {
-      {"ANALOGUE GHOSTS", "24", false},
-      {"COPPER RAIN EP", "13", true},
-      {"NIGHTBUS CHOIR — LIVE", "8", false},
-  };
   p.save();
   QPainterPath colClip;
   colClip.addRoundedRect(colWell, 3, 3);
   p.setClipPath(colClip);
-  for (int i = 0; i < 3; ++i) {
+  for (int i = 0; i < lists.size(); ++i) {
     QRectF row(colWell.left(), colWell.top() + 4 + i * 26, colWell.width(), 26);
     if (lists[i].selected) {
       QLinearGradient g(row.topLeft(), row.bottomLeft());
@@ -382,13 +455,12 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo) {
       p.fillRect(row, g);
     }
     p.setFont(condensedFont(11, 0.1));
-    p.setPen(lists[i].selected ? kPhosHot : kInkDim);
-    p.drawText(row.adjusted(10, 0, -36, 0), Qt::AlignVCenter,
-               QString::fromUtf8(lists[i].name));
+    p.setPen(lists[i].disabled ? kInkFaint : (lists[i].selected ? kPhosHot : kInkDim));
+    p.drawText(row.adjusted(10, 0, -36, 0), Qt::AlignVCenter, lists[i].name.toUpper());
     p.setFont(monoFont(12));
     p.setPen(lists[i].selected ? kPhos : kPhosDim);
     p.drawText(row.adjusted(10, 0, -10, 0), Qt::AlignVCenter | Qt::AlignRight,
-               QString::fromLatin1(lists[i].count));
+               QString::number(lists[i].count));
   }
   p.restore();
   drawScreenOverlay(p, colWell);
@@ -420,8 +492,14 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo) {
     drawIcon(p, QRectF(r.center().x() - 6.5, r.center().y() - 6.5, 13, 13), MockupIcon::remove,
              QColor(214, 226, 245, 217));
   }, false);
+  } else if (!view.goldenDemo) {
+    const QRectF tab(tracksPane.left() + 4, tracksPane.top() + 12, 14, 56);
+    drawBtn(p, tab, false, {});
+    drawChevron(p, QRectF(tab.center().x() - 2.8, tab.center().y() - 4, 5.6, 8), false,
+                QColor(214, 226, 245, 217));
+  }
 
-  const QRectF trackInner = tracks.adjusted(12, 12, -12, -12);
+  const QRectF trackInner = tracksPane.adjusted(12, 12, -12, -12);
   constexpr qreal footerH = 110;
   constexpr qreal footerGap = 10;
   const QRectF listRow(trackInner.left(), trackInner.top(), trackInner.width(),
@@ -429,34 +507,17 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo) {
   const QRectF listWell(listRow.left(), listRow.top(), listRow.width() - 10 - 14,
                         listRow.height());
   drawListWell(p, listWell);
-  struct TrackRow {
-    const char* artist;
-    const char* title;
-    const char* time;
-  };
-  const TrackRow rows[] = {
-      {"Cassette Mirage", "Low Orbit Lullaby", "4:12"},
-      {"The Brass Cassini", "Slow Dial", "3:38"},
-      {"Velvet Static", "Neon Boulevard (Extended Mix)", "5:47"},
-      {"Halogen Youth", "Parking Garage Sunset", "4:03"},
-      {"Moth & Marrow", "Analogue Ghosts", "6:21"},
-      {"Ruby Transit", "Bakelite Heart", "3:55"},
-      {"Slow Signal", "Copper Rain", "4:44"},
-      {"Aurora Kiosk", "Departure Lounge B", "5:09"},
-      {"Pale Antenna", "Tramp Theme (Demo)", "2:58"},
-      {"Nightbus Choir", "Fluorescent Hymn", "6:02"},
-      {"Second Cassette", "Static Blonde", "3:27"},
-      {"Velvet Static", "Neon Boulevard (Reprise)", "2:02"},
-      {"Long Wave Motel", "Untitled Sketch", "3:16"},
-  };
   p.save();
   QPainterPath clip;
   clip.addRoundedRect(listWell, 3, 3);
   p.setClipPath(clip);
-  for (int i = 0; i < 13; ++i) {
-    const QRectF row(listWell.left(), listWell.top() + 6 + i * 37, listWell.width(), 37);
-    const bool playing = i == 2;
-    const bool selected = i == 2;
+  const int scrollRows = view.goldenDemo ? 0 : view.trackScroll;
+  const int visible = int(listWell.height() / 37) + 1;
+  for (int vis = 0; vis < visible && scrollRows + vis < rows.size(); ++vis) {
+    const int i = scrollRows + vis;
+    const QRectF row(listWell.left(), listWell.top() + 6 + vis * 37, listWell.width(), 37);
+    const bool playing = rows[i].playing;
+    const bool selected = rows[i].selected;
     const QColor color = playing ? kPhosHot : QColor(0x9a, 0xe2, 0xf0, 115);
     if (selected) {
       QLinearGradient g(row.topLeft(), row.bottomLeft());
@@ -477,15 +538,16 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo) {
     }
     const QFont lcd = monoFont(15);
     const QFont lcdTrack = monoFont(15, 0.15 / 15.0);
+    const QString label = rows[i].artist.isEmpty()
+                              ? rows[i].title
+                              : QStringLiteral("%1 — %2").arg(rows[i].artist, rows[i].title);
     if (playing) {
       drawStyledText(p, QRectF(row.left() + 16, row.top(), 34, 37),
                      QStringLiteral("%1.").arg(i + 1), lcd, kPhos,
                      Qt::AlignVCenter | Qt::AlignRight,
                      {{QColor(0x3d, 0xe7, 0xff, 0x80), QPointF(), 10}});
       drawStyledText(p, QRectF(row.left() + 64, row.top(), row.width() - 16 - 52 - 64, 37),
-                     QStringLiteral("%1 — %2")
-                         .arg(QString::fromUtf8(rows[i].artist), QString::fromUtf8(rows[i].title)),
-                     lcdTrack, color, Qt::AlignVCenter | Qt::AlignLeft,
+                     label, lcdTrack, color, Qt::AlignVCenter | Qt::AlignLeft,
                      {{QColor(0x3d, 0xe7, 0xff, 0x80), QPointF(), 10}});
     } else {
       p.setFont(lcd);
@@ -495,14 +557,12 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo) {
       p.setFont(lcdTrack);
       p.setPen(color);
       p.drawText(QRectF(row.left() + 64, row.top(), row.width() - 16 - 52 - 64, 37),
-                 Qt::AlignVCenter,
-                 QStringLiteral("%1 — %2")
-                     .arg(QString::fromUtf8(rows[i].artist), QString::fromUtf8(rows[i].title)));
+                 Qt::AlignVCenter, label);
     }
     p.setFont(lcd);
     p.setPen(QColor(color.red(), color.green(), color.blue(), 204));
     p.drawText(QRectF(row.right() - 52, row.top(), 36, 37), Qt::AlignVCenter | Qt::AlignRight,
-               QString::fromUtf8(rows[i].time));
+               rows[i].time);
   }
   drawLogoMark(p, QRectF(listWell.right() - 26 - 178, listWell.bottom() - 8 - 178, 178, 178),
                logo, 0.05);
@@ -538,7 +598,7 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo) {
   const QFont totalLabel = condensedFont(11, 0.2);
   const QFont totalValue = monoFont(18);
   const qreal totalW = 18 + textWidth(totalLabel, QStringLiteral("TOTAL")) + 12 +
-                       textWidth(totalValue, QStringLiteral("55:34")) + 18;
+                       textWidth(totalValue, totalText) + 18;
   const qreal transport = 52 * 3 + 16;
   const qreal railLeft = fx;
   const qreal railRight = plateInner.right() - totalW - 8 - transport;
@@ -555,7 +615,7 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo) {
   p.setPen(kPhosDim);
   p.drawText(total.adjusted(18, 0, 0, 0), Qt::AlignVCenter | Qt::AlignLeft,
              QStringLiteral("TOTAL"));
-  drawGlowText(p, total.adjusted(0, 0, -18, 0), QStringLiteral("55:34"), totalValue, kPhos,
+  drawGlowText(p, total.adjusted(0, 0, -18, 0), totalText, totalValue, kPhos,
                QColor(61, 231, 255, 115), 4, Qt::AlignVCenter | Qt::AlignRight);
   drawScreenOverlay(p, total);
 
@@ -569,20 +629,27 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo) {
     p.drawText(QRectF(sx, status.top(), w, 26), Qt::AlignVCenter, text);
     sx += w;
   };
-  statusBit(QStringLiteral("COPPER RAIN — NIGHT SET.M3U8"));
+  statusBit(statusName);
   drawStatusDot(p, QPointF(sx + 18 + 2.5, status.center().y()));
   sx += 18 + 5 + 18;
-  statusBit(QStringLiteral("13 TRACKS"));
+  statusBit(QStringLiteral("%1 TRACKS").arg(rows.size()));
   drawStatusDot(p, QPointF(sx + 18 + 2.5, status.center().y()));
   sx += 18 + 5 + 18;
-  statusBit(QStringLiteral("PLAYING 3"));
+  statusBit(playingN > 0 ? QStringLiteral("PLAYING %1").arg(playingN) : QStringLiteral("STOPPED"));
   drawStatusDot(p, QPointF(sx + 18 + 2.5, status.center().y()));
   const QString drop = QStringLiteral("DROP FILES HERE TO ENQUEUE");
   const qreal dropW = textWidth(statusFont, drop);
   p.drawText(QRectF(status.right() - dropW, status.top(), dropW, 26), Qt::AlignVCenter, drop);
 }
 
-void paintSettings(QPainter& p, const QRectF& body) {
+void paintSettings(QPainter& p, const QRectF& body, const SessionView& view) {
+  const int tabIndex = view.goldenDemo ? 0 : view.settingsTab;
+  const bool resume = view.goldenDemo ? true : view.resumeLastSession;
+  const bool confirm = view.goldenDemo ? true : view.confirmBeforeQuit;
+  const bool scroll = view.goldenDemo ? true : view.scrollTitle;
+  const bool minimize = view.goldenDemo ? false : view.minimizeHidesSecondaries;
+  const int snap = view.goldenDemo ? 1 : view.dockSnap;
+
   p.fillRect(QRectF(body.left(), body.top(), 108, body.height()), kShellDeep);
   auto tab = [&](qreal y, const QString& label, bool on) {
     const QRectF r(body.left(), y, 108, 42);
@@ -594,19 +661,31 @@ void paintSettings(QPainter& p, const QRectF& body) {
     p.setPen(on ? kPhos : kInkDim);
     p.drawText(r.adjusted(12, 0, 0, 0), Qt::AlignVCenter, label);
   };
-  tab(body.top(), QStringLiteral("General"), true);
-  tab(body.top() + 42, QStringLiteral("Skins"), false);
+  tab(body.top(), QStringLiteral("General"), tabIndex == 0);
+  tab(body.top() + 42, QStringLiteral("Skins"), tabIndex == 1);
 
   const QRectF pane(body.left() + 108, body.top(), body.width() - 108, body.height() - 40);
+  if (tabIndex == 1) {
+    p.setFont(condensedFont(12, 0.08));
+    p.setPen(kInkDim);
+    p.drawText(pane.adjusted(16, 16, -16, -16), Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap,
+               QStringLiteral("Builtin chrome is active. Skin packs stay in the Dart "
+                              "reference tree; this host paints the mockup tokens."));
+    p.setFont(condensedFont(12, 0.1));
+    p.setPen(kAccent);
+    p.drawText(QRectF(body.left() + 12, body.bottom() - 36, 160, 24), Qt::AlignVCenter,
+               QStringLiteral("Reset Settings"));
+    return;
+  }
   struct Toggle {
     const char* label;
     bool on;
   };
   const Toggle rows[] = {
-      {"Resume last session", true},
-      {"Confirm before quit", true},
-      {"Scroll title", true},
-      {"Minimize hides secondaries", false},
+      {"Resume last session", resume},
+      {"Confirm before quit", confirm},
+      {"Scroll title", scroll},
+      {"Minimize hides secondaries", minimize},
   };
   for (int i = 0; i < 4; ++i) {
     const QRectF row(pane.left() + 16, pane.top() + 12 + i * 36, pane.width() - 32, 32);
@@ -627,7 +706,7 @@ void paintSettings(QPainter& p, const QRectF& body) {
   const char* segs[] = {"Off", "Normal", "Strong"};
   qreal sx = pane.left() + 16;
   for (int i = 0; i < 3; ++i) {
-    drawBtn(p, QRectF(sx, pane.top() + 194, 88, 28), i == 1, QString::fromLatin1(segs[i]));
+    drawBtn(p, QRectF(sx, pane.top() + 194, 88, 28), i == snap, QString::fromLatin1(segs[i]));
     sx += 96;
   }
   p.setFont(condensedFont(12, 0.1));
@@ -636,7 +715,7 @@ void paintSettings(QPainter& p, const QRectF& body) {
              QStringLiteral("Reset Settings"));
 }
 
-void paintAbout(QPainter& p, const QRectF& body, const QImage* logo) {
+void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const SessionView& view) {
   const QRectF inner = body.adjusted(16, 14, -16, -14);
   const QRectF badge(inner.left(), inner.top(), 58, 58);
   drawDiscLogo(p, badge, logo, false);
@@ -709,13 +788,23 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo) {
   }
   struct Stat {
     const char* label;
-    const char* value;
+    QString value;
   };
+  QString playlists = groupedInt(view.aboutPlaylists);
+  QString tracks = groupedInt(view.aboutTracks);
+  QString totalTime = formatTotalTime(view.aboutTimeMs);
+  QString spins = groupedInt(view.aboutSpins);
+  if (view.goldenDemo) {
+    playlists = QStringLiteral("12");
+    tracks = QStringLiteral("1,284");
+    totalTime = QStringLiteral("3 d 22 h");
+    spins = QStringLiteral("4,096");
+  }
   const Stat stats[] = {
-      {"PLAYLISTS", "12"},
-      {"TRACKS", "1,284"},
-      {"TOTAL TIME", "3 d 22 h"},
-      {"SPINS", "4,096"},
+      {"PLAYLISTS", playlists},
+      {"TRACKS", tracks},
+      {"TOTAL TIME", totalTime},
+      {"SPINS", spins},
   };
   const QFont labFont = condensedFont(10, 0);
   QFont labSpaced = labFont;
@@ -727,7 +816,7 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo) {
     p.setFont(labSpaced);
     p.setPen(kInkDim);
     p.drawText(row, Qt::AlignVCenter | Qt::AlignLeft, QString::fromLatin1(stats[i].label));
-    drawGlowText(p, row, QString::fromLatin1(stats[i].value), valFont,
+    drawGlowText(p, row, stats[i].value, valFont,
                  QColor(61, 231, 255, 230), QColor(61, 231, 255, 77), 6,
                  Qt::AlignVCenter | Qt::AlignRight);
     const QFontMetricsF lm(labSpaced);
@@ -735,7 +824,7 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo) {
     const qreal left =
         row.left() + lm.horizontalAdvance(QString::fromLatin1(stats[i].label)) + 9;
     const qreal right =
-        row.right() - vm.horizontalAdvance(QString::fromLatin1(stats[i].value)) - 9;
+        row.right() - vm.horizontalAdvance(stats[i].value) - 9;
     for (qreal x = right; x >= left; x -= 4) {
       p.fillRect(QRectF(x, row.center().y(), 1, 1), QColor(kInkDim.red(), kInkDim.green(),
                                                           kInkDim.blue(), 102));
@@ -792,40 +881,25 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo) {
 }  // namespace
 
 void paintWindowBody(QPainter& painter, WindowId id, QSize logical, const QImage* logo,
-                     const BodyChrome& chrome) {
+                     const SessionView& view) {
   const QRectF body = bodyRect(logical);
   switch (id) {
     case WindowId::main:
-      paintMain(painter, body, chrome);
+      paintMain(painter, body, view);
       break;
     case WindowId::equalizer:
-      paintEq(painter, body, logo);
+      paintEq(painter, body, logo, view);
       break;
     case WindowId::playlist:
-      paintPlaylist(painter, body, logo);
+      paintPlaylist(painter, body, logo, view);
       break;
     case WindowId::settings:
-      paintSettings(painter, body);
+      paintSettings(painter, body, view);
       break;
     case WindowId::about:
-      paintAbout(painter, body, logo);
+      paintAbout(painter, body, logo, view);
       break;
   }
-}
-
-QRect mainOptionsHit(QSize logical) {
-  Q_UNUSED(logical);
-  return QRect(22, kTitleBar + 18, 26, 26);
-}
-
-QRect mainEqHit(QSize logical) {
-  const QRectF volRow(22, kTitleBar + 156, logical.width() - 44, 40);
-  return QRect(int(volRow.right() - 74 - 8 - 74), int(volRow.top() + 1), 74, 38);
-}
-
-QRect mainPlHit(QSize logical) {
-  const QRectF volRow(22, kTitleBar + 156, logical.width() - 44, 40);
-  return QRect(int(volRow.right() - 74), int(volRow.top() + 1), 74, 38);
 }
 
 }  // namespace tramp

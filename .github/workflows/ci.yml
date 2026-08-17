@@ -38,8 +38,8 @@ jobs:
       - name: flutter test
         run: xvfb-run -a flutter test
 
-  qt-tracer:
-    name: Qt tracer (${{ matrix.os }})
+  qt-host:
+    name: Qt host (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -54,7 +54,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             cmake ninja-build g++ pkg-config \
-            qt6-base-dev qt6-wayland libgl1-mesa-dev libx11-dev
+            qt6-base-dev qt6-wayland libgl1-mesa-dev libx11-dev \
+            libmpv-dev
 
       - name: Qt (Windows)
         if: runner.os == 'Windows'

@@ -1,26 +1,16 @@
 #pragma once
 
+#include "chrome_hits.h"
+#include "session_view.h"
 #include "window_spec.h"
 
 #include <QImage>
 #include <QPainter>
-#include <QRect>
-#include <QRectF>
 #include <QSize>
 
 namespace tramp {
 
-struct BodyChrome {
-  bool eqOn = true;
-  bool plOn = true;
-};
-
 void paintWindowBody(QPainter& painter, WindowId id, QSize logical,
-                     const QImage* logo = nullptr,
-                     const BodyChrome& chrome = {});
-
-QRect mainOptionsHit(QSize logical);
-QRect mainEqHit(QSize logical);
-QRect mainPlHit(QSize logical);
+                     const QImage* logo = nullptr, const SessionView& view = {});
 
 }  // namespace tramp

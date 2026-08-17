@@ -251,7 +251,7 @@ void paintMockupWindow(QPainter& painter,
                        WindowId id,
                        const TitleChromeLayout& title,
                        const QImage* logo,
-                       const BodyChrome& chrome) {
+                       const SessionView& view) {
   const QRectF rect(0, 0, logical.width(), logical.height());
   QPainterPath shell;
   shell.addRoundedRect(rect, kShellRadius, kShellRadius);
@@ -262,7 +262,7 @@ void paintMockupWindow(QPainter& painter,
   drawTitleFace(painter, QRectF(title.titleBar));
   drawTitleContents(painter, title, logo);
   if (logical.height() > kTitleBar) {
-    paintWindowBody(painter, id, logical, logo, chrome);
+    paintWindowBody(painter, id, logical, logo, view);
   }
   drawRivet(painter, QPointF(9 + 3.5, logical.height() - 8 - 3.5));
   drawRivet(painter, QPointF(logical.width() - 9 - 3.5, logical.height() - 8 - 3.5));

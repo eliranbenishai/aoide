@@ -1,16 +1,23 @@
 #pragma once
 
-#include "chrome_bodies.h"
+#include "chrome_hits.h"
+#include "session_view.h"
 #include "title_chrome.h"
 #include "tramp_metrics.h"
 #include "window_spec.h"
 
 #include <QCloseEvent>
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QEvent>
 #include <QImage>
 #include <QMouseEvent>
 #include <QPaintEvent>
+#include <QResizeEvent>
 #include <QShowEvent>
+#include <QWheelEvent>
 #include <QWidget>
+#include <functional>
 
 class HostWindow : public QWidget {
   Q_OBJECT
@@ -21,23 +28,43 @@ class HostWindow : public QWidget {
   tramp::WindowId id() const { return spec_.id; }
   void setZoomPercent(int percent);
   void setShaded(bool shaded);
-  void setBodyChrome(const tramp::BodyChrome& chrome);
+  void setSessionView(const tramp::SessionView& view);
+  void setPlaylistLogicalSize(QSize logical);
+  void setQuitConfirmer(std::function<bool()> fn) { quitConfirmer_ = std::move(fn); }
+  void setAlwaysOnTop(bool on);
   bool shaded() const { return shaded_; }
 
  signals:
   void zoomOutRequested();
   void zoomInRequested();
-  void toggleEqualizer();
-  void togglePlaylist();
-  void openSettings();
   void extraHidden();
+  void chromePressed(tramp::ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical);
+  void chromeDragged(tramp::ChromeHit hit, QPoint logical);
+  void chromeReleased();
+  void wheelScrolled(int delta);
+  void nativeMoved(QPoint pos);
+  void nativeResized(QSize size);
+  void filesDropped(QStringList paths);
+  void aboutToQuit();
+  void shadedChanged(bool shaded);
+  void mainMinimized(bool minimized);
+  void mainActivated();
+  void trackActivated(int index);
 
  protected:
   void paintEvent(QPaintEvent* event) override;
   void closeEvent(QCloseEvent* event) override;
   void showEvent(QShowEvent* event) override;
+  void changeEvent(QEvent* event) override;
   void mousePressEvent(QMouseEvent* event) override;
   void mouseMoveEvent(QMouseEvent* event) override;
+  void mouseReleaseEvent(QMouseEvent* event) override;
+  void mouseDoubleClickEvent(QMouseEvent* event) override;
+  void wheelEvent(QWheelEvent* event) override;
+  void moveEvent(QMoveEvent* event) override;
+  void resizeEvent(QResizeEvent* event) override;
+  void dragEnterEvent(QDragEnterEvent* event) override;
+  void dropEvent(QDropEvent* event) override;
 
  private:
   QSize paintLogical() const;
@@ -47,8 +74,11 @@ class HostWindow : public QWidget {
 
   tramp::WindowSpec spec_;
   tramp::TitleChromeLayout title_;
-  tramp::BodyChrome chrome_;
+  tramp::SessionView view_;
   QImage logo_;
   int zoomPercent_ = tramp::kDefaultZoomPercent;
   bool shaded_ = false;
+  bool draggingChrome_ = false;
+  tramp::ChromeHit dragHit_;
+  std::function<bool()> quitConfirmer_;
 };
