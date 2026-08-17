@@ -107,29 +107,6 @@ bool DockingCoordinator::overlapsOrNear1D(double a0, double a1, double b0, doubl
          (a0 < b1 && a1 > b0);
 }
 
-QSet<WindowId> DockingCoordinator::moveCohortOf(WindowId id) const {
-  if (!stickyMoveGroups_) return {id};
-  if (id == WindowId::settings || id == WindowId::about) return {id};
-  if (id != WindowId::main) return groupOf(id);
-  QSet<WindowId> cohort = groupOf(WindowId::main);
-  if (snapThreshold_ <= 0) return cohort;
-  const QRectF main = rectFor(WindowId::main);
-  for (WindowId other : {WindowId::equalizer, WindowId::playlist}) {
-    if (cohort.contains(other) || !layout_.frameOf(other).visible) continue;
-    const QRectF r = rectFor(other);
-    const bool flushV = std::abs(main.bottom() - r.top()) <= snapThreshold_ ||
-                        std::abs(main.top() - r.bottom()) <= snapThreshold_;
-    const bool flushH = std::abs(main.right() - r.left()) <= snapThreshold_ ||
-                        std::abs(main.left() - r.right()) <= snapThreshold_;
-    const bool alignedH = overlapsOrNear1D(main.left(), main.right(), r.left(), r.right());
-    const bool alignedV = overlapsOrNear1D(main.top(), main.bottom(), r.top(), r.bottom());
-    if ((flushV && alignedH) || (flushH && alignedV)) {
-      cohort.insert(other);
-    }
-  }
-  return cohort;
-}
-
 void DockingCoordinator::setShaded(WindowId id, bool shaded) {
   layout_.frameOf(id).shaded = shaded;
 }
@@ -148,11 +125,6 @@ void DockingCoordinator::setVisible(WindowId id, bool visible) {
 void DockingCoordinator::resizePlaylist(QSizeF logical) {
   layout_.playlist.width = logical.width();
   layout_.playlist.height = logical.height();
-}
-
-QPoint followDragNative(QPoint windowPos, QPoint startPos, QPoint cursorNow, QPoint cursorStart) {
-  if (windowPos != startPos) return windowPos;
-  return startPos + (cursorNow - cursorStart);
 }
 
 void DockingCoordinator::nudgeOffMainIfStacked(WindowId id) {
@@ -194,16 +166,8 @@ void DockingCoordinator::move(WindowId id, QPointF topLeft, bool shiftUndock, bo
     }
     layout_.dockEdges = kept;
   }
-  const QSet<WindowId> cohort = moveCohortOf(id);
-  for (WindowId member : cohort) {
-    if (member == id) {
-      layout_.frameOf(member).left = topLeft.x();
-      layout_.frameOf(member).top = topLeft.y();
-    } else {
-      layout_.frameOf(member).left += delta.x();
-      layout_.frameOf(member).top += delta.y();
-    }
-  }
+  layout_.frameOf(id).left = topLeft.x();
+  layout_.frameOf(id).top = topLeft.y();
   if (snap && !shiftUndock && id != WindowId::main) {
     trySnap(id);
   }

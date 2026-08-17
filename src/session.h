@@ -93,7 +93,6 @@ class TrampSession : public QObject {
   void openPaths(const QStringList& paths, bool enqueue);
   void loadCollectionRow(int index);
   void applyDockToWindows(std::optional<WindowId> skip = {});
-  void applyTitleMove(WindowId id, QPoint nativeTopLeft, bool snap, bool skipSelf);
   void settleTitleDrag(WindowId id);
   void syncLayoutFromWindows(std::optional<WindowId> skip = {});
   void pinNewlyShown(WindowId id);
@@ -107,7 +106,7 @@ class TrampSession : public QObject {
   void syncSpectrum();
   void tickSpectrum();
   void startSpectrumDecode(const QString& path, int gen);
-  void followTitleDrag();
+  void watchTitleDragEnd();
 
   SupportStore store_;
   TrampSettings settings_;
@@ -141,18 +140,17 @@ class TrampSession : public QObject {
   QTimer usageTimer_;
   QTimer aboutTimer_;
   QTimer eqApplyTimer_;
-  QTimer dragFollowTimer_;
+  QTimer dragEndTimer_;
   QTimer extraPinTimer_;
   QSet<WindowId> pinnedExtras_;
-  QPoint lastFollowPos_;
-  int followSettledTicks_ = 0;
+  QPoint lastDragPos_;
+  int dragSettledTicks_ = 0;
   CollectionFigures figures_;
   bool figuresLoaded_ = false;
   bool applyingDock_ = false;
   bool titleDragging_ = false;
   WindowId titleDragId_ = WindowId::main;
   QPoint dragWindowOrigin_;
-  QPoint dragCursorOrigin_;
   int skinsScroll_ = 0;
 };
 

@@ -467,8 +467,8 @@ int main() {
     dock.move(tramp::WindowId::main, QPointF(40, 20), false, false);
     REQUIRE_EQ(dock.layout().main.left, 40.0);
     REQUIRE_EQ(dock.layout().main.top, 20.0);
-    REQUIRE_EQ(dock.layout().equalizer.left, 40.0);
-    REQUIRE_EQ(dock.layout().equalizer.top, 368.0);
+    REQUIRE_EQ(dock.layout().equalizer.left, 0.0);
+    REQUIRE_EQ(dock.layout().equalizer.top, 348.0);
     REQUIRE_EQ(dock.layout().playlist.left, 0.0);
     REQUIRE_EQ(dock.layout().playlist.top, 696.0);
   }
@@ -480,8 +480,8 @@ int main() {
     tramp::DockingCoordinator dock(layout);
     dock.setSnapThreshold(20);
     dock.move(tramp::WindowId::main, QPointF(130, 110), false, false);
-    REQUIRE_EQ(dock.layout().equalizer.left, 130.0);
-    REQUIRE_EQ(dock.layout().equalizer.top, 458.0);
+    REQUIRE_EQ(dock.layout().equalizer.left, 100.0);
+    REQUIRE_EQ(dock.layout().equalizer.top, 448.0);
   }
 
   {
@@ -582,13 +582,6 @@ int main() {
     playlist.setTracks({c}, QStringLiteral("/tmp/other.m3u"));
     REQUIRE(playback.playing());
     REQUIRE(!engine.stopped);
-  }
-
-  {
-    REQUIRE_EQ(tramp::followDragNative(QPoint(40, 20), QPoint(10, 10), QPoint(80, 90), QPoint(10, 10)),
-               QPoint(40, 20));
-    REQUIRE_EQ(tramp::followDragNative(QPoint(10, 10), QPoint(10, 10), QPoint(80, 90), QPoint(10, 10)),
-               QPoint(80, 90));
   }
 
   {

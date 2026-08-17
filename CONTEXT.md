@@ -37,7 +37,7 @@ A shareable folder or zip (`skin.json` preferred, legacy `look.json` accepted + 
 _Avoid_: classic skin, WSZ, theme (when meaning this pack), graphite skin, look pack (retired product term — same concept)
 
 **App chrome**:
-Tramp's own window decoration — no OS title bar or standard window frame; the visible UI is the app surface. Five detachable windows (main, equalizer, playlist, settings, about) with Winamp-style docking among main/EQ/PL. Settings and about are freestanding (not snappable, not in the main drag cohort). Main player and equalizer never stretch; on-screen size follows the global zoom step only. The playlist window may be freely resized. Main title bar carries logo + wordmark; EQ/playlist/settings/about title bars show role title only. EQ band faders use a spectrum-gradient value fill.
+Tramp's own window decoration — no OS title bar or standard window frame; the visible UI is the app surface. Five detachable windows (main, equalizer, playlist, settings, about) with Winamp-style docking among main/EQ/PL. Settings and about are freestanding (not snappable). Main player and equalizer never stretch; on-screen size follows the global zoom step only. The playlist window may be freely resized. Main title bar carries logo + wordmark; EQ/playlist/settings/about title bars show role title only. EQ band faders use a spectrum-gradient value fill.
 _Avoid_: borderless (alone), frameless window (implementation jargon in product talk), Scalable UI (retired as a whole-chrome free-resize mode), stretching the main or EQ canvas, single-window EQ/PL swap (retired product model)
 
 **Mockup chrome** / **code-constructed chrome**:
@@ -53,8 +53,8 @@ The single process that owns shared controllers (playback, playlist, EQ, zoom, s
 _Avoid_: multi-process, separate apps per window
 
 **Docking** / **dock group**:
-Winamp-style edge snap between windows. Dragging the **main** title bar moves every **visible** EQ/playlist window (settings/about excluded; snap state irrelevant). Dragging EQ or playlist moves only that window and peels its dock edges; snap runs only on EQ/PL drag end. Settings and about never snap and are never snap targets. EQ may snap to any side; playlist snaps top/bottom only (plus optional left/right flush when already within threshold). Undock via peel, break-threshold, and/or Shift. Main minimize may hide/restore visible secondaries (including settings/about) when the preference is on; always-on-top applies to visible tramp windows. Settings stays raised above other Tramp windows. On Windows, only main appears in the taskbar.
-_Avoid_: tiling WM, snap layouts (OS), tabs; assuming dock edges gate main’s group move; docking settings/about to main/EQ/PL
+Winamp-style edge snap between windows. Each title-bar drag moves only that window. Dragging EQ or playlist peels its dock edges; snap runs only on EQ/PL drag end. Settings and about never snap and are never snap targets. EQ may snap to any side; playlist snaps top/bottom only (plus optional left/right flush when already within threshold). Undock via peel, break-threshold, and/or Shift. Main minimize may hide/restore visible secondaries (including settings/about) when the preference is on; always-on-top applies to visible tramp windows. Settings stays raised above other Tramp windows. On Windows, only main appears in the taskbar.
+_Avoid_: tiling WM, snap layouts (OS), tabs; docking settings/about to main/EQ/PL
 
 **Playlist**:
 An ordered list of playable tracks the user can manage (add, remove, reorder, play from).

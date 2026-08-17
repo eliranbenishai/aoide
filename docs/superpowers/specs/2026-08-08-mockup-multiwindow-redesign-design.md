@@ -33,8 +33,7 @@ Mockup (visual + geometric authority): [`player-mockup-2.html`](../../../player-
 - **100% visual match** to `player-mockup-2.html` at 100% zoom — geometry,
   tokens, type, gradients, shadows, radii, spacing, icon paths. No “inspired
   by,” no leftover PNG graphite faces, no Material defaults on chrome.
-- Three **detachable** windows with **Winamp-style docking** (edge snap +
-  sticky group drag).
+- Three **detachable** windows with **Winamp-style docking** (edge snap).
 - **Code-constructed** chrome in Flutter; the HTML/CSS mockup is the recipe.
 - **Full libmpv** on Windows, macOS, Linux — no compressed/minimal media_kit
   audio builds. Features first; binary size later.
@@ -129,10 +128,9 @@ EQ and PL may both be open. Main **EQ** / **PL** toggles show/hide those windows
 ### Docking
 
 - Snap when a window edge approaches another’s edge/corner (threshold pinned in
-  the coordinator / polish design; feel must be classic Winamp).
-- **Main** title drag moves every **visible** EQ/playlist window (snap state
-  irrelevant). **EQ/playlist** title drag moves only that window; snap only on
-  EQ/PL finalize (EQ any side; playlist top/bottom + optional orthogonal flush).
+  the coordinator / polish design).
+- Each title-bar drag moves only that window; snap only on EQ/PL finalize
+  (EQ any side; playlist top/bottom + optional orthogonal flush).
   See [`2026-08-09-ui-polish-docking-taskbar-design.md`](2026-08-09-ui-polish-docking-taskbar-design.md).
 - Undock via peel-on-EQ/PL-drag, break-threshold, and/or modifier.
 - Persist dock graph, positions, visibility, shade, and playlist logical size.
@@ -152,8 +150,7 @@ EQ and PL may both be open. Main **EQ** / **PL** toggles show/hide those windows
 
 ### Drag
 
-- Main title-bar moves all visible windows; EQ/PL title-bar / grips move that
-  window only. No OS title bar.
+- Each title-bar / grip moves only that window. No OS title bar.
 
 ---
 
@@ -416,7 +413,7 @@ full libmpv.
 ## 13. Testing
 
 - Golden pixel comparisons vs mockup at 100%: main, EQ, playlist, both shades
-- Docking: snap, group drag, undock, persist restore
+- Docking: snap, undock, persist restore
 - EQ measurement harness (fixture tones → band response)
 - Spectrum: analyser unit tests; assert not synthetic in normal play
 - Mono: output channel layout

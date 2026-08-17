@@ -27,7 +27,7 @@ Change pure layout rules in `DockingCoordinator` (session host/client keep apply
 
 | Drag source | Behavior |
 |-------------|----------|
-| **Main** title bar | Translate every **visible** EQ and playlist window by the same delta, whether or not dock edges exist. Hidden windows stay put. Never snap; never create dock edges. |
+| **Main** title bar | Move only main. Never snap; never create dock edges. |
 | **EQ / playlist** title bar | Move only that window. Peel any dock edges for it as soon as drag starts (keep peel-on-drag). Shift-undock remains. |
 
 ### Snap (EQ / playlist finalize only)
@@ -37,11 +37,11 @@ Change pure layout rules in `DockingCoordinator` (session host/client keep apply
 - **Playlist:** only **top/bottom** contact against other windows. No left/right side docking.
 - On a successful top/bottom snap: also flush **left or right** if that edge is already within `snapThreshold`; otherwise keep horizontal offset.
 - Prefer recording a second dock edge when both primary and orthogonal edges flush, so restore stays sticky on both axes.
-- Dock edges still mean “snapped contact” for persistence and peel; they no longer gate whether main moves satellites — **visibility** does.
+- Dock edges mean “snapped contact” for persistence and peel.
 
 ### Tests
 
-Extend `test/ui/docking/docking_coordinator_test.dart` for: main always moves visible partners; main never snaps; PL rejects side snap; PL orthogonal flush when near; EQ still side-snaps.
+Extend `test/ui/docking/docking_coordinator_test.dart` for: main never snaps; PL rejects side snap; PL orthogonal flush when near; EQ still side-snaps.
 
 ## 2. Title-bar chrome
 
@@ -105,7 +105,7 @@ Update EQ goldens / widget tests with a non-zero band so fill is covered.
 ## Success criteria
 
 1. Title buttons read as recessed mockup `.wbtn` chrome in side-by-side with the HTML mockup.
-2. Main title drag moves all visible windows; EQ/PL title drag moves only self; snap only from EQ/PL with PL top/bottom (+ optional orthogonal flush).
+2. Each title-bar drag moves only that window; snap only from EQ/PL with PL top/bottom (+ optional orthogonal flush).
 3. EQ faders show bottom→thumb spectrum-gradient fill.
 4. EQ/PL title bars show role title only (no logo/wordmark).
 5. Windows taskbar shows a single Tramp entry for the main player while EQ/PL are open.

@@ -279,7 +279,7 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
       emit titleDragStarted();
       // Wayland (and most X11 WMs) only move a frameless toplevel via
       // startSystemMove(). That grab also synthesizes a mouse-release on this
-      // widget — swallow that leftover so the session keeps following.
+      // widget — swallow that leftover so EQ/PL can snap when the grab ends.
       if (QWindow* win = windowHandle()) {
         usedSystemMove_ = win->startSystemMove();
       }

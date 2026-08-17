@@ -36,7 +36,7 @@ CMake prefers `pkg-config mpv`. If that is missing and
 SONAME stubs under `src/mpv_stubs/`. Without either, the binary still runs with
 a silent `NullEngine`.
 
-X11 (proven dock follow):
+X11:
 
 ```bash
 QT_QPA_PLATFORM=xcb ./build/tramp

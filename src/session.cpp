@@ -16,7 +16,6 @@
 #include "tramp_metrics.h"
 
 #include <QAction>
-#include <QCursor>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFileDialog>
@@ -103,9 +102,9 @@ TrampSession::TrampSession(QObject* parent)
   eqApplyTimer_.setSingleShot(true);
   eqApplyTimer_.setInterval(50);
   QObject::connect(&eqApplyTimer_, &QTimer::timeout, this, [this]() { applyEq(); });
-  dragFollowTimer_.setInterval(16);
-  dragFollowTimer_.setTimerType(Qt::PreciseTimer);
-  QObject::connect(&dragFollowTimer_, &QTimer::timeout, this, [this]() { followTitleDrag(); });
+  dragEndTimer_.setInterval(16);
+  dragEndTimer_.setTimerType(Qt::PreciseTimer);
+  QObject::connect(&dragEndTimer_, &QTimer::timeout, this, [this]() { watchTitleDragEnd(); });
   extraPinTimer_.setSingleShot(true);
   extraPinTimer_.setInterval(400);
   QObject::connect(&extraPinTimer_, &QTimer::timeout, this, [this]() { pinnedExtras_.clear(); });
@@ -564,34 +563,9 @@ void TrampSession::windowMoved(WindowId id, QPoint nativeTopLeft, bool finalize)
     return;
   }
 
-  // Main's compositor configures must always carry the snapped cohort. During
-  // startSystemMove the widget often never sees a drag session (the leftover
-  // mouse-release used to kill follow), but move events still arrive.
-  if (id == WindowId::main) {
-    applyTitleMove(id, nativeTopLeft, false, true);
-    if (titleDragging_ && titleDragId_ == WindowId::main) {
-      dragFollowTimer_.stop();
-      titleDragging_ = false;
-      schedulePersist();
-    }
-    return;
-  }
-
-  if (finalize || (titleDragging_ && id == titleDragId_)) {
-    applyTitleMove(id, nativeTopLeft, finalize, !finalize);
-    if (finalize) schedulePersist();
-    return;
-  }
-
-  const QPointF logical = nativeToLogical(nativeTopLeft);
-  docking_.layout().frameOf(id).left = logical.x();
-  docking_.layout().frameOf(id).top = logical.y();
-}
-
-void TrampSession::applyTitleMove(WindowId id, QPoint nativeTopLeft, bool snap, bool skipSelf) {
-  docking_.move(id, nativeToLogical(nativeTopLeft), false, snap);
-  if (skipSelf) applyDockToWindows(id);
-  else applyDockToWindows();
+  docking_.move(id, nativeToLogical(nativeTopLeft), false, finalize && id != WindowId::main);
+  if (finalize) applyDockToWindows();
+  schedulePersist();
 }
 
 void TrampSession::titleDragBegan(WindowId id) {
@@ -600,50 +574,44 @@ void TrampSession::titleDragBegan(WindowId id) {
   syncLayoutFromWindows();
   titleDragId_ = id;
   titleDragging_ = true;
-  followSettledTicks_ = 0;
+  dragSettledTicks_ = 0;
   HostWindow* w = windowFor(id);
   dragWindowOrigin_ = w ? w->pos() : QPoint();
-  dragCursorOrigin_ = QCursor::pos();
-  lastFollowPos_ = dragWindowOrigin_;
-  if (!dragFollowTimer_.isActive()) dragFollowTimer_.start();
+  lastDragPos_ = dragWindowOrigin_;
+  if (id != WindowId::main && !dragEndTimer_.isActive()) dragEndTimer_.start();
 }
 
 void TrampSession::titleDragEnded(WindowId id) {
   if (!titleDragging_) return;
-  dragFollowTimer_.stop();
-  HostWindow* w = windowFor(id);
-  if (w) {
-    const QPoint pos =
-        followDragNative(w->pos(), dragWindowOrigin_, QCursor::pos(), dragCursorOrigin_);
-    windowMoved(id, pos, id != WindowId::main);
-  } else {
-    schedulePersist();
-  }
+  dragEndTimer_.stop();
   titleDragging_ = false;
-  QTimer::singleShot(0, this, [this, id]() { settleTitleDrag(id); });
-  QTimer::singleShot(50, this, [this, id]() { settleTitleDrag(id); });
+  HostWindow* w = windowFor(id);
+  if (w) windowMoved(id, w->pos(), id != WindowId::main);
+  else schedulePersist();
+  if (id != WindowId::main) {
+    QTimer::singleShot(0, this, [this, id]() { settleTitleDrag(id); });
+    QTimer::singleShot(50, this, [this, id]() { settleTitleDrag(id); });
+  }
 }
 
-void TrampSession::followTitleDrag() {
-  if (!titleDragging_) {
-    dragFollowTimer_.stop();
+void TrampSession::watchTitleDragEnd() {
+  if (!titleDragging_ || titleDragId_ == WindowId::main) {
+    dragEndTimer_.stop();
     return;
   }
   HostWindow* w = windowFor(titleDragId_);
   if (!w) return;
-  const QPoint pos =
-      followDragNative(w->pos(), dragWindowOrigin_, QCursor::pos(), dragCursorOrigin_);
-  if (titleDragId_ != WindowId::main && w->pos() != dragWindowOrigin_ && pos == lastFollowPos_) {
-    ++followSettledTicks_;
-    if (followSettledTicks_ >= 15) {
+  const QPoint pos = w->pos();
+  if (pos != dragWindowOrigin_ && pos == lastDragPos_) {
+    ++dragSettledTicks_;
+    if (dragSettledTicks_ >= 15) {
       titleDragEnded(titleDragId_);
       return;
     }
   } else {
-    followSettledTicks_ = 0;
+    dragSettledTicks_ = 0;
   }
-  lastFollowPos_ = pos;
-  windowMoved(titleDragId_, pos, false);
+  lastDragPos_ = pos;
 }
 
 void TrampSession::extraWasMapped(WindowId id) {
@@ -675,10 +643,7 @@ void TrampSession::settleTitleDrag(WindowId id) {
   if (titleDragging_) return;
   HostWindow* w = windowFor(id);
   if (!w) return;
-  const QPoint pos =
-      followDragNative(w->pos(), dragWindowOrigin_, QCursor::pos(), dragCursorOrigin_);
-  applyTitleMove(id, pos, false, true);
-  schedulePersist();
+  windowMoved(id, w->pos(), id != WindowId::main);
 }
 
 void TrampSession::reapplyWindowFrames() {

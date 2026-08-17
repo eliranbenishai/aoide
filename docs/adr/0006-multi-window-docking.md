@@ -2,7 +2,7 @@
 
 Date: 2026-08-08  
 Revised: 2026-08-09 (move/snap ownership, playlist snap sides, taskbar);  
-2026-08-12 (main drag carries dock-edge cohort only)
+2026-08-17 (each title-bar drag moves only that window)
 
 ## Status
 
@@ -14,7 +14,7 @@ Supersedes [ADR 0003](0003-zoom-only-window-size.md) for product window model
 ## Context
 
 Classic Winamp separates main, equalizer, and playlist into detachable windows
-that snap and drag as a group. Tramp’s prior v1 model used one frameless window
+that snap to each other’s edges. Tramp’s prior v1 model used one frameless window
 and swapped EQ vs playlist in a lower region — simpler to ship, but not the
 mockup direction and not the Winamp-shaped product users expect.
 
@@ -29,11 +29,9 @@ behavior; see
   plus freestanding settings and about.
 - EQ and playlist may **both** be open. Main EQ/PL toggles show/hide those
   windows.
-- **Move ownership:** dragging the **main** title bar translates its
-  **dock-edge cohort** (windows currently snapped to main, including
-  transitive links such as PL→EQ→main) by the same delta. Free / undocked
-  windows stay put. Dragging an EQ or playlist title bar moves **only** that
-  window (peel dock edges on drag). Hidden windows never follow.
+- **Move ownership:** each window’s title-bar drag moves **only** that window.
+  Dragging an EQ or playlist title bar peels its dock edges. Hidden windows
+  are unchanged.
 - **Snap:** only when finishing an EQ or playlist drag. EQ may snap to any
   side of any other visible window. Playlist may snap only **top/bottom**; on
   that snap, also flush left or right if that edge is already within the snap
@@ -54,11 +52,10 @@ behavior; see
 ## Consequences
 
 `DockingCoordinator` remains the pure layout seam; the session host applies
-frames to each OS window. Sticky dock edges record snap contact for persistence and peel, and
-**gate** whether main carries satellites (`moveCohortOf` → `groupOf`). The
-single `TrampShell` lower-region EQ/PL swap stays removed. ADR 0003’s zoom-only
-main/EQ and free-resize playlist *sizing intent* continues under this ADR and
-ADR 0002; its single-window framing does not.
+frames to each OS window. Sticky dock edges record snap contact for persistence
+and peel. The single `TrampShell` lower-region EQ/PL swap stays removed. ADR
+0003’s zoom-only main/EQ and free-resize playlist *sizing intent* continues
+under this ADR and ADR 0002; its single-window framing does not.
 
 ## Implementation pins
 

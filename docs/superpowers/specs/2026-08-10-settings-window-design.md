@@ -4,7 +4,7 @@ Agreed 2026-08-10. Implemented in the same change set.
 
 ## Summary
 
-Tramp gains a fourth frameless session window — **Settings** — opened from the main player options cog. It is movable and shadeable like EQ/PL, persists position/visibility/shade, is **not** snappable or in the main drag cohort, and stays raised above other Tramp windows (not desktop-wide always-on-top unless that global preference is on).
+Tramp gains a fourth frameless session window — **Settings** — opened from the main player options cog. It is movable and shadeable like EQ/PL, persists position/visibility/shade, is **not** snappable, and stays raised above other Tramp windows (not desktop-wide always-on-top unless that global preference is on).
 
 ## UI
 
