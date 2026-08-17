@@ -17,13 +17,11 @@ struct WindowSpec {
   QSize logicalSize;
   QSize size;
   QPoint origin;
-  bool skipTaskbar;
 };
 
 std::array<WindowSpec, 5> windowSpecs();
 
-/// Frameless toplevel. Extras are [Qt::Dialog] (not [Qt::Tool] — Tool includes
-/// the Popup bit and becomes an xdg_popup on Wayland). Never OR Tool with Window.
-Qt::WindowFlags hostWindowFlags(bool skipTaskbar);
+/// Frameless host shell. Qt::Window only — never Tool, Dialog, or Popup.
+Qt::WindowFlags hostWindowFlags();
 
 }  // namespace tramp

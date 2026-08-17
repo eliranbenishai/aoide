@@ -1,9 +1,11 @@
 #include "host_shell_window.h"
 
+#include "window_spec.h"
+
 #include <QRegion>
 
 HostShell::HostShell(QWidget* parent) : QWidget(parent) {
-  setWindowFlags(Qt::FramelessWindowHint | Qt::Window);
+  setWindowFlags(tramp::hostWindowFlags());
   setAttribute(Qt::WA_TranslucentBackground);
   setWindowTitle(QStringLiteral("Tramp"));
 }

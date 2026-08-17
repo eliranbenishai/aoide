@@ -8,7 +8,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets Test)
 find_package(PkgConfig QUIET)
-find_package(X11)
 
 qt_standard_project_setup()
 
@@ -78,7 +77,6 @@ set(TRAMP_SOURCES
   src/session_view.cpp
   src/mockup_draw.cpp
   src/tramp_fonts.cpp
-  src/skip_taskbar.cpp
   src/m3u.cpp
   src/equalizer.cpp
   src/support_dir.cpp
@@ -118,11 +116,6 @@ if(TRAMP_HAVE_MPV)
   endif()
 endif()
 target_link_libraries(tramp PRIVATE tramp_window_spec Qt6::Widgets)
-
-if(UNIX AND NOT APPLE AND X11_FOUND)
-  target_compile_definitions(tramp PRIVATE TRAMP_HAVE_X11)
-  target_link_libraries(tramp PRIVATE X11::X11)
-endif()
 
 qt_add_executable(window_spec_test tests/window_spec_test.cpp)
 target_link_libraries(window_spec_test PRIVATE tramp_window_spec Qt6::Test)
@@ -186,20 +179,11 @@ target_compile_definitions(font_metrics_test PRIVATE
 )
 target_link_libraries(font_metrics_test PRIVATE Qt6::Gui)
 
-qt_add_executable(skip_taskbar_test
-  tests/skip_taskbar_test.cpp
-  src/skip_taskbar.cpp
-)
-target_include_directories(skip_taskbar_test PRIVATE src)
-target_link_libraries(skip_taskbar_test PRIVATE Qt6::Test Qt6::Gui)
-set_target_properties(skip_taskbar_test PROPERTIES AUTOMOC ON)
-
 enable_testing()
 add_test(NAME window_spec COMMAND window_spec_test)
 add_test(NAME host_shell COMMAND host_shell_test)
 add_test(NAME host_shell_window COMMAND host_shell_window_test)
 add_test(NAME chrome_spec COMMAND chrome_spec_test)
-add_test(NAME skip_taskbar COMMAND skip_taskbar_test)
 add_test(NAME domain COMMAND domain_test)
 add_test(NAME look COMMAND look_test)
 add_test(NAME font_metrics COMMAND font_metrics_test)

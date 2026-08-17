@@ -6,14 +6,12 @@ class WindowSpecTest : public QObject {
   Q_OBJECT
 
 private slots:
-  void fiveWindowsInProductOrder();
-  void onlyMainAppearsOnTheTaskbar();
+  void fivePanelsInProductOrder();
   void extrasHaveDistinctTitles();
   void hostFlagsAreFramelessToplevelsNotTool();
-  void extraFlagsAreDialogsWithoutPopupBit();
 };
 
-void WindowSpecTest::fiveWindowsInProductOrder() {
+void WindowSpecTest::fivePanelsInProductOrder() {
   const auto specs = tramp::windowSpecs();
   QCOMPARE(specs.size(), 5);
   QCOMPARE(specs[0].id, tramp::WindowId::main);
@@ -21,14 +19,6 @@ void WindowSpecTest::fiveWindowsInProductOrder() {
   QCOMPARE(specs[2].id, tramp::WindowId::playlist);
   QCOMPARE(specs[3].id, tramp::WindowId::settings);
   QCOMPARE(specs[4].id, tramp::WindowId::about);
-}
-
-void WindowSpecTest::onlyMainAppearsOnTheTaskbar() {
-  const auto specs = tramp::windowSpecs();
-  QCOMPARE(specs[0].skipTaskbar, false);
-  for (int i = 1; i < 5; ++i) {
-    QCOMPARE(specs[i].skipTaskbar, true);
-  }
 }
 
 void WindowSpecTest::extrasHaveDistinctTitles() {
@@ -41,20 +31,11 @@ void WindowSpecTest::extrasHaveDistinctTitles() {
 }
 
 void WindowSpecTest::hostFlagsAreFramelessToplevelsNotTool() {
-  const Qt::WindowFlags flags = tramp::hostWindowFlags(false);
+  const Qt::WindowFlags flags = tramp::hostWindowFlags();
   QCOMPARE(flags & Qt::WindowType_Mask, Qt::WindowFlags(Qt::Window));
   QVERIFY(flags.testFlag(Qt::FramelessWindowHint));
   QVERIFY(!flags.testFlag(Qt::Tool));
   QVERIFY(!flags.testFlag(Qt::Dialog));
-  QVERIFY(!flags.testFlag(Qt::Popup));
-}
-
-void WindowSpecTest::extraFlagsAreDialogsWithoutPopupBit() {
-  const Qt::WindowFlags flags = tramp::hostWindowFlags(true);
-  QCOMPARE(flags & Qt::WindowType_Mask, Qt::WindowFlags(Qt::Dialog));
-  QVERIFY(flags.testFlag(Qt::FramelessWindowHint));
-  QVERIFY(flags.testFlag(Qt::Dialog));
-  QVERIFY(!flags.testFlag(Qt::Tool));
   QVERIFY(!flags.testFlag(Qt::Popup));
 }
 

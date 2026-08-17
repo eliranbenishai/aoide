@@ -26,7 +26,6 @@ std::array<WindowSpec, 5> windowSpecs() {
           kMainPlayer,
           mainPx,
           mainOrigin,
-          false,
       },
       WindowSpec{
           WindowId::equalizer,
@@ -34,7 +33,6 @@ std::array<WindowSpec, 5> windowSpecs() {
           kEqualizer,
           eqPx,
           eqOrigin,
-          true,
       },
       WindowSpec{
           WindowId::playlist,
@@ -42,7 +40,6 @@ std::array<WindowSpec, 5> windowSpecs() {
           kPlaylistDefault,
           plPx,
           plOrigin,
-          true,
       },
       WindowSpec{
           WindowId::settings,
@@ -50,7 +47,6 @@ std::array<WindowSpec, 5> windowSpecs() {
           kSettings,
           setPx,
           setOrigin,
-          true,
       },
       WindowSpec{
           WindowId::about,
@@ -58,15 +54,12 @@ std::array<WindowSpec, 5> windowSpecs() {
           kAbout,
           aboutPx,
           aboutOrigin,
-          true,
       },
   };
 }
 
-Qt::WindowFlags hostWindowFlags(bool skipTaskbar) {
-  Qt::WindowFlags flags = Qt::FramelessWindowHint;
-  flags |= skipTaskbar ? Qt::Dialog : Qt::Window;
-  return flags;
+Qt::WindowFlags hostWindowFlags() {
+  return Qt::FramelessWindowHint | Qt::Window;
 }
 
 }  // namespace tramp

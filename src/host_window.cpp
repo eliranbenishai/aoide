@@ -2,7 +2,6 @@
 
 #include "chrome_paint.h"
 #include "mockup_draw.h"
-#include "skip_taskbar.h"
 #include "tramp_fonts.h"
 #include "tramp_metrics.h"
 
@@ -22,13 +21,13 @@ HostWindow::HostWindow(const tramp::WindowSpec& spec, QWidget* parent)
   setAcceptDrops(true);
   setWindowTitle(spec.title);
   if (!parent) {
-    setWindowFlags(tramp::hostWindowFlags(spec.skipTaskbar));
+    setWindowFlags(tramp::hostWindowFlags());
     move(spec.origin);
     winId();
   }
   logo_ = tramp::loadTrampLogo();
   applyNativeSize();
-  if (parent && spec.skipTaskbar) hide();
+  if (parent && spec.id != tramp::WindowId::main) hide();
 }
 
 QSize HostWindow::paintLogical() const {
@@ -138,10 +137,7 @@ void HostWindow::setAlwaysOnTop(bool on) {
   if (have == on) return;
   const bool vis = isVisible();
   setWindowFlag(Qt::WindowStaysOnTopHint, on);
-  if (vis) {
-    show();
-    if (spec_.skipTaskbar) tramp::applySkipTaskbar(windowHandle());
-  }
+  if (vis) show();
 }
 
 QPoint HostWindow::nativeTopLeft() const { return mapToGlobal(QPoint(0, 0)); }
@@ -217,9 +213,6 @@ void HostWindow::paintEvent(QPaintEvent*) {
 
 void HostWindow::showEvent(QShowEvent* event) {
   QWidget::showEvent(event);
-  if (!parentWidget() && spec_.skipTaskbar) {
-    tramp::applySkipTaskbar(windowHandle());
-  }
   if (spec_.id != tramp::WindowId::main) emit extraMapped();
 }
 

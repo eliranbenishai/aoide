@@ -20,20 +20,19 @@ fi
 
 INC=(
   -I"$QT/include" -I"$QT/include/QtWidgets" -I"$QT/include/QtGui" -I"$QT/include/QtCore"
-  -I"$BREW/opt/libx11/include" -I"$BREW/opt/xorgproto/include"
   -I"$MPV_INC"
   -I"$ROOT/src" -I"$BUILD"
 )
 VERSION="$(head -n 1 "$ROOT/VERSION" | tr -d '\r[:space:]')"
 DEFS=(
-  -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DTRAMP_HAVE_X11 -DTRAMP_HAVE_MPV
+  -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DTRAMP_HAVE_MPV
   -DTRAMP_VERSION="\"$VERSION\""
   -DTRAMP_ASSET_DIR="\"$ROOT/assets\""
   -DTRAMP_SKINS_DIR="\"$ROOT/skins\""
 )
 LIBS=(
   -L"$QT/lib" -L"$BREW/lib" -L"$MPV_LIB" -L"$STUB"
-  -lQt6Widgets -lQt6Gui -lQt6Core -lmpv -lX11 -lstdc++ -lm -lgcc_s -pthread
+  -lQt6Widgets -lQt6Gui -lQt6Core -lmpv -lstdc++ -lm -lgcc_s -pthread
   -Wl,--no-as-needed
   "$STUB/libmujs.so.0.1"
   "$STUB/liblua-5.1.so"
@@ -56,7 +55,6 @@ SRCS=(
   "$ROOT/src/title_chrome.cpp"
   "$ROOT/src/host_shell.cpp"
   "$ROOT/src/host_shell_window.cpp"
-  "$ROOT/src/skip_taskbar.cpp"
   "$ROOT/src/mockup_draw.cpp"
   "$ROOT/src/tramp_fonts.cpp"
   "$ROOT/src/chrome_paint.cpp"
@@ -142,7 +140,8 @@ QT_QPA_PLATFORM=offscreen "$BUILD/font_metrics_test"
 "$MOC" "$ROOT/src/host_shell_window.h" -o "$BUILD/moc_host_shell_window.cpp"
 "$MOC" "$ROOT/tests/host_shell_window_test.cpp" -o "$BUILD/host_shell_window_test.moc"
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
-  "$ROOT/src/host_shell.cpp" "$ROOT/src/host_shell_window.cpp" "$BUILD/moc_host_shell_window.cpp" \
+  "$ROOT/src/window_spec.cpp" "$ROOT/src/host_shell.cpp" "$ROOT/src/host_shell_window.cpp" \
+  "$BUILD/moc_host_shell_window.cpp" \
   "$ROOT/tests/host_shell_window_test.cpp" \
   -L"$QT/lib" -lQt6Test -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
   -o "$BUILD/host_shell_window_test"
@@ -155,13 +154,5 @@ QT_QPA_PLATFORM=offscreen "$BUILD/host_shell_window_test"
   -L"$QT/lib" -lQt6Test -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
   -o "$BUILD/chrome_spec_test"
 "$BUILD/chrome_spec_test"
-
-"$MOC" "$ROOT/tests/skip_taskbar_test.cpp" -o "$BUILD/skip_taskbar_test.moc"
-"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_GUI_LIB -DQT_CORE_LIB \
-  "$ROOT/src/skip_taskbar.cpp" \
-  "$ROOT/tests/skip_taskbar_test.cpp" \
-  -L"$QT/lib" -lQt6Test -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
-  -o "$BUILD/skip_taskbar_test"
-QT_QPA_PLATFORM=offscreen "$BUILD/skip_taskbar_test"
 
 echo "built $BUILD/tramp"
