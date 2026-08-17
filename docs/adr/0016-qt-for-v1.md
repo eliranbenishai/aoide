@@ -14,7 +14,7 @@ Flutter was locked so one desktop codebase could own custom chrome ([ADR 0001](0
 
 ## Decision
 
-The product is **Qt 6 C++** (QWidget + QPainter) in `src/`. One process, five frameless windows. Playback talks to **libmpv directly** (`MpvEngine`), not media_kit. The Flutter/Dart tree is retired; there is no second build.
+The product is **Qt 6 C++** (QWidget + QPainter) in `src/`. One process. Five product surfaces are **panels** inside one host window ([ADR 0017](0017-one-host-window-internal-panels.md)); the five-frameless-OS-window host from the Qt cutover is superseded. Playback talks to **libmpv directly** (`MpvEngine`), not media_kit. The Flutter/Dart tree is retired; there is no second build.
 
 Linux and Windows are the pairing hosts. macOS packaging waits on a Qt Mac host.
 
@@ -26,4 +26,4 @@ Linux and Windows are the pairing hosts. macOS packaging waits on a Qt Mac host.
 
 ## Consequences
 
-CI and release build with CMake at the repo root. Version lives in `VERSION`. Docking, zoom, and mockup-chrome *product* rules in ADRs 0002 / 0006 / 0007 still apply; their Flutter implementation pins do not. ADR 0005’s full-libmpv requirement still applies; the control seam is `PlayerEngine`, not media_kit.
+CI and release build with CMake at the repo root. Version lives in `VERSION`. Docking, zoom, and mockup-chrome *product* rules in ADRs 0002 / 0006 / 0007 still apply; their Flutter implementation pins do not. Host *shape* is [ADR 0017](0017-one-host-window-internal-panels.md). ADR 0005’s full-libmpv requirement still applies; the control seam is `PlayerEngine`, not media_kit.

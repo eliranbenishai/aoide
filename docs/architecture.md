@@ -4,9 +4,9 @@ Living map of how Tramp is structured. Domain terms: [`CONTEXT.md`](../CONTEXT.m
 
 ## Host
 
-**Qt 6 C++** is the only build ([ADR 0016](adr/0016-qt-for-v1.md)). One process, five frameless windows, QWidget + QPainter in [`src/`](../src/). Binary: `build/tramp`.
+**Qt 6 C++** is the only build ([ADR 0016](adr/0016-qt-for-v1.md)). One process, one frameless **host window**, five **panel** views, QWidget + QPainter in [`src/`](../src/). Binary: `build/tramp`.
 
-`TrampSession` owns playback (libmpv), playlist/collection, EQ, spectrum, docking, zoom, skins, and persistence. Extra windows are extra views, not extra engines. Title-bar drag is `QWindow::startSystemMove()`. The leftover mouse-release from that grab is ignored so EQ/PL can snap when the grab ends. Extras are `Qt::Dialog` transients of main and skip the taskbar (the transient parent is what Wayland compositors use to hide them). Newly shown EQ/PL are placed from the dock layout, then pinned briefly against WM recenter. `--dump-chrome` writes 1× logical PNGs from `SessionView::golden()`.
+`TrampSession` owns playback (libmpv), playlist/collection, EQ, spectrum, docking, zoom, skins, and persistence. Panels are views onto that session, not extra engines or extra OS windows. Title-bar drag is in-process (app-owned). No skip-taskbar transients, no pin-against-recenter. Host geometry is the bounding box of visible panels; input is punched to panel shapes so the desktop is clickable in the gaps ([ADR 0017](adr/0017-one-host-window-internal-panels.md)). `--dump-chrome` writes 1× logical PNGs from `SessionView::golden()`.
 
 Linux + Windows are the pairing hosts; macOS follows.
 
@@ -14,8 +14,8 @@ Linux + Windows are the pairing hosts; macOS follows.
 
 - Desktop player (Windows, Linux, macOS); official download `https://tramp.music`; GPL-3.0-or-later
 - Windows Store MSIX **and** website EXE ([ADR 0011](adr/0011-windows-store-and-exe.md)); Linux Flathub **and** AppImage ([ADR 0013](adr/0013-linux-flathub-and-appimage.md)); Mac notarized DMG later
-- Custom **app chrome**; five windows — main/EQ/PL dock; settings and about freestanding ([ADR 0006](adr/0006-multi-window-docking.md))
-- Each title-bar drag moves only that window; EQ/PL snap on drag end; settings stays raised; taskbar shows main only
+- Custom **app chrome**; five **panels** inside one host window — main/EQ/PL dock; settings and about freestanding ([ADR 0006](adr/0006-multi-window-docking.md); host shape [ADR 0017](adr/0017-one-host-window-internal-panels.md))
+- Each title-bar drag moves only that panel; EQ/PL snap on drag end; settings stays raised among panels; taskbar shows the host (Tramp)
 - Fixed canvases: main/EQ **825×348**, playlist default **1073×696** (free resize), settings **520×420**, about **480×360**; global discrete zoom ([ADR 0002](adr/0002-fixed-canvas-zoom.md))
 - Code-constructed mockup chrome ([ADR 0007](adr/0007-code-constructed-mockup-chrome.md)); recolor **skins**; no classic WSZ in v1
 - Full libmpv ([ADR 0005](adr/0005-full-libmpv.md)); playlist-centric M3U/M3U8; no media library
@@ -45,7 +45,7 @@ CI-built ([ADR 0014](adr/0014-ci-and-architectures.md)). Workflows and secrets: 
 
 ```mermaid
 flowchart TB
-  subgraph windows [OS windows]
+  subgraph host [OS host window]
     Main[Main player]
     Eq[Equalizer]
     Pl[Playlist]
@@ -88,9 +88,9 @@ flowchart TB
 
 | Area | Owns |
 |------|------|
-| Host | `main.cpp`, `host_window.*`, `window_spec.*`, `skip_taskbar.*` — five frameless windows; main close persists then quits; extras hide |
+| Host | `HostShell` + five panels — one frameless host window titled Tramp; punched input from `hostShellLayout`; main close persists then quits; extra panels hide |
 | Session | `session.*`, `session_view.*` — shared controllers, commands, `--dump-chrome` golden |
-| Docking | `docking.*` — peel 8 logical px; EQ any side; playlist top/bottom; settings/about never snap. Host applies frames after map and pins newly shown EQ/PL off main while the compositor tries to center them. |
+| Docking | `docking.*` — peel 8 logical px; EQ any side; playlist top/bottom; settings/about never snap. Coordinator applies frames to panels, then `hostShellLayout`. |
 | Chrome | `chrome_paint.cpp`, `chrome_bodies.cpp`, `chrome_hits.cpp`, `chrome_layout.h`, `title_chrome.*`, `mockup_draw.cpp`, `mockup_tokens.h`, `tramp_metrics.h`, `tramp_fonts.*` — mockup `.win` / `.tbar` / `.wbtn` at discrete zoom (default 75%). Display-well STEREO/PLAYLIST keep a fixed gap; close buttons take hue from the more saturated of skin ink vs accent. |
 | Skins | `look.*` — `skin.json` / legacy `look.json`; embedded **Tramp** (id `builtin`) plus bundled homage packs under `skins/` (Arc, Shield, Thunder, Gamma, Widow, Marksman, Chaos); catalog `<support>/skins`. Settings Skins tab is a clipped scrolling list. |
 | Playback | `playback.*`, `player_engine.h`, `mpv_engine.*`, `transport.*` — libmpv `vo=null`; playing **path** not index; stop unloads media |
@@ -138,7 +138,7 @@ Support dir: `$XDG_DATA_HOME/com.tramp.tramp` (adopts legacy `…/tramp` when th
 - [0003 — Window size only via zoom steps](adr/0003-zoom-only-window-size.md) *(superseded by 0006)*
 - [0004 — PNG-first graphite skin](adr/0004-png-graphite-skin.md) *(superseded by 0007)*
 - [0005 — Full libmpv bundling](adr/0005-full-libmpv.md)
-- [0006 — Multi-window docking](adr/0006-multi-window-docking.md)
+- [0006 — Multi-window docking](adr/0006-multi-window-docking.md) *(docking/snap/shade still accepted; five-OS-window host superseded by 0017)*
 - [0007 — Code-constructed mockup chrome](adr/0007-code-constructed-mockup-chrome.md)
 - [0008 — Playlist collection stores references; skins stay copies](adr/0008-playlist-collection-stores-references.md)
 - [0009 — Official download is the website](adr/0009-website-distribution.md) *(superseded by 0010 on source posture)*
@@ -148,4 +148,5 @@ Support dir: `$XDG_DATA_HOME/com.tramp.tramp` (adopts legacy `…/tramp` when th
 - [0013 — Linux Flathub and AppImage](adr/0013-linux-flathub-and-appimage.md)
 - [0014 — GitHub Actions CI and v1 CPU matrix](adr/0014-ci-and-architectures.md)
 - [0015 — One Flutter engine, several OS windows](adr/0015-one-engine-windows.md) *(superseded by 0016)*
-- [0016 — Qt 6 C++ is the Tramp v1 host](adr/0016-qt-for-v1.md)
+- [0016 — Qt 6 C++ is the Tramp v1 host](adr/0016-qt-for-v1.md) *(stack lock; five-OS-window host superseded by 0017)*
+- [0017 — One host window, internal panels](adr/0017-one-host-window-internal-panels.md)
