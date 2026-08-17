@@ -38,8 +38,24 @@ std::vector<int> logBandEdges(int sampleRateHz, int fftSize) {
   bins.reserve(edgesHz.size());
   for (double hz : edgesHz) {
     int bin = int(std::floor(hz / binHz));
-    bin = std::clamp(bin, 1, maxBin);
-    bins.push_back(bin);
+    bins.push_back(std::clamp(bin, 1, maxBin));
+  }
+  // Independent clamping collapses the lowest log edges onto FFT bin 1 when
+  // bin width (~43 Hz at 1024/44.1 kHz) is wider than the first bands, which
+  // leaves bars 0–1 with lo==hi and dumps all bass into bar 2. Keep edges
+  // strictly increasing so every bar owns at least one bin.
+  for (size_t i = 1; i < bins.size(); ++i) {
+    if (bins[i] <= bins[i - 1]) {
+      bins[i] = bins[i - 1] + 1;
+    }
+  }
+  if (bins.back() > maxBin) {
+    bins.back() = maxBin;
+    for (int i = int(bins.size()) - 2; i >= 0; --i) {
+      if (bins[size_t(i)] >= bins[size_t(i + 1)]) {
+        bins[size_t(i)] = bins[size_t(i + 1)] - 1;
+      }
+    }
   }
   return bins;
 }

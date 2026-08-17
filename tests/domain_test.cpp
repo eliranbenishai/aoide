@@ -354,6 +354,29 @@ int main() {
   }
 
   {
+    // Every log bar must own a real FFT range: a sine at the bar's center
+    // frequency has to light that bar. 1024-point FFTs at 44.1/48 kHz collapse
+    // the first two 40 Hz-up log edges onto the same bin, so bars 0–1 stayed
+    // dark and bar 2 ate all the bass.
+    constexpr double kPi = 3.14159265358979323846;
+    const int rates[] = {44100, 48000};
+    for (int sampleRate : rates) {
+      QVector<double> samples(sampleRate);
+      for (int band = 0; band < AudioLevels::kBandCount; ++band) {
+        const double hz = SpectrumAnalyzer::bandCenterHz(band, sampleRate);
+        for (int i = 0; i < samples.size(); ++i) {
+          samples[i] = 0.5 * std::sin(2.0 * kPi * hz * double(i) / double(sampleRate));
+        }
+        const AudioLevels frame =
+            SpectrumAnalyzer().analyzeMonoPcm(samples, sampleRate).levelsAt(200);
+        const int peakIndex = argmax(frame.bands);
+        REQUIRE(std::abs(peakIndex - band) <= 1);
+        REQUIRE(frame.bands[size_t(band)] > 0.3);
+      }
+    }
+  }
+
+  {
     const Spectrogram spec = SpectrumAnalyzer().analyzeMonoPcm(QVector<double>(2048, 0.0), 44100);
     const AudioLevels frame = spec.levelsAt(0);
     REQUIRE(!frame.synthetic);
