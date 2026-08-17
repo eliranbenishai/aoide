@@ -66,6 +66,8 @@ endif()
 
 set(TRAMP_SOURCES
   src/main.cpp
+  src/host_shell_window.cpp
+  src/host_shell_window.h
   src/host_window.cpp
   src/host_window.h
   src/session.cpp
@@ -130,6 +132,15 @@ qt_add_executable(host_shell_test tests/host_shell_test.cpp)
 target_link_libraries(host_shell_test PRIVATE tramp_window_spec Qt6::Test)
 set_target_properties(host_shell_test PROPERTIES AUTOMOC ON)
 
+qt_add_executable(host_shell_window_test
+  tests/host_shell_window_test.cpp
+  src/host_shell_window.cpp
+  src/host_shell_window.h
+)
+target_include_directories(host_shell_window_test PRIVATE src)
+target_link_libraries(host_shell_window_test PRIVATE tramp_window_spec Qt6::Test Qt6::Widgets)
+set_target_properties(host_shell_window_test PROPERTIES AUTOMOC ON)
+
 qt_add_executable(chrome_spec_test tests/chrome_spec_test.cpp)
 target_link_libraries(chrome_spec_test PRIVATE tramp_window_spec Qt6::Test)
 set_target_properties(chrome_spec_test PROPERTIES AUTOMOC ON)
@@ -186,6 +197,7 @@ set_target_properties(skip_taskbar_test PROPERTIES AUTOMOC ON)
 enable_testing()
 add_test(NAME window_spec COMMAND window_spec_test)
 add_test(NAME host_shell COMMAND host_shell_test)
+add_test(NAME host_shell_window COMMAND host_shell_window_test)
 add_test(NAME chrome_spec COMMAND chrome_spec_test)
 add_test(NAME skip_taskbar COMMAND skip_taskbar_test)
 add_test(NAME domain COMMAND domain_test)

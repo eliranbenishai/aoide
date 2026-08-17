@@ -47,12 +47,15 @@ LIBS=(
 CXXFLAGS=(-std=c++17 -fPIC -Wall -Wextra -Wno-unused-parameter)
 
 "$MOC" "$ROOT/src/host_window.h" -o "$BUILD/moc_host_window.cpp"
+"$MOC" "$ROOT/src/host_shell_window.h" -o "$BUILD/moc_host_shell_window.cpp"
 "$MOC" "$ROOT/src/session.h" -o "$BUILD/moc_session.cpp"
 "$MOC" "$ROOT/src/mpv_engine.h" -o "$BUILD/moc_mpv_engine.cpp"
 
 SRCS=(
   "$ROOT/src/window_spec.cpp"
   "$ROOT/src/title_chrome.cpp"
+  "$ROOT/src/host_shell.cpp"
+  "$ROOT/src/host_shell_window.cpp"
   "$ROOT/src/skip_taskbar.cpp"
   "$ROOT/src/mockup_draw.cpp"
   "$ROOT/src/tramp_fonts.cpp"
@@ -81,11 +84,13 @@ SRCS=(
   "$ROOT/src/host_window.cpp"
   "$ROOT/src/main.cpp"
   "$BUILD/moc_host_window.cpp"
+  "$BUILD/moc_host_shell_window.cpp"
   "$BUILD/moc_session.cpp"
   "$BUILD/moc_mpv_engine.cpp"
 )
 
-"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" "${DEFS[@]}" "${SRCS[@]}" "${LIBS[@]}" -o "$BUILD/tramp"
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" "${DEFS[@]}" "${SRCS[@]}" "${LIBS[@]}" -o "$BUILD/tramp.next"
+mv -f "$BUILD/tramp.next" "$BUILD/tramp"
 
 # Domain tests (playlist / playback / docking / collection)
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" "${DEFS[@]}" \
@@ -133,6 +138,15 @@ QT_QPA_PLATFORM=offscreen "$BUILD/font_metrics_test"
   -L"$QT/lib" -lQt6Test -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
   -o "$BUILD/host_shell_test"
 "$BUILD/host_shell_test"
+
+"$MOC" "$ROOT/src/host_shell_window.h" -o "$BUILD/moc_host_shell_window.cpp"
+"$MOC" "$ROOT/tests/host_shell_window_test.cpp" -o "$BUILD/host_shell_window_test.moc"
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
+  "$ROOT/src/host_shell.cpp" "$ROOT/src/host_shell_window.cpp" "$BUILD/moc_host_shell_window.cpp" \
+  "$ROOT/tests/host_shell_window_test.cpp" \
+  -L"$QT/lib" -lQt6Test -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
+  -o "$BUILD/host_shell_window_test"
+QT_QPA_PLATFORM=offscreen "$BUILD/host_shell_window_test"
 
 "$MOC" "$ROOT/tests/chrome_spec_test.cpp" -o "$BUILD/chrome_spec_test.moc"
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \

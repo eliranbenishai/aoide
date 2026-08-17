@@ -2,6 +2,8 @@
 
 #include "chrome_layout.h"
 #include "files.h"
+#include "host_shell.h"
+#include "host_shell_window.h"
 #include "host_window.h"
 #include "look.h"
 #include "m3u.h"
@@ -29,7 +31,7 @@
 #include <QPushButton>
 #include <QUrl>
 #include <QWidget>
-#include <QWindow>
+#include <QVector>
 #include <QtGlobal>
 #include <algorithm>
 #include <cmath>
@@ -102,12 +104,6 @@ TrampSession::TrampSession(QObject* parent)
   eqApplyTimer_.setSingleShot(true);
   eqApplyTimer_.setInterval(50);
   QObject::connect(&eqApplyTimer_, &QTimer::timeout, this, [this]() { applyEq(); });
-  dragEndTimer_.setInterval(16);
-  dragEndTimer_.setTimerType(Qt::PreciseTimer);
-  QObject::connect(&dragEndTimer_, &QTimer::timeout, this, [this]() { watchTitleDragEnd(); });
-  extraPinTimer_.setSingleShot(true);
-  extraPinTimer_.setInterval(400);
-  QObject::connect(&extraPinTimer_, &QTimer::timeout, this, [this]() { pinnedExtras_.clear(); });
 
   playlist_.setOnChanged([this]() {
     if (playback_) playback_->onPlaylistChanged();
@@ -133,6 +129,7 @@ void TrampSession::detachWindows() {
   pl_ = nullptr;
   settingsWin_ = nullptr;
   about_ = nullptr;
+  shell_ = nullptr;
 }
 
 void TrampSession::bindPlayback() {
@@ -211,6 +208,8 @@ void TrampSession::setWindows(HostWindow* main, HostWindow* eq, HostWindow* pl,
   about_ = about;
 }
 
+void TrampSession::setShell(HostShell* shell) { shell_ = shell; }
+
 void TrampSession::bootstrap(const QStringList& argvFiles) {
   const auto kept = store_.readAltered();
   if (!kept.isEmpty()) {
@@ -268,21 +267,11 @@ bool TrampSession::windowShouldShow(WindowId id) const {
 }
 
 void TrampSession::applyAlwaysOnTop() {
-  const bool on = settings_.alwaysOnTop;
-  for (WindowId id : {WindowId::main, WindowId::equalizer, WindowId::playlist, WindowId::settings,
-                      WindowId::about}) {
-    HostWindow* w = windowFor(id);
-    if (!w) continue;
-    w->setAlwaysOnTop(on && w->isVisible() && !hiddenByMinimize_.contains(id));
-  }
+  if (shell_) shell_->setAlwaysOnTop(settings_.alwaysOnTop);
 }
 
 void TrampSession::applyFramesToWindows() {
   applyDockToWindows();
-  for (WindowId id : {WindowId::equalizer, WindowId::playlist, WindowId::settings, WindowId::about}) {
-    HostWindow* w = windowFor(id);
-    if (w) w->setShaded(docking_.layout().frameOf(id).shaded);
-  }
 }
 
 void TrampSession::refreshAboutFigures() {
@@ -294,6 +283,7 @@ void TrampSession::refreshAboutFigures() {
 void TrampSession::persistNow() {
   if (qEnvironmentVariable("TRAMP_AUTO_QUIT") == QLatin1String("1")) return;
   if (!main_) return;
+  if (!applyingDock_) syncLayoutFromWindows();
   auto capture = [&](HostWindow* w, WindowFrame& frame) {
     if (!w) return;
     frame.visible = docking_.layout().frameOf(w->id()).visible;
@@ -490,24 +480,20 @@ void TrampSession::setZoomPercent(int percent) {
   settings_.zoomPercent = percent;
   schedulePersist();
   emit zoomChanged(percent);
+  applyFramesToWindows();
 }
 
 void TrampSession::setWindowVisible(WindowId id, bool visible) {
   docking_.setVisible(id, visible);
   if (visible) {
-    syncLayoutFromWindows();
     docking_.nudgeOffMainIfStacked(id);
-    applyDockToWindows();
-    pinNewlyShown(id);
     emit requestShow(id);
-    applyDockToWindows();
-    QTimer::singleShot(0, this, [this]() { applyDockToWindows(); });
-    QTimer::singleShot(50, this, [this]() { applyDockToWindows(); });
-    QTimer::singleShot(200, this, [this]() { applyDockToWindows(); });
+    applyFramesToWindows();
     if (id == WindowId::settings) emit requestRaise(WindowId::settings);
     if (id == WindowId::about) refreshAboutFigures();
   } else {
     emit requestHide(id);
+    applyFramesToWindows();
   }
   applyAlwaysOnTop();
   schedulePersist();
@@ -517,11 +503,13 @@ void TrampSession::setWindowVisible(WindowId id, bool visible) {
 void TrampSession::setShaded(WindowId id, bool shaded) {
   docking_.setShaded(id, shaded);
   schedulePersist();
+  applyFramesToWindows();
 }
 
 void TrampSession::extraClosed(WindowId id) {
   docking_.setVisible(id, false);
   applyAlwaysOnTop();
+  applyFramesToWindows();
   schedulePersist();
   refreshChrome();
 }
@@ -538,6 +526,7 @@ void TrampSession::mainMinimized(bool minimized) {
         w->hide();
       }
     }
+    applyFramesToWindows();
   } else {
     for (WindowId id : hiddenByMinimize_) {
       HostWindow* w = windowFor(id);
@@ -545,6 +534,7 @@ void TrampSession::mainMinimized(bool minimized) {
     }
     hiddenByMinimize_.clear();
     applyAlwaysOnTop();
+    applyFramesToWindows();
   }
 }
 
@@ -558,72 +548,28 @@ void TrampSession::removeSelectedTracks() { playlist_.removeSelected(); }
 
 void TrampSession::windowMoved(WindowId id, QPoint nativeTopLeft, bool finalize) {
   if (applyingDock_) return;
-  if (pinnedExtras_.contains(id) && !titleDragging_) {
-    applyDockToWindows();
-    return;
-  }
-
   docking_.move(id, nativeToLogical(nativeTopLeft), false, finalize && id != WindowId::main);
-  if (finalize) applyDockToWindows();
+  applyFramesToWindows();
   schedulePersist();
 }
 
 void TrampSession::titleDragBegan(WindowId id) {
-  pinnedExtras_.clear();
-  extraPinTimer_.stop();
+  Q_UNUSED(id);
   syncLayoutFromWindows();
-  titleDragId_ = id;
   titleDragging_ = true;
-  dragSettledTicks_ = 0;
-  HostWindow* w = windowFor(id);
-  dragWindowOrigin_ = w ? w->pos() : QPoint();
-  lastDragPos_ = dragWindowOrigin_;
-  if (id != WindowId::main && !dragEndTimer_.isActive()) dragEndTimer_.start();
 }
 
 void TrampSession::titleDragEnded(WindowId id) {
   if (!titleDragging_) return;
-  dragEndTimer_.stop();
   titleDragging_ = false;
   HostWindow* w = windowFor(id);
-  if (w) windowMoved(id, w->pos(), id != WindowId::main);
+  if (w) windowMoved(id, w->nativeTopLeft(), id != WindowId::main);
   else schedulePersist();
-  if (id != WindowId::main) {
-    QTimer::singleShot(0, this, [this, id]() { settleTitleDrag(id); });
-    QTimer::singleShot(50, this, [this, id]() { settleTitleDrag(id); });
-  }
-}
-
-void TrampSession::watchTitleDragEnd() {
-  if (!titleDragging_ || titleDragId_ == WindowId::main) {
-    dragEndTimer_.stop();
-    return;
-  }
-  HostWindow* w = windowFor(titleDragId_);
-  if (!w) return;
-  const QPoint pos = w->pos();
-  if (pos != dragWindowOrigin_ && pos == lastDragPos_) {
-    ++dragSettledTicks_;
-    if (dragSettledTicks_ >= 15) {
-      titleDragEnded(titleDragId_);
-      return;
-    }
-  } else {
-    dragSettledTicks_ = 0;
-  }
-  lastDragPos_ = pos;
 }
 
 void TrampSession::extraWasMapped(WindowId id) {
   if (id == WindowId::main) return;
-  applyDockToWindows();
-  pinNewlyShown(id);
-}
-
-void TrampSession::pinNewlyShown(WindowId id) {
-  if (id != WindowId::equalizer && id != WindowId::playlist) return;
-  pinnedExtras_.insert(id);
-  extraPinTimer_.start();
+  applyFramesToWindows();
 }
 
 void TrampSession::syncLayoutFromWindows(std::optional<WindowId> skip) {
@@ -632,18 +578,11 @@ void TrampSession::syncLayoutFromWindows(std::optional<WindowId> skip) {
     if (skip && id == *skip) continue;
     HostWindow* w = windowFor(id);
     if (!w || !w->isVisible()) continue;
-    const QPointF logical = nativeToLogical(w->pos());
+    const QPointF logical = nativeToLogical(w->nativeTopLeft());
     WindowFrame& frame = docking_.layout().frameOf(id);
     frame.left = logical.x();
     frame.top = logical.y();
   }
-}
-
-void TrampSession::settleTitleDrag(WindowId id) {
-  if (titleDragging_) return;
-  HostWindow* w = windowFor(id);
-  if (!w) return;
-  windowMoved(id, w->pos(), id != WindowId::main);
 }
 
 void TrampSession::reapplyWindowFrames() {
@@ -651,25 +590,60 @@ void TrampSession::reapplyWindowFrames() {
 }
 
 void TrampSession::applyDockToWindows(std::optional<WindowId> skip) {
+  if (applyingDock_) return;
   applyingDock_ = true;
+
+  QVector<QRect> screenRects;
+  struct Placement {
+    HostWindow* widget = nullptr;
+    QRect screen;
+  };
+  QVector<Placement> visible;
+
   for (WindowId id : {WindowId::main, WindowId::equalizer, WindowId::playlist, WindowId::settings,
                       WindowId::about}) {
     if (skip && id == *skip) continue;
     HostWindow* w = windowFor(id);
     if (!w) continue;
     const WindowFrame& f = docking_.layout().frameOf(id);
+    if (id != WindowId::main) w->setShaded(f.shaded);
+    if (id == WindowId::playlist && f.width && f.height) {
+      w->setPlaylistLogicalSize(QSize(int(*f.width), int(*f.height)));
+    }
+    const bool show = f.visible && !hiddenByMinimize_.contains(id);
+    if (!show) {
+      w->hide();
+      continue;
+    }
     const QPoint native = logicalToNative(QPointF(f.left, f.top));
-    w->move(native);
-    if (QWindow* handle = w->windowHandle()) handle->setPosition(native);
+    const QRect screen(native, w->size());
+    screenRects.push_back(screen);
+    visible.push_back({w, screen});
   }
+
+  const tramp::HostShellLayout layout = tramp::hostShellLayout(screenRects);
+  if (shell_) shell_->applyLayout(layout);
+  if (layout.screenRect.isNull()) {
+    applyingDock_ = false;
+    return;
+  }
+
+  const QPoint origin = layout.screenRect.topLeft();
+  for (const Placement& place : visible) {
+    place.widget->setGeometry(place.screen.translated(-origin));
+    place.widget->show();
+  }
+  if (shell_) shell_->refreshMaskFromChildren();
   applyingDock_ = false;
 }
 
 void TrampSession::playlistResized(QSize native) {
+  if (applyingDock_) return;
   const qreal z = settings_.zoomPercent / 100.0;
   docking_.resizePlaylist(QSizeF(native.width() / z, native.height() / z));
   settings_.playlist.width = native.width() / z;
   settings_.playlist.height = native.height() / z;
+  applyFramesToWindows();
   schedulePersist();
   refreshChrome();
 }
@@ -746,7 +720,7 @@ void TrampSession::handleRelease(WindowId id) {
     applyEq();
   }
   if (id == WindowId::equalizer || id == WindowId::playlist) {
-    windowMoved(id, windowFor(id)->pos(), true);
+    if (HostWindow* w = windowFor(id)) windowMoved(id, w->nativeTopLeft(), true);
   }
 }
 

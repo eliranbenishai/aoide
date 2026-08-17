@@ -88,7 +88,7 @@ flowchart TB
 
 | Area | Owns |
 |------|------|
-| Host | `HostShell` + five panels — one frameless host window titled Tramp; punched input from `hostShellLayout`; main close persists then quits; extra panels hide |
+| Host | `HostShell` (`host_shell_window.*`) + five `HostWindow` panels — one frameless host window titled Tramp; punched input from `hostShellLayout`; main close persists then quits; extra panels hide |
 | Session | `session.*`, `session_view.*` — shared controllers, commands, `--dump-chrome` golden |
 | Docking | `docking.*` — peel 8 logical px; EQ any side; playlist top/bottom; settings/about never snap. Coordinator applies frames to panels, then `hostShellLayout`. |
 | Chrome | `chrome_paint.cpp`, `chrome_bodies.cpp`, `chrome_hits.cpp`, `chrome_layout.h`, `title_chrome.*`, `mockup_draw.cpp`, `mockup_tokens.h`, `tramp_metrics.h`, `tramp_fonts.*` — mockup `.win` / `.tbar` / `.wbtn` at discrete zoom (default 75%). Display-well STEREO/PLAYLIST keep a fixed gap; close buttons take hue from the more saturated of skin ink vs accent. |

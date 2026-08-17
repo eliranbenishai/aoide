@@ -21,6 +21,7 @@
 #include <optional>
 
 class HostWindow;
+class HostShell;
 class QMenu;
 
 namespace tramp {
@@ -34,6 +35,7 @@ class TrampSession : public QObject {
 
   void setWindows(HostWindow* main, HostWindow* eq, HostWindow* pl, HostWindow* settings,
                   HostWindow* about);
+  void setShell(HostShell* shell);
   void bootstrap(const QStringList& argvFiles);
   SessionView view() const;
   MainLiveReadouts mainLive() const;
@@ -93,9 +95,7 @@ class TrampSession : public QObject {
   void openPaths(const QStringList& paths, bool enqueue);
   void loadCollectionRow(int index);
   void applyDockToWindows(std::optional<WindowId> skip = {});
-  void settleTitleDrag(WindowId id);
   void syncLayoutFromWindows(std::optional<WindowId> skip = {});
-  void pinNewlyShown(WindowId id);
   QPointF nativeToLogical(QPoint native) const;
   QPoint logicalToNative(QPointF logical) const;
   void showOptionsMenu(QRect logicalHit);
@@ -106,7 +106,6 @@ class TrampSession : public QObject {
   void syncSpectrum();
   void tickSpectrum();
   void startSpectrumDecode(const QString& path, int gen);
-  void watchTitleDragEnd();
 
   SupportStore store_;
   TrampSettings settings_;
@@ -128,6 +127,7 @@ class TrampSession : public QObject {
   HostWindow* pl_ = nullptr;
   HostWindow* settingsWin_ = nullptr;
   HostWindow* about_ = nullptr;
+  HostShell* shell_ = nullptr;
   bool showElapsed_ = true;
   int settingsTab_ = 0;
   int trackScroll_ = 0;
@@ -140,17 +140,10 @@ class TrampSession : public QObject {
   QTimer usageTimer_;
   QTimer aboutTimer_;
   QTimer eqApplyTimer_;
-  QTimer dragEndTimer_;
-  QTimer extraPinTimer_;
-  QSet<WindowId> pinnedExtras_;
-  QPoint lastDragPos_;
-  int dragSettledTicks_ = 0;
   CollectionFigures figures_;
   bool figuresLoaded_ = false;
   bool applyingDock_ = false;
   bool titleDragging_ = false;
-  WindowId titleDragId_ = WindowId::main;
-  QPoint dragWindowOrigin_;
   int skinsScroll_ = 0;
 };
 

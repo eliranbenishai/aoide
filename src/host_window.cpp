@@ -11,7 +11,6 @@
 #include <QMoveEvent>
 #include <QPainter>
 #include <QUrl>
-#include <QWindow>
 #include <cmath>
 
 HostWindow::HostWindow(const tramp::WindowSpec& spec, QWidget* parent)
@@ -22,11 +21,14 @@ HostWindow::HostWindow(const tramp::WindowSpec& spec, QWidget* parent)
   setMouseTracking(true);
   setAcceptDrops(true);
   setWindowTitle(spec.title);
-  setWindowFlags(tramp::hostWindowFlags(spec.skipTaskbar));
-  move(spec.origin);
+  if (!parent) {
+    setWindowFlags(tramp::hostWindowFlags(spec.skipTaskbar));
+    move(spec.origin);
+    winId();
+  }
   logo_ = tramp::loadTrampLogo();
   applyNativeSize();
-  winId();
+  if (parent && spec.skipTaskbar) hide();
 }
 
 QSize HostWindow::paintLogical() const {
@@ -131,6 +133,7 @@ void HostWindow::rebuildChassis() {
 }
 
 void HostWindow::setAlwaysOnTop(bool on) {
+  if (parentWidget()) return;
   const bool have = windowFlags().testFlag(Qt::WindowStaysOnTopHint);
   if (have == on) return;
   const bool vis = isVisible();
@@ -140,6 +143,8 @@ void HostWindow::setAlwaysOnTop(bool on) {
     if (spec_.skipTaskbar) tramp::applySkipTaskbar(windowHandle());
   }
 }
+
+QPoint HostWindow::nativeTopLeft() const { return mapToGlobal(QPoint(0, 0)); }
 
 void HostWindow::setPlaylistLogicalSize(QSize logical) {
   if (spec_.id != tramp::WindowId::playlist) return;
@@ -212,7 +217,7 @@ void HostWindow::paintEvent(QPaintEvent*) {
 
 void HostWindow::showEvent(QShowEvent* event) {
   QWidget::showEvent(event);
-  if (spec_.skipTaskbar) {
+  if (!parentWidget() && spec_.skipTaskbar) {
     tramp::applySkipTaskbar(windowHandle());
   }
   if (spec_.id != tramp::WindowId::main) emit extraMapped();
@@ -223,12 +228,6 @@ void HostWindow::changeEvent(QEvent* event) {
   if (event->type() == QEvent::DevicePixelRatioChange) {
     invalidateChassis();
     update();
-  }
-  if (spec_.id != tramp::WindowId::main) return;
-  if (event->type() == QEvent::WindowStateChange) {
-    emit mainMinimized(windowState() & Qt::WindowMinimized);
-  } else if (event->type() == QEvent::WindowActivate) {
-    emit mainActivated();
   }
 }
 
@@ -258,7 +257,7 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
       event->accept();
       return;
     case tramp::TitleChromeLayout::Hit::minimize:
-      showMinimized();
+      if (QWidget* top = window()) top->showMinimized();
       event->accept();
       return;
     case tramp::TitleChromeLayout::Hit::collapse:
@@ -275,14 +274,9 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
       return;
     case tramp::TitleChromeLayout::Hit::drag:
       draggingTitle_ = true;
-      usedSystemMove_ = false;
+      grabOffset_ = event->globalPosition().toPoint() - mapToGlobal(QPoint(0, 0));
       emit titleDragStarted();
-      // Wayland (and most X11 WMs) only move a frameless toplevel via
-      // startSystemMove(). That grab also synthesizes a mouse-release on this
-      // widget — swallow that leftover so EQ/PL can snap when the grab ends.
-      if (QWindow* win = windowHandle()) {
-        usedSystemMove_ = win->startSystemMove();
-      }
+      grabMouse();
       event->accept();
       return;
     case tramp::TitleChromeLayout::Hit::none:
@@ -291,9 +285,8 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
 
   const auto chrome = tramp::hitTest(spec_.id, spec_.logicalSize, logical, view_);
   if (chrome.kind == tramp::ChromeHit::Kind::plResize) {
-    if (QWindow* win = windowHandle()) {
-      win->startSystemResize(Qt::BottomEdge | Qt::RightEdge);
-    }
+    resizingPlaylist_ = true;
+    grabMouse();
     event->accept();
     return;
   }
@@ -307,6 +300,21 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
 
 void HostWindow::mouseMoveEvent(QMouseEvent* event) {
   applyHitCursor(event->position());
+  if (draggingTitle_ && (event->buttons() & Qt::LeftButton)) {
+    const QPoint newTopLeft = event->globalPosition().toPoint() - grabOffset_;
+    emit nativeMoved(newTopLeft);
+    event->accept();
+    return;
+  }
+  if (resizingPlaylist_ && (event->buttons() & Qt::LeftButton)) {
+    const QPoint global = event->globalPosition().toPoint();
+    const QPoint origin = mapToGlobal(QPoint(0, 0));
+    const QSize next(qMax(minimumWidth(), global.x() - origin.x()),
+                     qMax(minimumHeight(), global.y() - origin.y()));
+    emit nativeResized(next);
+    event->accept();
+    return;
+  }
   if (draggingChrome_ && (event->buttons() & Qt::LeftButton)) {
     const QPoint logical = logicalFrom(event->position());
     emit chromeDragged(dragHit_, logical);
@@ -315,15 +323,12 @@ void HostWindow::mouseMoveEvent(QMouseEvent* event) {
 }
 
 void HostWindow::mouseReleaseEvent(QMouseEvent* event) {
-  if (draggingTitle_ && usedSystemMove_) {
-    usedSystemMove_ = false;
-    event->accept();
-    return;
-  }
+  if (draggingTitle_ || resizingPlaylist_) releaseMouse();
   if (draggingTitle_) {
     draggingTitle_ = false;
     emit titleDragFinished();
   }
+  if (resizingPlaylist_) resizingPlaylist_ = false;
   if (draggingChrome_) {
     draggingChrome_ = false;
     emit chromeReleased();
@@ -349,7 +354,7 @@ void HostWindow::wheelEvent(QWheelEvent* event) {
 
 void HostWindow::moveEvent(QMoveEvent* event) {
   QWidget::moveEvent(event);
-  emit nativeMoved(event->pos());
+  emit nativeMoved(mapToGlobal(QPoint(0, 0)));
 }
 
 void HostWindow::resizeEvent(QResizeEvent* event) {
