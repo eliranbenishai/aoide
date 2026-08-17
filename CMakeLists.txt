@@ -140,9 +140,13 @@ qt_add_executable(domain_test
   src/stft.cpp
   src/spectrum.cpp
   src/playback.cpp
+  src/docking.cpp
+  src/collection.cpp
+  src/persist.cpp
+  src/settings.cpp
 )
 target_include_directories(domain_test PRIVATE src)
-target_link_libraries(domain_test PRIVATE Qt6::Core)
+target_link_libraries(domain_test PRIVATE tramp_window_spec Qt6::Widgets)
 
 qt_add_executable(look_test
   tests/look_test.cpp

@@ -1,8 +1,11 @@
+#include "collection.h"
+#include "docking.h"
 #include "equalizer.h"
 #include "m3u.h"
 #include "playback.h"
 #include "player_engine.h"
 #include "playlist.h"
+#include "popup_anchor.h"
 #include "spectrum.h"
 #include "support_dir.h"
 #include "track.h"
@@ -425,6 +428,48 @@ int main() {
   }
 
   {
+    const QRect cog(100, 200, 26, 26);
+    const QSize menu(180, 120);
+    REQUIRE_EQ(tramp::popupMenuPos(cog, menu, tramp::PopupAnchor::belowLeft), QPoint(100, 226));
+    REQUIRE_EQ(tramp::popupMenuPos(cog, menu, tramp::PopupAnchor::aboveLeft), QPoint(100, 80));
+  }
+
+  {
+    tramp::DockLayout layout;
+    layout.main = {true, false, 0, 0, {}, {}};
+    layout.equalizer = {true, false, 0, 348, {}, {}};
+    layout.playlist = {true, false, 0, 696, {}, {}};
+    layout.dockEdges = {{tramp::WindowId::main, tramp::WindowId::equalizer, tramp::DockSide::bottom}};
+    tramp::DockingCoordinator dock(layout);
+    dock.move(tramp::WindowId::main, QPointF(40, 20), false, false);
+    REQUIRE_EQ(dock.layout().main.left, 40.0);
+    REQUIRE_EQ(dock.layout().main.top, 20.0);
+    REQUIRE_EQ(dock.layout().equalizer.left, 40.0);
+    REQUIRE_EQ(dock.layout().equalizer.top, 368.0);
+    REQUIRE_EQ(dock.layout().playlist.left, 0.0);
+    REQUIRE_EQ(dock.layout().playlist.top, 696.0);
+  }
+
+  {
+    tramp::DockLayout layout;
+    layout.main = {true, false, 100, 100, {}, {}};
+    layout.equalizer = {true, false, 100, 448, {}, {}};
+    tramp::DockingCoordinator dock(layout);
+    dock.setSnapThreshold(20);
+    dock.move(tramp::WindowId::main, QPointF(130, 110), false, false);
+    REQUIRE_EQ(dock.layout().equalizer.left, 130.0);
+    REQUIRE_EQ(dock.layout().equalizer.top, 458.0);
+  }
+
+  {
+    REQUIRE_EQ(tramp::collectionHighlightPath(QStringLiteral("/music/set.m3u"), QString()),
+               QDir::cleanPath(QStringLiteral("/music/set.m3u")));
+    REQUIRE_EQ(tramp::collectionHighlightPath(QString(), QStringLiteral("/music/other.m3u")),
+               QStringLiteral("/music/other.m3u"));
+    REQUIRE_EQ(tramp::collectionHighlightPath(QString(), QString()), QString());
+  }
+
+  {
     // MpvEngine only reports pause via a later property event. Pause must not
     // wait for that callback or the button looks stuck.
     class QuietEngine : public NullEngine {
@@ -448,6 +493,34 @@ int main() {
     REQUIRE(!playback.playing());
     REQUIRE(playback.paused());
     REQUIRE(engine.paused);
+  }
+
+  {
+    // loadfile reports pause=yes until the file is ready. That echo must not
+    // undo the optimistic play/pause the chrome already showed.
+    class LagEngine : public NullEngine {
+     public:
+      void play() override {}
+      void pause() override {}
+      void fire(bool playing) {
+        if (onPlaying) onPlaying(playing);
+      }
+    };
+    PlaylistController playlist;
+    Track track;
+    track.path = QStringLiteral("/tmp/lag.mp3");
+    playlist.setTracks({track});
+    LagEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.playIndex(0);
+    REQUIRE(playback.playing());
+    engine.fire(false);
+    REQUIRE(playback.playing());
+    playback.playPause();
+    REQUIRE(!playback.playing());
+    engine.fire(true);
+    REQUIRE(!playback.playing());
+    REQUIRE(playback.paused());
   }
 
   if (gFails != 0) {

@@ -6,7 +6,7 @@ Living map of how Tramp is structured. Domain terms: [`CONTEXT.md`](../CONTEXT.m
 
 **Qt 6 C++** is the only build ([ADR 0016](adr/0016-qt-for-v1.md)). One process, five frameless windows, QWidget + QPainter in [`src/`](../src/). Binary: `build/tramp`.
 
-`TrampSession` owns playback (libmpv), playlist/collection, EQ, spectrum, docking, zoom, skins, and persistence. Extra windows are extra views, not extra engines. Title-bar drag is `QWindow::startSystemMove()`. Extras are `Qt::Dialog` transients of main and skip the taskbar. `--dump-chrome` writes 1× logical PNGs from `SessionView::golden()`.
+`TrampSession` owns playback (libmpv), playlist/collection, EQ, spectrum, docking, zoom, skins, and persistence. Extra windows are extra views, not extra engines. Title-bar drag is `QWindow::startSystemMove()`; the session polls that move and translates the dock cohort without writing the dragged window’s geometry back (so it doesn’t fight the WM). Extras skip the taskbar. On Windows they are `Qt::Dialog` transients of main; on Linux they are independent toplevels so saved positions and dock follow stick. `--dump-chrome` writes 1× logical PNGs from `SessionView::golden()`.
 
 Linux + Windows are the pairing hosts; macOS follows. Dock follow is proven on xcb; Wayland is best-effort.
 
@@ -90,7 +90,7 @@ flowchart TB
 |------|------|
 | Host | `main.cpp`, `host_window.*`, `window_spec.*`, `skip_taskbar.*` — five frameless windows; main close persists then quits; extras hide |
 | Session | `session.*`, `session_view.*` — shared controllers, commands, `--dump-chrome` golden |
-| Docking | `docking.*` — main carries visible EQ/PL; peel 8 logical px; EQ any side; playlist top/bottom; settings/about never snap |
+| Docking | `docking.*` — main carries visible EQ/PL; peel 8 logical px; EQ any side; playlist top/bottom; settings/about never snap. Host applies restored frames after map; only title-bar drags write back into the coordinator. |
 | Chrome | `chrome_paint.cpp`, `chrome_bodies.cpp`, `chrome_hits.cpp`, `title_chrome.*`, `mockup_draw.cpp`, `mockup_tokens.h`, `tramp_metrics.h`, `tramp_fonts.*` — mockup `.win` / `.tbar` / `.wbtn` at discrete zoom (default 75%) |
 | Skins | `look.*` — `skin.json` / legacy `look.json`; catalog `<support>/skins` + bundled `skins/` |
 | Playback | `playback.*`, `player_engine.h`, `mpv_engine.*`, `transport.*` — libmpv `vo=null`; playing **path** not index; stop unloads media |

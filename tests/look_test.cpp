@@ -297,6 +297,44 @@ int main() {
     REQUIRE_EQ(hex(skins.tokens().phos), QStringLiteral("#112233"));
   }
 
+  {
+    TrampSettings saved;
+    saved.main.left = 640;
+    saved.main.top = 200;
+    saved.equalizer.left = 640;
+    saved.equalizer.top = 548;
+    saved.playlist.left = 40;
+    saved.playlist.top = 40;
+    saved.playlist.width = 1073;
+    saved.playlist.height = 696;
+    const QByteArray compact =
+        QJsonDocument(saved.toJson()).toJson(QJsonDocument::Compact);
+    const TrampSettings loaded =
+        TrampSettings::fromJson(QJsonDocument::fromJson(compact).object());
+    REQUIRE_EQ(loaded.main.left, 640.0);
+    REQUIRE_EQ(loaded.main.top, 200.0);
+    REQUIRE_EQ(loaded.equalizer.left, 640.0);
+    REQUIRE_EQ(loaded.equalizer.top, 548.0);
+    REQUIRE_EQ(loaded.playlist.left, 40.0);
+    REQUIRE_EQ(loaded.playlist.top, 40.0);
+    REQUIRE(loaded.playlist.width && *loaded.playlist.width == 1073.0);
+  }
+
+  {
+    const TrampSettings loaded = TrampSettings::fromJson(obj(QStringLiteral(R"({
+      "main": {"visible": true, "shaded": false, "left": 120, "top": 80},
+      "equalizer": {"visible": true, "shaded": false, "left": 120, "top": 428},
+      "playlist": {"visible": true, "shaded": false, "left": 0, "top": 776, "width": 900, "height": 500}
+    })")));
+    REQUIRE_EQ(loaded.main.left, 120.0);
+    REQUIRE_EQ(loaded.main.top, 80.0);
+    REQUIRE_EQ(loaded.equalizer.left, 120.0);
+    REQUIRE_EQ(loaded.equalizer.top, 428.0);
+    REQUIRE_EQ(loaded.playlist.left, 0.0);
+    REQUIRE_EQ(loaded.playlist.top, 776.0);
+    REQUIRE(loaded.playlist.width && *loaded.playlist.width == 900.0);
+  }
+
   if (gFails != 0) {
     std::fprintf(stderr, "%d assertion(s) failed\n", gFails);
     return 1;

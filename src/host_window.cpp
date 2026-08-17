@@ -154,6 +154,15 @@ QPoint HostWindow::logicalFrom(const QPointF& widgetPos) const {
   return QPoint(int(widgetPos.x() / sx), int(widgetPos.y() / sy));
 }
 
+QRect HostWindow::widgetRectFromLogical(const QRect& logical) const {
+  const QSize ls = paintLogical();
+  const qreal sx = qreal(width()) / qMax(1, ls.width());
+  const qreal sy = qreal(height()) / qMax(1, ls.height());
+  return QRect(int(std::lround(logical.x() * sx)), int(std::lround(logical.y() * sy)),
+               qMax(1, int(std::lround(logical.width() * sx))),
+               qMax(1, int(std::lround(logical.height() * sy))));
+}
+
 void HostWindow::applyHitCursor(const QPointF& widgetPos) {
   const QPoint logical = logicalFrom(widgetPos);
   const auto titleHit = title_.hit(logical);
@@ -264,6 +273,8 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
       event->accept();
       return;
     case tramp::TitleChromeLayout::Hit::drag:
+      draggingTitle_ = true;
+      emit titleDragStarted();
       if (QWindow* win = windowHandle()) {
         win->startSystemMove();
       }
@@ -299,6 +310,10 @@ void HostWindow::mouseMoveEvent(QMouseEvent* event) {
 }
 
 void HostWindow::mouseReleaseEvent(QMouseEvent* event) {
+  if (draggingTitle_) {
+    draggingTitle_ = false;
+    emit titleDragFinished();
+  }
   if (draggingChrome_) {
     draggingChrome_ = false;
     emit chromeReleased();

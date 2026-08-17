@@ -12,13 +12,16 @@
 #include "settings.h"
 #include "spectrum.h"
 
+#include <QAction>
 #include <QObject>
 #include <QPoint>
 #include <QSet>
 #include <QTimer>
 #include <memory>
+#include <optional>
 
 class HostWindow;
+class QMenu;
 
 namespace tramp {
 
@@ -39,6 +42,7 @@ class TrampSession : public QObject {
   bool windowShouldShow(WindowId id) const;
   void persistNow();
   void detachWindows();
+  void reapplyWindowFrames();
   void applyDroppedPaths(const QStringList& paths, bool replace);
   void extraClosed(WindowId id);
   void mainMinimized(bool minimized);
@@ -56,6 +60,8 @@ class TrampSession : public QObject {
   void setWindowVisible(WindowId id, bool visible);
   void setShaded(WindowId id, bool shaded);
   void windowMoved(WindowId id, QPoint nativeTopLeft, bool finalize);
+  void titleDragBegan(WindowId id);
+  void titleDragEnded(WindowId id);
   void playlistResized(QSize native);
   void refreshChrome();
 
@@ -74,6 +80,7 @@ class TrampSession : public QObject {
   void refreshEqChrome();
   void applyAlwaysOnTop();
   void applyFramesToWindows();
+  void syncFramesFromWindows();
   void schedulePersist();
   QString bundledSkinsDir() const;
   SkinController::ConflictFn skinConflictPrompt();
@@ -85,16 +92,18 @@ class TrampSession : public QObject {
   QString pickPlaylist(bool save);
   void openPaths(const QStringList& paths, bool enqueue);
   void loadCollectionRow(int index);
-  void applyDockToWindows();
+  void applyDockToWindows(std::optional<WindowId> skip = {});
   QPointF nativeToLogical(QPoint native) const;
   QPoint logicalToNative(QPointF logical) const;
-  void showOptionsMenu();
+  void showOptionsMenu(QRect logicalHit);
+  QAction* execAnchoredMenu(QMenu& menu, HostWindow* host, QRect logicalHit, bool above);
   void showTrackInfo();
   bool confirmReplaceAltered();
   void quitFromMenu();
   void syncSpectrum();
   void tickSpectrum();
   void startSpectrumDecode(const QString& path, int gen);
+  void followTitleDrag();
 
   SupportStore store_;
   TrampSettings settings_;
@@ -128,8 +137,13 @@ class TrampSession : public QObject {
   QTimer usageTimer_;
   QTimer aboutTimer_;
   QTimer eqApplyTimer_;
+  QTimer dragFollowTimer_;
   CollectionFigures figures_;
   bool figuresLoaded_ = false;
+  bool restoreFrames_ = false;
+  bool applyingDock_ = false;
+  bool titleDragging_ = false;
+  WindowId titleDragId_ = WindowId::main;
 };
 
 }  // namespace tramp

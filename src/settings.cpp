@@ -73,17 +73,17 @@ WindowFrame frameFromJson(const QJsonObject& o, const WindowFrame& fallback) {
   if (o.contains(QStringLiteral("shaded")) && o.value(QStringLiteral("shaded")).isBool()) {
     f.shaded = o.value(QStringLiteral("shaded")).toBool();
   }
-  if (o.value(QStringLiteral("left")).isDouble()) {
-    f.left = o.value(QStringLiteral("left")).toDouble();
+  if (o.contains(QStringLiteral("left")) && !o.value(QStringLiteral("left")).isNull()) {
+    f.left = o.value(QStringLiteral("left")).toDouble(f.left);
   }
-  if (o.value(QStringLiteral("top")).isDouble()) {
-    f.top = o.value(QStringLiteral("top")).toDouble();
+  if (o.contains(QStringLiteral("top")) && !o.value(QStringLiteral("top")).isNull()) {
+    f.top = o.value(QStringLiteral("top")).toDouble(f.top);
   }
-  if (o.value(QStringLiteral("width")).isDouble()) {
+  if (o.contains(QStringLiteral("width")) && !o.value(QStringLiteral("width")).isNull()) {
     const double w = o.value(QStringLiteral("width")).toDouble();
     if (w > 0) f.width = w;
   }
-  if (o.value(QStringLiteral("height")).isDouble()) {
+  if (o.contains(QStringLiteral("height")) && !o.value(QStringLiteral("height")).isNull()) {
     const double h = o.value(QStringLiteral("height")).toDouble();
     if (h > 0) f.height = h;
   }

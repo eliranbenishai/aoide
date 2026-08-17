@@ -9,6 +9,7 @@
 #include "pcm_decoder.h"
 #endif
 #include "player_engine.h"
+#include "popup_anchor.h"
 #include "support_dir.h"
 #include "tramp_fonts.h"
 #include "tramp_metrics.h"
@@ -18,6 +19,7 @@
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QGuiApplication>
 #include <QInputDialog>
 #include <QLineEdit>
 #include <QMenu>
@@ -98,6 +100,9 @@ TrampSession::TrampSession(QObject* parent)
   eqApplyTimer_.setSingleShot(true);
   eqApplyTimer_.setInterval(50);
   QObject::connect(&eqApplyTimer_, &QTimer::timeout, this, [this]() { applyEq(); });
+  dragFollowTimer_.setInterval(16);
+  dragFollowTimer_.setTimerType(Qt::PreciseTimer);
+  QObject::connect(&dragFollowTimer_, &QTimer::timeout, this, [this]() { followTitleDrag(); });
 
   playlist_.setOnChanged([this]() {
     if (playback_) playback_->onPlaylistChanged();
@@ -226,11 +231,15 @@ void TrampSession::bootstrap(const QStringList& argvFiles) {
   collection_.validateReferences();
   collection_.saveIndex(store_);
   collection_.saveTrackSets(store_);
+  if (!playlist_.sourcePath().isEmpty()) {
+    collection_.select(playlist_.sourcePath());
+  }
   if (pl_ && settings_.playlist.width && settings_.playlist.height) {
     pl_->setPlaylistLogicalSize(
         QSize(int(*settings_.playlist.width), int(*settings_.playlist.height)));
   }
-  if (QFileInfo::exists(QDir(store_.dir()).filePath(QStringLiteral("settings.json")))) {
+  restoreFrames_ = QFileInfo::exists(QDir(store_.dir()).filePath(QStringLiteral("settings.json")));
+  if (restoreFrames_) {
     applyFramesToWindows();
   }
   if (settings_.about.visible) refreshAboutFigures();
@@ -283,11 +292,7 @@ void TrampSession::persistNow() {
   if (!main_) return;
   auto capture = [&](HostWindow* w, WindowFrame& frame) {
     if (!w) return;
-    const QPoint n = w->pos();
-    const QPointF logical = nativeToLogical(n);
-    frame.left = logical.x();
-    frame.top = logical.y();
-    frame.visible = w->isVisible();
+    frame.visible = docking_.layout().frameOf(w->id()).visible;
     frame.shaded = w->shaded();
     if (w->id() == WindowId::playlist) {
       const qreal z = settings_.zoomPercent / 100.0;
@@ -295,11 +300,21 @@ void TrampSession::persistNow() {
       frame.height = w->height() / z;
     }
   };
+  settings_.main = docking_.layout().main;
+  settings_.equalizer = docking_.layout().equalizer;
+  settings_.playlist = docking_.layout().playlist;
+  settings_.settings = docking_.layout().settings;
+  settings_.about = docking_.layout().about;
   capture(main_, settings_.main);
   capture(eq_, settings_.equalizer);
   capture(pl_, settings_.playlist);
   capture(settingsWin_, settings_.settings);
   capture(about_, settings_.about);
+  docking_.layout().main = settings_.main;
+  docking_.layout().equalizer = settings_.equalizer;
+  docking_.layout().playlist = settings_.playlist;
+  docking_.layout().settings = settings_.settings;
+  docking_.layout().about = settings_.about;
   settings_.dockEdges = docking_.layout().dockEdges;
   settings_.equalizerCurve = settings_.equalizerCurve;
   store_.writeSettings(settings_);
@@ -443,7 +458,9 @@ SessionView TrampSession::view() const {
     CollectionRowView row;
     row.name = e.displayName();
     row.count = e.trackCount;
-    row.selected = e.path == collection_.selectedPath();
+    const QString marked =
+        collectionHighlightPath(playlist_.sourcePath(), collection_.selectedPath());
+    row.selected = e.path == marked;
     row.disabled = collection_.disabledPaths().contains(e.path);
     v.collection.push_back(row);
   }
@@ -525,23 +542,77 @@ void TrampSession::selectAllTracks() { playlist_.selectAll(); }
 void TrampSession::removeSelectedTracks() { playlist_.removeSelected(); }
 
 void TrampSession::windowMoved(WindowId id, QPoint nativeTopLeft, bool finalize) {
+  if (applyingDock_) return;
+  if (titleDragging_ && id != titleDragId_ && !finalize) return;
+  if (!titleDragging_ && !finalize) return;
   docking_.move(id, nativeToLogical(nativeTopLeft), false, finalize);
   if (finalize) {
     applyDockToWindows();
     schedulePersist();
-  } else if (id == WindowId::main) {
-    applyDockToWindows();
+  } else {
+    applyDockToWindows(id);
   }
 }
 
-void TrampSession::applyDockToWindows() {
+void TrampSession::titleDragBegan(WindowId id) {
+  titleDragId_ = id;
+  titleDragging_ = true;
+  if (!dragFollowTimer_.isActive()) dragFollowTimer_.start();
+}
+
+void TrampSession::titleDragEnded(WindowId id) {
+  dragFollowTimer_.stop();
+  titleDragging_ = false;
+  HostWindow* w = windowFor(id);
+  if (w) windowMoved(id, w->pos(), id != WindowId::main);
+  else schedulePersist();
+}
+
+void TrampSession::followTitleDrag() {
+  if (!titleDragging_) {
+    dragFollowTimer_.stop();
+    return;
+  }
+  if (QGuiApplication::mouseButtons() == Qt::NoButton) {
+    titleDragEnded(titleDragId_);
+    return;
+  }
+  HostWindow* w = windowFor(titleDragId_);
+  if (w) windowMoved(titleDragId_, w->pos(), false);
+}
+
+void TrampSession::reapplyWindowFrames() {
+  if (restoreFrames_) applyFramesToWindows();
+  else syncFramesFromWindows();
+}
+
+void TrampSession::syncFramesFromWindows() {
+  applyingDock_ = true;
   for (WindowId id : {WindowId::main, WindowId::equalizer, WindowId::playlist, WindowId::settings,
                       WindowId::about}) {
+    HostWindow* w = windowFor(id);
+    if (!w) continue;
+    const QPointF logical = nativeToLogical(w->pos());
+    WindowFrame& f = docking_.layout().frameOf(id);
+    if (!(w->pos().x() == 0 && w->pos().y() == 0 && (f.left != 0 || f.top != 0))) {
+      f.left = logical.x();
+      f.top = logical.y();
+    }
+  }
+  applyingDock_ = false;
+}
+
+void TrampSession::applyDockToWindows(std::optional<WindowId> skip) {
+  applyingDock_ = true;
+  for (WindowId id : {WindowId::main, WindowId::equalizer, WindowId::playlist, WindowId::settings,
+                      WindowId::about}) {
+    if (skip && id == *skip) continue;
     HostWindow* w = windowFor(id);
     if (!w) continue;
     const WindowFrame& f = docking_.layout().frameOf(id);
     w->move(logicalToNative(QPointF(f.left, f.top)));
   }
+  applyingDock_ = false;
 }
 
 void TrampSession::playlistResized(QSize native) {
@@ -687,7 +758,7 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
   dragOrigin_ = logical;
   switch (hit.kind) {
     case K::options:
-      showOptionsMenu();
+      showOptionsMenu(hit.rect);
       break;
     case K::timeToggle:
       showElapsed_ = !showElapsed_;
@@ -760,7 +831,7 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       refreshEqChrome();
       break;
     case K::eqPresets: {
-      QMenu menu;
+      QMenu menu(eq_ ? static_cast<QWidget*>(eq_) : static_cast<QWidget*>(main_));
       for (const auto& preset : EqualizerPresets::builtIn()) {
         QAction* a = menu.addAction(preset.first);
         QObject::connect(a, &QAction::triggered, this, [this, preset]() {
@@ -772,7 +843,7 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
           refreshEqChrome();
         });
       }
-      if (eq_) menu.exec(eq_->mapToGlobal(QPoint(40, 70)));
+      execAnchoredMenu(menu, eq_, hit.rect, false);
       break;
     }
     case K::plCollapse:
@@ -801,12 +872,12 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       break;
     }
     case K::plCreate: {
-      QMenu menu;
+      QMenu menu(pl_ ? static_cast<QWidget*>(pl_) : static_cast<QWidget*>(main_));
       QAction* fromCurrent = menu.addAction(QStringLiteral("From current playlist"));
       fromCurrent->setEnabled(!playlist_.tracks().isEmpty());
       QAction* fromSel = menu.addAction(QStringLiteral("From selection"));
       fromSel->setEnabled(!playlist_.selectedIndices().isEmpty());
-      QAction* chosen = pl_ ? menu.exec(pl_->mapToGlobal(QPoint(40, 80))) : nullptr;
+      QAction* chosen = execAnchoredMenu(menu, pl_, hit.rect, true);
       if (chosen == fromCurrent) {
         const QString path = pickPlaylist(true);
         if (!path.isEmpty()) {
@@ -822,7 +893,6 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
           QList<int> idx = playlist_.selectedIndices().values();
           std::sort(idx.begin(), idx.end());
           for (int i : idx) selected.push_back(playlist_.tracks()[i]);
-          M3uCodec().encode(selected);
           QFile f(path);
           if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
             f.write(M3uCodec().encode(selected).toUtf8());
@@ -874,7 +944,7 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       playlist_.removeSelected();
       break;
     case K::plSort: {
-      QMenu menu;
+      QMenu menu(pl_ ? static_cast<QWidget*>(pl_) : static_cast<QWidget*>(main_));
       auto add = [&](const QString& name, PlaylistSortKey key) {
         QAction* a = menu.addAction(name);
         QObject::connect(a, &QAction::triggered, this, [this, key]() { playlist_.sortBy(key); });
@@ -885,11 +955,11 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       add(QStringLiteral("Path"), PlaylistSortKey::path);
       QAction* rev = menu.addAction(QStringLiteral("Reverse"));
       QObject::connect(rev, &QAction::triggered, this, [this]() { playlist_.reverseTracks(); });
-      if (pl_) menu.exec(pl_->mapToGlobal(QPoint(80, 80)));
+      if (pl_) execAnchoredMenu(menu, pl_, hit.rect, true);
       break;
     }
     case K::plOptions: {
-      QMenu menu;
+      QMenu menu(pl_ ? static_cast<QWidget*>(pl_) : static_cast<QWidget*>(main_));
       menu.addAction(QStringLiteral("Select all"), this, [this]() { playlist_.selectAll(); });
       menu.addAction(QStringLiteral("Invert selection"), this, [this]() { playlist_.invertSelection(); });
       menu.addAction(QStringLiteral("Save playlist…"), this, [this]() {
@@ -897,7 +967,7 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
         if (!path.isEmpty()) playlist_.savePlaylistFile(path);
       });
       menu.addAction(QStringLiteral("Clear"), this, [this]() { playlist_.clear(); });
-      if (pl_) menu.exec(pl_->mapToGlobal(QPoint(120, 80)));
+      if (pl_) execAnchoredMenu(menu, pl_, hit.rect, true);
       break;
     }
     case K::settingsGeneral:
@@ -1011,8 +1081,8 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
   }
 }
 
-void TrampSession::showOptionsMenu() {
-  QMenu menu;
+void TrampSession::showOptionsMenu(QRect logicalHit) {
+  QMenu menu(main_);
   QAction* aot = menu.addAction(settings_.alwaysOnTop ? QStringLiteral("Always on top ✓")
                                                       : QStringLiteral("Always on top"));
   QObject::connect(aot, &QAction::triggered, this, [this]() {
@@ -1029,10 +1099,18 @@ void TrampSession::showOptionsMenu() {
     else setWindowVisible(WindowId::about, true);
   });
   menu.addAction(QStringLiteral("Quit"), this, [this]() { quitFromMenu(); });
-  if (!main_) return;
-  const qreal z = settings_.zoomPercent / 100.0;
-  const QPoint anchor(int(std::lround((22 + 13) * z)), int(std::lround((kTitleBar + 18 + 13) * z)));
-  menu.exec(main_->mapToGlobal(anchor));
+  if (logicalHit.isEmpty()) logicalHit = mainOptionsHit(kMainPlayer);
+  execAnchoredMenu(menu, main_, logicalHit, false);
+}
+
+QAction* TrampSession::execAnchoredMenu(QMenu& menu, HostWindow* host, QRect logicalHit, bool above) {
+  if (!host) return nullptr;
+  if (logicalHit.isEmpty()) logicalHit = QRect(0, 0, 1, 1);
+  menu.adjustSize();
+  const QRect widget = host->widgetRectFromLogical(logicalHit);
+  const QRect global(host->mapToGlobal(widget.topLeft()), widget.size());
+  return menu.exec(popupMenuPos(global, menu.sizeHint(),
+                                above ? PopupAnchor::aboveLeft : PopupAnchor::belowLeft));
 }
 
 void TrampSession::showTrackInfo() {

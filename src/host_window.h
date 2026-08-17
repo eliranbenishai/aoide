@@ -13,6 +13,7 @@
 #include <QImage>
 #include <QMouseEvent>
 #include <QPaintEvent>
+#include <QRect>
 #include <QResizeEvent>
 #include <QShowEvent>
 #include <QWheelEvent>
@@ -35,6 +36,7 @@ class HostWindow : public QWidget {
   void setQuitConfirmer(std::function<bool()> fn) { quitConfirmer_ = std::move(fn); }
   void setAlwaysOnTop(bool on);
   bool shaded() const { return shaded_; }
+  QRect widgetRectFromLogical(const QRect& logical) const;
 
  signals:
   void zoomOutRequested();
@@ -52,6 +54,8 @@ class HostWindow : public QWidget {
   void mainMinimized(bool minimized);
   void mainActivated();
   void trackActivated(int index);
+  void titleDragStarted();
+  void titleDragFinished();
 
  protected:
   void paintEvent(QPaintEvent* event) override;
@@ -85,6 +89,7 @@ class HostWindow : public QWidget {
   int zoomPercent_ = tramp::kDefaultZoomPercent;
   bool shaded_ = false;
   bool draggingChrome_ = false;
+  bool draggingTitle_ = false;
   tramp::ChromeHit dragHit_;
   std::function<bool()> quitConfirmer_;
 };

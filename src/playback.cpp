@@ -11,11 +11,7 @@ PlaybackController::PlaybackController(PlaylistController* playlist, PlayerEngin
 }
 
 void PlaybackController::bindEngine() {
-  engine_->onPlaying = [this](bool value) {
-    if (playing_ == value) return;
-    playing_ = value;
-    notify();
-  };
+  engine_->onPlaying = [](bool) {};  // chrome is optimistic; mpv pause events lag
   engine_->onPosition = [this](qint64 ms) {
     positionMs_ = ms;
     if (onPosition_) onPosition_();

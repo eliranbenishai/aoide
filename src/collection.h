@@ -41,4 +41,12 @@ class PlaylistCollection {
   bool trackSetsDirty_ = false;
 };
 
+/// Left-panel highlight follows the loaded current playlist, not merely the
+/// last row click (which is empty after restart until something is clicked).
+inline QString collectionHighlightPath(const QString& currentSourcePath,
+                                       const QString& selectedPath) {
+  if (!currentSourcePath.isEmpty()) return normalizePlaylistPath(currentSourcePath);
+  return selectedPath;
+}
+
 }  // namespace tramp

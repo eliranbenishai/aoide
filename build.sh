@@ -87,14 +87,17 @@ SRCS=(
 
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" "${DEFS[@]}" "${SRCS[@]}" "${LIBS[@]}" -o "$BUILD/tramp"
 
-# Domain tests (no widgets / mpv)
-"$CXX" "${CXXFLAGS[@]}" -I"$QT/include" -I"$QT/include/QtCore" -I"$ROOT/src" -DQT_CORE_LIB \
+# Domain tests (playlist / playback / docking / collection)
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" "${DEFS[@]}" \
   "$ROOT/src/m3u.cpp" "$ROOT/src/equalizer.cpp" "$ROOT/src/support_dir.cpp" \
   "$ROOT/src/playlist.cpp" "$ROOT/src/transport.cpp" \
   "$ROOT/src/wav_reader.cpp" "$ROOT/src/stft.cpp" "$ROOT/src/spectrum.cpp" \
-  "$ROOT/src/playback.cpp" \
+  "$ROOT/src/playback.cpp" "$ROOT/src/docking.cpp" \
+  "$ROOT/src/collection.cpp" "$ROOT/src/persist.cpp" "$ROOT/src/settings.cpp" \
+  "$ROOT/src/window_spec.cpp" \
   "$ROOT/tests/domain_test.cpp" \
-  -L"$QT/lib" -lQt6Core -lstdc++ -lm -lgcc_s -Wl,-rpath,"$QT/lib" \
+  -L"$QT/lib" -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread \
+  -Wl,-rpath,"$QT/lib" \
   -o "$BUILD/domain_test"
 "$BUILD/domain_test"
 

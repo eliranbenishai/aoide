@@ -344,6 +344,10 @@ int main(int argc, char** argv) {
                      [&, window](int d) { session.handleWheel(window->id(), d); });
     QObject::connect(window, &HostWindow::nativeMoved, mainWindow,
                      [&, window](QPoint pos) { session.windowMoved(window->id(), pos, false); });
+    QObject::connect(window, &HostWindow::titleDragStarted, mainWindow,
+                     [&, window]() { session.titleDragBegan(window->id()); });
+    QObject::connect(window, &HostWindow::titleDragFinished, mainWindow,
+                     [&, window]() { session.titleDragEnded(window->id()); });
     QObject::connect(window, &HostWindow::nativeResized, mainWindow,
                      [&, window](QSize size) {
                        if (window->id() == tramp::WindowId::playlist) session.playlistResized(size);
@@ -401,6 +405,7 @@ int main(int argc, char** argv) {
   refresh();
 
   mainWindow->show();
+#ifdef Q_OS_WIN
   QWindow* mainHandle = mainWindow->windowHandle();
   for (HostWindow* window : windows) {
     if (window == mainWindow) continue;
@@ -409,10 +414,13 @@ int main(int argc, char** argv) {
       native->setTransientParent(mainHandle);
     }
   }
+#endif
   if (session.view().eqOn) eqWindow->show();
   if (session.view().plOn) plWindow->show();
   if (session.windowShouldShow(tramp::WindowId::settings)) settingsWindow->show();
   if (session.windowShouldShow(tramp::WindowId::about)) aboutWindow->show();
+  session.reapplyWindowFrames();
+  QTimer::singleShot(0, mainWindow, [&]() { session.reapplyWindowFrames(); });
 
   if (qEnvironmentVariable("TRAMP_AUTO_QUIT") == QLatin1String("1")) {
     session.persistNow();
