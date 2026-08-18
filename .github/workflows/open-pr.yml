@@ -23,6 +23,14 @@ jobs:
       - name: Open a pull request if missing
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_BODY: |
+            ## Summary
+            - Opened automatically when this branch was pushed.
+
+            ## Merge gate
+            Ubuntu + Windows Qt CI must pass. GitHub records that as a PR review comment. The PR squash-merges only after that gate is green ([ADR 0018](docs/adr/0018-pr-ci-auto-merge.md)).
+
+            Add the `do-not-merge` label (or mark the PR draft) to keep it open.
         run: |
           set -euo pipefail
           BRANCH="${GITHUB_REF_NAME}"
@@ -32,14 +40,4 @@ jobs:
           fi
           TITLE="$(git log -1 --format=%s)"
           gh pr create --repo "${{ github.repository }}" --base main --head "$BRANCH" \
-            --title "$TITLE" \
-            --body "$(cat <<'EOF'
-## Summary
-- Opened automatically when this branch was pushed.
-
-## Merge gate
-Ubuntu + Windows Qt CI must pass. GitHub records that as a PR review comment. The PR squash-merges only after that gate is green ([ADR 0018](docs/adr/0018-pr-ci-auto-merge.md)).
-
-Add the `do-not-merge` label (or mark the PR draft) to keep it open.
-EOF
-)"
+            --title "$TITLE" --body "$PR_BODY"

@@ -65,15 +65,11 @@ jobs:
           NUMBER="${{ github.event.pull_request.number }}"
           REPO="${{ github.repository }}"
           if [ "${{ needs.test.result }}" = "success" ]; then
-            gh pr review "$NUMBER" --repo "$REPO" --comment --body "$(cat <<'EOF'
-CI passed on Ubuntu and Windows. This PR can squash-merge.
-EOF
-)"
+            gh pr review "$NUMBER" --repo "$REPO" --comment \
+              --body "CI passed on Ubuntu and Windows. This PR can squash-merge."
           else
-            gh pr comment "$NUMBER" --repo "$REPO" --body "$(cat <<'EOF'
-CI failed on Ubuntu and/or Windows. This PR will not merge until the Qt jobs are green.
-EOF
-)"
+            gh pr comment "$NUMBER" --repo "$REPO" \
+              --body "CI failed on Ubuntu and/or Windows. This PR will not merge until the Qt jobs are green."
           fi
       - name: Require every Qt job
         if: needs.test.result != 'success'
