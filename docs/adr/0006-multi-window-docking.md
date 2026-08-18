@@ -4,7 +4,8 @@ Date: 2026-08-08
 Revised: 2026-08-09 (move/snap ownership, playlist snap sides, taskbar);  
 2026-08-17 (each title-bar drag moves only that window — historical);  
 2026-08-17 (five OS windows superseded by ADR 0017 — docking/snap/shade remain);  
-2026-08-18 (main title-bar drag translates the host; child title-bar drag moves only that panel)
+2026-08-18 (main title-bar drag translates the host; child title-bar drag moves only that panel);  
+2026-08-18 (EQ snap may flush to two neighbors, one per axis)
 
 ## Status
 
@@ -42,7 +43,8 @@ surfaces inside one OS host window ([ADR 0017](0017-one-host-window-internal-pan
   stay put. After map, the host is the virtual desktop and must not resize on
   child drag. Dragging an EQ or playlist title bar peels its dock edges.
 - **Snap:** only when finishing an EQ or playlist drag. EQ may snap to any
-  side of any other visible panel. Playlist may snap only **top/bottom**; on
+  side of any other visible panel, including one vertical and one horizontal
+  neighbor in the same drop. Playlist may snap only **top/bottom**; on
   that snap, also flush left or right if that edge is already within the snap
   threshold. Main never initiates snap. Thresholds live in the coordinator /
   polish design. Snap runs on EQ/PL drag end (app-owned drag; see ADR 0019).

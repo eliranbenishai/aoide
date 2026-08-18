@@ -501,6 +501,62 @@ int main() {
   }
 
   {
+    tramp::DockLayout layout;
+    layout.main = {true, false, 0, 0, {}, {}};
+    layout.equalizer = {true, false, 0, 358, {}, {}};
+    tramp::DockingCoordinator dock(layout);
+    dock.setSnapThreshold(20);
+    dock.move(tramp::WindowId::equalizer, QPointF(0, 358), false, true);
+    REQUIRE_EQ(dock.layout().equalizer.left, 0.0);
+    REQUIRE_EQ(dock.layout().equalizer.top, 348.0);
+  }
+
+  {
+    tramp::DockLayout layout;
+    layout.main = {true, false, 0, 0, {}, {}};
+    layout.equalizer = {true, false, 0, 358, {}, {}};
+    layout.playlist = {true, false, 830, 0, 1073.0, 820.0};
+    tramp::DockingCoordinator dock(layout);
+    dock.setSnapThreshold(20);
+    dock.move(tramp::WindowId::equalizer, QPointF(0, 358), false, true);
+    REQUIRE_EQ(dock.layout().equalizer.top, 348.0);
+    REQUIRE_EQ(dock.layout().equalizer.left, 5.0);
+  }
+
+  {
+    tramp::DockLayout layout;
+    layout.main = {true, false, 0, 0, {}, {}};
+    layout.equalizer = {true, false, 8, 358, {}, {}};
+    tramp::DockingCoordinator dock(layout);
+    dock.setSnapThreshold(20);
+    dock.move(tramp::WindowId::equalizer, QPointF(8, 358), false, true);
+    REQUIRE_EQ(dock.layout().equalizer.left, 0.0);
+    REQUIRE_EQ(dock.layout().equalizer.top, 348.0);
+  }
+
+  {
+    tramp::DockLayout layout;
+    layout.main = {true, false, 0, 0, {}, {}};
+    layout.playlist = {true, false, 0, 358, {}, {}};
+    tramp::DockingCoordinator dock(layout);
+    dock.setSnapThreshold(20);
+    dock.move(tramp::WindowId::playlist, QPointF(0, 358), false, true);
+    REQUIRE_EQ(dock.layout().playlist.left, 0.0);
+    REQUIRE_EQ(dock.layout().playlist.top, 348.0);
+  }
+
+  {
+    tramp::DockLayout layout;
+    layout.main = {true, false, 0, 0, {}, {}};
+    layout.playlist = {true, false, 835, 0, {}, {}};
+    tramp::DockingCoordinator dock(layout);
+    dock.setSnapThreshold(20);
+    dock.move(tramp::WindowId::playlist, QPointF(835, 0), false, true);
+    REQUIRE_EQ(dock.layout().playlist.left, 835.0);
+    REQUIRE_EQ(dock.layout().playlist.top, 0.0);
+  }
+
+  {
     REQUIRE_EQ(tramp::collectionHighlightPath(QStringLiteral("/music/set.m3u"), QString()),
                QDir::cleanPath(QStringLiteral("/music/set.m3u")));
     REQUIRE_EQ(tramp::collectionHighlightPath(QString(), QStringLiteral("/music/other.m3u")),
