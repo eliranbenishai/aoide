@@ -171,8 +171,7 @@ void HostShellWindowTest::deferredPunchStillAppliesWhenLayoutAlreadyCaughtUp() {
 
   shell.placePanels({{&panel, end}}, false);
   QCOMPARE(panel.mapToGlobal(QPoint(0, 0)), end.topLeft());
-  QVERIFY(shell.mask().contains(QPoint(start.center() - shell.geometry().topLeft())));
-  QVERIFY(!shell.mask().contains(panel.geometry().center()));
+  QVERIFY(shell.mask().isEmpty());
 
   shell.placePanels({{&panel, end}}, true);
   QVERIFY(shell.mask().contains(panel.geometry().center()));

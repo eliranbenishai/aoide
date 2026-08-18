@@ -42,4 +42,5 @@ class HostShell : public QWidget {
   tramp::HostShellLayout lastLayout_{};
   QRect lastRequestedVirtual_{};
   QWidget* primaryPanel_ = nullptr;
+  bool maskClearedForDrag_ = false;
 };

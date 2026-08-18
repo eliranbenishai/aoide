@@ -3,6 +3,7 @@
 #include "window_spec.h"
 
 #include <QGuiApplication>
+#include <QPainter>
 #include <QRegion>
 #include <QScreen>
 
@@ -59,17 +60,30 @@ void HostShell::placePanels(const QVector<HostPanelPlacement>& panels, bool upda
 
   const QPoint origin = mapToGlobal(QPoint(0, 0));
   QRegion mask;
+  QRegion dirty;
   for (const HostPanelPlacement& place : panels) {
     if (!place.widget) continue;
     const QRect local(tramp::panelLocalTopLeft(place.screen.topLeft(), origin), place.screen.size());
-    if (place.widget->geometry() != local) place.widget->setGeometry(local);
+    const QRect old = place.widget->geometry();
+    if (old != local) {
+      if (!old.isEmpty()) dirty += old;
+      dirty += local;
+      place.widget->setGeometry(local);
+    }
     place.widget->show();
     mask += local;
   }
 
   lastLayout_.screenRect = QRect(origin, size());
   lastLayout_.localMask = mask;
-  if (updatePunch) setMask(mask);
+  if (updatePunch) {
+    setMask(mask);
+    maskClearedForDrag_ = false;
+  } else if (!maskClearedForDrag_) {
+    clearMask();
+    maskClearedForDrag_ = true;
+  }
+  if (!dirty.isEmpty()) update(dirty);
 }
 
 QRect HostShell::virtualDesktop() const {
@@ -117,4 +131,8 @@ void HostShell::closeEvent(QCloseEvent* event) {
   QWidget::closeEvent(event);
 }
 
-void HostShell::paintEvent(QPaintEvent*) {}
+void HostShell::paintEvent(QPaintEvent* event) {
+  QPainter p(this);
+  p.setCompositionMode(QPainter::CompositionMode_Source);
+  p.fillRect(event->rect(), Qt::transparent);
+}
