@@ -16,6 +16,7 @@ class HostShellWindowTest : public QObject {
   void translatingEveryPanelLeavesTheHostPut();
   void movingOnePanelDoesNotResizeTheHost();
   void expandingPastTopLeftKeepsSiblingOnScreen();
+  void deferredPunchStillAppliesWhenLayoutAlreadyCaughtUp();
 };
 
 void HostShellWindowTest::shellIsFramelessToplevelNotTool() {
@@ -157,6 +158,24 @@ void HostShellWindowTest::expandingPastTopLeftKeepsSiblingOnScreen() {
   QCOMPARE(pl.mapToGlobal(QPoint(0, 0)), plScreen);
   QCOMPARE(eq.mapToGlobal(QPoint(0, 0)), eq1.topLeft());
   QCOMPARE(shell.pos(), hostPos);
+}
+
+void HostShellWindowTest::deferredPunchStillAppliesWhenLayoutAlreadyCaughtUp() {
+  HostShell shell;
+  QWidget panel(&shell);
+  const QRect start(40, 40, 120, 60);
+  const QRect end(200, 80, 120, 60);
+  shell.placePanels({{&panel, start}});
+  shell.show();
+  QVERIFY(shell.mask().contains(panel.geometry().center()));
+
+  shell.placePanels({{&panel, end}}, false);
+  QCOMPARE(panel.mapToGlobal(QPoint(0, 0)), end.topLeft());
+  QVERIFY(shell.mask().contains(QPoint(start.center() - shell.geometry().topLeft())));
+  QVERIFY(!shell.mask().contains(panel.geometry().center()));
+
+  shell.placePanels({{&panel, end}}, true);
+  QVERIFY(shell.mask().contains(panel.geometry().center()));
 }
 
 QTEST_MAIN(HostShellWindowTest)

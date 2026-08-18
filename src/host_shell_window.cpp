@@ -68,8 +68,8 @@ void HostShell::placePanels(const QVector<HostPanelPlacement>& panels, bool upda
   }
 
   lastLayout_.screenRect = QRect(origin, size());
-  if (updatePunch && lastLayout_.localMask != mask) setMask(mask);
   lastLayout_.localMask = mask;
+  if (updatePunch) setMask(mask);
 }
 
 QRect HostShell::virtualDesktop() const {
