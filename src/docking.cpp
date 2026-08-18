@@ -164,9 +164,18 @@ void DockingCoordinator::move(WindowId id, QPointF topLeft, bool shiftUndock, bo
   }
   const QPointF current(layout_.frameOf(id).left, layout_.frameOf(id).top);
   const QPointF delta = topLeft - current;
+  if (id == WindowId::main) {
+    for (WindowId w : {WindowId::main, WindowId::equalizer, WindowId::playlist, WindowId::settings,
+                       WindowId::about}) {
+      WindowFrame& frame = layout_.frameOf(w);
+      frame.left += delta.x();
+      frame.top += delta.y();
+    }
+    return;
+  }
   bool shouldUndock = shiftUndock;
   const double dist2 = QPointF::dotProduct(delta, delta);
-  if (!shouldUndock && id != WindowId::main && dist2 > kPeelDelta * kPeelDelta && hasEdge(id)) {
+  if (!shouldUndock && dist2 > kPeelDelta * kPeelDelta && hasEdge(id)) {
     shouldUndock = true;
   }
   if (shouldUndock) {
@@ -178,7 +187,7 @@ void DockingCoordinator::move(WindowId id, QPointF topLeft, bool shiftUndock, bo
   }
   layout_.frameOf(id).left = topLeft.x();
   layout_.frameOf(id).top = topLeft.y();
-  if (snap && !shiftUndock && id != WindowId::main) {
+  if (snap && !shiftUndock) {
     trySnap(id);
   }
 }

@@ -467,10 +467,14 @@ int main() {
     dock.move(tramp::WindowId::main, QPointF(40, 20), false, false);
     REQUIRE_EQ(dock.layout().main.left, 40.0);
     REQUIRE_EQ(dock.layout().main.top, 20.0);
-    REQUIRE_EQ(dock.layout().equalizer.left, 0.0);
-    REQUIRE_EQ(dock.layout().equalizer.top, 348.0);
-    REQUIRE_EQ(dock.layout().playlist.left, 0.0);
-    REQUIRE_EQ(dock.layout().playlist.top, 696.0);
+    REQUIRE_EQ(dock.layout().equalizer.left, 40.0);
+    REQUIRE_EQ(dock.layout().equalizer.top, 368.0);
+    REQUIRE_EQ(dock.layout().playlist.left, 40.0);
+    REQUIRE_EQ(dock.layout().playlist.top, 716.0);
+    REQUIRE_EQ(dock.layout().settings.left, 900.0);
+    REQUIRE_EQ(dock.layout().settings.top, 60.0);
+    REQUIRE_EQ(dock.layout().about.left, 900.0);
+    REQUIRE_EQ(dock.layout().about.top, 500.0);
   }
 
   {
@@ -480,8 +484,20 @@ int main() {
     tramp::DockingCoordinator dock(layout);
     dock.setSnapThreshold(20);
     dock.move(tramp::WindowId::main, QPointF(130, 110), false, false);
-    REQUIRE_EQ(dock.layout().equalizer.left, 100.0);
-    REQUIRE_EQ(dock.layout().equalizer.top, 448.0);
+    REQUIRE_EQ(dock.layout().equalizer.left, 130.0);
+    REQUIRE_EQ(dock.layout().equalizer.top, 458.0);
+  }
+
+  {
+    tramp::DockLayout layout;
+    layout.main = {true, false, 0, 0, {}, {}};
+    layout.equalizer = {true, false, 0, 348, {}, {}};
+    tramp::DockingCoordinator dock(layout);
+    dock.move(tramp::WindowId::equalizer, QPointF(40, 20), false, false);
+    REQUIRE_EQ(dock.layout().main.left, 0.0);
+    REQUIRE_EQ(dock.layout().main.top, 0.0);
+    REQUIRE_EQ(dock.layout().equalizer.left, 40.0);
+    REQUIRE_EQ(dock.layout().equalizer.top, 20.0);
   }
 
   {

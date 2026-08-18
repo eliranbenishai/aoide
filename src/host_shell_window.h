@@ -21,7 +21,6 @@ class HostShell : public QWidget {
 
   void applyLayout(const tramp::HostShellLayout& layout);
   void placePanels(const QVector<HostPanelPlacement>& panels);
-  void refreshMaskFromChildren();
   void setAlwaysOnTop(bool on);
   void setPrimaryPanel(QWidget* panel);
 
