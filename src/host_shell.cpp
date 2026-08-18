@@ -1,8 +1,5 @@
 #include "host_shell.h"
 
-#include <QGuiApplication>
-#include <QScreen>
-
 namespace tramp {
 
 HostShellLayout hostShellLayout(const QVector<QRect>& visiblePanelScreenRects) {
@@ -27,15 +24,6 @@ HostShellLayout hostShellLayout(const QVector<QRect>& visiblePanelScreenRects) {
 QSize panelNativeSize(QSize logicalZoomed, QSize widgetSize) {
   if (logicalZoomed.width() > 0 && logicalZoomed.height() > 0) return logicalZoomed;
   return widgetSize;
-}
-
-QRect virtualDesktopGeometry() {
-  QRect desktop;
-  const auto screens = QGuiApplication::screens();
-  for (QScreen* screen : screens) {
-    if (screen) desktop = desktop.united(screen->geometry());
-  }
-  return desktop;
 }
 
 }  // namespace tramp

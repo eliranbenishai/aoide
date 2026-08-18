@@ -37,7 +37,6 @@ class HostShell : public QWidget {
 
  private:
   void applyStoredMask();
-  void coverDesktop();
   void bindDesktopScreens();
 
   tramp::HostShellLayout lastLayout_{};

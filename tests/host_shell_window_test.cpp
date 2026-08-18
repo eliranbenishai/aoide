@@ -12,7 +12,7 @@ class HostShellWindowTest : public QObject {
   void emptyLayoutHidesTheShell();
   void placePanelsKeepsMainVisibleInTheMask();
   void movingOnePanelDoesNotMoveItsSibling();
-  void hostCoversVirtualDesktopNotPanelBbox();
+  void hostContainsPanelsAtRequestedScreenPositions();
 };
 
 void HostShellWindowTest::shellIsFramelessToplevelNotTool() {
@@ -37,7 +37,7 @@ void HostShellWindowTest::applyLayoutSetsGeometryAndPunchedMask() {
 
   shell.applyLayout(layout);
 
-  QCOMPARE(shell.geometry(), tramp::virtualDesktopGeometry());
+  QCOMPARE(shell.geometry(), QRect(10, 20, 300, 50));
   QVERIFY(shell.mask().contains(QPoint(10, 10)));
   QVERIFY(shell.mask().contains(QPoint(210, 10)));
   QVERIFY(!shell.mask().contains(QPoint(150, 10)));
@@ -89,14 +89,16 @@ void HostShellWindowTest::movingOnePanelDoesNotMoveItsSibling() {
   QCOMPARE(pl.mapToGlobal(QPoint(0, 0)), pl0);
 }
 
-void HostShellWindowTest::hostCoversVirtualDesktopNotPanelBbox() {
+void HostShellWindowTest::hostContainsPanelsAtRequestedScreenPositions() {
   HostShell shell;
   QWidget main(&shell);
   const QRect mainR(40, 80, 100, 50);
   shell.placePanels({{&main, mainR}});
   shell.show();
 
-  QCOMPARE(shell.geometry(), tramp::virtualDesktopGeometry());
+  QVERIFY(shell.isVisible());
+  QVERIFY(main.isVisible());
+  QVERIFY(shell.rect().contains(main.geometry()));
   QCOMPARE(main.mapToGlobal(QPoint(0, 0)), mainR.topLeft());
 }
 

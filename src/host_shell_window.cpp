@@ -13,16 +13,6 @@ HostShell::HostShell(QWidget* parent) : QWidget(parent) {
   bindDesktopScreens();
 }
 
-void HostShell::coverDesktop() {
-  QRect desktop = tramp::virtualDesktopGeometry();
-  if (desktop.isNull()) {
-    if (QScreen* screen = QGuiApplication::primaryScreen()) desktop = screen->geometry();
-  }
-  if (desktop.isNull()) return;
-  if (geometry() != desktop) setGeometry(desktop);
-  lastLayout_.screenRect = desktop;
-}
-
 void HostShell::bindDesktopScreens() {
   auto hook = [this](QScreen* screen) {
     if (!screen) return;
@@ -44,7 +34,7 @@ void HostShell::applyLayout(const tramp::HostShellLayout& layout) {
     hide();
     return;
   }
-  coverDesktop();
+  setGeometry(layout.screenRect);
   setMask(layout.localMask);
   update();
 }
@@ -60,14 +50,37 @@ void HostShell::placePanels(const QVector<HostPanelPlacement>& panels) {
     return;
   }
 
-  coverDesktop();
-  if (!isVisible()) show();
+  const tramp::HostShellLayout layout = tramp::hostShellLayout(screenRects);
+  if (!isVisible()) {
+    setGeometry(layout.screenRect);
+    show();
+  }
+
   const QPoint origin = mapToGlobal(QPoint(0, 0));
   for (const HostPanelPlacement& place : panels) {
     if (!place.widget) continue;
     place.widget->setGeometry(QRect(place.screen.topLeft() - origin, place.screen.size()));
     place.widget->show();
   }
+
+  QRect localUnion;
+  const auto kids = findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly);
+  for (QWidget* child : kids) {
+    if (!child->isHidden()) localUnion = localUnion.united(child->geometry());
+  }
+  const QPoint shift(-qMin(0, localUnion.x()), -qMin(0, localUnion.y()));
+  if (!shift.isNull()) {
+    for (QWidget* child : kids) {
+      if (child->isHidden()) continue;
+      child->move(child->pos() + shift);
+    }
+    localUnion.translate(shift);
+  }
+
+  const QRect hostLocal = QRect(QPoint(0, 0), size()).united(localUnion);
+  if (hostLocal.size() != size()) resize(hostLocal.size());
+
+  lastLayout_.screenRect = QRect(mapToGlobal(QPoint(0, 0)), size());
   refreshMaskFromChildren();
 }
 
@@ -99,7 +112,6 @@ void HostShell::setPrimaryPanel(QWidget* panel) { primaryPanel_ = panel; }
 
 void HostShell::applyStoredMask() {
   if (lastLayout_.localMask.isEmpty()) return;
-  coverDesktop();
   setMask(lastLayout_.localMask);
   update();
 }

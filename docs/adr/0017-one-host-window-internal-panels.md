@@ -14,7 +14,7 @@ Supersedes [ADR 0006](0006-multi-window-docking.md) **only** for five OS windows
 
 One OS host window (frameless, title `Tramp` — the taskbar/pager entry). Five internal panels (main, equalizer, playlist, settings, about). Punched input so the desktop is clickable between panels. App-owned drag — not compositor `startSystemMove`.
 
-The host window covers the **virtual desktop** (union of screens). Panels are children placed in that space; the punched mask is the union of visible panel rects. The host does **not** move when a panel is dragged — Wayland/KWin will not reliably move a frameless toplevel, and a bounding-box host that `setGeometry`s on every drag translates every panel together.
+The host window’s geometry is the **bounding box** of visible panels (grown as needed so children stay in non-negative local coords). The punched mask is the union of those panel rects. After the host is mapped, panel drags **resize** the host rather than `setGeometry`’ing a new origin — Wayland/KWin will not reliably move a frameless toplevel, and moving it translates every panel together. A screen-sized “virtual desktop” overlay is rejected: KWin does not map that as punch-click chrome, so the player never appears.
 
 Panel screen size comes from zoomed docking logical size, not from an unmapped widget’s `size()` (which can be 0×0 and drop the main player from the layout). Title-bar drag emits `nativeMoved`; a parented panel’s `moveEvent` does not.
 

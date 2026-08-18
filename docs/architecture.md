@@ -6,7 +6,7 @@ Living map of how Tramp is structured. Domain terms: [`CONTEXT.md`](../CONTEXT.m
 
 **Qt 6 C++** is the only build ([ADR 0016](adr/0016-qt-for-v1.md)). One process, one frameless **host window**, five **panel** views, QWidget + QPainter in [`src/`](../src/). Binary: `build/tramp`.
 
-`TrampSession` owns playback (libmpv), playlist/collection, EQ, spectrum, docking, zoom, skins, and persistence. Panels are views onto that session, not extra engines or extra OS windows. Title-bar drag is in-process (app-owned). No skip-taskbar transients, no pin-against-recenter. Host geometry covers the virtual desktop; input is punched to panel shapes so the desktop is clickable in the gaps ([ADR 0017](adr/0017-one-host-window-internal-panels.md)). `--dump-chrome` writes 1× logical PNGs from `SessionView::golden()`.
+`TrampSession` owns playback (libmpv), playlist/collection, EQ, spectrum, docking, zoom, skins, and persistence. Panels are views onto that session, not extra engines or extra OS windows. Title-bar drag is in-process (app-owned). No skip-taskbar transients, no pin-against-recenter. Host geometry is the bounding box of visible panels (grown as needed); input is punched to panel shapes so the desktop is clickable in the gaps ([ADR 0017](adr/0017-one-host-window-internal-panels.md)). `--dump-chrome` writes 1× logical PNGs from `SessionView::golden()`.
 
 Linux + Windows are the pairing hosts; macOS follows.
 
@@ -88,7 +88,7 @@ flowchart TB
 
 | Area | Owns |
 |------|------|
-| Host | `HostShell` (`host_shell_window.*`) + five `HostWindow` panels — one frameless host window titled Tramp covering the virtual desktop; punched input from child panel rects; main close persists then quits; extra panels hide |
+| Host | `HostShell` (`host_shell_window.*`) + five `HostWindow` panels — one frameless host window titled Tramp; punched input from child panel rects; main close persists then quits; extra panels hide |
 | Session | `session.*`, `session_view.*` — shared controllers, commands, `--dump-chrome` golden |
 | Docking | `docking.*` — peel 8 logical px; EQ any side; playlist top/bottom; settings/about never snap. Coordinator applies frames to panels; `HostShell::placePanels` puts them in host-local coords and punches the mask. |
 | Chrome | `chrome_paint.cpp`, `chrome_bodies.cpp`, `chrome_hits.cpp`, `chrome_layout.h`, `title_chrome.*`, `mockup_draw.cpp`, `mockup_tokens.h`, `tramp_metrics.h`, `tramp_fonts.*` — mockup `.win` / `.tbar` / `.wbtn` at discrete zoom (default 75%). Display-well STEREO/PLAYLIST keep a fixed gap; close buttons take hue from the more saturated of skin ink vs accent. |
