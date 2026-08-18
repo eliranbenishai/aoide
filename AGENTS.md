@@ -6,7 +6,7 @@ Every session: match the task to installed skills and apply them (including user
 
 ### Issue tracker
 
-Issues live as local markdown under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
+Issues live as local, gitignored markdown under `.scratch/<feature>/` — do not commit them. Lasting decisions go in `CONTEXT.md`, `docs/adr/`, and `docs/architecture.md`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

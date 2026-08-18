@@ -4,7 +4,7 @@ Product requirements for the first shippable Tramp desktop player. Domain vocabu
 
 **UI authority:** [`player-mockup-2.html`](../player-mockup-2.html) (visual + geometry), the redesign design doc [`superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md`](superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md), and polish rules in [`superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md`](superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md) (product overrides such as compact EQ/PL titles and EQ band fill). Earlier PNG-graphite / single-window docs are historical and must not steer new work. Flutter-era host wording and five-OS-window host wording in those design docs are historical; the host is Qt ([ADR 0016](adr/0016-qt-for-v1.md)) with one host window and internal panels ([ADR 0017](adr/0017-one-host-window-internal-panels.md)).
 
-Wayfinding decisions that produced the prior single-window graphite direction live under [`.scratch/tramp-v1-spec/`](../.scratch/tramp-v1-spec/).
+Wayfinding that produced the prior single-window graphite direction is historical; the lock is [ADR 0016](adr/0016-qt-for-v1.md) and the product rules in this file.
 
 ## Vision
 
@@ -133,6 +133,4 @@ v1 is done when a user can install Tramp on Windows, Linux, and macOS, open loca
 | [`adr/0007-code-constructed-mockup-chrome.md`](adr/0007-code-constructed-mockup-chrome.md) | Code-constructed mockup chrome ADR |
 | [`adr/0003-zoom-only-window-size.md`](adr/0003-zoom-only-window-size.md) | Superseded (single-window framing) |
 | [`adr/0004-png-graphite-skin.md`](adr/0004-png-graphite-skin.md) | Superseded (PNG graphite) |
-| [`.scratch/tramp-v1-spec/research/v1-stack.md`](../.scratch/tramp-v1-spec/research/v1-stack.md) | Stack research evidence (historical) |
 | [`superpowers/specs/2026-08-02-graphite-skin-delivery-design.md`](superpowers/specs/2026-08-02-graphite-skin-delivery-design.md) | Historical PNG graphite delivery (superseded look) |
-| [`.scratch/tramp-v1-spec/map.md`](../.scratch/tramp-v1-spec/map.md) | Wayfinder decision index |

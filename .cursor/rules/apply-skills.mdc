@@ -28,7 +28,7 @@ This repo’s engineering flow is **Matt Pocock** (`ask-matt` is the router). Wh
 | Review vs standards + spec | `code-review` | Superpowers `requesting-code-review` / `receiving-code-review` |
 | Authoring skills / AGENTS.md | `writing-for-agents` | Superpowers `writing-skills` |
 
-Superpowers remains useful where Matt has no counterpart (e.g. `using-git-worktrees`, `finishing-a-development-branch`, `verification-before-completion`, `dispatching-parallel-agents`). Existing docs under `docs/superpowers/` stay valid historical/design material; new tracker work goes through `docs/agents/issue-tracker.md` (`.scratch/`).
+Superpowers remains useful where Matt has no counterpart (e.g. `using-git-worktrees`, `finishing-a-development-branch`, `verification-before-completion`, `dispatching-parallel-agents`). Existing docs under `docs/superpowers/` stay valid historical/design material; new tracker work goes through `docs/agents/issue-tracker.md` (local `.scratch/`, gitignored).
 
 ## How to apply
 
