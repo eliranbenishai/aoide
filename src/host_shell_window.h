@@ -23,6 +23,7 @@ class HostShell : public QWidget {
   void placePanels(const QVector<HostPanelPlacement>& panels);
   void setAlwaysOnTop(bool on);
   void setPrimaryPanel(QWidget* panel);
+  QRect virtualDesktop() const;
 
  signals:
   void minimizedChanged(bool minimized);
@@ -39,5 +40,6 @@ class HostShell : public QWidget {
   void bindDesktopScreens();
 
   tramp::HostShellLayout lastLayout_{};
+  QRect lastRequestedVirtual_{};
   QWidget* primaryPanel_ = nullptr;
 };

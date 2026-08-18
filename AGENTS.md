@@ -22,7 +22,7 @@ Cardinal: if a request would violate an accepted ADR, stop, cite the clash, and 
 
 ### Compositor geometry
 
-Offscreen tests are not proof the host window moved. Main drag is compositor `startSystemMove`; child drags are host-local. See `.cursor/rules/compositor-geometry.mdc`.
+Offscreen tests are not proof the host window moved. The host is the virtual desktop; title-bar drags are app-owned in host-local space. See `.cursor/rules/compositor-geometry.mdc`.
 
 ### Architecture
 

@@ -13,8 +13,8 @@ class HostShellWindowTest : public QObject {
   void placePanelsKeepsMainVisibleInTheMask();
   void movingOnePanelDoesNotMoveItsSibling();
   void hostContainsPanelsAtRequestedScreenPositions();
-  void translatingEveryPanelMovesTheHostOrigin();
-  void movingOnePanelShrinksTheHostToTheTightUnion();
+  void translatingEveryPanelLeavesTheHostPut();
+  void movingOnePanelDoesNotResizeTheHost();
   void expandingPastTopLeftKeepsSiblingOnScreen();
 };
 
@@ -90,7 +90,6 @@ void HostShellWindowTest::movingOnePanelDoesNotMoveItsSibling() {
 
   shell.placePanels({{&eq, QRect(40, 20, 100, 50)}, {&pl, plR}});
   QCOMPARE(pl.mapToGlobal(QPoint(0, 0)), pl0);
-  QCOMPARE(shell.pos(), QPoint(0, 0));
 }
 
 void HostShellWindowTest::hostContainsPanelsAtRequestedScreenPositions() {
@@ -104,10 +103,10 @@ void HostShellWindowTest::hostContainsPanelsAtRequestedScreenPositions() {
   QVERIFY(main.isVisible());
   QVERIFY(shell.rect().contains(main.geometry()));
   QCOMPARE(main.mapToGlobal(QPoint(0, 0)), mainR.topLeft());
-  QCOMPARE(shell.geometry(), mainR);
+  QCOMPARE(shell.geometry(), shell.virtualDesktop());
 }
 
-void HostShellWindowTest::translatingEveryPanelMovesTheHostOrigin() {
+void HostShellWindowTest::translatingEveryPanelLeavesTheHostPut() {
   HostShell shell;
   QWidget eq(&shell);
   QWidget pl(&shell);
@@ -115,27 +114,29 @@ void HostShellWindowTest::translatingEveryPanelMovesTheHostOrigin() {
   const QRect plR(200, 0, 100, 80);
   shell.placePanels({{&eq, eqR}, {&pl, plR}});
   shell.show();
-  const QPoint host0 = shell.pos();
-  QCOMPARE(shell.size(), QSize(300, 80));
+  const QRect host0 = shell.geometry();
+  QCOMPARE(host0, shell.virtualDesktop());
 
   const QRect eq1(30, 40, 100, 50);
   const QRect pl1(230, 40, 100, 80);
   shell.placePanels({{&eq, eq1}, {&pl, pl1}});
-  QCOMPARE(shell.pos(), host0);
+  QCOMPARE(shell.geometry(), host0);
   QCOMPARE(eq.mapToGlobal(QPoint(0, 0)), eq1.topLeft());
   QCOMPARE(pl.mapToGlobal(QPoint(0, 0)), pl1.topLeft());
 }
 
-void HostShellWindowTest::movingOnePanelShrinksTheHostToTheTightUnion() {
+void HostShellWindowTest::movingOnePanelDoesNotResizeTheHost() {
   HostShell shell;
   QWidget eq(&shell);
   QWidget pl(&shell);
   shell.placePanels({{&eq, QRect(0, 0, 100, 50)}, {&pl, QRect(200, 0, 100, 80)}});
   shell.show();
+  const QSize hostSize = shell.size();
 
   const QRect plCloser(100, 0, 100, 80);
   shell.placePanels({{&eq, QRect(0, 0, 100, 50)}, {&pl, plCloser}});
-  QCOMPARE(shell.geometry(), QRect(0, 0, 200, 80));
+  QCOMPARE(shell.size(), hostSize);
+  QCOMPARE(shell.geometry(), shell.virtualDesktop());
   QCOMPARE(eq.mapToGlobal(QPoint(0, 0)), QPoint(0, 0));
   QCOMPARE(pl.mapToGlobal(QPoint(0, 0)), plCloser.topLeft());
 }
@@ -149,12 +150,13 @@ void HostShellWindowTest::expandingPastTopLeftKeepsSiblingOnScreen() {
   shell.placePanels({{&eq, eq0}, {&pl, pl0}});
   shell.show();
   const QPoint plScreen = pl.mapToGlobal(QPoint(0, 0));
+  const QPoint hostPos = shell.pos();
 
   const QRect eq1(10, 10, 100, 50);
   shell.placePanels({{&eq, eq1}, {&pl, pl0}});
   QCOMPARE(pl.mapToGlobal(QPoint(0, 0)), plScreen);
   QCOMPARE(eq.mapToGlobal(QPoint(0, 0)), eq1.topLeft());
-  QCOMPARE(shell.pos(), QPoint(40, 40));
+  QCOMPARE(shell.pos(), hostPos);
 }
 
 QTEST_MAIN(HostShellWindowTest)

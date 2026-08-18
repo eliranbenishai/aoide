@@ -50,39 +50,35 @@ void HostShell::placePanels(const QVector<HostPanelPlacement>& panels) {
     return;
   }
 
-  const tramp::HostShellLayout layout = tramp::hostShellLayout(screenRects);
-  if (!isVisible()) {
-    setGeometry(layout.screenRect);
-    show();
+  const QRect virt = virtualDesktop();
+  if (!virt.isNull() && lastRequestedVirtual_ != virt) {
+    lastRequestedVirtual_ = virt;
+    setGeometry(virt);
   }
+  if (!isVisible()) show();
 
   const QPoint origin = mapToGlobal(QPoint(0, 0));
-  QRect localUnion;
+  QRegion mask;
   for (const HostPanelPlacement& place : panels) {
     if (!place.widget) continue;
     const QRect local(tramp::panelLocalTopLeft(place.screen.topLeft(), origin), place.screen.size());
     place.widget->setGeometry(local);
     place.widget->show();
-    localUnion = localUnion.united(local);
+    mask += local;
   }
 
-  if (!localUnion.isNull()) {
-    const QSize cover(localUnion.right() + 1, localUnion.bottom() + 1);
-    if (localUnion.x() >= 0 && localUnion.y() >= 0) {
-      resize(cover);
-    } else {
-      resize(QSize(qMax(width(), cover.width()), qMax(height(), cover.height())));
-    }
-  }
-
-  lastLayout_.screenRect = QRect(mapToGlobal(QPoint(0, 0)), size());
-  QRegion mask;
-  for (const HostPanelPlacement& place : panels) {
-    if (place.widget && !place.widget->isHidden()) mask += place.widget->geometry();
-  }
+  lastLayout_.screenRect = QRect(origin, size());
   lastLayout_.localMask = mask;
   setMask(mask);
   update();
+}
+
+QRect HostShell::virtualDesktop() const {
+  QRect box;
+  for (QScreen* screen : QGuiApplication::screens()) {
+    if (screen) box = box.united(screen->geometry());
+  }
+  return box;
 }
 
 void HostShell::setAlwaysOnTop(bool on) {

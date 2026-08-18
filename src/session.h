@@ -15,6 +15,7 @@
 #include <QAction>
 #include <QObject>
 #include <QPoint>
+#include <QRect>
 #include <QSet>
 #include <QTimer>
 #include <memory>
@@ -98,6 +99,10 @@ class TrampSession : public QObject {
   void syncLayoutFromWindows(std::optional<WindowId> skip = {});
   QPointF nativeToLogical(QPoint native) const;
   QPoint logicalToNative(QPointF logical) const;
+  QRect nativeFrameRect(WindowId id) const;
+  void writeNativeFrame(WindowId id, QRect native);
+  void clampOneToHost(WindowId id);
+  void fitClusterToHost();
   void showOptionsMenu(QRect logicalHit);
   QAction* execAnchoredMenu(QMenu& menu, HostWindow* host, QRect logicalHit, bool above);
   void showTrackInfo();

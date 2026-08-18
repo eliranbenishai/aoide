@@ -7,9 +7,10 @@ alwaysApply: true
 
 Offscreen QtTest honors `setGeometry` position; Wayland/KWin often does not. Those tests are not proof the OS **host window** moved.
 
-After map: place panels from `mapToGlobal(0,0)`, never from a requested bbox origin. Main title-bar drag is `QWindow::startSystemMove` on the host. Child drags move that panel in host-local space and may resize the host.
+The host is the virtual desktop. After map: do not `setGeometry` unless that rectangle changed. Place panels from `mapToGlobal(0,0)`. Main and child title-bar drags are app-owned (move panel widgets; never `startSystemMove` on the host).
 
 ```text
 ❌ BAD: setGeometry(union origin) then locals from the requested origin; offscreen green → ship
-✅ GOOD: main → startSystemMove; children → move the widget; assert siblings without requiring the toplevel origin to move
+❌ BAD: startSystemMove on a virtual-desktop host; resize the host on child drag
+✅ GOOD: host = virtual desktop; panels move in host-local space; assert siblings without requiring the toplevel to move or shrink
 ```

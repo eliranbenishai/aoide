@@ -37,8 +37,8 @@ A shareable folder or zip (`skin.json` preferred, legacy `look.json` accepted + 
 _Avoid_: classic skin, WSZ, theme (when meaning this pack), graphite skin, look pack (retired product term — same concept)
 
 **Host window**:
-The single OS toplevel the compositor sees. Frameless; titled `Tramp`; the taskbar/pager entry. Geometry is the tight bounding box of visible panels — it grows and shrinks with them, and its origin follows the union’s top-left. Input is punched to panel shapes so the desktop is clickable in the gaps. Dragging the main panel’s title bar translates the host (the cluster moves as a unit, size unchanged); dragging any other panel moves only that panel, then the host fits the new union.
-_Avoid_: treating this as the main player canvas, extra toplevels
+The single OS toplevel the compositor sees. Frameless; titled `Tramp`; the taskbar/pager entry. Geometry is the **virtual desktop** (bounding rectangle of every screen). It does not grow, shrink, or move with panel drags; it refits only when that desktop rectangle changes. Input is punched to panel shapes so the desktop is clickable in the gaps. Dragging the main panel’s title bar translates all panels inside the host (the cluster moves as a unit); dragging any other panel moves only that panel. Every panel stays fully on the virtual desktop.
+_Avoid_: treating this as the main player canvas, extra toplevels, tight union of panels (retired host geometry)
 
 **Panel**:
 A product chrome surface (main, equalizer, playlist, settings, about) that Tramp draws and moves inside the host window.
@@ -61,7 +61,7 @@ The single process that owns shared controllers (playback, playlist, EQ, zoom, s
 _Avoid_: multi-process, separate apps per window, extra OS windows per panel
 
 **Docking** / **dock group**:
-Winamp-style edge snap between panels. Dragging the main title bar translates the host so the cluster stays together; main never snaps and never creates dock edges. Dragging EQ, playlist, settings, or about moves only that panel on screen; siblings stay put. EQ or playlist peel their dock edges on drag; snap runs only on EQ/PL drag end. Settings and about never snap and are never snap targets. EQ may snap to any side; playlist snaps top/bottom only (plus optional left/right flush when already within threshold). Undock via peel, break-threshold, and/or Shift. Main minimize may hide/restore visible secondaries (including settings/about) when the preference is on; always-on-top and main-minimize apply to the host window. Settings stays raised among panels. The taskbar/pager shows Tramp (the host window).
+Winamp-style edge snap between panels. Dragging the main title bar translates every panel inside the host so the cluster stays together; main never snaps and never creates dock edges. Dragging EQ, playlist, settings, or about moves only that panel on screen; siblings stay put. EQ or playlist peel their dock edges on drag; snap runs only on EQ/PL drag end. Settings and about never snap and are never snap targets. EQ may snap to any side; playlist snaps top/bottom only (plus optional left/right flush when already within threshold). Undock via peel, break-threshold, and/or Shift. A panel cannot hang off the virtual desktop. If a monitor is unplugged, the cluster is translated onto what remains when it still fits, otherwise each panel is clamped. Main minimize may hide/restore visible secondaries (including settings/about) when the preference is on; always-on-top and main-minimize apply to the host window. Settings stays raised among panels. The taskbar/pager shows Tramp (the host window).
 _Avoid_: tiling WM, snap layouts (OS), tabs; docking settings/about to main/EQ/PL; extra OS windows for docked surfaces
 
 **Playlist**:

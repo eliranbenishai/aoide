@@ -6,7 +6,7 @@ Living map of how Tramp is structured. Domain terms: [`CONTEXT.md`](../CONTEXT.m
 
 **Qt 6 C++** is the only build ([ADR 0016](adr/0016-qt-for-v1.md)). One process, one frameless **host window**, five **panel** views, QWidget + QPainter in [`src/`](../src/). Binary: `build/tramp`.
 
-`TrampSession` owns playback (libmpv), playlist/collection, EQ, spectrum, docking, zoom, skins, and persistence. Panels are views onto that session, not extra engines or extra OS windows. Main title-bar drag is compositor `startSystemMove` on the host; child title-bar drags are app-owned. No skip-taskbar transients, no pin-against-recenter. Host geometry is the tight bounding box of visible panels (resize after map; origin moves only via compositor main-drag); input is punched to panel shapes so the desktop is clickable in the gaps ([ADR 0017](adr/0017-one-host-window-internal-panels.md)). `--dump-chrome` writes 1× logical PNGs from `SessionView::golden()`.
+`TrampSession` owns playback (libmpv), playlist/collection, EQ, spectrum, docking, zoom, skins, and persistence. Panels are views onto that session, not extra engines or extra OS windows. Title-bar drags are app-owned: main translates the cluster inside the host; other panels move alone. No skip-taskbar transients, no pin-against-recenter. Host geometry is the virtual desktop (bounding rect of every screen); it does not resize on panel drag; input is punched to panel shapes so the desktop is clickable in the gaps ([ADR 0017](adr/0017-one-host-window-internal-panels.md), [ADR 0019](adr/0019-virtual-desktop-punched-host.md)). `--dump-chrome` writes 1× logical PNGs from `SessionView::golden()`.
 
 Linux + Windows are the pairing hosts; macOS follows.
 
@@ -14,8 +14,8 @@ Linux + Windows are the pairing hosts; macOS follows.
 
 - Desktop player (Windows, Linux, macOS); official download `https://tramp.music`; GPL-3.0-or-later
 - Windows Store MSIX **and** website EXE ([ADR 0011](adr/0011-windows-store-and-exe.md)); Linux Flathub **and** AppImage ([ADR 0013](adr/0013-linux-flathub-and-appimage.md)); Mac notarized DMG later
-- Custom **app chrome**; five **panels** inside one host window — main/EQ/PL dock; settings and about freestanding ([ADR 0006](adr/0006-multi-window-docking.md); host shape [ADR 0017](adr/0017-one-host-window-internal-panels.md))
-- Main title-bar drag translates the host; other title-bar drags move only that panel. EQ/PL snap on drag end; settings stays raised among panels; taskbar shows the host (Tramp)
+- Custom **app chrome**; five **panels** inside one host window — main/EQ/PL dock; settings and about freestanding ([ADR 0006](adr/0006-multi-window-docking.md); host shape [ADR 0017](adr/0017-one-host-window-internal-panels.md), [ADR 0019](adr/0019-virtual-desktop-punched-host.md))
+- Main title-bar drag translates all panels inside the host; other title-bar drags move only that panel. EQ/PL snap on drag end; settings stays raised among panels; taskbar shows the host (Tramp)
 - Fixed canvases: main/EQ **825×348**, playlist default **1073×696** (free resize), settings **520×420**, about **480×360**; global discrete zoom ([ADR 0002](adr/0002-fixed-canvas-zoom.md))
 - Code-constructed mockup chrome ([ADR 0007](adr/0007-code-constructed-mockup-chrome.md)); recolor **skins**; no classic WSZ in v1
 - Full libmpv ([ADR 0005](adr/0005-full-libmpv.md)); playlist-centric M3U/M3U8; no media library
@@ -88,9 +88,9 @@ flowchart TB
 
 | Area | Owns |
 |------|------|
-| Host | `HostShell` (`host_shell_window.*`) + five `HostWindow` panels — one frameless host window titled Tramp; punched input from child panel rects; main close persists then quits; extra panels hide |
+| Host | `HostShell` (`host_shell_window.*`) + five `HostWindow` panels — one frameless host window titled Tramp, sized to the virtual desktop; punched input from child panel rects; main close persists then quits; extra panels hide |
 | Session | `session.*`, `session_view.*` — shared controllers, commands, `--dump-chrome` golden |
-| Docking | `docking.*` — peel 8 logical px; EQ any side; playlist top/bottom; settings/about never snap. Main title-bar drag is `startSystemMove` on the host. Child drags move one panel in host-local space; `placePanels` uses `mapToGlobal` origin and resizes, never a new origin after map. |
+| Docking | `docking.*` — peel 8 logical px; EQ any side; playlist top/bottom; settings/about never snap. Title-bar drags are app-owned. Child drags move one panel in host-local space; main drag translates the cluster. `placePanels` uses `mapToGlobal` origin and does not resize the host unless the virtual desktop changed. Panels stay fully on the virtual desktop. |
 | Chrome | `chrome_paint.cpp`, `chrome_bodies.cpp`, `chrome_hits.cpp`, `chrome_layout.h`, `title_chrome.*`, `mockup_draw.cpp`, `mockup_tokens.h`, `tramp_metrics.h`, `tramp_fonts.*` — mockup `.win` / `.tbar` / `.wbtn` at discrete zoom (default 75%). Display-well STEREO/PLAYLIST keep a fixed gap; close buttons take hue from the more saturated of skin ink vs accent. |
 | Skins | `look.*` — `skin.json` / legacy `look.json`; embedded **Tramp** (id `builtin`) plus bundled homage packs under `skins/` (Arc, Shield, Thunder, Gamma, Widow, Marksman, Chaos); catalog `<support>/skins`. Settings Skins tab is a clipped scrolling list. |
 | Playback | `playback.*`, `player_engine.h`, `mpv_engine.*`, `transport.*` — libmpv `vo=null`; playing **path** not index; stop unloads media |
@@ -149,5 +149,6 @@ Support dir: `$XDG_DATA_HOME/com.tramp.tramp` (adopts legacy `…/tramp` when th
 - [0014 — GitHub Actions CI and v1 CPU matrix](adr/0014-ci-and-architectures.md)
 - [0015 — One Flutter engine, several OS windows](adr/0015-one-engine-windows.md) *(superseded by 0016)*
 - [0016 — Qt 6 C++ is the Tramp v1 host](adr/0016-qt-for-v1.md) *(stack lock; five-OS-window host superseded by 0017)*
-- [0017 — One host window, internal panels](adr/0017-one-host-window-internal-panels.md)
+- [0017 — One host window, internal panels](adr/0017-one-host-window-internal-panels.md) *(geometry / main-drag / overlay superseded by 0019)*
 - [0018 — PRs squash-merge only after Qt CI is green](adr/0018-pr-ci-auto-merge.md)
+- [0019 — Virtual-desktop punched host](adr/0019-virtual-desktop-punched-host.md)

@@ -35,19 +35,17 @@ surfaces inside one OS host window ([ADR 0017](0017-one-host-window-internal-pan
   plus freestanding settings and about. Host shape is [ADR 0017](0017-one-host-window-internal-panels.md).
 - EQ and playlist may **both** be open. Main EQ/PL toggles show/hide those
   panels.
-- **Move ownership:** dragging the **main** panel title bar translates the
-  **host** via compositor `startSystemMove` — child locals stay put; the
-  cluster moves on screen as a unit; host size unchanged. Main never snaps
-  and never creates dock edges. Dragging **EQ, playlist, settings, or about**
-  moves **only that panel** in host-local space; siblings stay put. After
-  map, child drags resize the host and must not `setGeometry` a new origin.
-  Dragging an EQ or playlist title bar peels its dock edges.
+- **Move ownership:** dragging the **main** panel title bar translates every
+  **panel** inside the host so the cluster moves as a unit; host size unchanged.
+  Main never snaps and never creates dock edges. Dragging **EQ, playlist,
+  settings, or about** moves **only that panel** in host-local space; siblings
+  stay put. After map, the host is the virtual desktop and must not resize on
+  child drag. Dragging an EQ or playlist title bar peels its dock edges.
 - **Snap:** only when finishing an EQ or playlist drag. EQ may snap to any
   side of any other visible panel. Playlist may snap only **top/bottom**; on
   that snap, also flush left or right if that edge is already within the snap
   threshold. Main never initiates snap. Thresholds live in the coordinator /
-  polish design. Snap runs on EQ/PL drag end (app-owned drag — not compositor
-  `startSystemMove`; see ADR 0017).
+  polish design. Snap runs on EQ/PL drag end (app-owned drag; see ADR 0019).
 - Undock via peel-on-EQ/PL-drag, break-threshold separation, and/or Shift.
 - **Zoom-only** sizing for main and EQ; **free resize** for playlist (logical
   size persisted, scaled by global zoom) — see [ADR 0002](0002-fixed-canvas-zoom.md).
@@ -63,7 +61,7 @@ surfaces inside one OS host window ([ADR 0017](0017-one-host-window-internal-pan
 ## Consequences
 
 `DockingCoordinator` remains the pure layout seam; the session host applies
-frames to each panel, then `hostShellLayout`. Sticky dock edges record snap
+frames to each panel, then `placePanels` on the virtual-desktop host. Sticky dock edges record snap
 contact for persistence and peel. The single `TrampShell` lower-region EQ/PL
 swap stays removed. ADR 0003’s zoom-only main/EQ and free-resize playlist
 *sizing intent* continues under this ADR and ADR 0002; its single-window
@@ -73,4 +71,4 @@ framing does not. Five-OS-window host mechanics do not continue — see ADR 0017
 
 - One Qt process; panels are views on `TrampSession` inside the host window.
   See [ADR 0016](0016-qt-for-v1.md) and [ADR 0017](0017-one-host-window-internal-panels.md).
-- Title-bar drag: **main** uses compositor `startSystemMove` on the host; **EQ/PL/settings/about** are app-owned (not `startSystemMove`). See ADR 0017.
+- Title-bar drag: **main** translates the cluster inside the host; **EQ/PL/settings/about** move only that panel. None of these use `startSystemMove`. See [ADR 0019](0019-virtual-desktop-punched-host.md).
