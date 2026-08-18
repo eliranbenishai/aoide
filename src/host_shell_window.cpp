@@ -1,5 +1,6 @@
 #include "host_shell_window.h"
 
+#include "app_icon.h"
 #include "window_spec.h"
 
 #include <QGuiApplication>
@@ -12,6 +13,7 @@ HostShell::HostShell(QWidget* parent) : QWidget(parent) {
   setWindowFlags(tramp::hostWindowFlags());
   setAttribute(Qt::WA_TranslucentBackground);
   setWindowTitle(QStringLiteral("Tramp"));
+  setWindowIcon(tramp::appIcon());
   bindDesktopScreens();
 }
 
@@ -122,6 +124,7 @@ void HostShell::applyStoredMask() {
 
 void HostShell::showEvent(QShowEvent* event) {
   QWidget::showEvent(event);
+  if (QWindow* native = windowHandle()) native->setIcon(windowIcon());
   applyStoredMask();
 }
 

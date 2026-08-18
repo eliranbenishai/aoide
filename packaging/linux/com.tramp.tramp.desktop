@@ -8,3 +8,4 @@ Type=Application
 Categories=AudioVideo;Audio;Player;
 MimeType=audio/mpeg;audio/mp4;audio/aac;audio/flac;audio/wav;audio/ogg;audio/opus;audio/x-mpegurl;application/vnd.apple.mpegurl;
 StartupNotify=true
+StartupWMClass=com.tramp.tramp

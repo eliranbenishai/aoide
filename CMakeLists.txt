@@ -65,6 +65,8 @@ endif()
 
 set(TRAMP_SOURCES
   src/main.cpp
+  src/app_icon.cpp
+  src/app_icon.h
   src/host_shell_window.cpp
   src/host_shell_window.h
   src/host_window.cpp
@@ -97,6 +99,11 @@ if(TRAMP_HAVE_MPV)
   list(APPEND TRAMP_SOURCES src/mpv_engine.cpp src/mpv_engine.h src/pcm_decoder.cpp)
 endif()
 
+if(WIN32)
+  set(TRAMP_WIN_ICO "${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows/app_icon.ico")
+  configure_file(packaging/windows/tramp.rc.in "${CMAKE_CURRENT_BINARY_DIR}/tramp.rc" @ONLY)
+  list(APPEND TRAMP_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/tramp.rc")
+endif()
 qt_add_executable(tramp WIN32 ${TRAMP_SOURCES})
 target_include_directories(tramp PRIVATE src "${TRAMP_MPV_ROOT}/include")
 target_compile_definitions(tramp PRIVATE
@@ -129,8 +136,13 @@ qt_add_executable(host_shell_window_test
   tests/host_shell_window_test.cpp
   src/host_shell_window.cpp
   src/host_shell_window.h
+  src/app_icon.cpp
+  src/tramp_fonts.cpp
 )
 target_include_directories(host_shell_window_test PRIVATE src)
+target_compile_definitions(host_shell_window_test PRIVATE
+  TRAMP_ASSET_DIR="${TRAMP_ASSET_DIR}"
+)
 target_link_libraries(host_shell_window_test PRIVATE tramp_window_spec Qt6::Test Qt6::Widgets)
 set_target_properties(host_shell_window_test PROPERTIES AUTOMOC ON)
 
@@ -138,6 +150,7 @@ qt_add_executable(host_window_move_test
   tests/host_window_move_test.cpp
   src/host_shell_window.cpp
   src/host_shell_window.h
+  src/app_icon.cpp
   src/host_window.cpp
   src/host_window.h
   src/chrome_paint.cpp

@@ -1,6 +1,9 @@
 #include "host_shell.h"
 #include "host_shell_window.h"
 
+#include <QIcon>
+#include <QImage>
+#include <QPixmap>
 #include <QTest>
 
 class HostShellWindowTest : public QObject {
@@ -8,6 +11,7 @@ class HostShellWindowTest : public QObject {
 
  private slots:
   void shellIsFramelessToplevelNotTool();
+  void shellAdvertisesAppLogoOnTheTaskbar();
   void applyLayoutSetsGeometryAndPunchedMask();
   void emptyLayoutHidesTheShell();
   void placePanelsKeepsMainVisibleInTheMask();
@@ -28,6 +32,24 @@ void HostShellWindowTest::shellIsFramelessToplevelNotTool() {
   QVERIFY(!shell.windowFlags().testFlag(Qt::WindowTransparentForInput));
   QVERIFY(shell.testAttribute(Qt::WA_TranslucentBackground));
   QCOMPARE(shell.windowTitle(), QStringLiteral("Tramp"));
+}
+
+void HostShellWindowTest::shellAdvertisesAppLogoOnTheTaskbar() {
+  HostShell shell;
+  const QIcon icon = shell.windowIcon();
+  QVERIFY2(!icon.isNull(), "host is the taskbar/pager entry and must carry the app logo");
+  const QPixmap px = icon.pixmap(QSize(32, 32));
+  QVERIFY(!px.isNull());
+  QVERIFY(px.width() >= 16);
+  QVERIFY(px.height() >= 16);
+  const QImage img = px.toImage().convertToFormat(QImage::Format_ARGB32);
+  int opaque = 0;
+  for (int y = 0; y < img.height(); ++y) {
+    for (int x = 0; x < img.width(); ++x) {
+      if (qAlpha(img.pixel(x, y)) > 16) ++opaque;
+    }
+  }
+  QVERIFY2(opaque > 0, "taskbar icon must be painted logo pixels, not an empty pixmap");
 }
 
 void HostShellWindowTest::applyLayoutSetsGeometryAndPunchedMask() {

@@ -54,6 +54,7 @@ SRCS=(
   "$ROOT/src/window_spec.cpp"
   "$ROOT/src/title_chrome.cpp"
   "$ROOT/src/host_shell.cpp"
+  "$ROOT/src/app_icon.cpp"
   "$ROOT/src/host_shell_window.cpp"
   "$ROOT/src/mockup_draw.cpp"
   "$ROOT/src/tramp_fonts.cpp"
@@ -140,7 +141,9 @@ QT_QPA_PLATFORM=offscreen "$BUILD/font_metrics_test"
 "$MOC" "$ROOT/src/host_shell_window.h" -o "$BUILD/moc_host_shell_window.cpp"
 "$MOC" "$ROOT/tests/host_shell_window_test.cpp" -o "$BUILD/host_shell_window_test.moc"
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
+  -DTRAMP_ASSET_DIR="\"$ROOT/assets\"" \
   "$ROOT/src/window_spec.cpp" "$ROOT/src/host_shell.cpp" "$ROOT/src/host_shell_window.cpp" \
+  "$ROOT/src/app_icon.cpp" "$ROOT/src/tramp_fonts.cpp" \
   "$BUILD/moc_host_shell_window.cpp" \
   "$ROOT/tests/host_shell_window_test.cpp" \
   -L"$QT/lib" -lQt6Test -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
@@ -154,6 +157,7 @@ QT_QPA_PLATFORM=offscreen "$BUILD/host_shell_window_test"
   -DTRAMP_ASSET_DIR="\"$ROOT/assets\"" -DTRAMP_SKINS_DIR="\"$ROOT/skins\"" \
   "$ROOT/src/window_spec.cpp" "$ROOT/src/title_chrome.cpp" \
   "$ROOT/src/host_shell.cpp" "$ROOT/src/host_shell_window.cpp" \
+  "$ROOT/src/app_icon.cpp" \
   "$ROOT/src/host_window.cpp" "$ROOT/src/chrome_paint.cpp" \
   "$ROOT/src/chrome_bodies.cpp" "$ROOT/src/chrome_hits.cpp" \
   "$ROOT/src/mockup_draw.cpp" "$ROOT/src/tramp_fonts.cpp" \

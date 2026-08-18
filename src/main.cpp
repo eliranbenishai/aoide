@@ -1,3 +1,4 @@
+#include "app_icon.h"
 #include "chrome_paint.h"
 #include "host_shell_window.h"
 #include "host_window.h"
@@ -199,6 +200,7 @@ int main(int argc, char** argv) {
   app.setApplicationVersion(QLatin1String(TRAMP_VERSION));
   app.setOrganizationName(QStringLiteral("Proxima Magnifica"));
   app.setDesktopFileName(QStringLiteral("com.tramp.tramp"));
+  app.setWindowIcon(tramp::appIcon());
   app.setQuitOnLastWindowClosed(false);
 
   const QStringList args = app.arguments();

@@ -17,6 +17,11 @@ fi
 rm -rf "$STAGE"
 mkdir -p "$STAGE"
 cp -a "$APP" "$STAGE/"
+ICNS="$ROOT/packaging/macos/tramp.icns"
+if [[ -f "$ICNS" ]]; then
+  mkdir -p "$STAGE/$(basename "$APP")/Contents/Resources"
+  cp -f "$ICNS" "$STAGE/$(basename "$APP")/Contents/Resources/tramp.icns"
+fi
 ln -s /Applications "$STAGE/Applications"
 cp -f "$ROOT/LICENSE" "$STAGE/"
 cp -f "$ROOT/THIRD-PARTY-NOTICES.md" "$STAGE/"
