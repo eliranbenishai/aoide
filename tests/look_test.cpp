@@ -414,12 +414,14 @@ int main() {
       REQUIRE(ids.contains(QString::fromUtf8(id)));
     }
     const auto arc = resolveLook(QStringLiteral("arc"), bundled.manifests);
-    REQUIRE_EQ(hex(arc.palette.ink), QStringLiteral("#ff2d3a"));
+    REQUIRE_EQ(hex(arc.palette.shell), QStringLiteral("#700f15"));
+    REQUIRE_EQ(hex(arc.palette.ink), QStringLiteral("#f8f2e2"));
     REQUIRE_EQ(hex(arc.palette.phos), QStringLiteral("#ffc107"));
-    REQUIRE_EQ(hex(arc.palette.accent), QStringLiteral("#c5ccd6"));
+    REQUIRE_EQ(hex(arc.palette.accent), QStringLiteral("#e8b020"));
     const auto arcTokens = ChromeTokens::from(arc);
-    REQUIRE(arcTokens.closeGlyph.red() > arcTokens.closeGlyph.green() + 40);
-    REQUIRE(arcTokens.closeGlyph.red() > arcTokens.closeGlyph.blue() + 40);
+    const int accentHue = QColor(QStringLiteral("#e8b020")).hslHue();
+    REQUIRE(arcTokens.closeGlyph.hslHue() >= 0);
+    REQUIRE(qAbs(arcTokens.closeGlyph.hslHue() - accentHue) <= 40);
     QTemporaryDir support;
     TrampSettings settings;
     SkinController skins;
