@@ -36,15 +36,12 @@ surfaces inside one OS host window ([ADR 0017](0017-one-host-window-internal-pan
 - EQ and playlist may **both** be open. Main EQ/PL toggles show/hide those
   panels.
 - **Move ownership:** dragging the **main** panel title bar translates the
-  **host** — every panel keeps its position inside the host; the cluster
-  moves on screen as a unit; host size unchanged. Main never snaps and never
-  creates dock edges. The coordinator translates every frame (including
-  hidden settings/about) by the same logical delta. Dragging **EQ,
-  playlist, settings, or about** moves **only that panel** in screen space;
-  siblings stay put. The host bounding box is the tight union of visible
-  panels (grows and shrinks; origin follows the union’s top-left). After an
-  origin change, re-place panels so non-dragged siblings keep their screen
-  positions. Dragging an EQ or playlist title bar peels its dock edges.
+  **host** via compositor `startSystemMove` — child locals stay put; the
+  cluster moves on screen as a unit; host size unchanged. Main never snaps
+  and never creates dock edges. Dragging **EQ, playlist, settings, or about**
+  moves **only that panel** in host-local space; siblings stay put. After
+  map, child drags resize the host and must not `setGeometry` a new origin.
+  Dragging an EQ or playlist title bar peels its dock edges.
 - **Snap:** only when finishing an EQ or playlist drag. EQ may snap to any
   side of any other visible panel. Playlist may snap only **top/bottom**; on
   that snap, also flush left or right if that edge is already within the snap
@@ -76,5 +73,4 @@ framing does not. Five-OS-window host mechanics do not continue — see ADR 0017
 
 - One Qt process; panels are views on `TrampSession` inside the host window.
   See [ADR 0016](0016-qt-for-v1.md) and [ADR 0017](0017-one-host-window-internal-panels.md).
-- Title-bar drag is app-owned (not `QWindow::startSystemMove`). No skip-taskbar
-  transients. See ADR 0017.
+- Title-bar drag: **main** uses compositor `startSystemMove` on the host; **EQ/PL/settings/about** are app-owned (not `startSystemMove`). See ADR 0017.

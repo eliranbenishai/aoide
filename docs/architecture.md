@@ -6,7 +6,7 @@ Living map of how Tramp is structured. Domain terms: [`CONTEXT.md`](../CONTEXT.m
 
 **Qt 6 C++** is the only build ([ADR 0016](adr/0016-qt-for-v1.md)). One process, one frameless **host window**, five **panel** views, QWidget + QPainter in [`src/`](../src/). Binary: `build/tramp`.
 
-`TrampSession` owns playback (libmpv), playlist/collection, EQ, spectrum, docking, zoom, skins, and persistence. Panels are views onto that session, not extra engines or extra OS windows. Title-bar drag is in-process (app-owned). No skip-taskbar transients, no pin-against-recenter. Host geometry is the tight bounding box of visible panels (origin and size follow the union); input is punched to panel shapes so the desktop is clickable in the gaps ([ADR 0017](adr/0017-one-host-window-internal-panels.md)). `--dump-chrome` writes 1× logical PNGs from `SessionView::golden()`.
+`TrampSession` owns playback (libmpv), playlist/collection, EQ, spectrum, docking, zoom, skins, and persistence. Panels are views onto that session, not extra engines or extra OS windows. Main title-bar drag is compositor `startSystemMove` on the host; child title-bar drags are app-owned. No skip-taskbar transients, no pin-against-recenter. Host geometry is the tight bounding box of visible panels (resize after map; origin moves only via compositor main-drag); input is punched to panel shapes so the desktop is clickable in the gaps ([ADR 0017](adr/0017-one-host-window-internal-panels.md)). `--dump-chrome` writes 1× logical PNGs from `SessionView::golden()`.
 
 Linux + Windows are the pairing hosts; macOS follows.
 
@@ -90,7 +90,7 @@ flowchart TB
 |------|------|
 | Host | `HostShell` (`host_shell_window.*`) + five `HostWindow` panels — one frameless host window titled Tramp; punched input from child panel rects; main close persists then quits; extra panels hide |
 | Session | `session.*`, `session_view.*` — shared controllers, commands, `--dump-chrome` golden |
-| Docking | `docking.*` — peel 8 logical px; EQ any side; playlist top/bottom; settings/about never snap. Main-drag translates every frame. Coordinator applies frames to panels; `HostShell::placePanels` sets the host to the union (origin and size), places panels in host-local coords, and punches the mask. |
+| Docking | `docking.*` — peel 8 logical px; EQ any side; playlist top/bottom; settings/about never snap. Main title-bar drag is `startSystemMove` on the host. Child drags move one panel in host-local space; `placePanels` uses `mapToGlobal` origin and resizes, never a new origin after map. |
 | Chrome | `chrome_paint.cpp`, `chrome_bodies.cpp`, `chrome_hits.cpp`, `chrome_layout.h`, `title_chrome.*`, `mockup_draw.cpp`, `mockup_tokens.h`, `tramp_metrics.h`, `tramp_fonts.*` — mockup `.win` / `.tbar` / `.wbtn` at discrete zoom (default 75%). Display-well STEREO/PLAYLIST keep a fixed gap; close buttons take hue from the more saturated of skin ink vs accent. |
 | Skins | `look.*` — `skin.json` / legacy `look.json`; embedded **Tramp** (id `builtin`) plus bundled homage packs under `skins/` (Arc, Shield, Thunder, Gamma, Widow, Marksman, Chaos); catalog `<support>/skins`. Settings Skins tab is a clipped scrolling list. |
 | Playback | `playback.*`, `player_engine.h`, `mpv_engine.*`, `transport.*` — libmpv `vo=null`; playing **path** not index; stop unloads media |

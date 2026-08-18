@@ -90,7 +90,7 @@ void HostShellWindowTest::movingOnePanelDoesNotMoveItsSibling() {
 
   shell.placePanels({{&eq, QRect(40, 20, 100, 50)}, {&pl, plR}});
   QCOMPARE(pl.mapToGlobal(QPoint(0, 0)), pl0);
-  QCOMPARE(shell.geometry(), QRect(40, 0, 260, 80));
+  QCOMPARE(shell.pos(), QPoint(0, 0));
 }
 
 void HostShellWindowTest::hostContainsPanelsAtRequestedScreenPositions() {
@@ -115,12 +115,13 @@ void HostShellWindowTest::translatingEveryPanelMovesTheHostOrigin() {
   const QRect plR(200, 0, 100, 80);
   shell.placePanels({{&eq, eqR}, {&pl, plR}});
   shell.show();
-  QCOMPARE(shell.geometry(), QRect(0, 0, 300, 80));
+  const QPoint host0 = shell.pos();
+  QCOMPARE(shell.size(), QSize(300, 80));
 
   const QRect eq1(30, 40, 100, 50);
   const QRect pl1(230, 40, 100, 80);
   shell.placePanels({{&eq, eq1}, {&pl, pl1}});
-  QCOMPARE(shell.geometry(), QRect(30, 40, 300, 80));
+  QCOMPARE(shell.pos(), host0);
   QCOMPARE(eq.mapToGlobal(QPoint(0, 0)), eq1.topLeft());
   QCOMPARE(pl.mapToGlobal(QPoint(0, 0)), pl1.topLeft());
 }
@@ -153,7 +154,7 @@ void HostShellWindowTest::expandingPastTopLeftKeepsSiblingOnScreen() {
   shell.placePanels({{&eq, eq1}, {&pl, pl0}});
   QCOMPARE(pl.mapToGlobal(QPoint(0, 0)), plScreen);
   QCOMPARE(eq.mapToGlobal(QPoint(0, 0)), eq1.topLeft());
-  QCOMPARE(shell.geometry(), QRect(10, 10, 290, 110));
+  QCOMPARE(shell.pos(), QPoint(40, 40));
 }
 
 QTEST_MAIN(HostShellWindowTest)

@@ -11,6 +11,7 @@ private slots:
   void overlappingPanelsUnionInTheMask();
   void emptyInputYieldsNullScreenRectAndEmptyMask();
   void panelNativeSizeUsesLogicalWhenWidgetHasNoSize();
+  void panelLocalUsesActualHostOriginNotRequestedBBox();
 };
 
 void HostShellTest::onePanelIsTheScreenRectAndLocalOriginMask() {
@@ -46,6 +47,14 @@ void HostShellTest::emptyInputYieldsNullScreenRectAndEmptyMask() {
 
 void HostShellTest::panelNativeSizeUsesLogicalWhenWidgetHasNoSize() {
   QCOMPARE(tramp::panelNativeSize(QSize(619, 261), QSize(0, 0)), QSize(619, 261));
+}
+
+void HostShellTest::panelLocalUsesActualHostOriginNotRequestedBBox() {
+  const QPoint actualHost(100, 40);
+  const QPoint siblingScreen(200, 40);
+  const QPoint requestedOrigin(40, 40);
+  QCOMPARE(tramp::panelLocalTopLeft(siblingScreen, actualHost), QPoint(100, 0));
+  QVERIFY(tramp::panelLocalTopLeft(siblingScreen, requestedOrigin) != QPoint(100, 0));
 }
 
 QTEST_APPLESS_MAIN(HostShellTest)

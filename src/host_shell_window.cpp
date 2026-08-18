@@ -51,18 +51,37 @@ void HostShell::placePanels(const QVector<HostPanelPlacement>& panels) {
   }
 
   const tramp::HostShellLayout layout = tramp::hostShellLayout(screenRects);
-  setGeometry(layout.screenRect);
-  if (!isVisible()) show();
-
-  const QPoint origin = layout.screenRect.topLeft();
-  for (const HostPanelPlacement& place : panels) {
-    if (!place.widget) continue;
-    place.widget->setGeometry(QRect(place.screen.topLeft() - origin, place.screen.size()));
-    place.widget->show();
+  if (!isVisible()) {
+    setGeometry(layout.screenRect);
+    show();
   }
 
-  lastLayout_ = layout;
-  setMask(layout.localMask);
+  const QPoint origin = mapToGlobal(QPoint(0, 0));
+  QRect localUnion;
+  for (const HostPanelPlacement& place : panels) {
+    if (!place.widget) continue;
+    const QRect local(tramp::panelLocalTopLeft(place.screen.topLeft(), origin), place.screen.size());
+    place.widget->setGeometry(local);
+    place.widget->show();
+    localUnion = localUnion.united(local);
+  }
+
+  if (!localUnion.isNull()) {
+    const QSize cover(localUnion.right() + 1, localUnion.bottom() + 1);
+    if (localUnion.x() >= 0 && localUnion.y() >= 0) {
+      resize(cover);
+    } else {
+      resize(QSize(qMax(width(), cover.width()), qMax(height(), cover.height())));
+    }
+  }
+
+  lastLayout_.screenRect = QRect(mapToGlobal(QPoint(0, 0)), size());
+  QRegion mask;
+  for (const HostPanelPlacement& place : panels) {
+    if (place.widget && !place.widget->isHidden()) mask += place.widget->geometry();
+  }
+  lastLayout_.localMask = mask;
+  setMask(mask);
   update();
 }
 

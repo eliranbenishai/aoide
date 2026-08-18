@@ -21,6 +21,10 @@ HostShellLayout hostShellLayout(const QVector<QRect>& visiblePanelScreenRects) {
   return {screenRect, localMask};
 }
 
+QPoint panelLocalTopLeft(QPoint screenTopLeft, QPoint actualHostGlobal) {
+  return screenTopLeft - actualHostGlobal;
+}
+
 QSize panelNativeSize(QSize logicalZoomed, QSize widgetSize) {
   if (logicalZoomed.width() > 0 && logicalZoomed.height() > 0) return logicalZoomed;
   return widgetSize;

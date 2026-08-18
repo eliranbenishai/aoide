@@ -10,6 +10,7 @@
 #include <QMoveEvent>
 #include <QPainter>
 #include <QUrl>
+#include <QWindow>
 #include <cmath>
 
 HostWindow::HostWindow(const tramp::WindowSpec& spec, QWidget* parent)
@@ -266,9 +267,20 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
       event->accept();
       return;
     case tramp::TitleChromeLayout::Hit::drag:
+      emit titleDragStarted();
+      if (spec_.id == tramp::WindowId::main) {
+        if (QWidget* top = window()) {
+          top->winId();
+          if (QWindow* handle = top->windowHandle()) {
+            if (handle->startSystemMove()) {
+              event->accept();
+              return;
+            }
+          }
+        }
+      }
       draggingTitle_ = true;
       grabOffset_ = event->globalPosition().toPoint() - mapToGlobal(QPoint(0, 0));
-      emit titleDragStarted();
       grabMouse();
       event->accept();
       return;

@@ -20,6 +20,10 @@ Single-context — root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
 
 Cardinal: if a request would violate an accepted ADR, stop, cite the clash, and wait for instructions. Do not implement around it or quietly rewrite the ADR. See `.cursor/rules/adr-contradictions.mdc`.
 
+### Compositor geometry
+
+Offscreen tests are not proof the host window moved. Main drag is compositor `startSystemMove`; child drags are host-local. See `.cursor/rules/compositor-geometry.mdc`.
+
 ### Architecture
 
 Living design map: `docs/architecture.md`. Update it in the same change whenever the app’s structure, boundaries, stack, or major features change. See `.cursor/rules/architecture-doc.mdc`.
