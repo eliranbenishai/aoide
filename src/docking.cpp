@@ -222,16 +222,14 @@ void DockingCoordinator::trySnap(WindowId id) {
              {otherId, DockSide::top, std::abs(moving.top() - other.bottom()),
               QPointF(0, other.bottom() - moving.top())},
              overlapsOrNear1D(moving.left(), moving.right(), other.left(), other.right()));
-    if (id != WindowId::playlist) {
-      consider(bestH,
-               {otherId, DockSide::right, std::abs(moving.right() - other.left()),
-                QPointF(other.left() - moving.right(), 0)},
-               overlapsOrNear1D(moving.top(), moving.bottom(), other.top(), other.bottom()));
-      consider(bestH,
-               {otherId, DockSide::left, std::abs(moving.left() - other.right()),
-                QPointF(other.right() - moving.left(), 0)},
-               overlapsOrNear1D(moving.top(), moving.bottom(), other.top(), other.bottom()));
-    }
+    consider(bestH,
+             {otherId, DockSide::right, std::abs(moving.right() - other.left()),
+              QPointF(other.left() - moving.right(), 0)},
+             overlapsOrNear1D(moving.top(), moving.bottom(), other.top(), other.bottom()));
+    consider(bestH,
+             {otherId, DockSide::left, std::abs(moving.left() - other.right()),
+              QPointF(other.right() - moving.left(), 0)},
+             overlapsOrNear1D(moving.top(), moving.bottom(), other.top(), other.bottom()));
   }
 
   if (bestV && !bestH) {

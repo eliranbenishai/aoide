@@ -552,7 +552,19 @@ int main() {
     tramp::DockingCoordinator dock(layout);
     dock.setSnapThreshold(20);
     dock.move(tramp::WindowId::playlist, QPointF(835, 0), false, true);
-    REQUIRE_EQ(dock.layout().playlist.left, 835.0);
+    REQUIRE_EQ(dock.layout().playlist.left, 825.0);
+    REQUIRE_EQ(dock.layout().playlist.top, 0.0);
+  }
+
+  {
+    tramp::DockLayout layout;
+    layout.main = {true, false, 0, 0, {}, {}};
+    layout.equalizer = {true, false, 0, 348, {}, {}};
+    layout.playlist = {true, false, 835, 10, 1073.0, 500.0};
+    tramp::DockingCoordinator dock(layout);
+    dock.setSnapThreshold(20);
+    dock.move(tramp::WindowId::playlist, QPointF(835, 10), false, true);
+    REQUIRE_EQ(dock.layout().playlist.left, 825.0);
     REQUIRE_EQ(dock.layout().playlist.top, 0.0);
   }
 

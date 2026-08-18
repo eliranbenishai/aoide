@@ -2,6 +2,7 @@
 
 Date: 2026-08-09  
 Status: Implemented  
+**Superseded 2026-08-18 (playlist sides):** playlist snaps to any side like EQ; see [ADR 0006](../../adr/0006-multi-window-docking.md). The top/bottom-only bullets in §1 are historical.  
 Branch intent: follow-on to mockup multi-window redesign  
 UI authority: [`player-mockup-2.html`](../../../player-mockup-2.html) for button chrome and spectrum gradient; product rules below override mockup where noted. Host is Qt 6 ([ADR 0016](../../adr/0016-qt-for-v1.md)).
 
