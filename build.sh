@@ -147,6 +147,25 @@ QT_QPA_PLATFORM=offscreen "$BUILD/font_metrics_test"
   -o "$BUILD/host_shell_window_test"
 QT_QPA_PLATFORM=offscreen "$BUILD/host_shell_window_test"
 
+"$MOC" "$ROOT/src/host_window.h" -o "$BUILD/moc_host_window.cpp"
+"$MOC" "$ROOT/tests/host_window_move_test.cpp" -o "$BUILD/host_window_move_test.moc"
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" \
+  -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
+  -DTRAMP_ASSET_DIR="\"$ROOT/assets\"" -DTRAMP_SKINS_DIR="\"$ROOT/skins\"" \
+  "$ROOT/src/window_spec.cpp" "$ROOT/src/title_chrome.cpp" \
+  "$ROOT/src/host_shell.cpp" "$ROOT/src/host_shell_window.cpp" \
+  "$ROOT/src/host_window.cpp" "$ROOT/src/chrome_paint.cpp" \
+  "$ROOT/src/chrome_bodies.cpp" "$ROOT/src/chrome_hits.cpp" \
+  "$ROOT/src/mockup_draw.cpp" "$ROOT/src/tramp_fonts.cpp" \
+  "$ROOT/src/session_view.cpp" "$ROOT/src/look.cpp" \
+  "$ROOT/src/settings.cpp" "$ROOT/src/equalizer.cpp" \
+  "$BUILD/moc_host_shell_window.cpp" "$BUILD/moc_host_window.cpp" \
+  "$ROOT/tests/host_window_move_test.cpp" \
+  -L"$QT/lib" -lQt6Test -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread \
+  -Wl,-rpath,"$QT/lib" \
+  -o "$BUILD/host_window_move_test"
+QT_QPA_PLATFORM=offscreen "$BUILD/host_window_move_test"
+
 "$MOC" "$ROOT/tests/chrome_spec_test.cpp" -o "$BUILD/chrome_spec_test.moc"
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
   "$ROOT/src/window_spec.cpp" "$ROOT/src/title_chrome.cpp" \

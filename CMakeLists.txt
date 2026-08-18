@@ -134,6 +134,30 @@ target_include_directories(host_shell_window_test PRIVATE src)
 target_link_libraries(host_shell_window_test PRIVATE tramp_window_spec Qt6::Test Qt6::Widgets)
 set_target_properties(host_shell_window_test PROPERTIES AUTOMOC ON)
 
+qt_add_executable(host_window_move_test
+  tests/host_window_move_test.cpp
+  src/host_shell_window.cpp
+  src/host_shell_window.h
+  src/host_window.cpp
+  src/host_window.h
+  src/chrome_paint.cpp
+  src/chrome_bodies.cpp
+  src/chrome_hits.cpp
+  src/mockup_draw.cpp
+  src/tramp_fonts.cpp
+  src/session_view.cpp
+  src/look.cpp
+  src/settings.cpp
+  src/equalizer.cpp
+)
+target_include_directories(host_window_move_test PRIVATE src)
+target_compile_definitions(host_window_move_test PRIVATE
+  TRAMP_ASSET_DIR="${TRAMP_ASSET_DIR}"
+  TRAMP_SKINS_DIR="${TRAMP_SKINS_DIR}"
+)
+target_link_libraries(host_window_move_test PRIVATE tramp_window_spec Qt6::Test Qt6::Widgets)
+set_target_properties(host_window_move_test PROPERTIES AUTOMOC ON)
+
 qt_add_executable(chrome_spec_test tests/chrome_spec_test.cpp)
 target_link_libraries(chrome_spec_test PRIVATE tramp_window_spec Qt6::Test)
 set_target_properties(chrome_spec_test PROPERTIES AUTOMOC ON)
@@ -183,6 +207,7 @@ enable_testing()
 add_test(NAME window_spec COMMAND window_spec_test)
 add_test(NAME host_shell COMMAND host_shell_test)
 add_test(NAME host_shell_window COMMAND host_shell_window_test)
+add_test(NAME host_window_move COMMAND host_window_move_test)
 add_test(NAME chrome_spec COMMAND chrome_spec_test)
 add_test(NAME domain COMMAND domain_test)
 add_test(NAME look COMMAND look_test)

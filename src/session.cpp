@@ -208,7 +208,14 @@ void TrampSession::setWindows(HostWindow* main, HostWindow* eq, HostWindow* pl,
   about_ = about;
 }
 
-void TrampSession::setShell(HostShell* shell) { shell_ = shell; }
+void TrampSession::setShell(HostShell* shell) {
+  if (shell_ == shell) return;
+  if (shell_) disconnect(shell_, nullptr, this, nullptr);
+  shell_ = shell;
+  if (shell_) {
+    connect(shell_, &HostShell::desktopGeometryChanged, this, [this]() { applyFramesToWindows(); });
+  }
+}
 
 void TrampSession::bootstrap(const QStringList& argvFiles) {
   const auto kept = store_.readAltered();
@@ -594,13 +601,7 @@ void TrampSession::applyDockToWindows(std::optional<WindowId> skip) {
   if (applyingDock_) return;
   applyingDock_ = true;
 
-  QVector<QRect> screenRects;
-  struct Placement {
-    HostWindow* widget = nullptr;
-    QRect screen;
-  };
-  QVector<Placement> visible;
-
+  QVector<HostPanelPlacement> visible;
   for (WindowId id : {WindowId::main, WindowId::equalizer, WindowId::playlist, WindowId::settings,
                       WindowId::about}) {
     if (skip && id == *skip) continue;
@@ -616,25 +617,23 @@ void TrampSession::applyDockToWindows(std::optional<WindowId> skip) {
       w->hide();
       continue;
     }
+    const QSizeF logical = docking_.logicalSize(id);
+    const QSize zoomedSize = tramp::zoomed(
+        QSize(qRound(logical.width()), qRound(logical.height())), settings_.zoomPercent);
+    const QSize nativeSize = tramp::panelNativeSize(zoomedSize, w->size());
     const QPoint native = logicalToNative(QPointF(f.left, f.top));
-    const QRect screen(native, w->size());
-    screenRects.push_back(screen);
-    visible.push_back({w, screen});
+    visible.push_back({w, QRect(native, nativeSize)});
   }
 
-  const tramp::HostShellLayout layout = tramp::hostShellLayout(screenRects);
-  if (shell_) shell_->applyLayout(layout);
-  if (layout.screenRect.isNull()) {
-    applyingDock_ = false;
-    return;
+  if (shell_) {
+    shell_->placePanels(visible);
+  } else {
+    for (const HostPanelPlacement& place : visible) {
+      if (!place.widget) continue;
+      place.widget->setGeometry(place.screen);
+      place.widget->show();
+    }
   }
-
-  const QPoint origin = layout.screenRect.topLeft();
-  for (const Placement& place : visible) {
-    place.widget->setGeometry(place.screen.translated(-origin));
-    place.widget->show();
-  }
-  if (shell_) shell_->refreshMaskFromChildren();
   applyingDock_ = false;
 }
 

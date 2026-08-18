@@ -10,6 +10,9 @@ class HostShellWindowTest : public QObject {
   void shellIsFramelessToplevelNotTool();
   void applyLayoutSetsGeometryAndPunchedMask();
   void emptyLayoutHidesTheShell();
+  void placePanelsKeepsMainVisibleInTheMask();
+  void movingOnePanelDoesNotMoveItsSibling();
+  void hostCoversVirtualDesktopNotPanelBbox();
 };
 
 void HostShellWindowTest::shellIsFramelessToplevelNotTool() {
@@ -34,7 +37,7 @@ void HostShellWindowTest::applyLayoutSetsGeometryAndPunchedMask() {
 
   shell.applyLayout(layout);
 
-  QCOMPARE(shell.geometry(), QRect(10, 20, 300, 50));
+  QCOMPARE(shell.geometry(), tramp::virtualDesktopGeometry());
   QVERIFY(shell.mask().contains(QPoint(10, 10)));
   QVERIFY(shell.mask().contains(QPoint(210, 10)));
   QVERIFY(!shell.mask().contains(QPoint(150, 10)));
@@ -52,6 +55,49 @@ void HostShellWindowTest::emptyLayoutHidesTheShell() {
   shell.applyLayout({});
   QVERIFY(!shell.isVisible());
   QVERIFY(!shell.mask().isEmpty());
+}
+
+void HostShellWindowTest::placePanelsKeepsMainVisibleInTheMask() {
+  HostShell shell;
+  QWidget main(&shell);
+  QWidget eq(&shell);
+  QWidget pl(&shell);
+  const QRect mainR(10, 20, 200, 80);
+  const QRect eqR(10, 100, 200, 80);
+  const QRect plR(220, 20, 200, 160);
+  shell.placePanels({{&main, mainR}, {&eq, eqR}, {&pl, plR}});
+  shell.show();
+
+  QVERIFY(main.isVisible());
+  QCOMPARE(main.size(), mainR.size());
+  QVERIFY(shell.mask().contains(main.geometry().center()));
+  QVERIFY(shell.mask().contains(eq.geometry().center()));
+  QVERIFY(shell.mask().contains(pl.geometry().center()));
+}
+
+void HostShellWindowTest::movingOnePanelDoesNotMoveItsSibling() {
+  HostShell shell;
+  QWidget eq(&shell);
+  QWidget pl(&shell);
+  const QRect eqR(0, 0, 100, 50);
+  const QRect plR(200, 0, 100, 80);
+  shell.placePanels({{&eq, eqR}, {&pl, plR}});
+  shell.show();
+  const QPoint pl0 = pl.mapToGlobal(QPoint(0, 0));
+
+  shell.placePanels({{&eq, QRect(40, 20, 100, 50)}, {&pl, plR}});
+  QCOMPARE(pl.mapToGlobal(QPoint(0, 0)), pl0);
+}
+
+void HostShellWindowTest::hostCoversVirtualDesktopNotPanelBbox() {
+  HostShell shell;
+  QWidget main(&shell);
+  const QRect mainR(40, 80, 100, 50);
+  shell.placePanels({{&main, mainR}});
+  shell.show();
+
+  QCOMPARE(shell.geometry(), tramp::virtualDesktopGeometry());
+  QCOMPARE(main.mapToGlobal(QPoint(0, 0)), mainR.topLeft());
 }
 
 QTEST_MAIN(HostShellWindowTest)

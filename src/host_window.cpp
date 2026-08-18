@@ -347,6 +347,7 @@ void HostWindow::wheelEvent(QWheelEvent* event) {
 
 void HostWindow::moveEvent(QMoveEvent* event) {
   QWidget::moveEvent(event);
+  if (parentWidget()) return;
   emit nativeMoved(mapToGlobal(QPoint(0, 0)));
 }
 

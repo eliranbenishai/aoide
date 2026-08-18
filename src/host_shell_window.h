@@ -5,7 +5,13 @@
 #include <QCloseEvent>
 #include <QEvent>
 #include <QPaintEvent>
+#include <QVector>
 #include <QWidget>
+
+struct HostPanelPlacement {
+  QWidget* widget = nullptr;
+  QRect screen;
+};
 
 class HostShell : public QWidget {
   Q_OBJECT
@@ -14,6 +20,7 @@ class HostShell : public QWidget {
   explicit HostShell(QWidget* parent = nullptr);
 
   void applyLayout(const tramp::HostShellLayout& layout);
+  void placePanels(const QVector<HostPanelPlacement>& panels);
   void refreshMaskFromChildren();
   void setAlwaysOnTop(bool on);
   void setPrimaryPanel(QWidget* panel);
@@ -21,6 +28,7 @@ class HostShell : public QWidget {
  signals:
   void minimizedChanged(bool minimized);
   void activated();
+  void desktopGeometryChanged();
 
  protected:
   void changeEvent(QEvent* event) override;
@@ -29,6 +37,8 @@ class HostShell : public QWidget {
 
  private:
   void applyStoredMask();
+  void coverDesktop();
+  void bindDesktopScreens();
 
   tramp::HostShellLayout lastLayout_{};
   QWidget* primaryPanel_ = nullptr;

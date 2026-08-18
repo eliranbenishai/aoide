@@ -37,7 +37,7 @@ A shareable folder or zip (`skin.json` preferred, legacy `look.json` accepted + 
 _Avoid_: classic skin, WSZ, theme (when meaning this pack), graphite skin, look pack (retired product term — same concept)
 
 **Host window**:
-The single OS toplevel the compositor sees. Frameless; titled `Tramp`; the taskbar/pager entry. Geometry is the bounding box of visible panels; input is punched to panel shapes so the desktop is clickable in the gaps.
+The single OS toplevel the compositor sees. Frameless; titled `Tramp`; the taskbar/pager entry. Geometry covers the virtual desktop (union of screens); input is punched to panel shapes so the desktop is clickable in the gaps. The host does not move when a panel is dragged.
 _Avoid_: treating this as the main player canvas, extra toplevels
 
 **Panel**:

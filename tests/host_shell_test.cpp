@@ -10,6 +10,7 @@ private slots:
   void twoPanelsWithAGapExcludeTheGapFromTheMask();
   void overlappingPanelsUnionInTheMask();
   void emptyInputYieldsNullScreenRectAndEmptyMask();
+  void panelNativeSizeUsesLogicalWhenWidgetHasNoSize();
 };
 
 void HostShellTest::onePanelIsTheScreenRectAndLocalOriginMask() {
@@ -41,6 +42,10 @@ void HostShellTest::emptyInputYieldsNullScreenRectAndEmptyMask() {
   const auto layout = tramp::hostShellLayout({});
   QVERIFY(layout.screenRect.isNull());
   QVERIFY(layout.localMask.isEmpty());
+}
+
+void HostShellTest::panelNativeSizeUsesLogicalWhenWidgetHasNoSize() {
+  QCOMPARE(tramp::panelNativeSize(QSize(619, 261), QSize(0, 0)), QSize(619, 261));
 }
 
 QTEST_APPLESS_MAIN(HostShellTest)

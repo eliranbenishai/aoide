@@ -412,16 +412,8 @@ int main(int argc, char** argv) {
   applyZoom(session.zoomPercent());
   refresh();
 
-  if (session.view().eqOn) eqWindow->show();
-  else eqWindow->hide();
-  if (session.view().plOn) plWindow->show();
-  else plWindow->hide();
-  if (session.windowShouldShow(tramp::WindowId::settings)) settingsWindow->show();
-  else settingsWindow->hide();
-  if (session.windowShouldShow(tramp::WindowId::about)) aboutWindow->show();
-  else aboutWindow->hide();
-  session.reapplyWindowFrames();
   hostShell.show();
+  session.reapplyWindowFrames();
 
   if (qEnvironmentVariable("TRAMP_AUTO_QUIT") == QLatin1String("1")) {
     session.persistNow();

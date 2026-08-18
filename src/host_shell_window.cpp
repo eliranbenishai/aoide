@@ -2,12 +2,40 @@
 
 #include "window_spec.h"
 
+#include <QGuiApplication>
 #include <QRegion>
+#include <QScreen>
 
 HostShell::HostShell(QWidget* parent) : QWidget(parent) {
   setWindowFlags(tramp::hostWindowFlags());
   setAttribute(Qt::WA_TranslucentBackground);
   setWindowTitle(QStringLiteral("Tramp"));
+  bindDesktopScreens();
+}
+
+void HostShell::coverDesktop() {
+  QRect desktop = tramp::virtualDesktopGeometry();
+  if (desktop.isNull()) {
+    if (QScreen* screen = QGuiApplication::primaryScreen()) desktop = screen->geometry();
+  }
+  if (desktop.isNull()) return;
+  if (geometry() != desktop) setGeometry(desktop);
+  lastLayout_.screenRect = desktop;
+}
+
+void HostShell::bindDesktopScreens() {
+  auto hook = [this](QScreen* screen) {
+    if (!screen) return;
+    connect(screen, &QScreen::geometryChanged, this, &HostShell::desktopGeometryChanged);
+  };
+  connect(qApp, &QGuiApplication::screenAdded, this, [this, hook](QScreen* screen) {
+    hook(screen);
+    emit desktopGeometryChanged();
+  });
+  connect(qApp, &QGuiApplication::screenRemoved, this, [this](QScreen*) {
+    emit desktopGeometryChanged();
+  });
+  for (QScreen* screen : QGuiApplication::screens()) hook(screen);
 }
 
 void HostShell::applyLayout(const tramp::HostShellLayout& layout) {
@@ -16,9 +44,31 @@ void HostShell::applyLayout(const tramp::HostShellLayout& layout) {
     hide();
     return;
   }
-  setGeometry(layout.screenRect);
+  coverDesktop();
   setMask(layout.localMask);
   update();
+}
+
+void HostShell::placePanels(const QVector<HostPanelPlacement>& panels) {
+  QVector<QRect> screenRects;
+  screenRects.reserve(panels.size());
+  for (const HostPanelPlacement& place : panels) {
+    if (place.widget) screenRects.push_back(place.screen);
+  }
+  if (screenRects.isEmpty()) {
+    applyLayout({});
+    return;
+  }
+
+  coverDesktop();
+  if (!isVisible()) show();
+  const QPoint origin = mapToGlobal(QPoint(0, 0));
+  for (const HostPanelPlacement& place : panels) {
+    if (!place.widget) continue;
+    place.widget->setGeometry(QRect(place.screen.topLeft() - origin, place.screen.size()));
+    place.widget->show();
+  }
+  refreshMaskFromChildren();
 }
 
 void HostShell::refreshMaskFromChildren() {
@@ -48,8 +98,8 @@ void HostShell::setAlwaysOnTop(bool on) {
 void HostShell::setPrimaryPanel(QWidget* panel) { primaryPanel_ = panel; }
 
 void HostShell::applyStoredMask() {
-  if (lastLayout_.screenRect.isNull() || lastLayout_.localMask.isEmpty()) return;
-  setGeometry(lastLayout_.screenRect);
+  if (lastLayout_.localMask.isEmpty()) return;
+  coverDesktop();
   setMask(lastLayout_.localMask);
   update();
 }
