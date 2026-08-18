@@ -4,7 +4,6 @@
 #include "tramp_metrics.h"
 #include "window_spec.h"
 
-#include <QPoint>
 #include <QPointF>
 #include <QRectF>
 #include <QSet>
@@ -41,11 +40,12 @@ class DockingCoordinator {
   void resizePlaylist(QSizeF logical);
   void setShaded(WindowId id, bool shaded);
   void setVisible(WindowId id, bool visible);
+  /// Main is the host's reason to exist; closing it quits. It cannot be hidden.
+  /// If main was stored invisible (corrupt persist), restore the default chrome trio.
+  void ensureMainVisible();
   /// If [id] sits on top of main (same origin or heavy overlap), park it at the
   /// default offset: EQ flush below main, playlist flush to main's right.
   void nudgeOffMainIfStacked(WindowId id);
-  QSet<WindowId> moveCohortOf(WindowId id) const;
-  QSet<WindowId> groupOf(WindowId id) const;
   QRectF rectFor(WindowId id) const;
   QSizeF logicalSize(WindowId id) const;
 
@@ -54,16 +54,10 @@ class DockingCoordinator {
   DockSide opposite(DockSide side) const;
   void trySnap(WindowId id);
   bool overlapsOrNear1D(double a0, double a1, double b0, double b1) const;
+  QSet<WindowId> groupOf(WindowId id) const;
 
   DockLayout layout_;
   double snapThreshold_ = 20;
-  bool stickyMoveGroups_ = true;
 };
-
-/// During a title-bar system move, prefer the window's reported position. If the
-/// WM has not moved it yet (common on Wayland), fall back to the cursor delta
-/// from drag start so the dock cohort can still follow.
-QPoint followDragNative(QPoint windowPos, QPoint startPos, QPoint cursorNow,
-                        QPoint cursorStart);
 
 }  // namespace tramp

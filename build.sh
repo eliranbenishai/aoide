@@ -20,20 +20,19 @@ fi
 
 INC=(
   -I"$QT/include" -I"$QT/include/QtWidgets" -I"$QT/include/QtGui" -I"$QT/include/QtCore"
-  -I"$BREW/opt/libx11/include" -I"$BREW/opt/xorgproto/include"
   -I"$MPV_INC"
   -I"$ROOT/src" -I"$BUILD"
 )
 VERSION="$(head -n 1 "$ROOT/VERSION" | tr -d '\r[:space:]')"
 DEFS=(
-  -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DTRAMP_HAVE_X11 -DTRAMP_HAVE_MPV
+  -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DTRAMP_HAVE_MPV
   -DTRAMP_VERSION="\"$VERSION\""
   -DTRAMP_ASSET_DIR="\"$ROOT/assets\""
   -DTRAMP_SKINS_DIR="\"$ROOT/skins\""
 )
 LIBS=(
   -L"$QT/lib" -L"$BREW/lib" -L"$MPV_LIB" -L"$STUB"
-  -lQt6Widgets -lQt6Gui -lQt6Core -lmpv -lX11 -lstdc++ -lm -lgcc_s -pthread
+  -lQt6Widgets -lQt6Gui -lQt6Core -lmpv -lstdc++ -lm -lgcc_s -pthread
   -Wl,--no-as-needed
   "$STUB/libmujs.so.0.1"
   "$STUB/liblua-5.1.so"
@@ -47,13 +46,15 @@ LIBS=(
 CXXFLAGS=(-std=c++17 -fPIC -Wall -Wextra -Wno-unused-parameter)
 
 "$MOC" "$ROOT/src/host_window.h" -o "$BUILD/moc_host_window.cpp"
+"$MOC" "$ROOT/src/host_shell_window.h" -o "$BUILD/moc_host_shell_window.cpp"
 "$MOC" "$ROOT/src/session.h" -o "$BUILD/moc_session.cpp"
 "$MOC" "$ROOT/src/mpv_engine.h" -o "$BUILD/moc_mpv_engine.cpp"
 
 SRCS=(
   "$ROOT/src/window_spec.cpp"
   "$ROOT/src/title_chrome.cpp"
-  "$ROOT/src/skip_taskbar.cpp"
+  "$ROOT/src/host_shell.cpp"
+  "$ROOT/src/host_shell_window.cpp"
   "$ROOT/src/mockup_draw.cpp"
   "$ROOT/src/tramp_fonts.cpp"
   "$ROOT/src/chrome_paint.cpp"
@@ -81,11 +82,13 @@ SRCS=(
   "$ROOT/src/host_window.cpp"
   "$ROOT/src/main.cpp"
   "$BUILD/moc_host_window.cpp"
+  "$BUILD/moc_host_shell_window.cpp"
   "$BUILD/moc_session.cpp"
   "$BUILD/moc_mpv_engine.cpp"
 )
 
-"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" "${DEFS[@]}" "${SRCS[@]}" "${LIBS[@]}" -o "$BUILD/tramp"
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" "${DEFS[@]}" "${SRCS[@]}" "${LIBS[@]}" -o "$BUILD/tramp.next"
+mv -f "$BUILD/tramp.next" "$BUILD/tramp"
 
 # Domain tests (playlist / playback / docking / collection)
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" "${DEFS[@]}" \
@@ -118,6 +121,51 @@ SRCS=(
   -o "$BUILD/font_metrics_test"
 QT_QPA_PLATFORM=offscreen "$BUILD/font_metrics_test"
 
+"$MOC" "$ROOT/tests/window_spec_test.cpp" -o "$BUILD/window_spec_test.moc"
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
+  "$ROOT/src/window_spec.cpp" \
+  "$ROOT/tests/window_spec_test.cpp" \
+  -L"$QT/lib" -lQt6Test -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
+  -o "$BUILD/window_spec_test"
+"$BUILD/window_spec_test"
+
+"$MOC" "$ROOT/tests/host_shell_test.cpp" -o "$BUILD/host_shell_test.moc"
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_GUI_LIB -DQT_CORE_LIB \
+  "$ROOT/src/host_shell.cpp" \
+  "$ROOT/tests/host_shell_test.cpp" \
+  -L"$QT/lib" -lQt6Test -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
+  -o "$BUILD/host_shell_test"
+"$BUILD/host_shell_test"
+
+"$MOC" "$ROOT/src/host_shell_window.h" -o "$BUILD/moc_host_shell_window.cpp"
+"$MOC" "$ROOT/tests/host_shell_window_test.cpp" -o "$BUILD/host_shell_window_test.moc"
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
+  "$ROOT/src/window_spec.cpp" "$ROOT/src/host_shell.cpp" "$ROOT/src/host_shell_window.cpp" \
+  "$BUILD/moc_host_shell_window.cpp" \
+  "$ROOT/tests/host_shell_window_test.cpp" \
+  -L"$QT/lib" -lQt6Test -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
+  -o "$BUILD/host_shell_window_test"
+QT_QPA_PLATFORM=offscreen "$BUILD/host_shell_window_test"
+
+"$MOC" "$ROOT/src/host_window.h" -o "$BUILD/moc_host_window.cpp"
+"$MOC" "$ROOT/tests/host_window_move_test.cpp" -o "$BUILD/host_window_move_test.moc"
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" \
+  -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
+  -DTRAMP_ASSET_DIR="\"$ROOT/assets\"" -DTRAMP_SKINS_DIR="\"$ROOT/skins\"" \
+  "$ROOT/src/window_spec.cpp" "$ROOT/src/title_chrome.cpp" \
+  "$ROOT/src/host_shell.cpp" "$ROOT/src/host_shell_window.cpp" \
+  "$ROOT/src/host_window.cpp" "$ROOT/src/chrome_paint.cpp" \
+  "$ROOT/src/chrome_bodies.cpp" "$ROOT/src/chrome_hits.cpp" \
+  "$ROOT/src/mockup_draw.cpp" "$ROOT/src/tramp_fonts.cpp" \
+  "$ROOT/src/session_view.cpp" "$ROOT/src/look.cpp" \
+  "$ROOT/src/settings.cpp" "$ROOT/src/equalizer.cpp" \
+  "$BUILD/moc_host_shell_window.cpp" "$BUILD/moc_host_window.cpp" \
+  "$ROOT/tests/host_window_move_test.cpp" \
+  -L"$QT/lib" -lQt6Test -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread \
+  -Wl,-rpath,"$QT/lib" \
+  -o "$BUILD/host_window_move_test"
+QT_QPA_PLATFORM=offscreen "$BUILD/host_window_move_test"
+
 "$MOC" "$ROOT/tests/chrome_spec_test.cpp" -o "$BUILD/chrome_spec_test.moc"
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
   "$ROOT/src/window_spec.cpp" "$ROOT/src/title_chrome.cpp" \
@@ -125,13 +173,5 @@ QT_QPA_PLATFORM=offscreen "$BUILD/font_metrics_test"
   -L"$QT/lib" -lQt6Test -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
   -o "$BUILD/chrome_spec_test"
 "$BUILD/chrome_spec_test"
-
-"$MOC" "$ROOT/tests/skip_taskbar_test.cpp" -o "$BUILD/skip_taskbar_test.moc"
-"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_GUI_LIB -DQT_CORE_LIB \
-  "$ROOT/src/skip_taskbar.cpp" \
-  "$ROOT/tests/skip_taskbar_test.cpp" \
-  -L"$QT/lib" -lQt6Test -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
-  -o "$BUILD/skip_taskbar_test"
-QT_QPA_PLATFORM=offscreen "$BUILD/skip_taskbar_test"
 
 echo "built $BUILD/tramp"

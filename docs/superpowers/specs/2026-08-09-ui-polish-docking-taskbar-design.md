@@ -2,6 +2,7 @@
 
 Date: 2026-08-09  
 Status: Implemented  
+**Superseded 2026-08-18 (playlist sides):** playlist snaps to any side like EQ; see [ADR 0006](../../adr/0006-multi-window-docking.md). The top/bottom-only bullets in §1 are historical.  
 Branch intent: follow-on to mockup multi-window redesign  
 UI authority: [`player-mockup-2.html`](../../../player-mockup-2.html) for button chrome and spectrum gradient; product rules below override mockup where noted. Host is Qt 6 ([ADR 0016](../../adr/0016-qt-for-v1.md)).
 
@@ -27,8 +28,9 @@ Change pure layout rules in `DockingCoordinator` (session host/client keep apply
 
 | Drag source | Behavior |
 |-------------|----------|
-| **Main** title bar | Translate every **visible** EQ and playlist window by the same delta, whether or not dock edges exist. Hidden windows stay put. Never snap; never create dock edges. |
-| **EQ / playlist** title bar | Move only that window. Peel any dock edges for it as soon as drag starts (keep peel-on-drag). Shift-undock remains. |
+| **Main** title bar | Translate the host: every panel keeps its position inside the host; the cluster moves on screen as a unit; host size unchanged. Never snap; never create dock edges. |
+| **EQ / playlist** title bar | Move only that panel in screen space; siblings stay put. Host bounding box is the tight union of visible panels (grows and shrinks; origin follows the union’s top-left). After an origin change, re-place so non-dragged siblings keep their screen positions. Peel any dock edges for it as soon as drag starts (keep peel-on-drag). Shift-undock remains. |
+| **Settings / about** title bar | Same as EQ/playlist for move and host union; never snap and never peel. |
 
 ### Snap (EQ / playlist finalize only)
 
@@ -37,11 +39,11 @@ Change pure layout rules in `DockingCoordinator` (session host/client keep apply
 - **Playlist:** only **top/bottom** contact against other windows. No left/right side docking.
 - On a successful top/bottom snap: also flush **left or right** if that edge is already within `snapThreshold`; otherwise keep horizontal offset.
 - Prefer recording a second dock edge when both primary and orthogonal edges flush, so restore stays sticky on both axes.
-- Dock edges still mean “snapped contact” for persistence and peel; they no longer gate whether main moves satellites — **visibility** does.
+- Dock edges mean “snapped contact” for persistence and peel.
 
 ### Tests
 
-Extend `test/ui/docking/docking_coordinator_test.dart` for: main always moves visible partners; main never snaps; PL rejects side snap; PL orthogonal flush when near; EQ still side-snaps.
+Extend `test/ui/docking/docking_coordinator_test.dart` for: main never snaps; PL rejects side snap; PL orthogonal flush when near; EQ still side-snaps.
 
 ## 2. Title-bar chrome
 
@@ -105,7 +107,7 @@ Update EQ goldens / widget tests with a non-zero band so fill is covered.
 ## Success criteria
 
 1. Title buttons read as recessed mockup `.wbtn` chrome in side-by-side with the HTML mockup.
-2. Main title drag moves all visible windows; EQ/PL title drag moves only self; snap only from EQ/PL with PL top/bottom (+ optional orthogonal flush).
+2. Main title-bar drag translates the host (cluster as a unit); other title-bar drags move only that panel; snap only from EQ/PL with PL top/bottom (+ optional orthogonal flush).
 3. EQ faders show bottom→thumb spectrum-gradient fill.
 4. EQ/PL title bars show role title only (no logo/wordmark).
 5. Windows taskbar shows a single Tramp entry for the main player while EQ/PL are open.

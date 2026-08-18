@@ -39,7 +39,6 @@ ADRs: [0002](../../adr/0002-fixed-canvas-zoom.md), [0003](../../adr/0003-zoom-on
 | Source | Role |
 |---|---|
 | [`docs/mockups/graphite-chrome.png`](../../mockups/graphite-chrome.png) | Style and material authority |
-| [`.scratch/mockup_full.png`](../../../.scratch/mockup_full.png) | Working full-stack mockup |
 
 Fidelity bar: **side-by-side match** — materials, proportions, lighting.
 Branding in shipped art is `TRAMP` / `TRAMP EQUALIZER`. Accidental AI glitches

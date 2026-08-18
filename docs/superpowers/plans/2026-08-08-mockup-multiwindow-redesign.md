@@ -300,9 +300,9 @@ class DockingCoordinator extends ChangeNotifier {
 }
 ```
 
-Rules: when `move` ends (caller invokes `move` on drag-update/end), if an edge of `id` is within 12px of another visible window edge, record a `DockEdge` and snap position. Moving a window moves all in `groupOf`. If `shiftUndock` or separation > 48 after drag, remove edges involving `id`.
+Rules: when `move` ends (caller invokes `move` on drag-update/end), if an edge of `id` is within 12px of another visible window edge, record a `DockEdge` and snap position. Moving a window moves only that window. If `shiftUndock` or separation > 48 after drag, remove edges involving `id`.
 
-- [ ] **Step 1: Write failing tests** — snap below, group drag, shift undock, shade height collapses to `titleBar`, playlist resize keeps top-left
+- [ ] **Step 1: Write failing tests** — snap below, shift undock, shade height collapses to `titleBar`, playlist resize keeps top-left
 
 ```dart
 test('snaps playlist below main when within 12px', () {
@@ -322,7 +322,7 @@ test('snaps playlist below main when within 12px', () {
 - [ ] **Step 5: Commit**
 
 ```bash
-git commit -m "feat(docking): Winamp-style snap, group drag, and shade layout"
+git commit -m "feat(docking): Winamp-style snap and shade layout"
 ```
 
 ---

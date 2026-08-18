@@ -10,7 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 jobs:
   test:
@@ -46,3 +47,57 @@ jobs:
           cmake --build build --config Release
           ctest --test-dir build -C Release --output-on-failure
         shell: bash
+
+  passed:
+    name: CI passed
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Review the pull request
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          NUMBER="${{ github.event.pull_request.number }}"
+          REPO="${{ github.repository }}"
+          if [ "${{ needs.test.result }}" = "success" ]; then
+            gh pr review "$NUMBER" --repo "$REPO" --comment \
+              --body "CI passed on Ubuntu and Windows. This PR can squash-merge."
+          else
+            gh pr comment "$NUMBER" --repo "$REPO" \
+              --body "CI failed on Ubuntu and/or Windows. This PR will not merge until the Qt jobs are green."
+          fi
+      - name: Require every Qt job
+        if: needs.test.result != 'success'
+        run: exit 1
+
+  merge:
+    name: Squash-merge if green
+    needs: passed
+    if: >
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      needs.passed.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Merge unless do-not-merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          NUMBER="${{ github.event.pull_request.number }}"
+          REPO="${{ github.repository }}"
+          BLOCKED="$(gh api "repos/$REPO/issues/$NUMBER/labels" --jq '[.[].name] | index("do-not-merge")')"
+          if [ "$BLOCKED" != "null" ]; then
+            echo "do-not-merge is set; leaving PR open"
+            exit 0
+          fi
+          gh pr merge "$NUMBER" --repo "$REPO" --squash --delete-branch

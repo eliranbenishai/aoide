@@ -1,0 +1,16 @@
+---
+description: Cardinal — compositor host geometry, not offscreen setGeometry
+alwaysApply: true
+---
+
+# Compositor geometry
+
+Offscreen QtTest honors `setGeometry` position; Wayland/KWin often does not. Those tests are not proof the OS **host window** moved.
+
+The host is the virtual desktop. After map: do not `setGeometry` unless that rectangle changed. Place panels from `mapToGlobal(0,0)`. Main and child title-bar drags are app-owned (move panel widgets; never `startSystemMove` on the host).
+
+```text
+❌ BAD: setGeometry(union origin) then locals from the requested origin; offscreen green → ship
+❌ BAD: startSystemMove on a virtual-desktop host; resize the host on child drag
+✅ GOOD: host = virtual desktop; panels move in host-local space; assert siblings without requiring the toplevel to move or shrink
+```

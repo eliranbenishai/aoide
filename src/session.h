@@ -15,12 +15,14 @@
 #include <QAction>
 #include <QObject>
 #include <QPoint>
+#include <QRect>
 #include <QSet>
 #include <QTimer>
 #include <memory>
 #include <optional>
 
 class HostWindow;
+class HostShell;
 class QMenu;
 
 namespace tramp {
@@ -34,6 +36,7 @@ class TrampSession : public QObject {
 
   void setWindows(HostWindow* main, HostWindow* eq, HostWindow* pl, HostWindow* settings,
                   HostWindow* about);
+  void setShell(HostShell* shell);
   void bootstrap(const QStringList& argvFiles);
   SessionView view() const;
   MainLiveReadouts mainLive() const;
@@ -93,12 +96,13 @@ class TrampSession : public QObject {
   void openPaths(const QStringList& paths, bool enqueue);
   void loadCollectionRow(int index);
   void applyDockToWindows(std::optional<WindowId> skip = {});
-  void applyTitleMove(WindowId id, QPoint nativeTopLeft, bool snap, bool skipSelf);
-  void settleTitleDrag(WindowId id);
   void syncLayoutFromWindows(std::optional<WindowId> skip = {});
-  void pinNewlyShown(WindowId id);
   QPointF nativeToLogical(QPoint native) const;
   QPoint logicalToNative(QPointF logical) const;
+  QRect nativeFrameRect(WindowId id) const;
+  void writeNativeFrame(WindowId id, QRect native);
+  void clampOneToHost(WindowId id);
+  void fitClusterToHost();
   void showOptionsMenu(QRect logicalHit);
   QAction* execAnchoredMenu(QMenu& menu, HostWindow* host, QRect logicalHit, bool above);
   void showTrackInfo();
@@ -107,7 +111,6 @@ class TrampSession : public QObject {
   void syncSpectrum();
   void tickSpectrum();
   void startSpectrumDecode(const QString& path, int gen);
-  void followTitleDrag();
 
   SupportStore store_;
   TrampSettings settings_;
@@ -129,6 +132,7 @@ class TrampSession : public QObject {
   HostWindow* pl_ = nullptr;
   HostWindow* settingsWin_ = nullptr;
   HostWindow* about_ = nullptr;
+  HostShell* shell_ = nullptr;
   bool showElapsed_ = true;
   int settingsTab_ = 0;
   int trackScroll_ = 0;
@@ -141,18 +145,10 @@ class TrampSession : public QObject {
   QTimer usageTimer_;
   QTimer aboutTimer_;
   QTimer eqApplyTimer_;
-  QTimer dragFollowTimer_;
-  QTimer extraPinTimer_;
-  QSet<WindowId> pinnedExtras_;
-  QPoint lastFollowPos_;
-  int followSettledTicks_ = 0;
   CollectionFigures figures_;
   bool figuresLoaded_ = false;
   bool applyingDock_ = false;
   bool titleDragging_ = false;
-  WindowId titleDragId_ = WindowId::main;
-  QPoint dragWindowOrigin_;
-  QPoint dragCursorOrigin_;
   int skinsScroll_ = 0;
 };
 

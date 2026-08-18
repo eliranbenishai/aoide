@@ -9,7 +9,7 @@ The product — a desktop music player that can be built for Windows, Linux, and
 _Avoid_: Winamp clone, media player (when meaning this product)
 
 **Proxima Magnifica**:
-The company that makes Tramp. Named on the About window's maker's plate.
+The company that makes Tramp. Named on the About panel's maker's plate.
 _Avoid_: com.tramp (the technical application id), publisher (vague)
 
 **Free Forever**:
@@ -36,9 +36,17 @@ _Avoid_: theme (when meaning a classic Winamp skin), skin pack (unless referring
 A shareable folder or zip (`skin.json` preferred, legacy `look.json` accepted + optional TTF/OTF) that recolors and optionally retypes the built-in mockup chrome — palette, a few named materials (bevel, spectrum/rail gradients), and font roles — without changing layout or art. Friendly slug ids; the embedded default is **Tramp** (id `builtin`). Bundled homage skins (Arc, Shield, Thunder, Gamma, Widow, Marksman, Chaos) sit beside it. May extend `builtin` or another skin. Not a classic Winamp WSZ skin. Catalog default directory name is `skins`.
 _Avoid_: classic skin, WSZ, theme (when meaning this pack), graphite skin, look pack (retired product term — same concept)
 
+**Host window**:
+The single OS toplevel the compositor sees. Frameless; titled `Tramp`; the taskbar/pager entry. Geometry is the **virtual desktop** (bounding rectangle of every screen). It does not grow, shrink, or move with panel drags; it refits only when that desktop rectangle changes. Input is punched to panel shapes so the desktop is clickable in the gaps. Dragging the main panel’s title bar translates all panels inside the host (the cluster moves as a unit); dragging any other panel moves only that panel. Every panel stays fully on the virtual desktop.
+_Avoid_: treating this as the main player canvas, extra toplevels, tight union of panels (retired host geometry)
+
+**Panel**:
+A product chrome surface (main, equalizer, playlist, settings, about) that Tramp draws and moves inside the host window.
+_Avoid_: OS window (for these surfaces), extra window, dialog (for settings/about as product surfaces)
+
 **App chrome**:
-Tramp's own window decoration — no OS title bar or standard window frame; the visible UI is the app surface. Five detachable windows (main, equalizer, playlist, settings, about) with Winamp-style docking among main/EQ/PL. Settings and about are freestanding (not snappable, not in the main drag cohort). Main player and equalizer never stretch; on-screen size follows the global zoom step only. The playlist window may be freely resized. Main title bar carries logo + wordmark; EQ/playlist/settings/about title bars show role title only. EQ band faders use a spectrum-gradient value fill.
-_Avoid_: borderless (alone), frameless window (implementation jargon in product talk), Scalable UI (retired as a whole-chrome free-resize mode), stretching the main or EQ canvas, single-window EQ/PL swap (retired product model)
+Tramp's own decoration — no OS title bar or standard window frame; the visible UI is five **panels** inside one **host window**, with Winamp-style docking among main/EQ/PL. Settings and about are freestanding (not snappable). Main player and equalizer never stretch; on-screen size follows the global zoom step only. The playlist panel may be freely resized. Main title bar carries logo + wordmark; EQ/playlist/settings/about title bars show role title only. EQ band faders use a spectrum-gradient value fill.
+_Avoid_: borderless (alone), frameless window (implementation jargon in product talk), Scalable UI (retired as a whole-chrome free-resize mode), stretching the main or EQ canvas, single-window EQ/PL swap (retired product model), five OS windows (retired host shape)
 
 **Mockup chrome** / **code-constructed chrome**:
 The built-in look for main, equalizer, and playlist — painted from the recipe in `player-mockup-2.html` (tokens, geometry, gradients, type, icon paths). No PNG panel faces or nine-slice graphite pack on the product path.
@@ -49,12 +57,12 @@ The retired PNG-first chrome look (panel faces under `assets/skin/graphite/`). K
 _Avoid_: using this term for the current product look
 
 **Session host**:
-The single process that owns shared controllers (playback, playlist, EQ, zoom, settings) and the docking coordinator; the five OS windows are views onto that session.
-_Avoid_: multi-process, separate apps per window
+The single process that owns shared controllers (playback, playlist, EQ, zoom, settings) and the docking coordinator; the five panels are views onto that session inside one host window.
+_Avoid_: multi-process, separate apps per window, extra OS windows per panel
 
 **Docking** / **dock group**:
-Winamp-style edge snap between windows. Dragging the **main** title bar moves every **visible** EQ/playlist window (settings/about excluded; snap state irrelevant). Dragging EQ or playlist moves only that window and peels its dock edges; snap runs only on EQ/PL drag end. Settings and about never snap and are never snap targets. EQ may snap to any side; playlist snaps top/bottom only (plus optional left/right flush when already within threshold). Undock via peel, break-threshold, and/or Shift. Main minimize may hide/restore visible secondaries (including settings/about) when the preference is on; always-on-top applies to visible tramp windows. Settings stays raised above other Tramp windows. On Windows, only main appears in the taskbar.
-_Avoid_: tiling WM, snap layouts (OS), tabs; assuming dock edges gate main’s group move; docking settings/about to main/EQ/PL
+Winamp-style edge snap between panels. Dragging the main title bar translates every panel inside the host so the cluster stays together; main never snaps and never creates dock edges. Dragging EQ, playlist, settings, or about moves only that panel on screen; siblings stay put. EQ or playlist peel their dock edges on drag; snap runs only on EQ/PL drag end. Settings and about never snap and are never snap targets. EQ and playlist may snap to any side, and on both axes at once (flush under main and against a neighbor in the same drop). Undock via peel, break-threshold, and/or Shift. A panel cannot hang off the virtual desktop. If a monitor is unplugged, the cluster is translated onto what remains when it still fits, otherwise each panel is clamped. Main minimize may hide/restore visible secondaries (including settings/about) when the preference is on; always-on-top and main-minimize apply to the host window. Settings stays raised among panels. The taskbar/pager shows Tramp (the host window).
+_Avoid_: tiling WM, snap layouts (OS), tabs; docking settings/about to main/EQ/PL; extra OS windows for docked surfaces
 
 **Playlist**:
 An ordered list of playable tracks the user can manage (add, remove, reorder, play from).
@@ -97,8 +105,8 @@ A persisted, browsable catalog of known tracks on disk, built by indexing design
 _Avoid_: collection, media database (in v1 discussions); using "library" for the playlist collection
 
 **Zoom step**:
-One of the discrete scale factors (50%, 75%, 100%, 125%, 150%, 200%, 250%, 300%; default **75%**) applied globally to the three windows’ logical canvases. Persisted; steps that would not fit the display’s work area are disabled. Changes via main title-bar zoom-in / zoom-out (and matching menu or shortcut). Scales main/EQ canvases and the playlist’s stored logical size; does not replace playlist free resize.
-_Avoid_: DPI scale (OS setting), continuous zoom, maximize (as a window-size control), per-window zoom (product model is global), stretching main/EQ via window drag
+One of the discrete scale factors (50%, 75%, 100%, 125%, 150%, 200%, 250%, 300%; default **75%**) applied globally to the main, equalizer, and playlist panels’ logical canvases. Persisted; steps that would not fit the display’s work area are disabled. Changes via main title-bar zoom-in / zoom-out (and matching menu or shortcut). Scales main/EQ canvases and the playlist’s stored logical size; does not replace playlist free resize.
+_Avoid_: DPI scale (OS setting), continuous zoom, maximize (as a window-size control), per-panel zoom (product model is global), stretching main/EQ via panel drag
 
 **Clutterbar**:
 The vertical letter strip on the main player. Product letters: **O** (options), **A** (always-on-top for the visible docked group), **I** (track info). No D, no V.
@@ -133,5 +141,5 @@ One track played through to the end — the unit the About stats well counts.
 _Avoid_: play (ambiguous with the transport verb), listen, stream
 
 **Maker's plate**:
-The brushed strip along the bottom of the About window carrying the company mark, name, copyright, and website — named after the plate riveted to real hardware.
+The brushed strip along the bottom of the About panel carrying the company mark, name, copyright, and website — named after the plate riveted to real hardware.
 _Avoid_: footer, credits bar, branding strip

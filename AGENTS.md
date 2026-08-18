@@ -6,7 +6,7 @@ Every session: match the task to installed skills and apply them (including user
 
 ### Issue tracker
 
-Issues live as local markdown under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
+Issues live as local, gitignored markdown under `.scratch/<feature>/` — do not commit them. Lasting decisions go in `CONTEXT.md`, `docs/adr/`, and `docs/architecture.md`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
@@ -16,9 +16,21 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 
 Single-context — root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
 
+### ADR contradictions
+
+Cardinal: if a request would violate an accepted ADR, stop, cite the clash, and wait for instructions. Do not implement around it or quietly rewrite the ADR. See `.cursor/rules/adr-contradictions.mdc`.
+
+### Compositor geometry
+
+Offscreen tests are not proof the host window moved. The host is the virtual desktop; title-bar drags are app-owned in host-local space. See `.cursor/rules/compositor-geometry.mdc`.
+
 ### Architecture
 
 Living design map: `docs/architecture.md`. Update it in the same change whenever the app’s structure, boundaries, stack, or major features change. See `.cursor/rules/architecture-doc.mdc`.
+
+### Subagent delegation
+
+Cardinal default: dispatch independent work to subagents in parallel; the parent coordinates and integrates. See `.cursor/rules/delegate-subagents.mdc`.
 
 ### Subagent models
 

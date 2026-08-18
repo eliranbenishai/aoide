@@ -13,6 +13,7 @@
 #include <QImage>
 #include <QMouseEvent>
 #include <QPaintEvent>
+#include <QPoint>
 #include <QRect>
 #include <QResizeEvent>
 #include <QShowEvent>
@@ -36,6 +37,7 @@ class HostWindow : public QWidget {
   void setQuitConfirmer(std::function<bool()> fn) { quitConfirmer_ = std::move(fn); }
   void setAlwaysOnTop(bool on);
   bool shaded() const { return shaded_; }
+  QPoint nativeTopLeft() const;
   QRect widgetRectFromLogical(const QRect& logical) const;
 
  signals:
@@ -91,7 +93,8 @@ class HostWindow : public QWidget {
   bool shaded_ = false;
   bool draggingChrome_ = false;
   bool draggingTitle_ = false;
-  bool usedSystemMove_ = false;
+  bool resizingPlaylist_ = false;
+  QPoint grabOffset_;
   tramp::ChromeHit dragHit_;
   std::function<bool()> quitConfirmer_;
 };

@@ -1,9 +1,9 @@
 #include "chrome_paint.h"
+#include "host_shell_window.h"
 #include "host_window.h"
 #include "mockup_draw.h"
 #include "session.h"
 #include "session_view.h"
-#include "skip_taskbar.h"
 #include "title_chrome.h"
 #include "tramp_fonts.h"
 #include "tramp_metrics.h"
@@ -19,7 +19,6 @@
 #include <QPainter>
 #include <QShortcut>
 #include <QTimer>
-#include <QWindow>
 #include <clocale>
 #include <cstdio>
 #include <vector>
@@ -216,6 +215,9 @@ int main(int argc, char** argv) {
   tramp::loadTrampFonts();
   tramp::TrampSession session;
 
+  HostShell hostShell;
+  session.setShell(&hostShell);
+
   std::vector<HostWindow*> windows;
   windows.reserve(5);
   HostWindow* mainWindow = nullptr;
@@ -224,7 +226,7 @@ int main(int argc, char** argv) {
   HostWindow* settingsWindow = nullptr;
   HostWindow* aboutWindow = nullptr;
   for (const tramp::WindowSpec& spec : tramp::windowSpecs()) {
-    auto* window = new HostWindow(spec);
+    auto* window = new HostWindow(spec, &hostShell);
     windows.push_back(window);
     switch (spec.id) {
       case tramp::WindowId::main:
@@ -245,9 +247,10 @@ int main(int argc, char** argv) {
     }
   }
   session.setWindows(mainWindow, eqWindow, plWindow, settingsWindow, aboutWindow);
+  hostShell.setPrimaryPanel(mainWindow);
   mainWindow->setQuitConfirmer([&]() {
     if (!session.confirmQuit()) return true;
-    const auto answer = QMessageBox::question(mainWindow, QStringLiteral("Quit Tramp"),
+    const auto answer = QMessageBox::question(&hostShell, QStringLiteral("Quit Tramp"),
                                               QStringLiteral("Quit Tramp?"));
     return answer == QMessageBox::Yes;
   });
@@ -291,6 +294,9 @@ int main(int argc, char** argv) {
     if (w) {
       w->show();
       w->raise();
+    }
+    if (id != tramp::WindowId::settings && settingsWindow->isVisible()) {
+      settingsWindow->raise();
     }
     refresh();
   });
@@ -369,15 +375,14 @@ int main(int argc, char** argv) {
   }
 
   QObject::connect(mainWindow, &HostWindow::aboutToQuit, mainWindow, [&]() { session.persistNow(); });
-  QObject::connect(mainWindow, &HostWindow::mainMinimized, mainWindow,
+  QObject::connect(&hostShell, &HostShell::minimizedChanged, mainWindow,
                    [&](bool minimized) { session.mainMinimized(minimized); });
-  QObject::connect(mainWindow, &HostWindow::mainActivated, mainWindow,
-                   [&]() { session.mainActivated(); });
+  QObject::connect(&hostShell, &HostShell::activated, mainWindow, [&]() { session.mainActivated(); });
 
   auto addAppShortcut = [&](const QKeySequence& seq, auto fn) {
-    auto* sc = new QShortcut(seq, mainWindow);
+    auto* sc = new QShortcut(seq, &hostShell);
     sc->setContext(Qt::ApplicationShortcut);
-    QObject::connect(sc, &QShortcut::activated, mainWindow, fn);
+    QObject::connect(sc, &QShortcut::activated, &hostShell, fn);
   };
   addAppShortcut(QKeySequence(Qt::Key_Space), [&]() {
     session.handleHit(tramp::WindowId::main, {tramp::ChromeHit::Kind::play, -1, {}},
@@ -407,29 +412,8 @@ int main(int argc, char** argv) {
   applyZoom(session.zoomPercent());
   refresh();
 
-  mainWindow->show();
-  QWindow* mainHandle = mainWindow->windowHandle();
-  for (HostWindow* window : windows) {
-    if (window == mainWindow) continue;
-    window->winId();
-    tramp::attachExtraWindow(window->windowHandle(), mainHandle);
-  }
-  if (session.view().eqOn) eqWindow->show();
-  if (session.view().plOn) plWindow->show();
-  if (session.windowShouldShow(tramp::WindowId::settings)) settingsWindow->show();
-  if (session.windowShouldShow(tramp::WindowId::about)) aboutWindow->show();
-  for (HostWindow* window : windows) {
-    if (window == mainWindow) continue;
-    if (QWindow* native = window->windowHandle()) tramp::applySkipTaskbar(native);
-  }
+  hostShell.show();
   session.reapplyWindowFrames();
-  QTimer::singleShot(0, mainWindow, [&]() {
-    session.reapplyWindowFrames();
-    for (HostWindow* window : windows) {
-      if (window == mainWindow) continue;
-      if (QWindow* native = window->windowHandle()) tramp::applySkipTaskbar(native);
-    }
-  });
 
   if (qEnvironmentVariable("TRAMP_AUTO_QUIT") == QLatin1String("1")) {
     session.persistNow();
@@ -438,6 +422,5 @@ int main(int argc, char** argv) {
 
   const int rc = app.exec();
   session.detachWindows();
-  for (HostWindow* window : windows) delete window;
   return rc;
 }

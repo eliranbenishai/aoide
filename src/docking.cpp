@@ -107,34 +107,12 @@ bool DockingCoordinator::overlapsOrNear1D(double a0, double a1, double b0, doubl
          (a0 < b1 && a1 > b0);
 }
 
-QSet<WindowId> DockingCoordinator::moveCohortOf(WindowId id) const {
-  if (!stickyMoveGroups_) return {id};
-  if (id == WindowId::settings || id == WindowId::about) return {id};
-  if (id != WindowId::main) return groupOf(id);
-  QSet<WindowId> cohort = groupOf(WindowId::main);
-  if (snapThreshold_ <= 0) return cohort;
-  const QRectF main = rectFor(WindowId::main);
-  for (WindowId other : {WindowId::equalizer, WindowId::playlist}) {
-    if (cohort.contains(other) || !layout_.frameOf(other).visible) continue;
-    const QRectF r = rectFor(other);
-    const bool flushV = std::abs(main.bottom() - r.top()) <= snapThreshold_ ||
-                        std::abs(main.top() - r.bottom()) <= snapThreshold_;
-    const bool flushH = std::abs(main.right() - r.left()) <= snapThreshold_ ||
-                        std::abs(main.left() - r.right()) <= snapThreshold_;
-    const bool alignedH = overlapsOrNear1D(main.left(), main.right(), r.left(), r.right());
-    const bool alignedV = overlapsOrNear1D(main.top(), main.bottom(), r.top(), r.bottom());
-    if ((flushV && alignedH) || (flushH && alignedV)) {
-      cohort.insert(other);
-    }
-  }
-  return cohort;
-}
-
 void DockingCoordinator::setShaded(WindowId id, bool shaded) {
   layout_.frameOf(id).shaded = shaded;
 }
 
 void DockingCoordinator::setVisible(WindowId id, bool visible) {
+  if (id == WindowId::main && !visible) return;
   layout_.frameOf(id).visible = visible;
   if (!visible) {
     QVector<DockEdge> kept;
@@ -145,14 +123,18 @@ void DockingCoordinator::setVisible(WindowId id, bool visible) {
   }
 }
 
+void DockingCoordinator::ensureMainVisible() {
+  const bool hostWasEmpty = !layout_.main.visible;
+  layout_.main.visible = true;
+  if (hostWasEmpty) {
+    layout_.equalizer.visible = true;
+    layout_.playlist.visible = true;
+  }
+}
+
 void DockingCoordinator::resizePlaylist(QSizeF logical) {
   layout_.playlist.width = logical.width();
   layout_.playlist.height = logical.height();
-}
-
-QPoint followDragNative(QPoint windowPos, QPoint startPos, QPoint cursorNow, QPoint cursorStart) {
-  if (windowPos != startPos) return windowPos;
-  return startPos + (cursorNow - cursorStart);
 }
 
 void DockingCoordinator::nudgeOffMainIfStacked(WindowId id) {
@@ -182,9 +164,18 @@ void DockingCoordinator::move(WindowId id, QPointF topLeft, bool shiftUndock, bo
   }
   const QPointF current(layout_.frameOf(id).left, layout_.frameOf(id).top);
   const QPointF delta = topLeft - current;
+  if (id == WindowId::main) {
+    for (WindowId w : {WindowId::main, WindowId::equalizer, WindowId::playlist, WindowId::settings,
+                       WindowId::about}) {
+      WindowFrame& frame = layout_.frameOf(w);
+      frame.left += delta.x();
+      frame.top += delta.y();
+    }
+    return;
+  }
   bool shouldUndock = shiftUndock;
   const double dist2 = QPointF::dotProduct(delta, delta);
-  if (!shouldUndock && id != WindowId::main && dist2 > kPeelDelta * kPeelDelta && hasEdge(id)) {
+  if (!shouldUndock && dist2 > kPeelDelta * kPeelDelta && hasEdge(id)) {
     shouldUndock = true;
   }
   if (shouldUndock) {
@@ -194,17 +185,9 @@ void DockingCoordinator::move(WindowId id, QPointF topLeft, bool shiftUndock, bo
     }
     layout_.dockEdges = kept;
   }
-  const QSet<WindowId> cohort = moveCohortOf(id);
-  for (WindowId member : cohort) {
-    if (member == id) {
-      layout_.frameOf(member).left = topLeft.x();
-      layout_.frameOf(member).top = topLeft.y();
-    } else {
-      layout_.frameOf(member).left += delta.x();
-      layout_.frameOf(member).top += delta.y();
-    }
-  }
-  if (snap && !shiftUndock && id != WindowId::main) {
+  layout_.frameOf(id).left = topLeft.x();
+  layout_.frameOf(id).top = topLeft.y();
+  if (snap && !shiftUndock) {
     trySnap(id);
   }
 }
@@ -219,77 +202,82 @@ void DockingCoordinator::trySnap(WindowId id) {
     DockSide side = DockSide::bottom;
     double distance = 1e9;
     QPointF delta;
-  } best;
-  bool found = false;
+  };
+  std::optional<Cand> bestV;
+  std::optional<Cand> bestH;
 
-  auto consider = [&](WindowId targetId, DockSide side, double distance, QPointF delta, bool aligned) {
-    if (distance > snapThreshold_ || !aligned) return;
-    if (!found || distance < best.distance) {
-      best = {targetId, side, distance, delta};
-      found = true;
-    }
+  auto consider = [&](std::optional<Cand>& slot, Cand next, bool aligned) {
+    if (next.distance > snapThreshold_ || !aligned) return;
+    if (!slot || next.distance < slot->distance) slot = next;
   };
 
   for (WindowId otherId : {WindowId::main, WindowId::equalizer, WindowId::playlist}) {
     if (otherId == id || group.contains(otherId) || !layout_.frameOf(otherId).visible) continue;
     const QRectF other = rectFor(otherId);
-    consider(otherId, DockSide::bottom, std::abs(moving.bottom() - other.top()),
-             QPointF(0, other.top() - moving.bottom()),
+    consider(bestV,
+             {otherId, DockSide::bottom, std::abs(moving.bottom() - other.top()),
+              QPointF(0, other.top() - moving.bottom())},
              overlapsOrNear1D(moving.left(), moving.right(), other.left(), other.right()));
-    consider(otherId, DockSide::top, std::abs(moving.top() - other.bottom()),
-             QPointF(0, other.bottom() - moving.top()),
+    consider(bestV,
+             {otherId, DockSide::top, std::abs(moving.top() - other.bottom()),
+              QPointF(0, other.bottom() - moving.top())},
              overlapsOrNear1D(moving.left(), moving.right(), other.left(), other.right()));
-    if (id != WindowId::playlist) {
-      consider(otherId, DockSide::right, std::abs(moving.right() - other.left()),
-               QPointF(other.left() - moving.right(), 0),
-               overlapsOrNear1D(moving.top(), moving.bottom(), other.top(), other.bottom()));
-      consider(otherId, DockSide::left, std::abs(moving.left() - other.right()),
-               QPointF(other.right() - moving.left(), 0),
-               overlapsOrNear1D(moving.top(), moving.bottom(), other.top(), other.bottom()));
-    }
+    consider(bestH,
+             {otherId, DockSide::right, std::abs(moving.right() - other.left()),
+              QPointF(other.left() - moving.right(), 0)},
+             overlapsOrNear1D(moving.top(), moving.bottom(), other.top(), other.bottom()));
+    consider(bestH,
+             {otherId, DockSide::left, std::abs(moving.left() - other.right()),
+              QPointF(other.right() - moving.left(), 0)},
+             overlapsOrNear1D(moving.top(), moving.bottom(), other.top(), other.bottom()));
   }
-  if (!found) return;
 
-  QPointF snapDelta = best.delta;
-  const QRectF snapped = moving.translated(best.delta);
-  const QRectF target = rectFor(best.target);
-  std::optional<DockSide> ortho;
-  if (best.side == DockSide::top || best.side == DockSide::bottom) {
+  if (bestV && !bestH) {
+    const QRectF snapped = moving.translated(bestV->delta);
+    const QRectF target = rectFor(bestV->target);
     const double leftDist = std::abs(snapped.left() - target.left());
     const double rightDist = std::abs(snapped.right() - target.right());
     if (leftDist <= snapThreshold_ && leftDist <= rightDist) {
-      snapDelta += QPointF(target.left() - snapped.left(), 0);
-      ortho = DockSide::left;
+      bestH = Cand{bestV->target, DockSide::left, leftDist,
+                   QPointF(target.left() - snapped.left(), 0)};
     } else if (rightDist <= snapThreshold_) {
-      snapDelta += QPointF(target.right() - snapped.right(), 0);
-      ortho = DockSide::right;
+      bestH = Cand{bestV->target, DockSide::right, rightDist,
+                   QPointF(target.right() - snapped.right(), 0)};
     }
-  } else {
+  } else if (bestH && !bestV) {
+    const QRectF snapped = moving.translated(bestH->delta);
+    const QRectF target = rectFor(bestH->target);
     const double topDist = std::abs(snapped.top() - target.top());
     const double bottomDist = std::abs(snapped.bottom() - target.bottom());
     if (topDist <= snapThreshold_ && topDist <= bottomDist) {
-      snapDelta += QPointF(0, target.top() - snapped.top());
-      ortho = DockSide::top;
+      bestV = Cand{bestH->target, DockSide::top, topDist,
+                   QPointF(0, target.top() - snapped.top())};
     } else if (bottomDist <= snapThreshold_) {
-      snapDelta += QPointF(0, target.bottom() - snapped.bottom());
-      ortho = DockSide::bottom;
+      bestV = Cand{bestH->target, DockSide::bottom, bottomDist,
+                   QPointF(0, target.bottom() - snapped.bottom())};
     }
   }
+
+  if (!bestV && !bestH) return;
+
+  QPointF snapDelta;
+  if (bestV) snapDelta += bestV->delta;
+  if (bestH) snapDelta += bestH->delta;
 
   for (WindowId member : group) {
     layout_.frameOf(member).left += snapDelta.x();
     layout_.frameOf(member).top += snapDelta.y();
   }
 
-  auto addEdge = [&](DockSide side) {
+  auto addEdge = [&](const Cand& cand) {
     for (const DockEdge& e : layout_.dockEdges) {
-      const bool pair = (e.a == id && e.b == best.target) || (e.a == best.target && e.b == id);
-      if (pair && (e.side == side || e.side == opposite(side))) return;
+      const bool pair = (e.a == id && e.b == cand.target) || (e.a == cand.target && e.b == id);
+      if (pair && (e.side == cand.side || e.side == opposite(cand.side))) return;
     }
-    layout_.dockEdges.push_back({id, best.target, side});
+    layout_.dockEdges.push_back({id, cand.target, cand.side});
   };
-  addEdge(best.side);
-  if (ortho) addEdge(*ortho);
+  if (bestV) addEdge(*bestV);
+  if (bestH) addEdge(*bestH);
 }
 
 }  // namespace tramp

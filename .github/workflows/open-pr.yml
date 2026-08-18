@@ -1,0 +1,43 @@
+name: Open PR
+
+on:
+  push:
+    branches-ignore:
+      - main
+      - "research/**"
+      - "spike/**"
+      - "wip/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  open:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Open a pull request if missing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_BODY: |
+            ## Summary
+            - Opened automatically when this branch was pushed.
+
+            ## Merge gate
+            Ubuntu + Windows Qt CI must pass. GitHub records that as a PR review comment. The PR squash-merges only after that gate is green ([ADR 0018](docs/adr/0018-pr-ci-auto-merge.md)).
+
+            Add the `do-not-merge` label (or mark the PR draft) to keep it open.
+        run: |
+          set -euo pipefail
+          BRANCH="${GITHUB_REF_NAME}"
+          if gh pr view "$BRANCH" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "PR already exists for $BRANCH"
+            exit 0
+          fi
+          TITLE="$(git log -1 --format=%s)"
+          gh pr create --repo "${{ github.repository }}" --base main --head "$BRANCH" \
+            --title "$TITLE" --body "$PR_BODY"

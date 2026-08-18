@@ -1,0 +1,18 @@
+---
+description: Cardinal — stop when a request contradicts an accepted ADR
+alwaysApply: true
+---
+
+# ADR contradictions
+
+**Cardinal:** if the request would violate an accepted ADR, **stop**. Do not implement, do not draft a replacement ADR, do not work around the decision.
+
+Before acting, read `docs/adr/` for the area (and `CONTEXT.md` when it restates an ADR). On a clash: cite the ADR id and the conflicting quote, say how the request conflicts, and wait for instructions — revise or supersede the ADR, follow the ADR, or something else.
+
+Stack and product changes leave ADRs stale. Only the human retires them.
+
+```text
+❌ BAD: Ship the request, then quietly rewrite the ADR to match
+❌ BAD: Silently follow the ADR and ignore the request
+✅ GOOD: Stop. Cite ADR 0017 Decision. Ask how to resolve.
+```

@@ -1,0 +1,45 @@
+name: Merge if green
+
+# Runs from the default branch (trusted), after CI finishes — not from the PR
+# head, so a PR cannot rewrite the merge gate.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  merge:
+    if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Squash-merge a same-repo PR at this SHA
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+        run: |
+          set -euo pipefail
+          if [ "$HEAD_REPO" != "$REPO" ]; then
+            echo "Skip fork PR from $HEAD_REPO"
+            exit 0
+          fi
+          case "$BRANCH" in
+            research/*|spike/*|wip/*)
+              echo "Skip $BRANCH"
+              exit 0
+              ;;
+          esac
+          NUMBER="$(gh pr list --repo "$REPO" --head "$BRANCH" --state open \
+            --json number,isDraft,headRefOid,labels \
+            --jq ".[] | select(.headRefOid==\"$SHA\" and .isDraft==false and (([.labels[].name] | index(\"do-not-merge\")) | not)) | .number" | head -1)"
+          if [ -z "$NUMBER" ]; then
+            echo "No mergeable PR for $BRANCH @$SHA (already merged, draft, fork, or do-not-merge)"
+            exit 0
+          fi
+          gh pr merge "$NUMBER" --repo "$REPO" --squash --delete-branch

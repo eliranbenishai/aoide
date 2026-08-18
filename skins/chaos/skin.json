@@ -6,28 +6,28 @@
   "extends": "builtin",
   "colors": {
     "shell": {
-      "highlight": "#3a2228",
-      "base": "#28181c",
-      "mid": "#1a1014",
-      "low": "#120c0e",
-      "deep": "#0a0608"
+      "highlight": "#951830",
+      "base": "#6f1123",
+      "mid": "#4c0a17",
+      "low": "#32060e",
+      "deep": "#190307"
     },
     "ink": {
-      "default": "#f4e4e8",
-      "dim": "#a88890",
-      "faint": "#705860"
+      "default": "#f5f2ef",
+      "dim": "#b08d92",
+      "faint": "#7a5c61"
     },
     "phosphor": {
-      "default": "#ff2d55",
-      "hot": "#ff8aa0",
-      "dim": "#8a1830",
-      "deep": "#3c0c18"
+      "default": "#f0d090",
+      "hot": "#f8ecd4",
+      "dim": "#8a6840",
+      "deep": "#3c2a18"
     },
     "accent": {
       "default": "#b01040",
       "dim": "#6a0828"
     },
-    "well": "#080406"
+    "well": "#0d0506"
   },
   "materials": {
     "bevel": {
@@ -35,10 +35,10 @@
       "softOpacity": 0.06
     },
     "spectrum": {
-      "stops": ["#ff8aa0", "#ff2d55", "#b01040", "#3c0c18"]
+      "stops": ["#f8ecd4", "#f0d090", "#b01040", "#6f1123"]
     },
     "rail": {
-      "stops": ["#8a1830", "#b01040", "#8a1830"]
+      "stops": ["#6a0828", "#b01040", "#6a0828"]
     }
   },
   "fonts": {
