@@ -6,7 +6,9 @@ How Tramp is built and handed to listeners. Decisions: [ADR 0010](adr/0010-open-
 
 | Workflow | When | What |
 |----------|------|------|
-| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PR and `main` | CMake build + `ctest` on Ubuntu and Windows |
+| [`.github/workflows/open-pr.yml`](../.github/workflows/open-pr.yml) | Push to a feature branch | Opens a PR against `main` if one is missing (`research/*`, `spike/*`, `wip/*` skipped) |
+| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PR and `main` | CMake build + `ctest` on Ubuntu and Windows; PR review comment with the result |
+| [`.github/workflows/merge-if-green.yml`](../.github/workflows/merge-if-green.yml) | CI completed | Squash-merges a same-repo, non-draft PR at that SHA when CI is green ([ADR 0018](adr/0018-pr-ci-auto-merge.md)). Skips forks, drafts, and `do-not-merge` |
 | [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Tag `v*` or **Run workflow** | Test, then Windows / Linux packages; tags also attach a GitHub Release |
 
 Cut a release by bumping [`VERSION`](../VERSION), committing, then:
@@ -32,6 +34,10 @@ The tag name without `v` must equal the `VERSION` file.
 Partner Center and Flathub submit stay **human**. Packaging scripts live under `packaging/`.
 
 ## GitHub configuration
+
+Actions must be allowed to open PRs: **Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests**. Without that, you still open PRs by hand; CI and merge-if-green still apply.
+
+Label a PR `do-not-merge` (or convert it to draft) to keep it open after a green CI.
 
 ### Variables (optional)
 

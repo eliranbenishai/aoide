@@ -150,3 +150,4 @@ Support dir: `$XDG_DATA_HOME/com.tramp.tramp` (adopts legacy `…/tramp` when th
 - [0015 — One Flutter engine, several OS windows](adr/0015-one-engine-windows.md) *(superseded by 0016)*
 - [0016 — Qt 6 C++ is the Tramp v1 host](adr/0016-qt-for-v1.md) *(stack lock; five-OS-window host superseded by 0017)*
 - [0017 — One host window, internal panels](adr/0017-one-host-window-internal-panels.md)
+- [0018 — PRs squash-merge only after Qt CI is green](adr/0018-pr-ci-auto-merge.md)
