@@ -40,6 +40,9 @@ class DockingCoordinator {
   void resizePlaylist(QSizeF logical);
   void setShaded(WindowId id, bool shaded);
   void setVisible(WindowId id, bool visible);
+  /// Main is the host's reason to exist; closing it quits. It cannot be hidden.
+  /// If main was stored invisible (corrupt persist), restore the default chrome trio.
+  void ensureMainVisible();
   /// If [id] sits on top of main (same origin or heavy overlap), park it at the
   /// default offset: EQ flush below main, playlist flush to main's right.
   void nudgeOffMainIfStacked(WindowId id);

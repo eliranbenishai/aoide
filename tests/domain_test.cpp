@@ -608,6 +608,25 @@ int main() {
     REQUIRE_EQ(dock.layout().equalizer.top, 368.0);
   }
 
+  {
+    tramp::DockLayout layout;
+    layout.main.visible = false;
+    layout.equalizer.visible = false;
+    layout.playlist.visible = false;
+    tramp::DockingCoordinator dock(layout);
+    dock.setVisible(tramp::WindowId::main, false);
+    REQUIRE(dock.layout().main.visible == false);
+    dock.ensureMainVisible();
+    REQUIRE(dock.layout().main.visible);
+    REQUIRE(dock.layout().equalizer.visible);
+    REQUIRE(dock.layout().playlist.visible);
+    dock.setVisible(tramp::WindowId::main, false);
+    REQUIRE(dock.layout().main.visible);
+    dock.setVisible(tramp::WindowId::equalizer, false);
+    dock.ensureMainVisible();
+    REQUIRE(!dock.layout().equalizer.visible);
+  }
+
   if (gFails != 0) {
     std::fprintf(stderr, "%d assertion(s) failed\n", gFails);
     return 1;

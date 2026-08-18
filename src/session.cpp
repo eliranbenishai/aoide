@@ -74,6 +74,7 @@ TrampSession::TrampSession(QObject* parent)
   layout.about = settings_.about;
   layout.dockEdges = settings_.dockEdges;
   docking_ = DockingCoordinator(layout);
+  docking_.ensureMainVisible();
   docking_.setSnapThreshold(snapPixels(settings_.dockSnapStrength));
 
   persistTimer_.setSingleShot(true);
@@ -318,6 +319,7 @@ void TrampSession::persistNow() {
   docking_.layout().about = settings_.about;
   settings_.dockEdges = docking_.layout().dockEdges;
   settings_.equalizerCurve = settings_.equalizerCurve;
+  settings_.main.visible = true;
   store_.writeSettings(settings_);
   if (!playlist_.sourcePath().isEmpty()) {
     store_.writeLastPlaylistPath(playlist_.sourcePath());
@@ -600,6 +602,7 @@ void TrampSession::reapplyWindowFrames() {
 void TrampSession::applyDockToWindows(std::optional<WindowId> skip) {
   if (applyingDock_) return;
   applyingDock_ = true;
+  docking_.ensureMainVisible();
 
   QVector<HostPanelPlacement> visible;
   for (WindowId id : {WindowId::main, WindowId::equalizer, WindowId::playlist, WindowId::settings,
@@ -819,10 +822,10 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       refreshChrome();
       break;
     case K::eqToggle:
-      setWindowVisible(WindowId::equalizer, !(eq_ && eq_->isVisible()));
+      setWindowVisible(WindowId::equalizer, !docking_.layout().equalizer.visible);
       break;
     case K::plToggle:
-      setWindowVisible(WindowId::playlist, !(pl_ && pl_->isVisible()));
+      setWindowVisible(WindowId::playlist, !docking_.layout().playlist.visible);
       break;
     case K::prev:
     case K::plPrev:

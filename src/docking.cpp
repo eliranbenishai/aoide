@@ -112,6 +112,7 @@ void DockingCoordinator::setShaded(WindowId id, bool shaded) {
 }
 
 void DockingCoordinator::setVisible(WindowId id, bool visible) {
+  if (id == WindowId::main && !visible) return;
   layout_.frameOf(id).visible = visible;
   if (!visible) {
     QVector<DockEdge> kept;
@@ -119,6 +120,15 @@ void DockingCoordinator::setVisible(WindowId id, bool visible) {
       if (e.a != id && e.b != id) kept.push_back(e);
     }
     layout_.dockEdges = kept;
+  }
+}
+
+void DockingCoordinator::ensureMainVisible() {
+  const bool hostWasEmpty = !layout_.main.visible;
+  layout_.main.visible = true;
+  if (hostWasEmpty) {
+    layout_.equalizer.visible = true;
+    layout_.playlist.visible = true;
   }
 }
 
