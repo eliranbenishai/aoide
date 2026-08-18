@@ -171,10 +171,14 @@ void HostShellWindowTest::deferredPunchStillAppliesWhenLayoutAlreadyCaughtUp() {
 
   shell.placePanels({{&panel, end}}, false);
   QCOMPARE(panel.mapToGlobal(QPoint(0, 0)), end.topLeft());
-  QVERIFY(shell.mask().isEmpty());
+  QVERIFY2(!shell.mask().isEmpty(),
+           "empty mask is full input on Wayland; punch must stay a panel union");
+  QVERIFY(shell.mask().contains(panel.geometry().center()));
+  QVERIFY(!shell.mask().contains(QPoint(10, 10)));
 
   shell.placePanels({{&panel, end}}, true);
   QVERIFY(shell.mask().contains(panel.geometry().center()));
+  QVERIFY(!shell.mask().contains(QPoint(10, 10)));
 }
 
 QTEST_MAIN(HostShellWindowTest)

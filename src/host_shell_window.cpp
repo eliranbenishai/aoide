@@ -6,6 +6,7 @@
 #include <QPainter>
 #include <QRegion>
 #include <QScreen>
+#include <QWindow>
 
 HostShell::HostShell(QWidget* parent) : QWidget(parent) {
   setWindowFlags(tramp::hostWindowFlags());
@@ -36,11 +37,12 @@ void HostShell::applyLayout(const tramp::HostShellLayout& layout) {
     return;
   }
   setGeometry(layout.screenRect);
-  setMask(layout.localMask);
+  applyPunch(layout.localMask);
   update();
 }
 
 void HostShell::placePanels(const QVector<HostPanelPlacement>& panels, bool updatePunch) {
+  Q_UNUSED(updatePunch);
   QVector<QRect> screenRects;
   screenRects.reserve(panels.size());
   for (const HostPanelPlacement& place : panels) {
@@ -76,13 +78,7 @@ void HostShell::placePanels(const QVector<HostPanelPlacement>& panels, bool upda
 
   lastLayout_.screenRect = QRect(origin, size());
   lastLayout_.localMask = mask;
-  if (updatePunch) {
-    setMask(mask);
-    maskClearedForDrag_ = false;
-  } else if (!maskClearedForDrag_) {
-    clearMask();
-    maskClearedForDrag_ = true;
-  }
+  applyPunch(mask);
   if (!dirty.isEmpty()) update(dirty);
 }
 
@@ -105,10 +101,28 @@ void HostShell::setAlwaysOnTop(bool on) {
 
 void HostShell::setPrimaryPanel(QWidget* panel) { primaryPanel_ = panel; }
 
+void HostShell::applyPunch(const QRegion& mask) {
+  lastLayout_.localMask = mask;
+  // Qt Wayland: empty mask → wl_surface.set_input_region(nullptr) → the whole
+  // surface takes clicks. Never punch-to-everything while mapped.
+  if (mask.isEmpty()) {
+    if (isVisible()) return;
+    clearMask();
+    if (QWindow* native = windowHandle()) native->setMask(QRegion());
+    return;
+  }
+  setMask(mask);
+  if (QWindow* native = windowHandle()) native->setMask(mask);
+}
+
 void HostShell::applyStoredMask() {
-  if (lastLayout_.localMask.isEmpty()) return;
-  setMask(lastLayout_.localMask);
+  applyPunch(lastLayout_.localMask);
   update();
+}
+
+void HostShell::showEvent(QShowEvent* event) {
+  QWidget::showEvent(event);
+  applyStoredMask();
 }
 
 void HostShell::changeEvent(QEvent* event) {

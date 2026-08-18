@@ -5,6 +5,7 @@
 #include <QCloseEvent>
 #include <QEvent>
 #include <QPaintEvent>
+#include <QShowEvent>
 #include <QVector>
 #include <QWidget>
 
@@ -20,6 +21,8 @@ class HostShell : public QWidget {
   explicit HostShell(QWidget* parent = nullptr);
 
   void applyLayout(const tramp::HostShellLayout& layout);
+  /// Places children. Punch is always the current panel union (`updatePunch` is
+  /// accepted and ignored: an empty mask is full-desktop input on Wayland).
   void placePanels(const QVector<HostPanelPlacement>& panels, bool updatePunch = true);
   void setAlwaysOnTop(bool on);
   void setPrimaryPanel(QWidget* panel);
@@ -34,13 +37,14 @@ class HostShell : public QWidget {
   void changeEvent(QEvent* event) override;
   void closeEvent(QCloseEvent* event) override;
   void paintEvent(QPaintEvent* event) override;
+  void showEvent(QShowEvent* event) override;
 
  private:
   void applyStoredMask();
+  void applyPunch(const QRegion& mask);
   void bindDesktopScreens();
 
   tramp::HostShellLayout lastLayout_{};
   QRect lastRequestedVirtual_{};
   QWidget* primaryPanel_ = nullptr;
-  bool maskClearedForDrag_ = false;
 };
