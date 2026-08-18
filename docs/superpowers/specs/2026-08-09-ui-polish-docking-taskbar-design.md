@@ -27,8 +27,9 @@ Change pure layout rules in `DockingCoordinator` (session host/client keep apply
 
 | Drag source | Behavior |
 |-------------|----------|
-| **Main** title bar | Move only main. Never snap; never create dock edges. |
-| **EQ / playlist** title bar | Move only that window. Peel any dock edges for it as soon as drag starts (keep peel-on-drag). Shift-undock remains. |
+| **Main** title bar | Translate the host: every panel keeps its position inside the host; the cluster moves on screen as a unit; host size unchanged. Never snap; never create dock edges. |
+| **EQ / playlist** title bar | Move only that panel in screen space; siblings stay put. Host bounding box is the tight union of visible panels (grows and shrinks; origin follows the union’s top-left). After an origin change, re-place so non-dragged siblings keep their screen positions. Peel any dock edges for it as soon as drag starts (keep peel-on-drag). Shift-undock remains. |
+| **Settings / about** title bar | Same as EQ/playlist for move and host union; never snap and never peel. |
 
 ### Snap (EQ / playlist finalize only)
 
@@ -105,7 +106,7 @@ Update EQ goldens / widget tests with a non-zero band so fill is covered.
 ## Success criteria
 
 1. Title buttons read as recessed mockup `.wbtn` chrome in side-by-side with the HTML mockup.
-2. Each title-bar drag moves only that window; snap only from EQ/PL with PL top/bottom (+ optional orthogonal flush).
+2. Main title-bar drag translates the host (cluster as a unit); other title-bar drags move only that panel; snap only from EQ/PL with PL top/bottom (+ optional orthogonal flush).
 3. EQ faders show bottom→thumb spectrum-gradient fill.
 4. EQ/PL title bars show role title only (no logo/wordmark).
 5. Windows taskbar shows a single Tramp entry for the main player while EQ/PL are open.

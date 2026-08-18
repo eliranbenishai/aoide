@@ -6,7 +6,7 @@ Living map of how Tramp is structured. Domain terms: [`CONTEXT.md`](../CONTEXT.m
 
 **Qt 6 C++** is the only build ([ADR 0016](adr/0016-qt-for-v1.md)). One process, one frameless **host window**, five **panel** views, QWidget + QPainter in [`src/`](../src/). Binary: `build/tramp`.
 
-`TrampSession` owns playback (libmpv), playlist/collection, EQ, spectrum, docking, zoom, skins, and persistence. Panels are views onto that session, not extra engines or extra OS windows. Title-bar drag is in-process (app-owned). No skip-taskbar transients, no pin-against-recenter. Host geometry is the bounding box of visible panels (grown as needed); input is punched to panel shapes so the desktop is clickable in the gaps ([ADR 0017](adr/0017-one-host-window-internal-panels.md)). `--dump-chrome` writes 1× logical PNGs from `SessionView::golden()`.
+`TrampSession` owns playback (libmpv), playlist/collection, EQ, spectrum, docking, zoom, skins, and persistence. Panels are views onto that session, not extra engines or extra OS windows. Title-bar drag is in-process (app-owned). No skip-taskbar transients, no pin-against-recenter. Host geometry is the tight bounding box of visible panels (origin and size follow the union); input is punched to panel shapes so the desktop is clickable in the gaps ([ADR 0017](adr/0017-one-host-window-internal-panels.md)). `--dump-chrome` writes 1× logical PNGs from `SessionView::golden()`.
 
 Linux + Windows are the pairing hosts; macOS follows.
 
@@ -15,7 +15,7 @@ Linux + Windows are the pairing hosts; macOS follows.
 - Desktop player (Windows, Linux, macOS); official download `https://tramp.music`; GPL-3.0-or-later
 - Windows Store MSIX **and** website EXE ([ADR 0011](adr/0011-windows-store-and-exe.md)); Linux Flathub **and** AppImage ([ADR 0013](adr/0013-linux-flathub-and-appimage.md)); Mac notarized DMG later
 - Custom **app chrome**; five **panels** inside one host window — main/EQ/PL dock; settings and about freestanding ([ADR 0006](adr/0006-multi-window-docking.md); host shape [ADR 0017](adr/0017-one-host-window-internal-panels.md))
-- Each title-bar drag moves only that panel; EQ/PL snap on drag end; settings stays raised among panels; taskbar shows the host (Tramp)
+- Main title-bar drag translates the host; other title-bar drags move only that panel. EQ/PL snap on drag end; settings stays raised among panels; taskbar shows the host (Tramp)
 - Fixed canvases: main/EQ **825×348**, playlist default **1073×696** (free resize), settings **520×420**, about **480×360**; global discrete zoom ([ADR 0002](adr/0002-fixed-canvas-zoom.md))
 - Code-constructed mockup chrome ([ADR 0007](adr/0007-code-constructed-mockup-chrome.md)); recolor **skins**; no classic WSZ in v1
 - Full libmpv ([ADR 0005](adr/0005-full-libmpv.md)); playlist-centric M3U/M3U8; no media library
@@ -90,7 +90,7 @@ flowchart TB
 |------|------|
 | Host | `HostShell` (`host_shell_window.*`) + five `HostWindow` panels — one frameless host window titled Tramp; punched input from child panel rects; main close persists then quits; extra panels hide |
 | Session | `session.*`, `session_view.*` — shared controllers, commands, `--dump-chrome` golden |
-| Docking | `docking.*` — peel 8 logical px; EQ any side; playlist top/bottom; settings/about never snap. Coordinator applies frames to panels; `HostShell::placePanels` puts them in host-local coords and punches the mask. |
+| Docking | `docking.*` — peel 8 logical px; EQ any side; playlist top/bottom; settings/about never snap. Main-drag translates every frame. Coordinator applies frames to panels; `HostShell::placePanels` sets the host to the union (origin and size), places panels in host-local coords, and punches the mask. |
 | Chrome | `chrome_paint.cpp`, `chrome_bodies.cpp`, `chrome_hits.cpp`, `chrome_layout.h`, `title_chrome.*`, `mockup_draw.cpp`, `mockup_tokens.h`, `tramp_metrics.h`, `tramp_fonts.*` — mockup `.win` / `.tbar` / `.wbtn` at discrete zoom (default 75%). Display-well STEREO/PLAYLIST keep a fixed gap; close buttons take hue from the more saturated of skin ink vs accent. |
 | Skins | `look.*` — `skin.json` / legacy `look.json`; embedded **Tramp** (id `builtin`) plus bundled homage packs under `skins/` (Arc, Shield, Thunder, Gamma, Widow, Marksman, Chaos); catalog `<support>/skins`. Settings Skins tab is a clipped scrolling list. |
 | Playback | `playback.*`, `player_engine.h`, `mpv_engine.*`, `transport.*` — libmpv `vo=null`; playing **path** not index; stop unloads media |

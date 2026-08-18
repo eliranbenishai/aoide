@@ -2,8 +2,9 @@
 
 Date: 2026-08-08  
 Revised: 2026-08-09 (move/snap ownership, playlist snap sides, taskbar);  
-2026-08-17 (each title-bar drag moves only that window);  
-2026-08-17 (five OS windows superseded by ADR 0017 — docking/snap/shade remain)
+2026-08-17 (each title-bar drag moves only that window — historical);  
+2026-08-17 (five OS windows superseded by ADR 0017 — docking/snap/shade remain);  
+2026-08-18 (main title-bar drag translates the host; child title-bar drag moves only that panel)
 
 ## Status
 
@@ -34,9 +35,16 @@ surfaces inside one OS host window ([ADR 0017](0017-one-host-window-internal-pan
   plus freestanding settings and about. Host shape is [ADR 0017](0017-one-host-window-internal-panels.md).
 - EQ and playlist may **both** be open. Main EQ/PL toggles show/hide those
   panels.
-- **Move ownership:** each panel’s title-bar drag moves **only** that panel.
-  Dragging an EQ or playlist title bar peels its dock edges. Hidden panels
-  are unchanged.
+- **Move ownership:** dragging the **main** panel title bar translates the
+  **host** — every panel keeps its position inside the host; the cluster
+  moves on screen as a unit; host size unchanged. Main never snaps and never
+  creates dock edges. The coordinator translates every frame (including
+  hidden settings/about) by the same logical delta. Dragging **EQ,
+  playlist, settings, or about** moves **only that panel** in screen space;
+  siblings stay put. The host bounding box is the tight union of visible
+  panels (grows and shrinks; origin follows the union’s top-left). After an
+  origin change, re-place panels so non-dragged siblings keep their screen
+  positions. Dragging an EQ or playlist title bar peels its dock edges.
 - **Snap:** only when finishing an EQ or playlist drag. EQ may snap to any
   side of any other visible panel. Playlist may snap only **top/bottom**; on
   that snap, also flush left or right if that edge is already within the snap
