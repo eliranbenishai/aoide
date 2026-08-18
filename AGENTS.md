@@ -16,6 +16,10 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 
 Single-context — root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
 
+### ADR contradictions
+
+Cardinal: if a request would violate an accepted ADR, stop, cite the clash, and wait for instructions. Do not implement around it or quietly rewrite the ADR. See `.cursor/rules/adr-contradictions.mdc`.
+
 ### Architecture
 
 Living design map: `docs/architecture.md`. Update it in the same change whenever the app’s structure, boundaries, stack, or major features change. See `.cursor/rules/architecture-doc.mdc`.
