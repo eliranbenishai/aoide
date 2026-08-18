@@ -39,7 +39,7 @@ void HostShell::applyLayout(const tramp::HostShellLayout& layout) {
   update();
 }
 
-void HostShell::placePanels(const QVector<HostPanelPlacement>& panels) {
+void HostShell::placePanels(const QVector<HostPanelPlacement>& panels, bool updatePunch) {
   QVector<QRect> screenRects;
   screenRects.reserve(panels.size());
   for (const HostPanelPlacement& place : panels) {
@@ -62,15 +62,14 @@ void HostShell::placePanels(const QVector<HostPanelPlacement>& panels) {
   for (const HostPanelPlacement& place : panels) {
     if (!place.widget) continue;
     const QRect local(tramp::panelLocalTopLeft(place.screen.topLeft(), origin), place.screen.size());
-    place.widget->setGeometry(local);
+    if (place.widget->geometry() != local) place.widget->setGeometry(local);
     place.widget->show();
     mask += local;
   }
 
   lastLayout_.screenRect = QRect(origin, size());
+  if (updatePunch && lastLayout_.localMask != mask) setMask(mask);
   lastLayout_.localMask = mask;
-  setMask(mask);
-  update();
 }
 
 QRect HostShell::virtualDesktop() const {

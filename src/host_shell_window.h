@@ -20,7 +20,7 @@ class HostShell : public QWidget {
   explicit HostShell(QWidget* parent = nullptr);
 
   void applyLayout(const tramp::HostShellLayout& layout);
-  void placePanels(const QVector<HostPanelPlacement>& panels);
+  void placePanels(const QVector<HostPanelPlacement>& panels, bool updatePunch = true);
   void setAlwaysOnTop(bool on);
   void setPrimaryPanel(QWidget* panel);
   QRect virtualDesktop() const;

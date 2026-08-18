@@ -144,6 +144,7 @@ QPoint HostWindow::nativeTopLeft() const { return mapToGlobal(QPoint(0, 0)); }
 
 void HostWindow::setPlaylistLogicalSize(QSize logical) {
   if (spec_.id != tramp::WindowId::playlist) return;
+  if (spec_.logicalSize == logical) return;
   spec_.logicalSize = logical;
   applyNativeSize();
 }
@@ -316,12 +317,14 @@ void HostWindow::mouseMoveEvent(QMouseEvent* event) {
 }
 
 void HostWindow::mouseReleaseEvent(QMouseEvent* event) {
+  const bool wasResizing = resizingPlaylist_;
   if (draggingTitle_ || resizingPlaylist_) releaseMouse();
   if (draggingTitle_) {
     draggingTitle_ = false;
     emit titleDragFinished();
   }
-  if (resizingPlaylist_) resizingPlaylist_ = false;
+  resizingPlaylist_ = false;
+  if (wasResizing) emit nativeResized(size());
   if (draggingChrome_) {
     draggingChrome_ = false;
     emit chromeReleased();

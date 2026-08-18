@@ -692,7 +692,7 @@ void TrampSession::applyDockToWindows(std::optional<WindowId> skip) {
   }
 
   if (shell_) {
-    shell_->placePanels(visible);
+    shell_->placePanels(visible, QWidget::mouseGrabber() == nullptr);
   } else {
     for (const HostPanelPlacement& place : visible) {
       if (!place.widget) continue;
@@ -712,7 +712,6 @@ void TrampSession::playlistResized(QSize native) {
   clampOneToHost(WindowId::playlist);
   applyFramesToWindows();
   schedulePersist();
-  refreshChrome();
 }
 
 void TrampSession::applyDroppedPaths(const QStringList& paths, bool replace) {
