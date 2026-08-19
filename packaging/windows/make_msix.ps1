@@ -14,7 +14,7 @@ $Root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $Release = Join-Path $Root "build\windows\stage"
 $Stage = Join-Path $Root "build\windows\msix_stage"
 $OutDir = Join-Path $Root "build\windows\msix"
-$Png = Join-Path $Root "packaging\linux\icons\hicolor\256x256\apps\com.tramp.tramp.png"
+$Png = Join-Path $Root "packaging\linux\icons\hicolor\256x256\apps\com.proximamagnifica.tramp.png"
 
 if (-not (Test-Path (Join-Path $Release "tramp.exe"))) {
   throw "Missing $Release\tramp.exe — run packaging/windows/stage.ps1 first"

@@ -29,9 +29,11 @@ QString resolveLinuxSupportPath(const QMap<QString, QString>& environment,
   if (exists(pinned)) {
     return pinned;
   }
-  const QString legacy = QDir(dataHome).filePath(QString::fromLatin1(kLegacyLinuxSupportDirName));
-  if (exists(legacy)) {
-    return legacy;
+  for (const char* name : kLegacyLinuxSupportDirNames) {
+    const QString legacy = QDir(dataHome).filePath(QString::fromLatin1(name));
+    if (exists(legacy)) {
+      return legacy;
+    }
   }
   return pinned;
 }

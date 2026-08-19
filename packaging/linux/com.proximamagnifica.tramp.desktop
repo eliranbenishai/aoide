@@ -2,10 +2,10 @@
 Name=Tramp
 Comment=Desktop music player
 Exec=tramp %F
-Icon=com.tramp.tramp
+Icon=com.proximamagnifica.tramp
 Terminal=false
 Type=Application
 Categories=AudioVideo;Audio;Player;
 MimeType=audio/mpeg;audio/mp4;audio/aac;audio/flac;audio/wav;audio/ogg;audio/opus;audio/x-mpegurl;application/vnd.apple.mpegurl;
 StartupNotify=true
-StartupWMClass=com.tramp.tramp
+StartupWMClass=com.proximamagnifica.tramp

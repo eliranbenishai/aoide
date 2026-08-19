@@ -10,7 +10,11 @@ _Avoid_: Winamp clone, media player (when meaning this product)
 
 **Proxima Magnifica**:
 The company that makes Tramp. Named on the About panel's maker's plate.
-_Avoid_: com.tramp (the technical application id), publisher (vague)
+_Avoid_: publisher (vague); using the company name as the product wordmark
+
+**Application id**:
+The reverse-DNS id for the desktop file, Flatpak, icon theme, and Linux support dir: **com.proximamagnifica.tramp**.
+_Avoid_: com.tramp.tramp (retired), com.tramp, treating this as the product name or Store listing name
 
 **Free Forever**:
 The product pledge on the maker's plate: Tramp costs nothing to use. Price, not a license name.

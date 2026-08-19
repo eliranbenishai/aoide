@@ -5,6 +5,7 @@
 #include "mockup_draw.h"
 #include "session.h"
 #include "session_view.h"
+#include "support_dir.h"
 #include "title_chrome.h"
 #include "tramp_fonts.h"
 #include "tramp_metrics.h"
@@ -199,7 +200,7 @@ int main(int argc, char** argv) {
   app.setApplicationName(QStringLiteral("Tramp"));
   app.setApplicationVersion(QLatin1String(TRAMP_VERSION));
   app.setOrganizationName(QStringLiteral("Proxima Magnifica"));
-  app.setDesktopFileName(QStringLiteral("com.tramp.tramp"));
+  app.setDesktopFileName(QString::fromLatin1(tramp::kApplicationId));
   app.setWindowIcon(tramp::appIcon());
   app.setQuitOnLastWindowClosed(false);
 

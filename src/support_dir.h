@@ -6,8 +6,11 @@
 
 namespace tramp {
 
-inline constexpr auto kApplicationId = "com.tramp.tramp";
-inline constexpr auto kLegacyLinuxSupportDirName = "tramp";
+inline constexpr auto kApplicationId = "com.proximamagnifica.tramp";
+inline constexpr const char* kLegacyLinuxSupportDirNames[] = {
+    "com.tramp.tramp",
+    "tramp",
+};
 
 QString resolveLinuxSupportPath(const QMap<QString, QString>& environment,
                                 const std::function<bool(const QString&)>& exists);

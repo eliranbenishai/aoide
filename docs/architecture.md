@@ -107,7 +107,7 @@ flowchart TB
 
 ## Persistence
 
-Support dir: `$XDG_DATA_HOME/com.tramp.tramp` (adopts legacy `…/tramp` when that is where the data already is). Reset Settings rewrites `settings.json` only.
+Support dir: `$XDG_DATA_HOME/com.proximamagnifica.tramp` (adopts legacy `…/com.tramp.tramp` or `…/tramp` when that is where the data already is). Reset Settings rewrites `settings.json` only.
 
 | File | What |
 |------|------|

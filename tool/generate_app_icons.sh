@@ -26,21 +26,23 @@ BRAND="$ROOT/assets/branding"
 raster 512 "$BRAND/logo.png"
 raster 256 "$BRAND/app_icon.png"
 
+APP_ID="com.proximamagnifica.tramp"
 HICOLOR="$ROOT/packaging/linux/icons/hicolor"
 for size in 16 24 32 48 64 128 256 512; do
-  raster "$size" "$HICOLOR/${size}x${size}/apps/com.tramp.tramp.png"
+  raster "$size" "$HICOLOR/${size}x${size}/apps/${APP_ID}.png"
 done
 
 "$MAGICK" "$BRAND/app_icon.png" -define icon:auto-resize=256,48,32,16 \
   "$ROOT/packaging/windows/app_icon.ico"
 
-python3 - "$HICOLOR" "$ROOT/packaging/macos/tramp.icns" <<'PY'
+python3 - "$HICOLOR" "$APP_ID" "$ROOT/packaging/macos/tramp.icns" <<'PY'
 import struct
 import sys
 from pathlib import Path
 
 hicolor = Path(sys.argv[1])
-dest = Path(sys.argv[2])
+app_id = sys.argv[2]
+dest = Path(sys.argv[3])
 dest.parent.mkdir(parents=True, exist_ok=True)
 types = {
     16: b"icp4",
@@ -52,7 +54,7 @@ types = {
 }
 chunks = []
 for size, ostype in types.items():
-    png = hicolor / f"{size}x{size}" / "apps" / "com.tramp.tramp.png"
+    png = hicolor / f"{size}x{size}" / "apps" / f"{app_id}.png"
     data = png.read_bytes()
     chunks.append(ostype + struct.pack(">I", 8 + len(data)) + data)
 body = b"".join(chunks)

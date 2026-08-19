@@ -1,6 +1,6 @@
 # Binary Flatpak of the staged Qt Linux bundle. Flathub listing is a human PR;
 # this is the sandbox/permissions contract and a local test bundle.
-app-id: com.tramp.tramp
+app-id: com.proximamagnifica.tramp
 runtime: org.kde.Platform
 runtime-version: "6.8"
 sdk: org.kde.Sdk
@@ -29,7 +29,7 @@ modules:
         if [ -d share/applications ]; then
           install -d /app/share/applications
           cp -a share/applications/. /app/share/applications/
-          sed -i 's|^Exec=.*|Exec=tramp %F|' /app/share/applications/com.tramp.tramp.desktop || true
+          sed -i 's|^Exec=.*|Exec=tramp %F|' /app/share/applications/com.proximamagnifica.tramp.desktop || true
         fi
         if [ -d share/icons ]; then
           install -d /app/share/icons

@@ -230,7 +230,7 @@ install(TARGETS tramp RUNTIME DESTINATION .)
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/assets" DESTINATION .)
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/skins" DESTINATION .)
 if(UNIX AND NOT APPLE)
-  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/packaging/linux/com.tramp.tramp.desktop"
+  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/packaging/linux/com.proximamagnifica.tramp.desktop"
     DESTINATION share/applications)
   install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/packaging/linux/icons/hicolor"
     DESTINATION share/icons)

@@ -19,17 +19,17 @@ cp -a "$BUNDLE"/. "$APPDIR/"
 cp -f "$ROOT/LICENSE" "$APPDIR/"
 cp -f "$ROOT/THIRD-PARTY-NOTICES.md" "$APPDIR/"
 
-if [[ -f "$APPDIR/share/applications/com.tramp.tramp.desktop" ]]; then
-  cp "$APPDIR/share/applications/com.tramp.tramp.desktop" "$APPDIR/com.tramp.tramp.desktop"
+if [[ -f "$APPDIR/share/applications/com.proximamagnifica.tramp.desktop" ]]; then
+  cp "$APPDIR/share/applications/com.proximamagnifica.tramp.desktop" "$APPDIR/com.proximamagnifica.tramp.desktop"
 else
-  cp "$ROOT/packaging/linux/com.tramp.tramp.desktop" "$APPDIR/com.tramp.tramp.desktop"
+  cp "$ROOT/packaging/linux/com.proximamagnifica.tramp.desktop" "$APPDIR/com.proximamagnifica.tramp.desktop"
 fi
-sed -i 's|^Exec=.*|Exec=tramp %F|' "$APPDIR/com.tramp.tramp.desktop"
-sed -i 's|^Icon=.*|Icon=com.tramp.tramp|' "$APPDIR/com.tramp.tramp.desktop"
+sed -i 's|^Exec=.*|Exec=tramp %F|' "$APPDIR/com.proximamagnifica.tramp.desktop"
+sed -i 's|^Icon=.*|Icon=com.proximamagnifica.tramp|' "$APPDIR/com.proximamagnifica.tramp.desktop"
 
-icon_src="$ROOT/packaging/linux/icons/hicolor/256x256/apps/com.tramp.tramp.png"
+icon_src="$ROOT/packaging/linux/icons/hicolor/256x256/apps/com.proximamagnifica.tramp.png"
 if [[ -f "$icon_src" ]]; then
-  cp "$icon_src" "$APPDIR/com.tramp.tramp.png"
+  cp "$icon_src" "$APPDIR/com.proximamagnifica.tramp.png"
 fi
 
 cat >"$APPDIR/AppRun" <<'EOF'

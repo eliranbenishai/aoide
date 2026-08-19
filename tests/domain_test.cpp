@@ -201,7 +201,8 @@ int main() {
   {
     const QString home = QStringLiteral("/home/listener");
     const QString share = home + QStringLiteral("/.local/share");
-    const QString pinned = share + QStringLiteral("/com.tramp.tramp");
+    const QString pinned = share + QStringLiteral("/com.proximamagnifica.tramp");
+    const QString retired = share + QStringLiteral("/com.tramp.tramp");
     const QString legacy = share + QStringLiteral("/tramp");
     auto only = [](const QStringList& existing) {
       return [existing](const QString& path) { return existing.contains(path); };
@@ -215,9 +216,14 @@ int main() {
                                     only({pinned})) == pinned);
     REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home},
                                      {QStringLiteral("XDG_DATA_HOME"), QStringLiteral("/data/xdg")}},
-                                    only({QStringLiteral("/data/xdg/com.tramp.tramp")})) ==
-            QStringLiteral("/data/xdg/com.tramp.tramp"));
+                                    only({QStringLiteral("/data/xdg/com.proximamagnifica.tramp")})) ==
+            QStringLiteral("/data/xdg/com.proximamagnifica.tramp"));
+    REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home}}, only({retired})) == retired);
     REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home}}, only({legacy})) == legacy);
+    REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home}}, only({retired, legacy})) ==
+            retired);
+    REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home}}, only({pinned, retired})) ==
+            pinned);
     REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home}}, only({pinned, legacy})) ==
             pinned);
     REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home}}, only({})) == pinned);

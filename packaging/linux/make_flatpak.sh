@@ -22,6 +22,6 @@ fi
 
 export TRAMP_FLATPAK_BUNDLE="$BUNDLE"
 flatpak-builder --force-clean --repo="$STATE/repo" "$STATE/build" \
-  "$ROOT/packaging/flatpak/com.tramp.tramp.yml"
-flatpak build-bundle "$STATE/repo" "$OUT" com.tramp.tramp
+  "$ROOT/packaging/flatpak/com.proximamagnifica.tramp.yml"
+flatpak build-bundle "$STATE/repo" "$OUT" com.proximamagnifica.tramp
 echo "Wrote $OUT"

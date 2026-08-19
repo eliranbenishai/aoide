@@ -91,11 +91,11 @@ register the OS handler to pass those paths to the executable (`Exec=tramp %F`).
 
 ### Linux
 
-`packaging/linux/com.tramp.tramp.desktop` lists `MimeType=` entries for common
+`packaging/linux/com.proximamagnifica.tramp.desktop` lists `MimeType=` entries for common
 audio types and M3U playlists.
 
 ```bash
-xdg-mime default com.tramp.tramp.desktop audio/mpeg
+xdg-mime default com.proximamagnifica.tramp.desktop audio/mpeg
 update-desktop-database ~/.local/share/applications
 ```
 
