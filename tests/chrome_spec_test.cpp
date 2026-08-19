@@ -23,6 +23,7 @@ class ChromeSpecTest : public QObject {
   void stereoPlaylistGapHoldsForWideGlyphs();
   void skinsListScrollsLastRowIntoView();
   void playlistHidesScrollbarWhenRowsFit();
+  void playlistStripKeepsGapBeforeLengthWell();
 };
 
 void ChromeSpecTest::tokensMatchMockupCssRoot() {
@@ -199,6 +200,18 @@ void ChromeSpecTest::playlistHidesScrollbarWhenRowsFit() {
   const QRectF overflowing = tramp::playlistListWell(listRow, tramp::playlistVisibleRows(wellH) + 8);
   QCOMPARE(overflowing.width(),
            listRow.width() - tramp::kPlaylistScrollGap - tramp::kPlaylistScrollW);
+}
+
+void ChromeSpecTest::playlistStripKeepsGapBeforeLengthWell() {
+  // player-mockup-2.html `.pl-strip { gap: 8px }` — Next must not sit flush on TOTAL.
+  QCOMPARE(tramp::kPlaylistStripGap, 8.0);
+
+  const QRectF plateInner(0, 0, 800, 54);
+  const auto strip = tramp::layoutPlaylistStrip(plateInner, 140);
+  QCOMPARE(strip.total.left() - strip.next.right(), tramp::kPlaylistStripGap);
+  QVERIFY(!strip.next.intersects(strip.total));
+  QCOMPARE(strip.play.left() - strip.prev.right(), tramp::kPlaylistStripGap);
+  QCOMPARE(strip.next.left() - strip.play.right(), tramp::kPlaylistStripGap);
 }
 
 QTEST_APPLESS_MAIN(ChromeSpecTest)

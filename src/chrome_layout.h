@@ -123,6 +123,68 @@ inline constexpr qreal kPlaylistScrollGap = 10;
 inline constexpr qreal kPlaylistFooterH = 110;
 inline constexpr qreal kPlaylistFooterGap = 10;
 inline constexpr qreal kPlaylistPanePad = 12;
+inline constexpr qreal kPlaylistStripGap = 8;
+inline constexpr qreal kPlaylistStripBtn = 52;
+inline constexpr qreal kPlaylistStripBtnH = 52;
+inline constexpr qreal kPlaylistStripTotalH = 34;
+inline constexpr qreal kPlaylistStripSepExtra = 6;
+inline constexpr qreal kPlaylistStripSepW = 1;
+inline constexpr qreal kPlaylistStripSepAfter = 14;
+
+struct PlaylistStripLayout {
+  QRectF add;
+  QRectF remove;
+  QRectF sep;
+  QRectF sort;
+  QRectF options;
+  QRectF rail;
+  QRectF prev;
+  QRectF play;
+  QRectF next;
+  QRectF total;
+};
+
+/// `.pl-total` horizontal pad 18 + label/value gap 12.
+inline qreal playlistStripTotalWidth(qreal labelW, qreal valueW) {
+  return 18 + labelW + 12 + valueW + 18;
+}
+
+/// Playlist Manager button row under the track list. Transport cluster is
+/// packed from the right against the length well, with [kPlaylistStripGap]
+/// between Next and TOTAL (mockup `.pl-strip` flex gap).
+inline PlaylistStripLayout layoutPlaylistStrip(const QRectF& plateInner, qreal totalW) {
+  PlaylistStripLayout out;
+  const qreal y = plateInner.top();
+  const qreal w = kPlaylistStripBtn;
+  const qreal h = kPlaylistStripBtnH;
+  const qreal gap = kPlaylistStripGap;
+  qreal x = plateInner.left();
+  auto place = [&](QRectF& r) {
+    r = QRectF(x, y, w, h);
+    x += w + gap;
+  };
+  place(out.add);
+  place(out.remove);
+  x += kPlaylistStripSepExtra;
+  out.sep = QRectF(x, y + 6, kPlaylistStripSepW, 40);
+  x += kPlaylistStripSepW + kPlaylistStripSepAfter;
+  place(out.sort);
+  place(out.options);
+
+  const qreal totalLeft = plateInner.right() - totalW;
+  const qreal cluster = w * 3 + gap * 2;
+  const qreal nextRight = totalLeft - gap;
+  const qreal prevLeft = nextRight - cluster;
+  out.prev = QRectF(prevLeft, y, w, h);
+  out.play = QRectF(prevLeft + w + gap, y, w, h);
+  out.next = QRectF(prevLeft + 2 * (w + gap), y, w, h);
+  const qreal railRight = prevLeft - gap;
+  if (railRight - x > 4) {
+    out.rail = QRectF(x, y, railRight - x, h);
+  }
+  out.total = QRectF(totalLeft, y + (h - kPlaylistStripTotalH) / 2, totalW, kPlaylistStripTotalH);
+  return out;
+}
 
 inline qreal playlistListWellHeight(qreal playlistLogicalH) {
   const qreal bodyH = playlistLogicalH - kTitleBar;

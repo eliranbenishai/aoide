@@ -664,48 +664,38 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   const QRectF plate(footer.left(), footer.top(), footer.width(), 74);
   drawPlate(p, plate);
   const QRectF plateInner = plate.adjusted(12, 10, -12, -10);
-  qreal fx = plateInner.left();
-  const qreal fy = plateInner.top();
-  auto fbtn = [&](qreal w, MockupIcon icon, bool menu, qreal iconSize, bool on = false) {
-    const QRectF r(fx, fy, w, 52);
+  const QFont totalLabel = condensedFont(11, 0.2);
+  const QFont totalValue = monoFont(18);
+  const qreal totalW = playlistStripTotalWidth(textWidth(totalLabel, QStringLiteral("TOTAL")),
+                                              textWidth(totalValue, totalText));
+  const auto strip = layoutPlaylistStrip(plateInner, totalW);
+  auto paintBtn = [&](const QRectF& r, MockupIcon icon, bool menu, qreal iconSize,
+                      bool on = false) {
     drawGlyphBtn(p, r, icon, on, iconSize);
     if (menu) {
       drawMenuCaret(p, r);
     }
-    fx += w + 8;
-    return r;
   };
-  fbtn(52, MockupIcon::add, false, 21);
-  fbtn(52, MockupIcon::remove, false, 21);
-  fx += 6;
-  drawFooterSep(p, QRectF(fx, fy + 6, 1, 40));
-  fx += 1 + 14;
-  fbtn(52, MockupIcon::sort, true, 21);
-  fbtn(52, MockupIcon::options, true, 21);
-
-  const QFont totalLabel = condensedFont(11, 0.2);
-  const QFont totalValue = monoFont(18);
-  const qreal totalW = 18 + textWidth(totalLabel, QStringLiteral("TOTAL")) + 12 +
-                       textWidth(totalValue, totalText) + 18;
-  const qreal transport = 52 * 3 + 16;
-  const qreal railLeft = fx;
-  const qreal railRight = plateInner.right() - totalW - 8 - transport;
-  if (railRight - railLeft > 4) {
-    drawRail(p, QRectF(railLeft, fy, railRight - railLeft, 52));
+  paintBtn(strip.add, MockupIcon::add, false, 21);
+  paintBtn(strip.remove, MockupIcon::remove, false, 21);
+  drawFooterSep(p, strip.sep);
+  paintBtn(strip.sort, MockupIcon::sort, true, 21);
+  paintBtn(strip.options, MockupIcon::options, true, 21);
+  if (strip.rail.width() > 4) {
+    drawRail(p, strip.rail);
   }
-  fx = railRight + 8;
-  fbtn(52, MockupIcon::previous, false, 18);
-  fbtn(52, view.playing ? MockupIcon::pause : MockupIcon::play, false, 18, view.playing);
-  fbtn(52, MockupIcon::next, false, 18);
-  const QRectF total(plateInner.right() - totalW, fy + (52 - 34) / 2, totalW, 34);
-  drawScreenWell(p, total);
+  paintBtn(strip.prev, MockupIcon::previous, false, 18);
+  paintBtn(strip.play, view.playing ? MockupIcon::pause : MockupIcon::play, false, 18,
+           view.playing);
+  paintBtn(strip.next, MockupIcon::next, false, 18);
+  drawScreenWell(p, strip.total);
   p.setFont(totalLabel);
   p.setPen(T().phosDim);
-  p.drawText(total.adjusted(18, 0, 0, 0), Qt::AlignVCenter | Qt::AlignLeft,
+  p.drawText(strip.total.adjusted(18, 0, 0, 0), Qt::AlignVCenter | Qt::AlignLeft,
              QStringLiteral("TOTAL"));
-  drawGlowText(p, total.adjusted(0, 0, -18, 0), totalText, totalValue, T().phos,
+  drawGlowText(p, strip.total.adjusted(0, 0, -18, 0), totalText, totalValue, T().phos,
                withAlpha(T().phos, 115), 4, Qt::AlignVCenter | Qt::AlignRight);
-  drawScreenOverlay(p, total);
+  drawScreenOverlay(p, strip.total);
 
   const QFont statusFont = condensedFont(12, 0.18);
   p.setFont(statusFont);

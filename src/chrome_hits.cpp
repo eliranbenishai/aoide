@@ -176,25 +176,38 @@ ChromeHit hitPlaylist(QSize logical, QPoint pos, const SessionView& view) {
 
   const QRectF footer(trackInner.left(), trackInner.bottom() - kPlaylistFooterH, trackInner.width(),
                       kPlaylistFooterH);
-  const QRectF plateInner = QRectF(footer.left(), footer.top(), footer.width(), 74).adjusted(12, 10, -12, -10);
-  qreal fx = plateInner.left();
-  const qreal fy = plateInner.top();
-  auto fbtn = [&](qreal w, ChromeHit::Kind kind) {
-    const QRect r(int(fx), int(fy), int(w), 52);
-    fx += w + 8;
-    return hitIf(r, pos, kind);
+  const QRectF plateInner =
+      QRectF(footer.left(), footer.top(), footer.width(), 74).adjusted(12, 10, -12, -10);
+  const QString totalText =
+      view.goldenDemo ? QStringLiteral("55:34") : formatClock(view.playlistTotalMs);
+  const qreal totalW = playlistStripTotalWidth(
+      textWidth(condensedFont(11, 0.2), QStringLiteral("TOTAL")),
+      textWidth(monoFont(18), totalText));
+  const auto strip = layoutPlaylistStrip(plateInner, totalW);
+  auto hitBtn = [&](const QRectF& r, ChromeHit::Kind kind) {
+    return hitIf(r.toRect(), pos, kind);
   };
-  if (auto h = fbtn(52, ChromeHit::Kind::plAdd); h.kind != ChromeHit::Kind::none) return h;
-  if (auto h = fbtn(52, ChromeHit::Kind::plRemove); h.kind != ChromeHit::Kind::none) return h;
-  fx += 6 + 1 + 14;
-  if (auto h = fbtn(52, ChromeHit::Kind::plSort); h.kind != ChromeHit::Kind::none) return h;
-  if (auto h = fbtn(52, ChromeHit::Kind::plOptions); h.kind != ChromeHit::Kind::none) return h;
-  const qreal totalW = 120;
-  const qreal transport = 52 * 3 + 16;
-  fx = plateInner.right() - totalW - 8 - transport;
-  if (auto h = fbtn(52, ChromeHit::Kind::plPrev); h.kind != ChromeHit::Kind::none) return h;
-  if (auto h = fbtn(52, ChromeHit::Kind::plPlay); h.kind != ChromeHit::Kind::none) return h;
-  if (auto h = fbtn(52, ChromeHit::Kind::plNext); h.kind != ChromeHit::Kind::none) return h;
+  if (auto h = hitBtn(strip.add, ChromeHit::Kind::plAdd); h.kind != ChromeHit::Kind::none) {
+    return h;
+  }
+  if (auto h = hitBtn(strip.remove, ChromeHit::Kind::plRemove); h.kind != ChromeHit::Kind::none) {
+    return h;
+  }
+  if (auto h = hitBtn(strip.sort, ChromeHit::Kind::plSort); h.kind != ChromeHit::Kind::none) {
+    return h;
+  }
+  if (auto h = hitBtn(strip.options, ChromeHit::Kind::plOptions); h.kind != ChromeHit::Kind::none) {
+    return h;
+  }
+  if (auto h = hitBtn(strip.prev, ChromeHit::Kind::plPrev); h.kind != ChromeHit::Kind::none) {
+    return h;
+  }
+  if (auto h = hitBtn(strip.play, ChromeHit::Kind::plPlay); h.kind != ChromeHit::Kind::none) {
+    return h;
+  }
+  if (auto h = hitBtn(strip.next, ChromeHit::Kind::plNext); h.kind != ChromeHit::Kind::none) {
+    return h;
+  }
 
   const QRect grip(logical.width() - 18, logical.height() - 18, 18, 18);
   if (auto h = hitIf(grip, pos, ChromeHit::Kind::plResize); h.kind != ChromeHit::Kind::none) return h;
