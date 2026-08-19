@@ -81,6 +81,10 @@ void HostWindow::setSessionView(const tramp::SessionView& view) {
                       view_.titleScrollMs > tramp::kMarqueeHoldMs;
   invalidateChassis();
   if (collectionChanged) applyNativeSize();
+  if (tramp::WaitCursorScope::showing()) {
+    repaint();
+    return;
+  }
   update();
 }
 

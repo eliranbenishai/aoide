@@ -1,5 +1,7 @@
 #include "host_shell_window.h"
 #include "host_window.h"
+#include "session_view.h"
+#include "wait_cursor.h"
 #include "window_spec.h"
 
 #include <QApplication>
@@ -8,12 +10,25 @@
 #include <QTest>
 #include <cstdio>
 
+class PaintCountHost : public HostWindow {
+ public:
+  using HostWindow::HostWindow;
+  int paints = 0;
+
+ protected:
+  void paintEvent(QPaintEvent* event) override {
+    ++paints;
+    HostWindow::paintEvent(event);
+  }
+};
+
 class HostWindowMoveTest : public QObject {
   Q_OBJECT
 
  private slots:
   void parentedPanelMoveDoesNotEmitNativeMoved();
   void siblingDragDoesNotPayFullClusterPaint();
+  void waitCursorRebuildsChassisBeforeRefreshReturns();
 };
 
 void HostWindowMoveTest::parentedPanelMoveDoesNotEmitNativeMoved() {
@@ -51,6 +66,24 @@ void HostWindowMoveTest::siblingDragDoesNotPayFullClusterPaint() {
   QCOMPARE(pl.mapToGlobal(QPoint(0, 0)), plR.topLeft());
   QVERIFY2(ns < 10'000'000,
            "moving a sibling must not pay a full cluster paint (10ms for 20 moves)");
+}
+
+void HostWindowMoveTest::waitCursorRebuildsChassisBeforeRefreshReturns() {
+  HostShell shell;
+  PaintCountHost panel(tramp::windowSpecs()[0], &shell);
+  shell.show();
+  panel.show();
+  QVERIFY(QTest::qWaitForWindowExposed(&panel));
+  const tramp::SessionView view = tramp::SessionView::golden();
+  panel.setSessionView(view);
+  QApplication::processEvents();
+  {
+    tramp::WaitCursorScope wait;
+    const int beforeRefresh = panel.paints;
+    panel.setSessionView(view);
+    QVERIFY2(panel.paints > beforeRefresh,
+             "skin refresh must rebuild chrome before the wait cursor drops");
+  }
 }
 
 QTEST_MAIN(HostWindowMoveTest)

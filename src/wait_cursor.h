@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QObject>
 #include <functional>
 
 namespace tramp {
@@ -28,6 +29,8 @@ class WaitCursorScope {
   static int paused_;
   static WaitCursorHooks hooks_;
 };
+
+void withWaitCursor(QObject* context, std::function<void()> work);
 
 class WaitCursorPause {
  public:

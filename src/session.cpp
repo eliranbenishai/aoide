@@ -1236,13 +1236,14 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       break;
     case K::settingsSkinRow: {
       const auto catalog = skins_.catalog();
-      if (hit.index >= 0 && hit.index < catalog.size()) {
-        WaitCursorScope wait;
-        if (skins_.activate(catalog[hit.index].id, settings_)) {
+      if (hit.index < 0 || hit.index >= catalog.size()) break;
+      const QString id = catalog[hit.index].id;
+      withWaitCursor(this, [this, id]() {
+        if (skins_.activate(id, settings_)) {
           schedulePersist();
         }
         refreshChrome();
-      }
+      });
       break;
     }
     case K::settingsInstallZip: {

@@ -11,6 +11,7 @@ class WaitCursorTest : public QObject {
  private slots:
   void scopeSetsTheWidgetCursor();
   void restoreClearsTheWidgetCursor();
+  void queuedWorkHoldsTheCursorUntilTheNextTick();
 };
 
 void WaitCursorTest::scopeSetsTheWidgetCursor() {
@@ -39,6 +40,23 @@ void WaitCursorTest::restoreClearsTheWidgetCursor() {
     QCOMPARE(w.cursor().shape(), Qt::WaitCursor);
   }
   QVERIFY(!QGuiApplication::overrideCursor());
+  QCOMPARE(w.cursor().shape(), Qt::PointingHandCursor);
+}
+
+void WaitCursorTest::queuedWorkHoldsTheCursorUntilTheNextTick() {
+  QWidget w;
+  w.resize(40, 40);
+  w.setCursor(Qt::PointingHandCursor);
+  w.show();
+  QVERIFY(QTest::qWaitForWindowExposed(&w));
+  bool ran = false;
+  tramp::withWaitCursor(&w, [&]() {
+    ran = true;
+    QCOMPARE(w.cursor().shape(), Qt::WaitCursor);
+  });
+  QVERIFY(!ran);
+  QCOMPARE(w.cursor().shape(), Qt::PointingHandCursor);
+  QTRY_VERIFY(ran);
   QCOMPARE(w.cursor().shape(), Qt::PointingHandCursor);
 }
 

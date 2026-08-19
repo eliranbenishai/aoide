@@ -6,6 +6,7 @@
 #include <QEventLoop>
 #include <QGuiApplication>
 #include <QPointer>
+#include <QTimer>
 #include <QVector>
 #include <QWidget>
 
@@ -87,6 +88,13 @@ WaitCursorPause::~WaitCursorPause() {
 }
 
 void WaitCursorScope::installHooks(WaitCursorHooks hooks) { hooks_ = std::move(hooks); }
+
+void withWaitCursor(QObject* context, std::function<void()> work) {
+  QTimer::singleShot(0, context, [work = std::move(work)]() {
+    WaitCursorScope wait;
+    work();
+  });
+}
 
 void WaitCursorScope::resetHooks() {
   depth_ = 0;
