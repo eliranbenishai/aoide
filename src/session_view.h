@@ -66,6 +66,7 @@ struct SessionView {
   bool resumeLastSession = true;
   bool confirmBeforeQuit = false;
   bool scrollTitle = true;
+  qint64 titleScrollMs = 0;
   bool minimizeHidesSecondaries = true;
   int dockSnap = 1;
   int aboutPlaylists = 0;
@@ -86,6 +87,7 @@ struct MainLiveReadouts {
   qint64 positionMs = 0;
   qint64 durationMs = 0;
   bool showElapsed = true;
+  qint64 titleScrollMs = 0;
   std::array<qreal, 20> spectrum{};
   std::array<qreal, 20> spectrumPeaks{};
 };

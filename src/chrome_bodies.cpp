@@ -31,6 +31,31 @@ QString formatGain(qreal gain) {
   return sign + QString::number(qAbs(gain), 'f', 1);
 }
 
+void paintWellMarquee(QPainter& p, const QRectF& clip, const QString& text, const QFont& font,
+                      const QColor& fill, const QVector<TextShadow>& shadows, qreal offset) {
+  const int bw = qMax(1, int(std::ceil(clip.width())));
+  const int bh = qMax(1, int(std::ceil(clip.height())));
+  QImage buf(bw, bh, QImage::Format_ARGB32_Premultiplied);
+  buf.fill(Qt::transparent);
+  QPainter tp(&buf);
+  tp.setRenderHint(QPainter::TextAntialiasing);
+  const qreal textW = textWidth(font, text);
+  const qreal loop = marqueeLoopWidth(textW, clip.width());
+  auto drawCopy = [&](qreal x) {
+    drawStyledText(tp, QRectF(x, 0, qMax(textW + 16, clip.width()), clip.height()), text, font,
+                   fill, Qt::AlignLeft | Qt::AlignVCenter, shadows);
+  };
+  drawCopy(-offset);
+  if (loop > 0) drawCopy(-offset + loop);
+  QLinearGradient fade(QPointF(clip.width() * 0.84, 0), QPointF(clip.width(), 0));
+  fade.setColorAt(0, QColor(255, 255, 255, 255));
+  fade.setColorAt(1, QColor(255, 255, 255, 0));
+  tp.setCompositionMode(QPainter::CompositionMode_DestinationIn);
+  tp.fillRect(QRectF(0, 0, clip.width(), clip.height()), fade);
+  tp.end();
+  p.drawImage(clip.topLeft(), buf);
+}
+
 void drawLogoMark(QPainter& p, const QRectF& box, const QImage* logo, qreal opacity) {
   if (!logo || logo->isNull() || opacity <= 0) {
     return;
@@ -158,35 +183,30 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
     }
   }
 
-  if (chassis) {
-    const QRectF meta(inner.left() + 268 + 20, inner.top(), inner.width() - 288,
-                      inner.height());
+  const QRectF meta(inner.left() + 268 + 20, inner.top(), inner.width() - 288, inner.height());
+
+  if (live) {
     const QFont titleFont = condensedFont(24, 0.03);
-    {
-      QImage titleBuf(int(std::ceil(meta.width())), 32, QImage::Format_ARGB32_Premultiplied);
-      titleBuf.fill(Qt::transparent);
-      QPainter tp(&titleBuf);
-      tp.setRenderHint(QPainter::TextAntialiasing);
-      drawStyledText(tp, QRectF(0, 0, 720, 28), title, titleFont, T().phosHot,
-                     Qt::AlignLeft | Qt::AlignVCenter,
+    const QFont subFont = condensedFont(14, 0.14);
+    const bool scroll = view.scrollTitle && !view.goldenDemo;
+    const qreal titleW = textWidth(titleFont, title);
+    const qreal subW = textWidth(subFont, subtitle);
+    const QRectF titleClip(meta.left(), meta.top(), meta.width(), 32);
+    const QRectF subClip(meta.left(), meta.top() + 32, meta.width(), 18);
+    paintWellMarquee(p, titleClip, title, titleFont, T().phosHot,
                      {
                          {withAlpha(T().phos, 0xe6), QPointF(), 1.5},
                          {withAlpha(T().phos, 0x80), QPointF(), 10},
-                     });
-      QLinearGradient fade(QPointF(meta.width() * 0.84, 0), QPointF(meta.width(), 0));
-      fade.setColorAt(0, QColor(255, 255, 255, 255));
-      fade.setColorAt(1, QColor(255, 255, 255, 0));
-      tp.setCompositionMode(QPainter::CompositionMode_DestinationIn);
-      tp.fillRect(QRectF(0, 0, meta.width(), 32), fade);
-      tp.end();
-      p.drawImage(meta.topLeft(), titleBuf);
+                     },
+                     marqueeOffset(titleW, titleClip.width(), view.titleScrollMs, scroll));
+    if (!subtitle.isEmpty()) {
+      paintWellMarquee(p, subClip, subtitle, subFont, withAlpha(T().phos, 128),
+                       {{withAlpha(T().phos, 0x40), QPointF(), 8}},
+                       marqueeOffset(subW, subClip.width(), view.titleScrollMs, scroll));
     }
+  }
 
-    drawStyledText(p, QRectF(meta.left(), meta.top() + 32, meta.width(), 18),
-                   subtitle, condensedFont(14, 0.14),
-                   withAlpha(T().phos, 128), Qt::AlignLeft | Qt::AlignVCenter,
-                   {{withAlpha(T().phos, 0x40), QPointF(), 8}});
-
+  if (chassis) {
     const qreal metaY = inner.bottom() - 18;
     const QFont metaFont = monoFont(13, 0.04);
     const QFont channelsFont = condensedFont(12, 0.2);

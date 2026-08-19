@@ -13,6 +13,7 @@
 #include "spectrum.h"
 
 #include <QAction>
+#include <QElapsedTimer>
 #include <QObject>
 #include <QPoint>
 #include <QRect>
@@ -111,6 +112,8 @@ class TrampSession : public QObject {
   void syncSpectrum();
   void tickSpectrum();
   void startSpectrumDecode(const QString& path, int gen);
+  void syncTitleMarquee();
+  qint64 titleScrollMs() const;
 
   SupportStore store_;
   TrampSettings settings_;
@@ -133,13 +136,15 @@ class TrampSession : public QObject {
   HostWindow* settingsWin_ = nullptr;
   HostWindow* about_ = nullptr;
   HostShell* shell_ = nullptr;
-  bool showElapsed_ = true;
   int settingsTab_ = 0;
   int trackScroll_ = 0;
   ChromeHit::Kind sliderKind_ = ChromeHit::Kind::none;
   int sliderIndex_ = -1;
   QPoint dragOrigin_;
   QSet<WindowId> hiddenByMinimize_;
+  QTimer marqueeTimer_;
+  QElapsedTimer marqueeClock_;
+  QString marqueeIdentity_;
   QTimer persistTimer_;
   QTimer alteredTimer_;
   QTimer usageTimer_;

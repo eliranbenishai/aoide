@@ -66,6 +66,12 @@ TrampSession::TrampSession(QObject* parent)
   spectrumTimer_.setInterval(33);
   spectrumTimer_.setTimerType(Qt::CoarseTimer);
   QObject::connect(&spectrumTimer_, &QTimer::timeout, this, [this]() { tickSpectrum(); });
+  marqueeTimer_.setInterval(50);
+  marqueeTimer_.setTimerType(Qt::CoarseTimer);
+  QObject::connect(&marqueeTimer_, &QTimer::timeout, this, [this]() {
+    if (!spectrumTimer_.isActive()) emit mainChromeChanged();
+  });
+  marqueeClock_.start();
   DockLayout layout;
   layout.main = settings_.main;
   layout.equalizer = settings_.equalizer;
@@ -115,11 +121,13 @@ TrampSession::TrampSession(QObject* parent)
   engine_->setForceMono(settings_.forceMono);
   applyEq();
   skins_.bootstrap(trampSupportDirectory(), bundledSkinsDir(), settings_);
+  syncTitleMarquee();
 }
 
 TrampSession::~TrampSession() {
   ++spectrumGen_;
   spectrumTimer_.stop();
+  marqueeTimer_.stop();
   persistNow();
 }
 
@@ -136,6 +144,7 @@ void TrampSession::detachWindows() {
 void TrampSession::bindPlayback() {
   playback_->setOnChanged([this]() {
     syncSpectrum();
+    syncTitleMarquee();
     refreshChrome();
   });
   playback_->setOnPosition([this]() {
@@ -176,6 +185,28 @@ void TrampSession::tickSpectrum() {
       spectrumFrame(spectrogram_, playback_->playing() && spectrumReady_, playback_->positionMs());
   spectrumHold_.apply(frame);
   emit mainChromeChanged();
+}
+
+void TrampSession::syncTitleMarquee() {
+  QString id;
+  if (const auto track = playback_->currentTrack()) {
+    id = track->path + QLatin1Char('\n') + track->displayTitle() + QLatin1Char('\n') +
+         track->album;
+  }
+  if (id != marqueeIdentity_) {
+    marqueeIdentity_ = id;
+    marqueeClock_.restart();
+  }
+  if (settings_.scrollTitle && !id.isEmpty()) {
+    if (!marqueeTimer_.isActive()) marqueeTimer_.start();
+  } else if (marqueeTimer_.isActive()) {
+    marqueeTimer_.stop();
+  }
+}
+
+qint64 TrampSession::titleScrollMs() const {
+  if (!settings_.scrollTitle || !marqueeClock_.isValid()) return 0;
+  return marqueeClock_.elapsed();
 }
 
 void TrampSession::startSpectrumDecode(const QString& path, int gen) {
@@ -423,7 +454,8 @@ SessionView TrampSession::view() const {
   SessionView v;
   v.eqOn = docking_.layout().equalizer.visible;
   v.plOn = docking_.layout().playlist.visible;
-  v.showElapsed = showElapsed_;
+  v.showElapsed = settings_.showElapsed;
+  v.titleScrollMs = titleScrollMs();
   v.positionMs = playback_->positionMs();
   v.durationMs = playback_->durationMs();
   v.volume = playback_->volume();
@@ -531,7 +563,8 @@ MainLiveReadouts TrampSession::mainLive() const {
   MainLiveReadouts live;
   live.positionMs = playback_->positionMs();
   live.durationMs = playback_->durationMs();
-  live.showElapsed = showElapsed_;
+  live.showElapsed = settings_.showElapsed;
+  live.titleScrollMs = titleScrollMs();
   live.spectrum = spectrumHold_.bars;
   live.spectrumPeaks = spectrumHold_.peaks;
   return live;
@@ -865,7 +898,8 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       showOptionsMenu(hit.rect);
       break;
     case K::timeToggle:
-      showElapsed_ = !showElapsed_;
+      settings_.showElapsed = !settings_.showElapsed;
+      schedulePersist();
       refreshChrome();
       break;
     case K::mute:
@@ -1148,6 +1182,7 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       break;
     case K::settingsScroll:
       settings_.scrollTitle = !settings_.scrollTitle;
+      syncTitleMarquee();
       schedulePersist();
       refreshChrome();
       break;
@@ -1181,6 +1216,7 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       docking_.setSnapThreshold(20);
       applyAlwaysOnTop();
       skins_.setSkinsDirectory({}, settings_);
+      syncTitleMarquee();
       schedulePersist();
       refreshChrome();
       break;

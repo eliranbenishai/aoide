@@ -183,6 +183,7 @@ QJsonObject TrampSettings::toJson() const {
   o.insert(QStringLiteral("resumeLastSession"), resumeLastSession);
   o.insert(QStringLiteral("confirmBeforeQuit"), confirmBeforeQuit);
   o.insert(QStringLiteral("scrollTitle"), scrollTitle);
+  o.insert(QStringLiteral("showElapsed"), showElapsed);
   o.insert(QStringLiteral("minimizeHidesSecondaries"), minimizeHidesSecondaries);
   QString snap = QStringLiteral("normal");
   if (dockSnapStrength == DockSnapStrength::off) snap = QStringLiteral("off");
@@ -237,6 +238,9 @@ TrampSettings TrampSettings::fromJson(const QJsonObject& json) {
   }
   if (json.value(QStringLiteral("scrollTitle")).isBool()) {
     s.scrollTitle = json.value(QStringLiteral("scrollTitle")).toBool();
+  }
+  if (json.value(QStringLiteral("showElapsed")).isBool()) {
+    s.showElapsed = json.value(QStringLiteral("showElapsed")).toBool();
   }
   if (json.value(QStringLiteral("minimizeHidesSecondaries")).isBool()) {
     s.minimizeHidesSecondaries = json.value(QStringLiteral("minimizeHidesSecondaries")).toBool();

@@ -18,6 +18,7 @@ class ChromeSpecTest : public QObject {
   void extrasOmitBrandAndZoomAndUseCollapse();
   void zoomStepsMoveAcrossTheDiscreteLadder();
   void mainTitleShowsZoomReadoutBetweenZoomButtons();
+  void overflowingTitleMarqueeHoldsThenLoops();
   void chromePaintBufferMatchesWidgetTimesDpr();
   void stereoPlaylistGapHoldsForWideGlyphs();
   void skinsListScrollsLastRowIntoView();
@@ -77,9 +78,10 @@ void ChromeSpecTest::mainTitleDragExcludesWindowButtons() {
   QVERIFY(layout.showZoom);
   QCOMPARE(layout.roleName, QStringLiteral("Main Player"));
 
-  // `.wbtn` 26×22, gap 5, pad-right 9 — close is last (min − % + close).
+  // `.wbtn` 26×22, gap 5, pad-right 9 — zoom cluster, then a 12px gap, then
+  // minimize flush against close.
   QCOMPARE(layout.close, QRect(790, 10, 26, 22));
-  QCOMPARE(layout.minimize, QRect(648, 10, 26, 22));
+  QCOMPARE(layout.minimize, QRect(759, 10, 26, 22));
 
   const QPoint closeCenter = layout.close.center();
   QCOMPARE(layout.hit(closeCenter), tramp::TitleChromeLayout::Hit::close);
@@ -118,19 +120,32 @@ void ChromeSpecTest::zoomStepsMoveAcrossTheDiscreteLadder() {
 void ChromeSpecTest::mainTitleShowsZoomReadoutBetweenZoomButtons() {
   const auto layout =
       tramp::TitleChromeLayout::forWindow(tramp::WindowId::main, tramp::kMainPlayer);
+  QCOMPARE(layout.zoomOut, QRect(641, 10, 26, 22));
+  QCOMPARE(layout.zoomReadout, QRect(672, 10, 44, 22));
+  QCOMPARE(layout.zoomIn, QRect(721, 10, 26, 22));
+  QCOMPARE(layout.minimize, QRect(759, 10, 26, 22));
   QCOMPARE(layout.close, QRect(790, 10, 26, 22));
-  QCOMPARE(layout.minimize, QRect(648, 10, 26, 22));
-  QCOMPARE(layout.zoomOut, QRect(679, 10, 26, 22));
-  QCOMPARE(layout.zoomReadout, QRect(710, 10, 44, 22));
-  QCOMPARE(layout.zoomIn, QRect(759, 10, 26, 22));
   QVERIFY(layout.zoomOut.right() < layout.zoomReadout.left());
   QVERIFY(layout.zoomReadout.right() < layout.zoomIn.left());
+  QCOMPARE(layout.minimize.left(), layout.zoomIn.x() + layout.zoomIn.width() + 12);
+  QCOMPARE(layout.close.left(), layout.minimize.x() + layout.minimize.width() + 5);
   QCOMPARE(layout.hit(layout.zoomReadout.center()), tramp::TitleChromeLayout::Hit::none);
   QVERIFY(!layout.inDragRegion(layout.zoomReadout.center()));
 
   const auto eq = tramp::TitleChromeLayout::forWindow(
       tramp::WindowId::equalizer, tramp::kEqualizer);
   QVERIFY(eq.zoomReadout.isEmpty());
+}
+
+void ChromeSpecTest::overflowingTitleMarqueeHoldsThenLoops() {
+  QCOMPARE(tramp::marqueeOffset(80, 100, 5000, true), 0.0);
+  QCOMPARE(tramp::marqueeOffset(200, 100, 5000, false), 0.0);
+  QCOMPARE(tramp::marqueeOffset(200, 100, 0, true), 0.0);
+  QCOMPARE(tramp::marqueeOffset(200, 100, 1199, true), 0.0);
+  QCOMPARE(tramp::marqueeOffset(200, 100, 1200, true), 0.0);
+  QCOMPARE(tramp::marqueeOffset(200, 100, 2200, true), 40.0);
+  QCOMPARE(tramp::marqueeOffset(200, 100, 7200, true), 0.0);
+  QCOMPARE(tramp::marqueeOffset(200, 100, 8200, true), 40.0);
 }
 
 void ChromeSpecTest::chromePaintBufferMatchesWidgetTimesDpr() {

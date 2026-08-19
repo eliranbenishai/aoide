@@ -252,8 +252,8 @@ void drawMute(QPainter& p, const QRectF& box, const QColor& color) {
   QPen wave(color, 1.7, Qt::SolidLine, Qt::RoundCap);
   p.setPen(wave);
   p.setBrush(Qt::NoBrush);
-  p.drawArc(QRectF(11.2, 9.3, 8.4, 5.4), 90 * 16, -180 * 16);
-  p.drawArc(QRectF(10.2, 6.7, 15.6, 10.6), 90 * 16, -180 * 16);
+  p.drawArc(QRectF(11.2, 7.8, 8.4, 8.4), 90 * 16, -180 * 16);
+  p.drawArc(QRectF(10.2, 4.2, 15.6, 15.6), 90 * 16, -180 * 16);
   p.restore();
 }
 

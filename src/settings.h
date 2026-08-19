@@ -62,6 +62,7 @@ struct TrampSettings {
   bool resumeLastSession = true;
   bool confirmBeforeQuit = false;
   bool scrollTitle = true;
+  bool showElapsed = true;
   bool minimizeHidesSecondaries = true;
   DockSnapStrength dockSnapStrength = DockSnapStrength::normal;
   double playlistCollectionWidth = 240;

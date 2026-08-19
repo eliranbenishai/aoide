@@ -5,6 +5,7 @@
 #include <QRectF>
 #include <QSize>
 #include <algorithm>
+#include <cmath>
 
 namespace tramp {
 
@@ -37,6 +38,26 @@ inline DisplayMetaLayout layoutDisplayMetaRow(const QRectF& inner, qreal y, qrea
   const qreal x = (flowX + channelsW + kDisplayMetaGap <= out.playlist.left()) ? flowX : anchoredX;
   out.channels = QRectF(x, y, channelsW, kDisplayMetaH);
   return out;
+}
+
+inline constexpr qint64 kMarqueeHoldMs = 1200;
+inline constexpr qreal kMarqueePxPerSec = 40;
+inline constexpr qreal kMarqueeGap = 40;
+
+inline qreal marqueeLoopWidth(qreal textWidth, qreal clipWidth) {
+  if (textWidth <= clipWidth) return 0;
+  return textWidth + kMarqueeGap;
+}
+
+/// Pixels to shift an overflowing display-well line left. Holds at the start,
+/// then loops with [kMarqueeGap] between copies. Disabled or fitting text stays 0.
+inline qreal marqueeOffset(qreal textWidth, qreal clipWidth, qint64 elapsedMs, bool enabled) {
+  if (!enabled || textWidth <= clipWidth || elapsedMs <= 0) return 0;
+  const qreal loop = marqueeLoopWidth(textWidth, clipWidth);
+  if (loop <= 0) return 0;
+  if (elapsedMs <= kMarqueeHoldMs) return 0;
+  const qreal scrolled = qreal(elapsedMs - kMarqueeHoldMs) / 1000.0 * kMarqueePxPerSec;
+  return std::fmod(scrolled, loop);
 }
 
 inline constexpr int kSkinRowStride = 36;

@@ -91,6 +91,7 @@ void HostWindow::applyLiveReadouts(const tramp::MainLiveReadouts& live) {
   view_.positionMs = live.positionMs;
   view_.durationMs = live.durationMs;
   view_.showElapsed = live.showElapsed;
+  view_.titleScrollMs = live.titleScrollMs;
   view_.spectrum = live.spectrum;
   view_.spectrumPeaks = live.spectrumPeaks;
   if (spec_.id != tramp::WindowId::main || !chassisValid_ || shaded_) {

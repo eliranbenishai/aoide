@@ -389,6 +389,30 @@ int main() {
   }
 
   {
+    TrampSettings saved;
+    saved.showElapsed = false;
+    saved.scrollTitle = false;
+    const TrampSettings loaded = TrampSettings::fromJson(saved.toJson());
+    REQUIRE(!loaded.showElapsed);
+    REQUIRE(!loaded.scrollTitle);
+    REQUIRE(loaded.toJson().value(QStringLiteral("showElapsed")).toBool() == false);
+  }
+
+  {
+    const TrampSettings defaults = TrampSettings::fromJson(QJsonObject{});
+    REQUIRE(defaults.showElapsed);
+    REQUIRE(defaults.scrollTitle);
+  }
+
+  {
+    const TrampSettings remain = TrampSettings::fromJson(obj(QStringLiteral(R"({
+      "showElapsed": false
+    })")));
+    REQUIRE(!remain.showElapsed);
+    REQUIRE(remain.scrollTitle);
+  }
+
+  {
     const TrampSettings loaded = TrampSettings::fromJson(obj(QStringLiteral(R"({
       "main": {"visible": true, "shaded": false, "left": 120, "top": 80},
       "equalizer": {"visible": true, "shaded": false, "left": 120, "top": 428},
