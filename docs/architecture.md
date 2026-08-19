@@ -125,6 +125,7 @@ Support dir: `$XDG_DATA_HOME/com.proximamagnifica.tramp` (adopts legacy `…/com
 - Linux MPRIS; second-instance “Open with”
 - Qt macOS host (and therefore the notarized DMG)
 - Spectrum: second `ao=pcm` pass per open; long tracks analyse in the background
+- Title-bar drag still punches and live-paints every move; a deferred-punch trial left trails on KWin — [`title-bar-drag.md`](agents/title-bar-drag.md)
 
 ## Notes
 

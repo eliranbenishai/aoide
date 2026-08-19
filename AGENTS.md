@@ -24,6 +24,10 @@ Cardinal: if a request would violate an accepted ADR, stop, cite the clash, and 
 
 Offscreen tests are not proof the host window moved. The host is the virtual desktop; title-bar drags are app-owned in host-local space. See `.cursor/rules/compositor-geometry.mdc`.
 
+### Title-bar drag
+
+Punch-lag artifacts, drag jank, or Wayland `grabMouse`: [`docs/agents/title-bar-drag.md`](docs/agents/title-bar-drag.md).
+
 ### Architecture
 
 Living design map: `docs/architecture.md`. Update it in the same change whenever the app’s structure, boundaries, stack, or major features change. See `.cursor/rules/architecture-doc.mdc`.
