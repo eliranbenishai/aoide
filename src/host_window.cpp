@@ -8,6 +8,7 @@
 #include "tramp_metrics.h"
 
 #include <QCoreApplication>
+#include <QGuiApplication>
 #include <QMimeData>
 #include <QMoveEvent>
 #include <QPainter>
@@ -121,6 +122,18 @@ void HostWindow::applyLiveReadouts(const tramp::MainLiveReadouts& live) {
 }
 
 void HostWindow::invalidateChassis() { chassisValid_ = false; }
+
+void HostWindow::grabPointerIfAllowed() {
+  if (QGuiApplication::platformName() == QLatin1String("wayland")) return;
+  grabMouse();
+  grabbedPointer_ = true;
+}
+
+void HostWindow::releasePointerIfHeld() {
+  if (!grabbedPointer_) return;
+  grabbedPointer_ = false;
+  releaseMouse();
+}
 
 void HostWindow::rebuildChassis() {
   const QSize logical = paintLogical();
@@ -282,7 +295,7 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
       emit titleDragStarted();
       draggingTitle_ = true;
       grabOffset_ = event->globalPosition().toPoint() - mapToGlobal(QPoint(0, 0));
-      grabMouse();
+      grabPointerIfAllowed();
       event->accept();
       return;
     case tramp::TitleChromeLayout::Hit::none:
@@ -292,7 +305,7 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
   const auto chrome = tramp::hitTest(spec_.id, spec_.logicalSize, logical, view_);
   if (chrome.kind == tramp::ChromeHit::Kind::plResize) {
     resizingPlaylist_ = true;
-    grabMouse();
+    grabPointerIfAllowed();
     event->accept();
     return;
   }
@@ -330,7 +343,7 @@ void HostWindow::mouseMoveEvent(QMouseEvent* event) {
 
 void HostWindow::mouseReleaseEvent(QMouseEvent* event) {
   const bool wasResizing = resizingPlaylist_;
-  if (draggingTitle_ || resizingPlaylist_) releaseMouse();
+  if (draggingTitle_ || resizingPlaylist_) releasePointerIfHeld();
   if (draggingTitle_) {
     draggingTitle_ = false;
     emit titleDragFinished();

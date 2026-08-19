@@ -32,4 +32,10 @@ QSize panelNativeSize(QSize logicalZoomed, QSize widgetSize);
 /// `TRAMP_LEGACY_DRAG=1` restores per-move punch and live paint during title drag.
 bool legacyTitleDragPath();
 
+/// Punch after place unless a title drag / playlist resize is holding the pointer.
+/// Wayland cannot grabMouse on a normal window, so this is not `mouseGrabber()`.
+inline bool placePanelsShouldPunch(bool legacyDrag, bool pointerBusy) {
+  return legacyDrag || !pointerBusy;
+}
+
 }  // namespace tramp

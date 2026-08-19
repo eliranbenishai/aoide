@@ -16,6 +16,7 @@ private slots:
   void clusterDeltaNullWhenUnionExceedsHost();
   void panelNativeSizeUsesLogicalWhenWidgetHasNoSize();
   void panelLocalUsesActualHostOriginNotRequestedBBox();
+  void placePunchWaitsWhileThePointerIsBusy();
 };
 
 void HostShellTest::layoutUsesHostRectNotPanelUnion() {
@@ -83,6 +84,12 @@ void HostShellTest::panelLocalUsesActualHostOriginNotRequestedBBox() {
   const QPoint requestedOrigin(40, 40);
   QCOMPARE(tramp::panelLocalTopLeft(siblingScreen, actualHost), QPoint(100, 0));
   QVERIFY(tramp::panelLocalTopLeft(siblingScreen, requestedOrigin) != QPoint(100, 0));
+}
+
+void HostShellTest::placePunchWaitsWhileThePointerIsBusy() {
+  QVERIFY(tramp::placePanelsShouldPunch(false, false));
+  QVERIFY(!tramp::placePanelsShouldPunch(false, true));
+  QVERIFY(tramp::placePanelsShouldPunch(true, true));
 }
 
 QTEST_APPLESS_MAIN(HostShellTest)

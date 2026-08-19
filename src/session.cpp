@@ -725,7 +725,15 @@ void TrampSession::applyDockToWindows(std::optional<WindowId> skip) {
   }
 
   if (shell_) {
-    shell_->placePanels(visible, QWidget::mouseGrabber() == nullptr);
+    bool pointerBusy = false;
+    for (HostWindow* w : {main_, eq_, pl_, settingsWin_, about_}) {
+      if (w && w->holdingPointer()) {
+        pointerBusy = true;
+        break;
+      }
+    }
+    shell_->placePanels(visible, tramp::placePanelsShouldPunch(tramp::legacyTitleDragPath(),
+                                                              pointerBusy));
   } else {
     for (const HostPanelPlacement& place : visible) {
       if (!place.widget) continue;

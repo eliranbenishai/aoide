@@ -37,6 +37,7 @@ class HostWindow : public QWidget {
   void setQuitConfirmer(std::function<bool()> fn) { quitConfirmer_ = std::move(fn); }
   void setAlwaysOnTop(bool on);
   bool shaded() const { return shaded_; }
+  bool holdingPointer() const { return draggingTitle_ || resizingPlaylist_; }
   QPoint nativeTopLeft() const;
   QRect widgetRectFromLogical(const QRect& logical) const;
 
@@ -82,6 +83,8 @@ class HostWindow : public QWidget {
   void applyHitCursor(const QPointF& widgetPos);
   void invalidateChassis();
   void rebuildChassis();
+  void grabPointerIfAllowed();
+  void releasePointerIfHeld();
 
   tramp::WindowSpec spec_;
   tramp::TitleChromeLayout title_;
@@ -95,6 +98,7 @@ class HostWindow : public QWidget {
   bool draggingChrome_ = false;
   bool draggingTitle_ = false;
   bool resizingPlaylist_ = false;
+  bool grabbedPointer_ = false;
   QPoint grabOffset_;
   tramp::ChromeHit dragHit_;
   std::function<bool()> quitConfirmer_;
