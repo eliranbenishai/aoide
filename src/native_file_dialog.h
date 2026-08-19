@@ -72,6 +72,36 @@ inline QStringList fileUrisToLocalPaths(const QStringList& uris) {
   return paths;
 }
 
+/// xdg-desktop-portal FileChooser has OpenFile / SaveFile / SaveFiles only.
+/// Folder pick is OpenFile with options.directory = true (portal version 3).
+struct PortalFileChooserRequest {
+  QString method;
+  bool directory = false;
+  bool multiple = false;
+};
+
+inline PortalFileChooserRequest portalFileChooserRequest(FilePickKind kind) {
+  PortalFileChooserRequest req;
+  switch (kind) {
+    case FilePickKind::openFiles:
+      req.method = QStringLiteral("OpenFile");
+      req.multiple = true;
+      return req;
+    case FilePickKind::openFile:
+      req.method = QStringLiteral("OpenFile");
+      return req;
+    case FilePickKind::saveFile:
+      req.method = QStringLiteral("SaveFile");
+      return req;
+    case FilePickKind::openDirectory:
+      req.method = QStringLiteral("OpenFile");
+      req.directory = true;
+      return req;
+  }
+  req.method = QStringLiteral("OpenFile");
+  return req;
+}
+
 /// OS file chooser: xdg-desktop-portal on Linux (Dolphin/Nautilus), native
 /// QFileDialog on Windows/macOS. Falls back to kdialog, then the Qt widget dialog.
 QStringList pickFiles(const FilePick& pick);

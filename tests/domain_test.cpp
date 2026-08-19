@@ -105,6 +105,19 @@ int main() {
     REQUIRE_EQ(tramp::fileUrisToLocalPaths(QStringList{QStringLiteral("file:///home/music/a.mp3")})
                    .front(),
                QStringLiteral("/home/music/a.mp3"));
+    // xdg-desktop-portal FileChooser has OpenFile/SaveFile/SaveFiles only.
+    // Folder pick is OpenFile + directory=true (portal v3), not OpenDirectory.
+    const auto folder = tramp::portalFileChooserRequest(tramp::FilePickKind::openDirectory);
+    REQUIRE_EQ(folder.method, QStringLiteral("OpenFile"));
+    REQUIRE(folder.directory);
+    REQUIRE(!folder.multiple);
+    const auto files = tramp::portalFileChooserRequest(tramp::FilePickKind::openFiles);
+    REQUIRE_EQ(files.method, QStringLiteral("OpenFile"));
+    REQUIRE(files.multiple);
+    REQUIRE(!files.directory);
+    const auto save = tramp::portalFileChooserRequest(tramp::FilePickKind::saveFile);
+    REQUIRE_EQ(save.method, QStringLiteral("SaveFile"));
+    REQUIRE(!save.directory);
   }
 
   {

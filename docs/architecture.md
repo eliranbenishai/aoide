@@ -103,7 +103,7 @@ flowchart TB
 | Collection | `collection.*` — references, not copies; disabled rows when the file is gone; create-from-selection does not touch the current list. On add / create / load, track durations are hydrated from the cache, missing times are probed, and `playlists.json` + `playlist_tracks.json` are rewritten. About **TOTAL TIME** only reads `readFigures()`. |
 | Duration probe | `duration_probe.*` — WAV header first, then a throwaway libmpv `ao=null` pass for other kinds; fills current-playlist times and the collection duration cache without playing |
 | Persistence | `persist.*`, `settings.*`, `support_dir.*`, `files.*` — see below |
-| File chooser | `native_file_dialog.*` — host OS picker (xdg-desktop-portal on Linux → Dolphin/Nautilus; native `QFileDialog` on Windows/macOS). kdialog, then the Qt widget dialog, only if the portal is unavailable. Drops leaked Qt 4/5 `QT_PLUGIN_PATH` (Cursor AppImage) before `QApplication`. |
+| File chooser | `native_file_dialog.*` — host OS picker (xdg-desktop-portal FileChooser on Linux → Dolphin/Nautilus; native `QFileDialog` on Windows/macOS). Folder pick is `OpenFile` + `directory`. kdialog, then a non-native Qt widget dialog, only if the portal is unavailable. Drops leaked Qt 4/5 `QT_PLUGIN_PATH` (Cursor AppImage) before `QApplication`. |
 | Libmpv bundle | `third_party/libmpv` pins + fetch; Windows DLL / Linux staged `.so` |
 
 **Playback vs selection.** `playingIndex` / path is not the playlist highlight. Reorder re-derives the index without re-opening. `playPause` opens the selected row when nothing is open or selection differs from the playing track.

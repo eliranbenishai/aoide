@@ -1252,6 +1252,7 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       FilePick pick;
       pick.parent = settingsWin_;
       pick.title = QStringLiteral("Skins folder");
+      pick.directory = skins_.skinsDirectory();
       pick.kind = FilePickKind::openDirectory;
       const QString path = pickFile(pick);
       if (!path.isEmpty()) {

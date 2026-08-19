@@ -1,6 +1,7 @@
 #include "native_file_dialog.h"
 
 #include <QDir>
+#include <QEventLoop>
 #include <QFile>
 #include <QFileDialog>
 #include <QGuiApplication>
@@ -28,6 +29,34 @@ struct ChooserResult {
 
 ChooserResult widgetPick(const FilePick& pick) {
   QStringList paths;
+#if defined(Q_OS_LINUX)
+  // Native QFileDialog on Wayland re-enters the portal and, parented to a
+  // punched host child, often greys the app without mapping a window.
+  QFileDialog dialog(nullptr, pick.title, pick.directory, pick.filter);
+  dialog.setOption(QFileDialog::DontUseNativeDialog, true);
+  dialog.setWindowModality(Qt::WindowModal);
+  if (pick.parent) {
+    dialog.move(pick.parent->mapToGlobal(QPoint(24, 24)));
+  }
+  switch (pick.kind) {
+    case FilePickKind::openFiles:
+      dialog.setFileMode(QFileDialog::ExistingFiles);
+      break;
+    case FilePickKind::openFile:
+      dialog.setFileMode(QFileDialog::ExistingFile);
+      break;
+    case FilePickKind::saveFile:
+      dialog.setAcceptMode(QFileDialog::AcceptSave);
+      dialog.setFileMode(QFileDialog::AnyFile);
+      if (!pick.suggestedName.isEmpty()) dialog.selectFile(pick.suggestedName);
+      break;
+    case FilePickKind::openDirectory:
+      dialog.setFileMode(QFileDialog::Directory);
+      dialog.setOption(QFileDialog::ShowDirsOnly, true);
+      break;
+  }
+  if (dialog.exec() == QDialog::Accepted) paths = dialog.selectedFiles();
+#else
   switch (pick.kind) {
     case FilePickKind::openFiles:
       paths = QFileDialog::getOpenFileNames(pick.parent, pick.title, pick.directory, pick.filter);
@@ -54,6 +83,7 @@ ChooserResult widgetPick(const FilePick& pick) {
       break;
     }
   }
+#endif
   ChooserResult out;
   out.status = paths.isEmpty() ? ChooserStatus::cancelled : ChooserStatus::picked;
   out.paths = paths;
@@ -108,9 +138,11 @@ ChooserResult kdialogPick(const FilePick& pick) {
   if (!pick.title.isEmpty()) args << QStringLiteral("--title") << pick.title;
 
   QProcess proc;
+  QEventLoop loop;
+  QObject::connect(&proc, &QProcess::finished, &loop, &QEventLoop::quit);
   proc.start(exe, args);
   if (!proc.waitForStarted(3000)) return {};
-  proc.waitForFinished(-1);
+  loop.exec();
   if (proc.exitStatus() != QProcess::NormalExit) return {};
   if (proc.exitCode() != 0) {
     ChooserResult cancelled;
@@ -165,12 +197,14 @@ ChooserResult portalPick(const FilePick& pick) {
     return {};
   }
 
+  const PortalFileChooserRequest req = portalFileChooserRequest(pick.kind);
+  const QString parentWindow = portalParentWindow(pick.parent);
   QVariantMap options;
   options.insert(QStringLiteral("handle_token"), token);
-  options.insert(QStringLiteral("modal"), true);
-  if (pick.kind == FilePickKind::openFiles) {
-    options.insert(QStringLiteral("multiple"), true);
-  }
+  // Modal + empty parent on Wayland greys the host even when no picker maps.
+  options.insert(QStringLiteral("modal"), !parentWindow.isEmpty());
+  if (req.multiple) options.insert(QStringLiteral("multiple"), true);
+  if (req.directory) options.insert(QStringLiteral("directory"), true);
   if (!pick.directory.isEmpty()) {
     QByteArray folder = QFile::encodeName(pick.directory);
     folder.append('\0');
@@ -180,15 +214,13 @@ ChooserResult portalPick(const FilePick& pick) {
     options.insert(QStringLiteral("current_name"), pick.suggestedName);
   }
 
-  QString method = QStringLiteral("OpenFile");
-  if (pick.kind == FilePickKind::saveFile) method = QStringLiteral("SaveFile");
-  if (pick.kind == FilePickKind::openDirectory) method = QStringLiteral("OpenDirectory");
+  const QString method = req.method;
 
   QDBusMessage msg = QDBusMessage::createMethodCall(
       QStringLiteral("org.freedesktop.portal.Desktop"),
       QStringLiteral("/org/freedesktop/portal/desktop"),
       QStringLiteral("org.freedesktop.portal.FileChooser"), method);
-  msg << portalParentWindow(pick.parent) << pick.title << options;
+  msg << parentWindow << pick.title << options;
 
   const QDBusMessage reply = bus.call(msg, QDBus::Block, 8000);
   if (reply.type() == QDBusMessage::ErrorMessage) {
@@ -223,8 +255,12 @@ QStringList pickFiles(const FilePick& pick) {
   if (portal.status != ChooserStatus::unavailable) return portal.paths;
 #endif
 #if defined(Q_OS_LINUX)
-  const ChooserResult kde = kdialogPick(pick);
-  if (kde.status != ChooserStatus::unavailable) return kde.paths;
+  // Plasma kdialog also talks to the portal; on Wayland a failed portal then
+  // blocks forever in kdialog. Skip it and show a real Qt window instead.
+  if (QGuiApplication::platformName() != QLatin1String("wayland")) {
+    const ChooserResult kde = kdialogPick(pick);
+    if (kde.status != ChooserStatus::unavailable) return kde.paths;
+  }
 #endif
   return widgetPick(pick).paths;
 }
