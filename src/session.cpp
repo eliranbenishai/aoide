@@ -806,21 +806,16 @@ void TrampSession::handleWheel(WindowId id, int delta) {
 }
 
 void TrampSession::handleDrag(WindowId id, ChromeHit hit, QPoint logical) {
-  auto frac = [](const QRect& r, int x) {
-    if (r.width() <= 1) return 0.0;
-    return std::clamp((x - r.left()) / double(r.width()), 0.0, 1.0);
-  };
   auto band = [](const QRect& r, int y) {
-    if (r.height() <= 1) return 0.0;
-    const double t = std::clamp((y - r.top()) / double(r.height()), 0.0, 1.0);
+    const double t = sliderFractionY(r, y);
     return EqualizerSettings::kGainLimit - t * (EqualizerSettings::kGainLimit * 2);
   };
   if (sliderKind_ == ChromeHit::Kind::volume || hit.kind == ChromeHit::Kind::volume) {
-    playback_->setVolume(frac(hit.rect, logical.x()));
+    playback_->setVolume(sliderFractionX(hit.rect, logical.x()));
     sliderKind_ = ChromeHit::Kind::volume;
   } else if (sliderKind_ == ChromeHit::Kind::seek || hit.kind == ChromeHit::Kind::seek) {
     if (playback_->durationMs() > 0) {
-      playback_->seekMs(qint64(frac(hit.rect, logical.x()) * playback_->durationMs()));
+      playback_->seekMs(qint64(sliderFractionX(hit.rect, logical.x()) * playback_->durationMs()));
     }
     sliderKind_ = ChromeHit::Kind::seek;
   } else if (sliderKind_ == ChromeHit::Kind::eqPreamp || hit.kind == ChromeHit::Kind::eqPreamp) {
@@ -876,7 +871,7 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
     case K::eqBand:
       sliderKind_ = hit.kind;
       sliderIndex_ = hit.index;
-      handleDrag(id, hit, hit.rect.center());
+      handleDrag(id, hit, sliderPressPoint(hit.rect, logical));
       break;
     case K::mono:
       settings_.forceMono = !settings_.forceMono;

@@ -1,3 +1,4 @@
+#include "chrome_hits.h"
 #include "collection.h"
 #include "docking.h"
 #include "equalizer.h"
@@ -70,6 +71,19 @@ using tramp::resolveLinuxSupportPath;
 using tramp::spectrumFrame;
 
 int main() {
+  {
+    // Seek/volume wells are the whole track. A press must use the pointer, not the
+    // well center — otherwise every click seeks to 50%.
+    const QRect seekWell(100, 248, 200, 16);
+    const QPoint click(150, 256);
+    const QPoint engage = tramp::sliderPressPoint(seekWell, click);
+    REQUIRE_EQ(engage, click);
+    REQUIRE(std::abs(tramp::sliderFractionX(seekWell, engage.x()) - 0.25) < 1e-9);
+    REQUIRE(std::abs(tramp::sliderFractionX(seekWell, seekWell.left() + seekWell.width() / 2) - 0.5) <
+            1e-9);
+    REQUIRE_EQ(qint64(tramp::sliderFractionX(seekWell, engage.x()) * 400000), qint64(100000));
+  }
+
   {
     const QString raw = QStringLiteral(
         "#EXTM3U\n"
