@@ -2,11 +2,11 @@
 
 ### Auto-apply
 
-Every session: match the task to installed skills and apply them (including user-invoked Matt skills like `to-spec` / `implement` even when they disable model auto-invocation). Prefer the Matt Pocock engineering flow over Superpowers when both cover the same step. If the match is unclear, use `ask-matt`; if that finds nothing appropriate, proceed without a saved skill. See `.cursor/rules/apply-skills.mdc`.
+Every session: match the task to installed skills and apply them (including user-invoked Matt skills like `to-spec` / `implement` even when they disable model auto-invocation). Prefer the Matt Pocock engineering flow over Superpowers when both cover the same step. Sharpening a plan uses **`grill-me` only** — see `.cursor/rules/grill-me-only.mdc`. If the match is unclear, use `ask-matt`; if that finds nothing appropriate, proceed without a saved skill. See `.cursor/rules/apply-skills.mdc`.
 
 ### Issue tracker
 
-Issues live as local, gitignored markdown under `.scratch/<feature>/` — do not commit them. Lasting decisions go in `CONTEXT.md`, `docs/adr/`, and `docs/architecture.md`. See `docs/agents/issue-tracker.md`.
+Issues live as local, gitignored markdown under `.scratch/<feature>/` — do not commit them. Lasting decisions go in `CONTEXT.md` and `docs/architecture.md`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
@@ -14,11 +14,7 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 
 ### Domain docs
 
-Single-context — root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
-
-### ADR contradictions
-
-Cardinal: if a request would violate an accepted ADR, stop, cite the clash, and wait for instructions. Do not implement around it or quietly rewrite the ADR. See `.cursor/rules/adr-contradictions.mdc`.
+Single-context — root `CONTEXT.md`. See `docs/agents/domain.md`.
 
 ### Compositor geometry
 

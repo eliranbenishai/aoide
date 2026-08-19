@@ -1,0 +1,17 @@
+---
+description: Sharpening a plan uses grill-me only — never grill-with-docs
+alwaysApply: true
+---
+
+# Grill-me only
+
+**Cardinal:** when sharpening a plan, design, or idea, use `grill-me` (the `/grilling` interview, no paper trail). Auto-apply, `ask-matt`, and the Matt main flow start that skill — not `grill-with-docs`, not `domain-modeling`.
+
+Lasting decisions go in `CONTEXT.md` and `docs/architecture.md` **only when the user asks to write them**. Grilling does not create `docs/adr/` or update the glossary as a side effect.
+
+Explicit `/grill-with-docs` or “write this down” from the user lifts the breaker for that turn.
+
+```text
+❌ BAD: apply-skills / ask-matt → grill-with-docs → domain-modeling → new docs/adr/
+✅ GOOD: sharpening → grill-me → interview only
+```

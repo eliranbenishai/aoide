@@ -20,7 +20,7 @@ This repo’s engineering flow is **Matt Pocock** (`ask-matt` is the router). Wh
 
 | Step | Prefer (Matt) | Do not stack with |
 |------|---------------|-------------------|
-| Sharpen idea / design in a repo | `grill-with-docs` (+ `grilling`, `domain-modeling`) | Superpowers `brainstorming` |
+| Sharpen idea / design in a repo | `grill-me` (+ `grilling`) | Superpowers `brainstorming`; `grill-with-docs` |
 | Spec → tracker | `to-spec` | Writing a design under `docs/superpowers/specs/` by default |
 | Tickets / plan slices | `to-tickets` | Superpowers `writing-plans` for new work |
 | Implement | `implement` (+ `tdd`) | Superpowers `executing-plans` / `subagent-driven-development` unless the user points at an existing Superpowers plan |
@@ -33,7 +33,7 @@ Superpowers remains useful where Matt has no counterpart (e.g. `using-git-worktr
 ## How to apply
 
 - **Read** the matching skill file, announce briefly (“Using X to …”), then **follow it**.
-- Prefer **process** skills first when several apply (Matt main flow: `grill-with-docs` → `to-spec` → `to-tickets` → `implement` → `code-review`).
+- Prefer **process** skills first when several apply (Matt main flow: `grill-me` → `to-spec` → `to-tickets` → `implement` → `code-review`). Sharpening is `grill-me` only — see `.cursor/rules/grill-me-only.mdc`.
 - **User override wins:** explicit `/skill` or “use X” / “skip X” beats auto-match.
 - Skills marked `disable-model-invocation: true` are still in scope here when the task clearly matches — that flag only means Cursor won’t auto-attach them; **this rule says to use them anyway**.
 - Do not stack redundant skills that solve the same step (pick the best fit; Matt wins on overlap).
@@ -42,7 +42,7 @@ Superpowers remains useful where Matt has no counterpart (e.g. `using-git-worktr
 
 If it is **not clear** which *installed* skill (or flow) fits:
 
-1. Use **`ask-matt`** (`~/.agents/skills/ask-matt/SKILL.md`) as the router — read it and follow its recommendation.
+1. Use **`ask-matt`** (`~/.agents/skills/ask-matt/SKILL.md`) as the router — read it and follow its recommendation, except substitute `grill-me` whenever it names `grill-with-docs`.
 2. If `ask-matt` yields **no appropriate skill**, proceed **without** a saved skill (normal agent judgment). Do not invent a fake skill workflow.
 
 Use **`find-skills`** only when the user wants to **discover or install** a skill from the ecosystem — not as the router for skills already installed.
@@ -56,7 +56,7 @@ Use **`find-skills`** only when the user wants to **discover or install** a skil
 
 | User intent | Prefer |
 |-------------|--------|
-| Sharpen a plan/design in this repo | `grill-with-docs` |
+| Sharpen a plan/design in this repo | `grill-me` |
 | Turn discussion into a PRD/spec for the tracker | `to-spec` |
 | Break a spec/plan into tickets | `to-tickets` |
 | Implement from a spec/tickets | `implement` (+ `tdd` at seams) |
@@ -67,6 +67,6 @@ Use **`find-skills`** only when the user wants to **discover or install** a skil
 | Which skill should I use? | `ask-matt` |
 
 ```text
-❌ BAD: Write a design/spec from scratch while ignoring grill-with-docs / to-spec
+❌ BAD: Write a design/spec from scratch while ignoring grill-me / to-spec
 ✅ GOOD: Task matches → read skill → follow its process (tracker paths from docs/agents/)
 ```
