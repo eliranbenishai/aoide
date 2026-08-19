@@ -60,6 +60,12 @@ inline qreal marqueeOffset(qreal textWidth, qreal clipWidth, qint64 elapsedMs, b
   return std::fmod(scrolled, loop);
 }
 
+/// Well 705, inner pad 16 per side, title meta inset 288.
+inline constexpr qreal kDisplayTitleClipW = 705 - 32 - 288;
+
+/// Moving lines paint on the live pass; static lines stay on the chassis.
+inline bool displayTitleOnLivePass(qreal offset) { return offset > 0; }
+
 inline constexpr int kSkinRowStride = 36;
 inline constexpr int kSkinRowH = 32;
 inline constexpr int kSkinRowTop = 10;

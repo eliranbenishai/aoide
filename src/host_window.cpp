@@ -1,5 +1,6 @@
 #include "host_window.h"
 
+#include "chrome_layout.h"
 #include "chrome_paint.h"
 #include "mockup_draw.h"
 #include "tramp_fonts.h"
@@ -74,6 +75,8 @@ void HostWindow::setSessionView(const tramp::SessionView& view) {
       spec_.id == tramp::WindowId::playlist && view_.collectionCollapsed != view.collectionCollapsed;
   view_ = view;
   view_.zoomPercent = zoomPercent_;
+  titleMarqueeLive_ = view_.scrollTitle && !view_.goldenDemo &&
+                      view_.titleScrollMs > tramp::kMarqueeHoldMs;
   invalidateChassis();
   if (collectionChanged) applyNativeSize();
   update();
@@ -94,6 +97,12 @@ void HostWindow::applyLiveReadouts(const tramp::MainLiveReadouts& live) {
   view_.titleScrollMs = live.titleScrollMs;
   view_.spectrum = live.spectrum;
   view_.spectrumPeaks = live.spectrumPeaks;
+  const bool marqueeLive = view_.scrollTitle && !view_.goldenDemo &&
+                           live.titleScrollMs > tramp::kMarqueeHoldMs;
+  if (titleMarqueeLive_ != marqueeLive) {
+    titleMarqueeLive_ = marqueeLive;
+    invalidateChassis();
+  }
   if (spec_.id != tramp::WindowId::main || !chassisValid_ || shaded_) {
     update();
     return;

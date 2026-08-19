@@ -89,6 +89,7 @@ class HostWindow : public QWidget {
   QImage logo_;
   QImage chassis_;
   bool chassisValid_ = false;
+  bool titleMarqueeLive_ = false;
   int zoomPercent_ = tramp::kDefaultZoomPercent;
   bool shaded_ = false;
   bool draggingChrome_ = false;

@@ -32,15 +32,30 @@ QString formatGain(qreal gain) {
 }
 
 void paintWellMarquee(QPainter& p, const QRectF& clip, const QString& text, const QFont& font,
-                      const QColor& fill, const QVector<TextShadow>& shadows, qreal offset) {
+                      const QColor& fill, const QVector<TextShadow>& shadows, qreal offset,
+                      bool glow) {
+  const qreal textW = textWidth(font, text);
+  const qreal loop = marqueeLoopWidth(textW, clip.width());
+  if (!glow) {
+    p.save();
+    p.setClipRect(clip);
+    p.setFont(font);
+    p.setPen(fill);
+    const QRectF box(clip.left() - offset, clip.top(), qMax(textW + 16, clip.width()),
+                     clip.height());
+    p.drawText(box, Qt::AlignLeft | Qt::AlignVCenter, text);
+    if (loop > 0) {
+      p.drawText(box.translated(loop, 0), Qt::AlignLeft | Qt::AlignVCenter, text);
+    }
+    p.restore();
+    return;
+  }
   const int bw = qMax(1, int(std::ceil(clip.width())));
   const int bh = qMax(1, int(std::ceil(clip.height())));
   QImage buf(bw, bh, QImage::Format_ARGB32_Premultiplied);
   buf.fill(Qt::transparent);
   QPainter tp(&buf);
   tp.setRenderHint(QPainter::TextAntialiasing);
-  const qreal textW = textWidth(font, text);
-  const qreal loop = marqueeLoopWidth(textW, clip.width());
   auto drawCopy = [&](qreal x) {
     drawStyledText(tp, QRectF(x, 0, qMax(textW + 16, clip.width()), clip.height()), text, font,
                    fill, Qt::AlignLeft | Qt::AlignVCenter, shadows);
@@ -184,26 +199,30 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
   }
 
   const QRectF meta(inner.left() + 268 + 20, inner.top(), inner.width() - 288, inner.height());
+  const QFont titleFont = condensedFont(24, 0.03);
+  const QFont subFont = condensedFont(14, 0.14);
+  const bool scroll = view.scrollTitle && !view.goldenDemo;
+  const QRectF titleClip(meta.left(), meta.top(), meta.width(), 32);
+  const QRectF subClip(meta.left(), meta.top() + 32, meta.width(), 18);
+  const qreal titleOff =
+      marqueeOffset(textWidth(titleFont, title), titleClip.width(), view.titleScrollMs, scroll);
+  const qreal subOff =
+      marqueeOffset(textWidth(subFont, subtitle), subClip.width(), view.titleScrollMs, scroll);
+  const bool titleLive = displayTitleOnLivePass(titleOff);
+  const bool subLive = displayTitleOnLivePass(subOff);
+  const QVector<TextShadow> titleGlow = {
+      {withAlpha(T().phos, 0xe6), QPointF(), 1.5},
+      {withAlpha(T().phos, 0x80), QPointF(), 10},
+  };
+  const QVector<TextShadow> subGlow = {{withAlpha(T().phos, 0x40), QPointF(), 8}};
 
-  if (live) {
-    const QFont titleFont = condensedFont(24, 0.03);
-    const QFont subFont = condensedFont(14, 0.14);
-    const bool scroll = view.scrollTitle && !view.goldenDemo;
-    const qreal titleW = textWidth(titleFont, title);
-    const qreal subW = textWidth(subFont, subtitle);
-    const QRectF titleClip(meta.left(), meta.top(), meta.width(), 32);
-    const QRectF subClip(meta.left(), meta.top() + 32, meta.width(), 18);
-    paintWellMarquee(p, titleClip, title, titleFont, T().phosHot,
-                     {
-                         {withAlpha(T().phos, 0xe6), QPointF(), 1.5},
-                         {withAlpha(T().phos, 0x80), QPointF(), 10},
-                     },
-                     marqueeOffset(titleW, titleClip.width(), view.titleScrollMs, scroll));
-    if (!subtitle.isEmpty()) {
-      paintWellMarquee(p, subClip, subtitle, subFont, withAlpha(T().phos, 128),
-                       {{withAlpha(T().phos, 0x40), QPointF(), 8}},
-                       marqueeOffset(subW, subClip.width(), view.titleScrollMs, scroll));
-    }
+  if ((chassis && !titleLive) || (live && titleLive)) {
+    paintWellMarquee(p, titleClip, title, titleFont, T().phosHot, titleGlow, titleOff,
+                     chassis && !titleLive);
+  }
+  if (!subtitle.isEmpty() && ((chassis && !subLive) || (live && subLive))) {
+    paintWellMarquee(p, subClip, subtitle, subFont, withAlpha(T().phos, 128), subGlow, subOff,
+                     chassis && !subLive);
   }
 
   if (chassis) {

@@ -146,6 +146,10 @@ void ChromeSpecTest::overflowingTitleMarqueeHoldsThenLoops() {
   QCOMPARE(tramp::marqueeOffset(200, 100, 2200, true), 40.0);
   QCOMPARE(tramp::marqueeOffset(200, 100, 7200, true), 0.0);
   QCOMPARE(tramp::marqueeOffset(200, 100, 8200, true), 40.0);
+  QVERIFY(!tramp::displayTitleOnLivePass(tramp::marqueeOffset(200, 100, 0, true)));
+  QVERIFY(!tramp::displayTitleOnLivePass(tramp::marqueeOffset(80, 100, 5000, true)));
+  QVERIFY(tramp::displayTitleOnLivePass(tramp::marqueeOffset(200, 100, 2200, true)));
+  QCOMPARE(tramp::kDisplayTitleClipW, 385.0);
 }
 
 void ChromeSpecTest::chromePaintBufferMatchesWidgetTimesDpr() {
