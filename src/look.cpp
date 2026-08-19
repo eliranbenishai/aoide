@@ -619,9 +619,10 @@ ChromeTokens ChromeTokens::from(const ResolvedLook& look) {
   t.screenWash0 = lift(p.well, 10, 22, 34);
   t.screenWash1 = lift(p.well, 2, 10, 16);
   t.screenWash2 = lift(p.well, -1, 1, 4);
-  t.listWash0 = lift(p.well, 12, 12, 12);
-  t.listWash1 = lift(p.well, 4, 4, 4);
-  t.listWash2 = p.well;
+  t.listWash0 = mapUsingAccent(p.phos, kPhos, kListWash0);
+  t.listWash1 = mapUsingAccent(p.phos, kPhos, kListWash1);
+  t.listWash2 = mapUsingAccent(p.phos, kPhos, kListWash2);
+  t.listSheen = mapUsingAccent(p.phos, kPhos, kCoolSheen);
   t.spectrumStops = m.spectrumStops;
   t.railStops = m.railStops;
   return t;

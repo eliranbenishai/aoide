@@ -71,4 +71,9 @@ inline const QColor kAccentHot{0xff, 0xd6, 0xea};
 inline const QColor kLitLedRim{0x5a, 0x0f, 0x32};
 inline const QColor kCurveStroke{0x8d, 0xf2, 0xff};
 
+/// Playlist list CRT wash from the mockup `.list` radial (builtin well lifts).
+inline const QColor kListWash0{0x0f, 0x1c, 0x2a};
+inline const QColor kListWash1{0x07, 0x10, 0x18};
+inline const QColor kListWash2{0x04, 0x07, 0x0c};
+
 }  // namespace tramp

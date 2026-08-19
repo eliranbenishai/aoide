@@ -473,7 +473,7 @@ void drawListWell(QPainter& p, const QRectF& well) {
   p.fillRect(well, wash);
   constexpr qreal row = 37;
   for (qreal y = well.top(); y < well.bottom(); y += row * 2) {
-    p.fillRect(QRectF(well.left(), y, well.width(), row), withAlpha(T().ink, 4));
+    p.fillRect(QRectF(well.left(), y, well.width(), row), withAlpha(T().listSheen, 4));
     p.fillRect(QRectF(well.left(), y + row, well.width(), row), QColor(0, 0, 0, 31));
   }
   p.restore();
