@@ -54,6 +54,7 @@ void PlaybackController::bindEngine() {
     if (!album.isEmpty()) next.album = album;
     if (durationMs > 0) next.durationMs = durationMs;
     playlist_->updateTrackByPath(path, next);
+    if (durationMs > 0 && onTrackDuration_) onTrackDuration_(path, durationMs);
   };
 }
 

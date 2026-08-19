@@ -116,4 +116,64 @@ inline QRectF skinsListThumb(const QRectF& track, int count, int scroll) {
   return QRectF(track.left() + 1, track.top() + thumbTop, track.width() - 2, thumbH);
 }
 
+inline constexpr qreal kPlaylistRowStride = 37;
+inline constexpr qreal kPlaylistRowPadTop = 6;
+inline constexpr qreal kPlaylistScrollW = 14;
+inline constexpr qreal kPlaylistScrollGap = 10;
+inline constexpr qreal kPlaylistFooterH = 110;
+inline constexpr qreal kPlaylistFooterGap = 10;
+inline constexpr qreal kPlaylistPanePad = 12;
+
+inline qreal playlistListWellHeight(qreal playlistLogicalH) {
+  const qreal bodyH = playlistLogicalH - kTitleBar;
+  const qreal trackInnerH = bodyH - kPlaylistPanePad * 2;
+  return trackInnerH - kPlaylistFooterH - kPlaylistFooterGap;
+}
+
+inline int playlistVisibleRows(qreal wellH) {
+  return std::max(0, int((wellH - kPlaylistRowPadTop) / kPlaylistRowStride));
+}
+
+inline int playlistListMaxScroll(int count, qreal wellH) {
+  return std::max(0, count - playlistVisibleRows(wellH));
+}
+
+inline QRectF playlistTracksPane(const QRectF& body, qreal collectionW) {
+  const qreal divider = collectionW > 0 ? 8 : 0;
+  return QRectF(body.left() + collectionW + divider, body.top(),
+                body.width() - collectionW - divider, body.height());
+}
+
+inline QRectF playlistTrackInner(const QRectF& tracksPane) {
+  return tracksPane.adjusted(kPlaylistPanePad, kPlaylistPanePad, -kPlaylistPanePad,
+                             -kPlaylistPanePad);
+}
+
+inline QRectF playlistListRowRect(const QRectF& trackInner) {
+  return QRectF(trackInner.left(), trackInner.top(), trackInner.width(),
+                trackInner.height() - kPlaylistFooterH - kPlaylistFooterGap);
+}
+
+inline QRectF playlistListWell(const QRectF& listRow, int trackCount) {
+  const qreal gutter =
+      playlistListMaxScroll(trackCount, listRow.height()) > 0
+          ? (kPlaylistScrollGap + kPlaylistScrollW)
+          : 0;
+  return QRectF(listRow.left(), listRow.top(), listRow.width() - gutter, listRow.height());
+}
+
+inline QRectF playlistListScrollTrack(const QRectF& listWell) {
+  return QRectF(listWell.right() + kPlaylistScrollGap, listWell.top(), kPlaylistScrollW,
+                listWell.height());
+}
+
+inline QRectF playlistListThumb(const QRectF& track, int count, int scrollRows, qreal wellH) {
+  const qreal content = qMax<qreal>(1, count * kPlaylistRowStride);
+  const qreal thumbH = qMin(track.height(), track.height() * track.height() / content);
+  const int maxScroll = playlistListMaxScroll(count, wellH);
+  const qreal t = maxScroll <= 0 ? 0 : qreal(scrollRows) / qreal(maxScroll);
+  return QRectF(track.left() + 1, track.top() + t * (track.height() - thumbH), track.width() - 2,
+                thumbH);
+}
+
 }  // namespace tramp

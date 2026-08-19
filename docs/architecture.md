@@ -60,6 +60,7 @@ flowchart TB
     Coll[PlaylistCollection]
     EqCtl[EqualizerSettings]
     Spec[SpectrumAnalyzer]
+    Dur[DurationProbe]
     Eng[PlayerEngine]
     Mpv[libmpv]
   end
@@ -81,6 +82,8 @@ flowchart TB
   Play --> Eng
   EqCtl --> Eng
   Spec --> Mpv
+  Coll --> Dur
+  Dur --> Mpv
   Eng --> Mpv
 ```
 
@@ -91,13 +94,14 @@ flowchart TB
 | Host | `HostShell` (`host_shell_window.*`) + five `HostWindow` panels — one frameless host window titled Tramp, sized to the virtual desktop; taskbar/dock/pager icon from `assets/branding/app_icon.png` (`app_icon.*`); punched input from child panel rects (never an empty mask while mapped); main close persists then quits; extra panels hide |
 | Session | `session.*`, `session_view.*` — shared controllers, commands, `--dump-chrome` golden |
 | Docking | `docking.*` — peel 8 logical px; EQ and playlist any side and both axes (two neighbors); settings/about never snap. Title-bar drags are app-owned. Child drags move one panel in host-local space; main drag translates the cluster. `placePanels` uses `mapToGlobal` origin and does not resize the host unless the virtual desktop changed. Panels stay fully on the virtual desktop. |
-| Chrome | `chrome_paint.cpp`, `chrome_bodies.cpp`, `chrome_hits.cpp`, `chrome_layout.h`, `title_chrome.*`, `mockup_draw.cpp`, `mockup_tokens.h`, `tramp_metrics.h`, `tramp_fonts.*` — mockup `.win` / `.tbar` / `.wbtn` at discrete zoom (default 75%). Main title-bar: zoom cluster, then minimize flush to close. Display-well STEREO/PLAYLIST keep a fixed gap; overflowing track/album lines marquee on the live pass when Scroll title is on (static titles stay on the chassis); close buttons take hue from the more saturated of skin ink vs accent. |
-| Skins | `look.*` — `skin.json` / legacy `look.json`; embedded **Tramp** (id `builtin`) plus bundled homage packs under `skins/` (Arc, Shield, Thunder, Gamma, Widow, Marksman, Chaos); catalog `<support>/skins`. Settings Skins tab is a clipped scrolling list. |
+| Chrome | `chrome_paint.cpp`, `chrome_bodies.cpp`, `chrome_hits.cpp`, `chrome_layout.h`, `title_chrome.*`, `mockup_draw.cpp`, `mockup_tokens.h`, `tramp_metrics.h`, `tramp_fonts.*` — mockup `.win` / `.tbar` / `.wbtn` at discrete zoom (default 75%). Main title-bar: zoom cluster, then minimize flush to close. Display-well STEREO/PLAYLIST keep a fixed gap; overflowing track/album lines marquee on the live pass when Scroll title is on (static titles stay on the chassis); close buttons take hue from the more saturated of skin ink vs accent. EQ response curve (fill, glow, stroke) is clipped to the curve well. |
+| Skins | `look.*` — `skin.json` / legacy `look.json`; embedded **Tramp** (id `builtin`) plus bundled homage packs under `skins/` (Arc, Shield, Thunder, Gamma, Widow, Marksman, Chaos); catalog `<support>/skins`. Settings Skins tab is a clipped scrolling list. Playlist track-list wash (`listWash*`) is a hue-preserving lift of `colors.well`; CRT `screenWash*` stays a separate display-well token. |
 | Playback | `playback.*`, `player_engine.h`, `mpv_engine.*`, `transport.*` — libmpv `vo=null`; playing **path** not index; stop unloads media |
 | EQ / mono | `equalizer.*` — lavfi `af`; On / Auto / Presets; ±12 dB; force-mono via `audio-channels` |
 | Spectrum | `spectrum.*`, `stft.*`, `pcm_decoder.*`, `wav_reader.*` — 20 log bands (40 Hz–Nyquist, 4096-point STFT, unique FFT bins per bar) from a throwaway `ao=pcm` pass; honest silence until ready |
-| Playlist | `playlist.*`, `m3u.*` — M3U/M3U8; multi-select; reorder; sort; resolve track lines as hints on **read** ([ADR 0008](adr/0008-playlist-collection-stores-references.md)) |
-| Collection | `collection.*` — references, not copies; disabled rows when the file is gone; create-from-selection does not touch the current list |
+| Playlist | `playlist.*`, `m3u.*` — M3U/M3U8; multi-select; reorder; sort; resolve track lines as hints on **read** ([ADR 0008](adr/0008-playlist-collection-stores-references.md)). Track-list scrollbar paints only when rows overflow the well. |
+| Collection | `collection.*` — references, not copies; disabled rows when the file is gone; create-from-selection does not touch the current list. On add / create / load, track durations are hydrated from the cache, missing times are probed, and `playlists.json` + `playlist_tracks.json` are rewritten. About **TOTAL TIME** only reads `readFigures()`. |
+| Duration probe | `duration_probe.*` — WAV header first, then a throwaway libmpv `ao=null` pass for other kinds; fills current-playlist times and the collection duration cache without playing |
 | Persistence | `persist.*`, `settings.*`, `support_dir.*`, `files.*` — see below |
 | File chooser | `native_file_dialog.*` — host OS picker (xdg-desktop-portal on Linux → Dolphin/Nautilus; native `QFileDialog` on Windows/macOS). kdialog, then the Qt widget dialog, only if the portal is unavailable. Drops leaked Qt 4/5 `QT_PLUGIN_PATH` (Cursor AppImage) before `QApplication`. |
 | Libmpv bundle | `third_party/libmpv` pins + fetch; Windows DLL / Linux staged `.so` |

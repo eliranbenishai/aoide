@@ -467,13 +467,13 @@ void drawListWell(QPainter& p, const QRectF& well) {
   QRadialGradient wash(QPointF(well.left() + well.width() * 0.2,
                                well.top() - well.height() * 0.10),
                        well.width() * 1.05);
-  wash.setColorAt(0, T().screenWash0);
-  wash.setColorAt(0.7, T().screenWash1);
-  wash.setColorAt(1, T().screenWash2);
+  wash.setColorAt(0, T().listWash0);
+  wash.setColorAt(0.7, T().listWash1);
+  wash.setColorAt(1, T().listWash2);
   p.fillRect(well, wash);
   constexpr qreal row = 37;
   for (qreal y = well.top(); y < well.bottom(); y += row * 2) {
-    p.fillRect(QRectF(well.left(), y, well.width(), row), withAlpha(T().coolSheen, 4));
+    p.fillRect(QRectF(well.left(), y, well.width(), row), withAlpha(T().ink, 4));
     p.fillRect(QRectF(well.left(), y + row, well.width(), row), QColor(0, 0, 0, 31));
   }
   p.restore();

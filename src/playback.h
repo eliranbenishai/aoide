@@ -32,6 +32,9 @@ class PlaybackController {
   void setOnChanged(std::function<void()> cb) { onChanged_ = std::move(cb); }
   void setOnPosition(std::function<void()> cb) { onPosition_ = std::move(cb); }
   void setOnSpin(std::function<void(int)> cb) { onSpin_ = std::move(cb); }
+  void setOnTrackDuration(std::function<void(QString, qint64)> cb) {
+    onTrackDuration_ = std::move(cb);
+  }
 
   void playPause();
   void stop();
@@ -79,6 +82,7 @@ class PlaybackController {
   std::function<void()> onChanged_;
   std::function<void()> onPosition_;
   std::function<void(int)> onSpin_;
+  std::function<void(QString, qint64)> onTrackDuration_;
 };
 
 }  // namespace tramp

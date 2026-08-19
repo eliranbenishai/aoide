@@ -2,6 +2,7 @@
 
 #include "m3u.h"
 
+#include <QFile>
 #include <QFileInfo>
 
 namespace tramp {
@@ -45,9 +46,11 @@ void PlaylistCollection::refreshFigures(SavedPlaylist& e, const QVector<Track>& 
   for (const Track& t : tracks) {
     const QString n = normalizePlaylistPath(t.path);
     paths.push_back(n);
-    if (t.durationMs) {
+    if (t.durationMs && *t.durationMs > 0) {
       total += *t.durationMs;
       trackSets_.durationsMs.insert(n, *t.durationMs);
+    } else {
+      total += qMax<qint64>(0, trackSets_.durationsMs.value(n, 0));
     }
   }
   e.totalDurationMs = total;
@@ -57,27 +60,62 @@ void PlaylistCollection::refreshFigures(SavedPlaylist& e, const QVector<Track>& 
   bumpFigures();
 }
 
-void PlaylistCollection::add(const QString& path) {
+void PlaylistCollection::hydrateDurations(QVector<Track>& tracks) const {
+  for (Track& t : tracks) {
+    if (t.durationMs && *t.durationMs > 0) continue;
+    const QString n = normalizePlaylistPath(t.path);
+    const qint64 cached = trackSets_.durationsMs.value(n, 0);
+    if (cached > 0) t.durationMs = cached;
+    else t.durationMs.reset();
+  }
+}
+
+void PlaylistCollection::mergeTrackDuration(const QString& trackPath, qint64 durationMs) {
+  if (durationMs <= 0) return;
+  const QString n = normalizePlaylistPath(trackPath);
+  if (trackSets_.durationsMs.value(n, -1) == durationMs) return;
+  trackSets_.durationsMs.insert(n, durationMs);
+  trackSetsDirty_ = true;
+  for (SavedPlaylist& e : entries_) {
+    const QStringList paths = trackSets_.byEntry.value(e.path);
+    qint64 total = 0;
+    bool hit = false;
+    for (const QString& p : paths) {
+      if (p == n) hit = true;
+      total += trackSets_.durationsMs.value(p, 0);
+    }
+    if (hit) e.totalDurationMs = total;
+  }
+  bumpFigures();
+}
+
+QVector<Track> PlaylistCollection::add(const QString& path) {
   const QString n = normalizePlaylistPath(path);
+  QVector<Track> tracks;
+  QFile f(n);
+  if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    tracks = M3uCodec().parse(QString::fromUtf8(f.readAll()), n);
+    hydrateDurations(tracks);
+  }
   const int existing = indexOf(n);
   if (existing >= 0) {
+    if (QFileInfo::exists(n)) refreshFigures(entries_[existing], tracks);
     selectedPath_ = entries_[existing].path;
-    return;
+    return tracks;
   }
   SavedPlaylist e;
   e.path = n;
-  QFile f(n);
-  if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
-    const auto tracks = M3uCodec().parse(QString::fromUtf8(f.readAll()), n);
-    refreshFigures(e, tracks);
-  }
+  refreshFigures(e, tracks);
   entries_.push_back(e);
   selectedPath_ = n;
   sortEntries();
+  return tracks;
 }
 
 void PlaylistCollection::addWritten(const QString& path, const QVector<Track>& tracks) {
   const QString n = normalizePlaylistPath(path);
+  QVector<Track> hydrated = tracks;
+  hydrateDurations(hydrated);
   int i = indexOf(n);
   if (i < 0) {
     SavedPlaylist e;
@@ -85,7 +123,7 @@ void PlaylistCollection::addWritten(const QString& path, const QVector<Track>& t
     entries_.push_back(e);
     i = entries_.size() - 1;
   }
-  refreshFigures(entries_[i], tracks);
+  refreshFigures(entries_[i], hydrated);
   selectedPath_ = n;
   sortEntries();
 }
@@ -113,6 +151,8 @@ void PlaylistCollection::rename(const QString& path, const QString& name) {
   sortEntries();
 }
 
+bool PlaylistCollection::contains(const QString& path) const { return indexOf(path) >= 0; }
+
 bool PlaylistCollection::resolveForLoad(const QString& path, SavedPlaylist* out) const {
   const int i = indexOf(path);
   if (i < 0) return false;
@@ -137,7 +177,8 @@ void PlaylistCollection::validateReferences() {
       disabledPaths_.insert(e.path);
       continue;
     }
-    const auto tracks = M3uCodec().parse(QString::fromUtf8(f.readAll()), e.path);
+    auto tracks = M3uCodec().parse(QString::fromUtf8(f.readAll()), e.path);
+    hydrateDurations(tracks);
     refreshFigures(e, tracks);
   }
 }

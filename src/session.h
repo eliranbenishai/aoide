@@ -19,6 +19,7 @@
 #include <QRect>
 #include <QSet>
 #include <QTimer>
+#include <atomic>
 #include <memory>
 #include <optional>
 
@@ -91,6 +92,10 @@ class TrampSession : public QObject {
   void scheduleAltered();
   void scheduleUsage();
   void refreshAboutFigures();
+  void persistCollectionCache();
+  void indexAndProbeCurrent();
+  void startDurationProbe(const QVector<Track>& tracks);
+  void onProbedDuration(const QString& path, qint64 ms);
   HostWindow* windowFor(WindowId id) const;
   QString pickAudio(bool multiple);
   QString pickPlaylist(bool save);
@@ -150,7 +155,9 @@ class TrampSession : public QObject {
   QTimer usageTimer_;
   QTimer aboutTimer_;
   QTimer eqApplyTimer_;
+  QTimer collectionPersistTimer_;
   CollectionFigures figures_;
+  std::atomic<int> durationGen_{0};
   bool figuresLoaded_ = false;
   bool applyingDock_ = false;
   bool titleDragging_ = false;

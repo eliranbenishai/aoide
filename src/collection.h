@@ -18,13 +18,16 @@ class PlaylistCollection {
   QSet<QString> disabledPaths() const { return disabledPaths_; }
   int figuresRevision() const { return figuresRevision_; }
 
-  void add(const QString& path);
+  QVector<Track> add(const QString& path);
   void addWritten(const QString& path, const QVector<Track>& tracks);
   void remove(const QString& path);
   void select(const QString& path);
   void rename(const QString& path, const QString& name);
+  bool contains(const QString& path) const;
   bool resolveForLoad(const QString& path, SavedPlaylist* out) const;
   void validateReferences();
+  void hydrateDurations(QVector<Track>& tracks) const;
+  void mergeTrackDuration(const QString& trackPath, qint64 durationMs);
   CollectionFigures readFigures() const;
 
  private:

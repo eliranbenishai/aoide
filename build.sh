@@ -72,6 +72,7 @@ SRCS=(
   "$ROOT/src/settings.cpp"
   "$ROOT/src/persist.cpp"
   "$ROOT/src/collection.cpp"
+  "$ROOT/src/duration_probe.cpp"
   "$ROOT/src/files.cpp"
   "$ROOT/src/native_file_dialog.cpp"
   "$BUILD/moc_native_file_dialog_p.cpp"
@@ -96,12 +97,12 @@ SRCS=(
 mv -f "$BUILD/tramp.next" "$BUILD/tramp"
 
 # Domain tests (playlist / playback / docking / collection)
-"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" "${DEFS[@]}" \
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
   "$ROOT/src/m3u.cpp" "$ROOT/src/equalizer.cpp" "$ROOT/src/support_dir.cpp" \
   "$ROOT/src/playlist.cpp" "$ROOT/src/transport.cpp" \
   "$ROOT/src/wav_reader.cpp" "$ROOT/src/stft.cpp" "$ROOT/src/spectrum.cpp" \
   "$ROOT/src/playback.cpp" "$ROOT/src/docking.cpp" \
-  "$ROOT/src/collection.cpp" "$ROOT/src/persist.cpp" "$ROOT/src/settings.cpp" \
+  "$ROOT/src/collection.cpp" "$ROOT/src/duration_probe.cpp" "$ROOT/src/persist.cpp" "$ROOT/src/settings.cpp" \
   "$ROOT/src/window_spec.cpp" \
   "$ROOT/tests/domain_test.cpp" \
   -L"$QT/lib" -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread \

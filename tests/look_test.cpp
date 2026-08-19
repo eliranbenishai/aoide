@@ -216,6 +216,9 @@ int main() {
     REQUIRE_EQ(hex(t.closeGlyph), QStringLiteral("#ffd6e8"));
     REQUIRE_EQ(hex(t.accentHot), QStringLiteral("#ffd6ea"));
     REQUIRE_EQ(hex(t.screenWash0), QStringLiteral("#0f1c2a"));
+    REQUIRE_EQ(hex(t.listWash0), QStringLiteral("#111214"));
+    REQUIRE_EQ(hex(t.listWash1), QStringLiteral("#090a0c"));
+    REQUIRE_EQ(hex(t.listWash2), QStringLiteral("#050608"));
     REQUIRE_EQ(hex(t.metalHi), QStringLiteral("#636876"));
     REQUIRE_EQ(hex(t.metalMid), QStringLiteral("#2a303c"));
     REQUIRE_EQ(hex(t.metalLo), QStringLiteral("#1e222c"));
@@ -443,6 +446,10 @@ int main() {
     REQUIRE_EQ(hex(arc.palette.phos), QStringLiteral("#ffc107"));
     REQUIRE_EQ(hex(arc.palette.accent), QStringLiteral("#e8b020"));
     const auto arcTokens = ChromeTokens::from(arc);
+    REQUIRE_EQ(hex(arcTokens.listWash2), QStringLiteral("#0d0405"));
+    REQUIRE_EQ(hex(arcTokens.listWash0), QStringLiteral("#191011"));
+    REQUIRE(arcTokens.listWash0.red() > arcTokens.listWash0.blue());
+    REQUIRE(hex(arcTokens.listWash0) != hex(arcTokens.screenWash0));
     const int accentHue = QColor(QStringLiteral("#e8b020")).hslHue();
     REQUIRE(arcTokens.closeGlyph.hslHue() >= 0);
     REQUIRE(qAbs(arcTokens.closeGlyph.hslHue() - accentHue) <= 40);

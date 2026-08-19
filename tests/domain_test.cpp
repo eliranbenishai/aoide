@@ -1,6 +1,8 @@
 #include "chrome_hits.h"
 #include "collection.h"
+#include "duration_probe.h"
 #include "native_file_dialog.h"
+#include "persist.h"
 #include "docking.h"
 #include "equalizer.h"
 #include "m3u.h"
@@ -16,6 +18,8 @@
 
 #include <QDir>
 #include <QFile>
+#include <QMap>
+#include <QTemporaryDir>
 #include <QByteArray>
 #include <QtEndian>
 #include <QVariant>
@@ -24,6 +28,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <stdexcept>
 
 namespace {
@@ -747,6 +752,108 @@ int main() {
     dock.setVisible(tramp::WindowId::equalizer, false);
     dock.ensureMainVisible();
     REQUIRE(!dock.layout().equalizer.visible);
+  }
+
+  {
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    const QString pl = tmp.filePath(QStringLiteral("mix.m3u"));
+    QFile f(pl);
+    REQUIRE(f.open(QIODevice::WriteOnly | QIODevice::Text));
+    f.write(QByteArray("#EXTM3U\n#EXTINF:221,Wire - Hymn\ntrack.mp3\nother.flac\n"));
+    f.close();
+
+    tramp::PlaylistCollection col;
+    col.add(pl);
+    REQUIRE_EQ(col.readFigures().playlists, 1);
+    REQUIRE_EQ(col.readFigures().tracks, 2);
+    REQUIRE_EQ(col.readFigures().totalDurationMs, 221000);
+    REQUIRE_EQ(col.entries().front().totalDurationMs, 221000);
+
+    const QString other = QDir::cleanPath(QDir(QFileInfo(pl).absolutePath()).filePath(QStringLiteral("other.flac")));
+    col.mergeTrackDuration(other, 45000);
+    REQUIRE_EQ(col.readFigures().totalDurationMs, 266000);
+
+    Track a;
+    a.path = QDir::cleanPath(QDir(QFileInfo(pl).absolutePath()).filePath(QStringLiteral("track.mp3")));
+    a.durationMs = 200000;
+    Track b;
+    b.path = other;
+    b.durationMs = 50000;
+    col.addWritten(pl, {a, b});
+    REQUIRE_EQ(col.readFigures().totalDurationMs, 250000);
+
+    Track bare;
+    bare.path = other;
+    QVector<Track> hydrated = {bare};
+    col.hydrateDurations(hydrated);
+    REQUIRE(hydrated[0].durationMs == 50000);
+
+    tramp::SupportStore store(tmp.path());
+    col.saveIndex(store);
+    col.saveTrackSets(store);
+    tramp::PlaylistCollection loaded;
+    loaded.load(store);
+    REQUIRE_EQ(loaded.readFigures().totalDurationMs, 250000);
+    REQUIRE_EQ(loaded.readFigures().tracks, 2);
+  }
+
+  {
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    const QString pl = tmp.filePath(QStringLiteral("unknown.m3u"));
+    QFile f(pl);
+    REQUIRE(f.open(QIODevice::WriteOnly | QIODevice::Text));
+    f.write(QByteArray("#EXTM3U\n#EXTINF:-1,Unknown\ntrack.mp3\n"));
+    f.close();
+    tramp::PlaylistCollection col;
+    col.add(pl);
+    REQUIRE_EQ(col.readFigures().totalDurationMs, 0);
+  }
+
+  {
+    PlaylistController list;
+    Track t;
+    t.path = QDir::cleanPath(QDir::current().filePath(QStringLiteral("x.mp3")));
+    list.setTracks({t}, QStringLiteral("/tmp/p.m3u"));
+    REQUIRE(!list.altered());
+    QMap<QString, qint64> durations;
+    durations.insert(t.path, 123000);
+    REQUIRE(list.applyDurations(durations));
+    REQUIRE(!list.altered());
+    REQUIRE(list.tracks()[0].durationMs == 123000);
+  }
+
+  {
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    const int sampleRate = 8000;
+    const int samples = 8000;
+    QByteArray wav;
+    const int dataBytes = samples * 2;
+    wav.resize(44 + dataBytes);
+    wav.fill(0);
+    std::memcpy(wav.data(), "RIFF", 4);
+    const quint32 riffSize = quint32(36 + dataBytes);
+    qToLittleEndian(riffSize, reinterpret_cast<uchar*>(wav.data() + 4));
+    std::memcpy(wav.data() + 8, "WAVE", 4);
+    std::memcpy(wav.data() + 12, "fmt ", 4);
+    qToLittleEndian(quint32(16), reinterpret_cast<uchar*>(wav.data() + 16));
+    qToLittleEndian(quint16(1), reinterpret_cast<uchar*>(wav.data() + 20));
+    qToLittleEndian(quint16(1), reinterpret_cast<uchar*>(wav.data() + 22));
+    qToLittleEndian(quint32(sampleRate), reinterpret_cast<uchar*>(wav.data() + 24));
+    qToLittleEndian(quint32(sampleRate * 2), reinterpret_cast<uchar*>(wav.data() + 28));
+    qToLittleEndian(quint16(2), reinterpret_cast<uchar*>(wav.data() + 32));
+    qToLittleEndian(quint16(16), reinterpret_cast<uchar*>(wav.data() + 34));
+    std::memcpy(wav.data() + 36, "data", 4);
+    qToLittleEndian(quint32(dataBytes), reinterpret_cast<uchar*>(wav.data() + 40));
+    REQUIRE(tramp::probeWavDurationMs(wav) == 1000);
+    const QString path = tmp.filePath(QStringLiteral("one-sec.wav"));
+    QFile out(path);
+    REQUIRE(out.open(QIODevice::WriteOnly));
+    out.write(wav);
+    out.close();
+    REQUIRE(tramp::probeAudioDurationMs(path) == 1000);
   }
 
   if (gFails != 0) {

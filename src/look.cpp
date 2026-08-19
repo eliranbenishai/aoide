@@ -619,6 +619,9 @@ ChromeTokens ChromeTokens::from(const ResolvedLook& look) {
   t.screenWash0 = lift(p.well, 10, 22, 34);
   t.screenWash1 = lift(p.well, 2, 10, 16);
   t.screenWash2 = lift(p.well, -1, 1, 4);
+  t.listWash0 = lift(p.well, 12, 12, 12);
+  t.listWash1 = lift(p.well, 4, 4, 4);
+  t.listWash2 = p.well;
   t.spectrumStops = m.spectrumStops;
   t.railStops = m.railStops;
   return t;

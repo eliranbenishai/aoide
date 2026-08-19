@@ -1,5 +1,7 @@
 #include "playlist.h"
 
+#include "persist.h"
+
 #include <QFile>
 #include <algorithm>
 
@@ -338,6 +340,23 @@ void PlaylistController::clear() {
   selectedIndex_.reset();
   selectedIndices_.clear();
   notify();
+}
+
+bool PlaylistController::applyDurations(const QMap<QString, qint64>& durations) {
+  if (durations.isEmpty()) return false;
+  bool changed = false;
+  for (Track& t : tracks_) {
+    const QString n = normalizePlaylistPath(t.path);
+    qint64 ms = 0;
+    if (durations.contains(n)) ms = durations.value(n);
+    else if (durations.contains(t.path)) ms = durations.value(t.path);
+    if (ms <= 0) continue;
+    if (t.durationMs && *t.durationMs == ms) continue;
+    t.durationMs = ms;
+    changed = true;
+  }
+  if (changed) notify();
+  return changed;
 }
 
 bool PlaylistController::updateTrackByPath(const QString& path, const Track& next) {

@@ -438,6 +438,10 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
     QLinearGradient wash(curveWell.topLeft(), curveWell.bottomLeft());
     wash.setColorAt(0, withAlpha(T().phos, 102));
     wash.setColorAt(1, withAlpha(T().phos, 0));
+    p.save();
+    QPainterPath wellClip;
+    wellClip.addRoundedRect(curveWell, 3, 3);
+    p.setClipPath(wellClip);
     p.fillPath(fill, wash);
     if (glow) {
       paintBlurred(p, curveWell.adjusted(-8, -8, 8, 8), 2.5, [&](QPainter& bp) {
@@ -449,6 +453,7 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
     p.setBrush(Qt::NoBrush);
     p.setPen(QPen(T().curveStroke, 2.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     p.drawPath(curve);
+    p.restore();
     drawScreenOverlay(p, curveWell);
 
     qreal x = bandRow.left() + 44;
@@ -504,8 +509,7 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   const QRectF collection(body.left(), body.top(), collectionW, body.height());
   const QRectF divider(collection.right(), collection.top(), collectionW > 0 ? 8 : 0,
                        collection.height());
-  const QRectF tracksPane(divider.right(), body.top(), body.width() - collectionW - divider.width(),
-                          body.height());
+  const QRectF tracksPane = playlistTracksPane(body, collectionW);
   if (collectionW > 0) {
     p.fillRect(divider, T().shellDeep);
     drawFooterSep(p, QRectF(divider.center().x() - 1, divider.top() + 24, 1,
@@ -581,23 +585,21 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
                 T().glyphInk);
   }
 
-  const QRectF trackInner = tracksPane.adjusted(12, 12, -12, -12);
-  constexpr qreal footerH = 110;
-  constexpr qreal footerGap = 10;
-  const QRectF listRow(trackInner.left(), trackInner.top(), trackInner.width(),
-                       trackInner.height() - footerH - footerGap);
-  const QRectF listWell(listRow.left(), listRow.top(), listRow.width() - 10 - 14,
-                        listRow.height());
+  const QRectF trackInner = playlistTrackInner(tracksPane);
+  const QRectF listRow = playlistListRowRect(trackInner);
+  const int rowCount = rows.size();
+  const QRectF listWell = playlistListWell(listRow, rowCount);
   drawListWell(p, listWell);
   p.save();
   QPainterPath clip;
   clip.addRoundedRect(listWell, 3, 3);
   p.setClipPath(clip);
   const int scrollRows = view.goldenDemo ? 0 : view.trackScroll;
-  const int visible = int(listWell.height() / 37) + 1;
+  const int visible = playlistVisibleRows(listWell.height()) + 1;
   for (int vis = 0; vis < visible && scrollRows + vis < rows.size(); ++vis) {
     const int i = scrollRows + vis;
-    const QRectF row(listWell.left(), listWell.top() + 6 + vis * 37, listWell.width(), 37);
+    const QRectF row(listWell.left(), listWell.top() + kPlaylistRowPadTop + vis * kPlaylistRowStride,
+                     listWell.width(), kPlaylistRowStride);
     const bool playing = rows[i].playing;
     const bool selected = rows[i].selected;
     const QColor color = playing ? T().phosHot : withAlpha(T().phos, 115);
@@ -650,11 +652,15 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
                logo, 0.05);
   p.restore();
   drawScreenOverlay(p, listWell, QColor(0, 0, 0, 56), false);
-  const QRectF scroll(listWell.right() + 10, listWell.top(), 14, listWell.height());
-  drawScrollbar(p, scroll, scroll.height() * 0.06, scroll.height() * 0.32);
+  const int maxScroll = playlistListMaxScroll(rowCount, listWell.height());
+  if (maxScroll > 0) {
+    const QRectF scroll = playlistListScrollTrack(listWell);
+    const QRectF thumb = playlistListThumb(scroll, rowCount, scrollRows, listWell.height());
+    drawScrollbar(p, scroll, thumb.top() - scroll.top(), thumb.height());
+  }
 
-  const QRectF footer(trackInner.left(), trackInner.bottom() - footerH, trackInner.width(),
-                      footerH);
+  const QRectF footer(trackInner.left(), trackInner.bottom() - kPlaylistFooterH, trackInner.width(),
+                      kPlaylistFooterH);
   const QRectF plate(footer.left(), footer.top(), footer.width(), 74);
   drawPlate(p, plate);
   const QRectF plateInner = plate.adjusted(12, 10, -12, -10);

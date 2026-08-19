@@ -88,6 +88,7 @@ set(TRAMP_SOURCES
   src/settings.cpp
   src/persist.cpp
   src/collection.cpp
+  src/duration_probe.cpp
   src/files.cpp
   src/native_file_dialog.cpp
   src/native_file_dialog.h
@@ -196,6 +197,7 @@ qt_add_executable(domain_test
   src/playback.cpp
   src/docking.cpp
   src/collection.cpp
+  src/duration_probe.cpp
   src/persist.cpp
   src/settings.cpp
 )

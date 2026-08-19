@@ -145,6 +145,9 @@ struct ChromeTokens {
   QColor screenWash0;
   QColor screenWash1;
   QColor screenWash2;
+  QColor listWash0;
+  QColor listWash1;
+  QColor listWash2;
   QVector<QColor> spectrumStops;
   QVector<QColor> railStops;
 

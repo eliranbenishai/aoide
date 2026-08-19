@@ -157,26 +157,25 @@ ChromeHit hitPlaylist(QSize logical, QPoint pos, const SessionView& view) {
     }
   }
 
-  const QRectF tracks(body.left() + collectionW + (view.collectionCollapsed ? 0 : 8), body.top(),
-                      body.width() - collectionW - (view.collectionCollapsed ? 0 : 8), body.height());
-  const QRectF trackInner = tracks.adjusted(12, 12, -12, -12);
-  constexpr qreal footerH = 110;
-  constexpr qreal footerGap = 10;
-  const QRectF listRow(trackInner.left(), trackInner.top(), trackInner.width(),
-                       trackInner.height() - footerH - footerGap);
-  const QRectF listWell(listRow.left(), listRow.top(), listRow.width() - 10 - 14, listRow.height());
+  const QRectF tracks = playlistTracksPane(body, collectionW);
+  const QRectF trackInner = playlistTrackInner(tracks);
+  const QRectF listRow = playlistListRowRect(trackInner);
   const int rows = view.goldenDemo ? 13 : view.tracks.size();
+  const QRectF listWell = playlistListWell(listRow, rows);
   const int first = view.trackScroll;
-  const int visible = int(listWell.height() / 37) + 1;
+  const int visible = playlistVisibleRows(listWell.height()) + 1;
   for (int i = 0; i < visible && first + i < rows; ++i) {
-    const QRect row(int(listWell.left()), int(listWell.top() + 6 + i * 37), int(listWell.width()), 37);
+    const QRect row(int(listWell.left()),
+                    int(listWell.top() + kPlaylistRowPadTop + i * kPlaylistRowStride),
+                    int(listWell.width()), int(kPlaylistRowStride));
     if (auto h = hitIf(row, pos, ChromeHit::Kind::plTrackRow, first + i);
         h.kind != ChromeHit::Kind::none) {
       return h;
     }
   }
 
-  const QRectF footer(trackInner.left(), trackInner.bottom() - footerH, trackInner.width(), footerH);
+  const QRectF footer(trackInner.left(), trackInner.bottom() - kPlaylistFooterH, trackInner.width(),
+                      kPlaylistFooterH);
   const QRectF plateInner = QRectF(footer.left(), footer.top(), footer.width(), 74).adjusted(12, 10, -12, -10);
   qreal fx = plateInner.left();
   const qreal fy = plateInner.top();

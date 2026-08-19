@@ -3,6 +3,7 @@
 #include "m3u.h"
 #include "track.h"
 
+#include <QMap>
 #include <QSet>
 #include <QString>
 #include <QVector>
@@ -40,6 +41,7 @@ class PlaylistController {
   void reverseTracks();
   void clear();
   bool updateTrackByPath(const QString& path, const Track& next);
+  bool applyDurations(const QMap<QString, qint64>& durations);
 
   bool openPlaylistFile(const QString& path, const M3uCodec& codec = M3uCodec());
   bool savePlaylistFile(const QString& path, const M3uCodec& codec = M3uCodec());

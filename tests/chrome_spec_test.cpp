@@ -22,6 +22,7 @@ class ChromeSpecTest : public QObject {
   void chromePaintBufferMatchesWidgetTimesDpr();
   void stereoPlaylistGapHoldsForWideGlyphs();
   void skinsListScrollsLastRowIntoView();
+  void playlistHidesScrollbarWhenRowsFit();
 };
 
 void ChromeSpecTest::tokensMatchMockupCssRoot() {
@@ -184,6 +185,20 @@ void ChromeSpecTest::skinsListScrollsLastRowIntoView() {
   const auto lastShown = tramp::skinsListRow(viewport, 7, scroll);
   QVERIFY(lastShown.top() >= viewport.top());
   QVERIFY(lastShown.bottom() <= viewport.bottom());
+}
+
+void ChromeSpecTest::playlistHidesScrollbarWhenRowsFit() {
+  const qreal wellH = tramp::playlistListWellHeight(tramp::kPlaylistDefault.height());
+  QCOMPARE(tramp::playlistListMaxScroll(1, wellH), 0);
+  QCOMPARE(tramp::playlistListMaxScroll(tramp::playlistVisibleRows(wellH), wellH), 0);
+  QVERIFY(tramp::playlistListMaxScroll(tramp::playlistVisibleRows(wellH) + 1, wellH) > 0);
+
+  const QRectF listRow(0, 0, 400, wellH);
+  const QRectF fitting = tramp::playlistListWell(listRow, 3);
+  QCOMPARE(fitting.width(), listRow.width());
+  const QRectF overflowing = tramp::playlistListWell(listRow, tramp::playlistVisibleRows(wellH) + 8);
+  QCOMPARE(overflowing.width(),
+           listRow.width() - tramp::kPlaylistScrollGap - tramp::kPlaylistScrollW);
 }
 
 QTEST_APPLESS_MAIN(ChromeSpecTest)
