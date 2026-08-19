@@ -16,6 +16,7 @@
 #include "player_engine.h"
 #include "popup_anchor.h"
 #include "support_dir.h"
+#include "wait_cursor.h"
 #include "tramp_fonts.h"
 #include "tramp_metrics.h"
 
@@ -127,7 +128,10 @@ TrampSession::TrampSession(QObject* parent)
   bindPlayback();
   engine_->setForceMono(settings_.forceMono);
   applyEq();
-  skins_.bootstrap(trampSupportDirectory(), bundledSkinsDir(), settings_);
+  {
+    WaitCursorScope wait;
+    skins_.bootstrap(trampSupportDirectory(), bundledSkinsDir(), settings_);
+  }
   syncTitleMarquee();
 }
 
@@ -267,13 +271,16 @@ void TrampSession::setShell(HostShell* shell) {
 }
 
 void TrampSession::bootstrap(const QStringList& argvFiles) {
-  const auto kept = store_.readAltered();
-  if (!kept.isEmpty()) {
-    playlist_.restoreAlteredTracks(kept.tracks, kept.sourcePath);
-  } else {
-    const QString last = store_.readLastPlaylistPath();
-    if (!last.isEmpty() && QFileInfo::exists(last)) {
-      playlist_.openPlaylistFile(last);
+  {
+    WaitCursorScope wait;
+    const auto kept = store_.readAltered();
+    if (!kept.isEmpty()) {
+      playlist_.restoreAlteredTracks(kept.tracks, kept.sourcePath);
+    } else {
+      const QString last = store_.readLastPlaylistPath();
+      if (!last.isEmpty() && QFileInfo::exists(last)) {
+        playlist_.openPlaylistFile(last);
+      }
     }
   }
   if (!argvFiles.isEmpty()) {
@@ -288,12 +295,15 @@ void TrampSession::bootstrap(const QStringList& argvFiles) {
       if (!resume.wasPlaying) playback_->playPause();
     }
   }
-  collection_.validateReferences();
-  persistCollectionCache();
-  if (!playlist_.sourcePath().isEmpty()) {
-    collection_.select(playlist_.sourcePath());
+  {
+    WaitCursorScope wait;
+    collection_.validateReferences();
+    persistCollectionCache();
+    if (!playlist_.sourcePath().isEmpty()) {
+      collection_.select(playlist_.sourcePath());
+    }
+    if (!playlist_.tracks().isEmpty()) indexAndProbeCurrent();
   }
-  if (!playlist_.tracks().isEmpty()) indexAndProbeCurrent();
   if (pl_ && settings_.playlist.width && settings_.playlist.height) {
     pl_->setPlaylistLogicalSize(
         QSize(int(*settings_.playlist.width), int(*settings_.playlist.height)));
@@ -834,27 +844,32 @@ void TrampSession::applyDroppedPaths(const QStringList& paths, bool replace) {
 }
 
 void TrampSession::openPaths(const QStringList& paths, bool enqueue) {
-  QStringList playlists;
-  QStringList others;
-  for (const QString& p : paths) {
-    if (isPlaylistPath(p)) playlists.push_back(p);
-    else others.push_back(p);
+  bool playFirst = false;
+  {
+    WaitCursorScope wait;
+    QStringList playlists;
+    QStringList others;
+    for (const QString& p : paths) {
+      if (isPlaylistPath(p)) playlists.push_back(p);
+      else others.push_back(p);
+    }
+    if (!playlists.isEmpty()) {
+      playlist_.openPlaylistFile(playlists.first());
+      collection_.add(playlists.first());
+      persistCollectionCache();
+      playFirst = !playlist_.tracks().isEmpty();
+      indexAndProbeCurrent();
+    }
+    const auto audio = tracksFromPaths(others);
+    if (!audio.isEmpty()) {
+      if (!enqueue && playlists.isEmpty()) playlist_.setTracks(audio);
+      else playlist_.addTracks(audio);
+      if (!playFirst && !playback_->playingIndex()) playFirst = true;
+      startDurationProbe(playlist_.tracks());
+    }
+    refreshChrome();
   }
-  if (!playlists.isEmpty()) {
-    playlist_.openPlaylistFile(playlists.first());
-    collection_.add(playlists.first());
-    persistCollectionCache();
-    if (playlist_.tracks().isEmpty() == false) playback_->playIndex(0);
-    indexAndProbeCurrent();
-  }
-  const auto audio = tracksFromPaths(others);
-  if (!audio.isEmpty()) {
-    if (!enqueue && playlists.isEmpty()) playlist_.setTracks(audio);
-    else playlist_.addTracks(audio);
-    if (!playback_->playingIndex()) playback_->playIndex(0);
-    startDurationProbe(playlist_.tracks());
-  }
-  refreshChrome();
+  if (playFirst) playback_->playIndex(0);
 }
 
 QString TrampSession::pickAudio(bool multiple) {
@@ -892,12 +907,14 @@ void TrampSession::loadCollectionRow(int index) {
     return;
   }
   if (samePlaylistFile(playlist_.sourcePath(), e.path)) {
+    WaitCursorScope wait;
     collection_.select(e.path);
     indexAndProbeCurrent();
     refreshChrome();
     return;
   }
   if (!confirmReplaceAltered()) return;
+  WaitCursorScope wait;
   playlist_.openPlaylistFile(e.path);
   collection_.select(e.path);
   indexAndProbeCurrent();
@@ -1092,6 +1109,7 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
     case K::plAddCollection: {
       const QString path = pickPlaylist(false);
       if (!path.isEmpty()) {
+        WaitCursorScope wait;
         const auto tracks = collection_.add(path);
         persistCollectionCache();
         startDurationProbe(tracks);
@@ -1210,12 +1228,16 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       break;
     case K::settingsSkins:
       settingsTab_ = 1;
-      skins_.rescan();
+      {
+        WaitCursorScope wait;
+        skins_.rescan();
+      }
       refreshChrome();
       break;
     case K::settingsSkinRow: {
       const auto catalog = skins_.catalog();
       if (hit.index >= 0 && hit.index < catalog.size()) {
+        WaitCursorScope wait;
         if (skins_.activate(catalog[hit.index].id, settings_)) {
           schedulePersist();
         }
@@ -1230,8 +1252,11 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       pick.filter = QStringLiteral("Skin zip (*.zip)");
       pick.kind = FilePickKind::openFile;
       const QString path = pickFile(pick);
-      if (!path.isEmpty() && skins_.installZip(path, skinConflictPrompt())) {
-        schedulePersist();
+      if (!path.isEmpty()) {
+        WaitCursorScope wait;
+        if (skins_.installZip(path, skinConflictPrompt())) {
+          schedulePersist();
+        }
       }
       refreshChrome();
       break;
@@ -1242,8 +1267,11 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       pick.title = QStringLiteral("Install skin folder");
       pick.kind = FilePickKind::openDirectory;
       const QString path = pickFile(pick);
-      if (!path.isEmpty() && skins_.installDirectory(path, skinConflictPrompt())) {
-        schedulePersist();
+      if (!path.isEmpty()) {
+        WaitCursorScope wait;
+        if (skins_.installDirectory(path, skinConflictPrompt())) {
+          schedulePersist();
+        }
       }
       refreshChrome();
       break;
@@ -1256,6 +1284,7 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       pick.kind = FilePickKind::openDirectory;
       const QString path = pickFile(pick);
       if (!path.isEmpty()) {
+        WaitCursorScope wait;
         skins_.setSkinsDirectory(path, settings_);
         schedulePersist();
       }
@@ -1263,7 +1292,10 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       break;
     }
     case K::settingsResetSkinsFolder:
-      skins_.setSkinsDirectory({}, settings_);
+      {
+        WaitCursorScope wait;
+        skins_.setSkinsDirectory({}, settings_);
+      }
       schedulePersist();
       refreshChrome();
       break;
@@ -1312,7 +1344,10 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       engine_->setForceMono(false);
       docking_.setSnapThreshold(20);
       applyAlwaysOnTop();
-      skins_.setSkinsDirectory({}, settings_);
+      {
+        WaitCursorScope wait;
+        skins_.setSkinsDirectory({}, settings_);
+      }
       syncTitleMarquee();
       schedulePersist();
       refreshChrome();
@@ -1424,6 +1459,7 @@ SkinController::ConflictFn TrampSession::skinConflictPrompt() {
                  conflict.incomingAuthor.isEmpty()
                      ? QString()
                      : QStringLiteral(" (%1)").arg(conflict.incomingAuthor));
+    WaitCursorPause pause;
     const auto reply = QMessageBox::question(parent, QStringLiteral("Replace skin?"), text,
                                              QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
     return reply == QMessageBox::Yes ? SkinConflictChoice::replace : SkinConflictChoice::cancel;

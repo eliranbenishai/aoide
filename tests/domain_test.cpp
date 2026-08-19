@@ -12,6 +12,7 @@
 #include "popup_anchor.h"
 #include "spectrum.h"
 #include "support_dir.h"
+#include "wait_cursor.h"
 #include "track.h"
 #include "transport.h"
 #include "wav_reader.h"
@@ -867,6 +868,49 @@ int main() {
     out.write(wav);
     out.close();
     REQUIRE(tramp::probeAudioDurationMs(path) == 1000);
+  }
+
+  {
+    int applied = 0;
+    int restored = 0;
+    tramp::WaitCursorScope::installHooks({[&]() { ++applied; }, [&]() { ++restored; }});
+    {
+      tramp::WaitCursorScope outer;
+      REQUIRE_EQ(applied, 1);
+      REQUIRE_EQ(restored, 0);
+      {
+        tramp::WaitCursorScope inner;
+        REQUIRE_EQ(applied, 1);
+        REQUIRE_EQ(restored, 0);
+      }
+      REQUIRE_EQ(applied, 1);
+      REQUIRE_EQ(restored, 0);
+    }
+    REQUIRE_EQ(applied, 1);
+    REQUIRE_EQ(restored, 1);
+    {
+      tramp::WaitCursorScope again;
+      REQUIRE_EQ(applied, 2);
+    }
+    REQUIRE_EQ(restored, 2);
+    tramp::WaitCursorScope::resetHooks();
+  }
+
+  {
+    int applied = 0;
+    int restored = 0;
+    tramp::WaitCursorScope::installHooks({[&]() { ++applied; }, [&]() { ++restored; }});
+    {
+      tramp::WaitCursorScope outer;
+      REQUIRE_EQ(applied, 1);
+      {
+        tramp::WaitCursorPause pause;
+        REQUIRE_EQ(restored, 1);
+      }
+      REQUIRE_EQ(applied, 2);
+    }
+    REQUIRE_EQ(restored, 2);
+    tramp::WaitCursorScope::resetHooks();
   }
 
   if (gFails != 0) {

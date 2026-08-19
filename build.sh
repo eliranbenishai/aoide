@@ -67,6 +67,7 @@ SRCS=(
   "$ROOT/src/m3u.cpp"
   "$ROOT/src/equalizer.cpp"
   "$ROOT/src/support_dir.cpp"
+  "$ROOT/src/wait_cursor.cpp"
   "$ROOT/src/playlist.cpp"
   "$ROOT/src/transport.cpp"
   "$ROOT/src/settings.cpp"
@@ -99,6 +100,7 @@ mv -f "$BUILD/tramp.next" "$BUILD/tramp"
 # Domain tests (playlist / playback / docking / collection)
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
   "$ROOT/src/m3u.cpp" "$ROOT/src/equalizer.cpp" "$ROOT/src/support_dir.cpp" \
+  "$ROOT/src/wait_cursor.cpp" \
   "$ROOT/src/playlist.cpp" "$ROOT/src/transport.cpp" \
   "$ROOT/src/wav_reader.cpp" "$ROOT/src/stft.cpp" "$ROOT/src/spectrum.cpp" \
   "$ROOT/src/playback.cpp" "$ROOT/src/docking.cpp" \

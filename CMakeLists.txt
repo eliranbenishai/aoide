@@ -83,6 +83,7 @@ set(TRAMP_SOURCES
   src/m3u.cpp
   src/equalizer.cpp
   src/support_dir.cpp
+  src/wait_cursor.cpp
   src/playlist.cpp
   src/transport.cpp
   src/settings.cpp
@@ -189,6 +190,7 @@ qt_add_executable(domain_test
   src/m3u.cpp
   src/equalizer.cpp
   src/support_dir.cpp
+  src/wait_cursor.cpp
   src/playlist.cpp
   src/transport.cpp
   src/wav_reader.cpp
