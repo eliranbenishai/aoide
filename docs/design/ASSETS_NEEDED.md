@@ -1,6 +1,6 @@
 # Assets
 
-Historical PNG-graphite request list — retired with [ADR 0007](../adr/0007-code-constructed-mockup-chrome.md).
+Historical PNG-graphite request list — retired when chrome became code-constructed from the mockup.
 
 Current brand files:
 

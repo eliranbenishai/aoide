@@ -2,11 +2,11 @@
 
 Date: 2026-08-09  
 Status: Implemented  
-**Superseded 2026-08-18 (playlist sides):** playlist snaps to any side like EQ; see [ADR 0006](../../adr/0006-multi-window-docking.md). The top/bottom-only bullets in §1 are historical.  
+**Superseded 2026-08-18 (playlist sides):** playlist snaps to any side like EQ. The top/bottom-only bullets in §1 are historical.  
 Branch intent: follow-on to mockup multi-window redesign  
-UI authority: [`player-mockup-2.html`](../../../player-mockup-2.html) for button chrome and spectrum gradient; product rules below override mockup where noted. Host is Qt 6 ([ADR 0016](../../adr/0016-qt-for-v1.md)).
+UI authority: [`player-mockup-2.html`](../../../player-mockup-2.html) for button chrome and spectrum gradient; product rules below override mockup where noted. Host is Qt 6.
 
-Related: [`2026-08-08-mockup-multiwindow-redesign-design.md`](2026-08-08-mockup-multiwindow-redesign-design.md), [ADR 0006](../../adr/0006-multi-window-docking.md), [ADR 0007](../../adr/0007-code-constructed-mockup-chrome.md), [`architecture.md`](../../architecture.md), [`tramp-v1-spec.md`](../../tramp-v1-spec.md).
+Related: [`2026-08-08-mockup-multiwindow-redesign-design.md`](2026-08-08-mockup-multiwindow-redesign-design.md), [`architecture.md`](../../architecture.md), [`tramp-v1-spec.md`](../../tramp-v1-spec.md).
 
 ## Problem
 
@@ -92,8 +92,6 @@ Update EQ goldens / widget tests with a non-zero band so fill is covered.
 |-----|--------|
 | This spec | Source of truth for the polish pass |
 | `docs/architecture.md` | Docking move/snap ownership; taskbar; title compact mode; EQ fill |
-| `docs/adr/0006-multi-window-docking.md` | Revised docking + taskbar decision |
-| `docs/adr/0007-code-constructed-mockup-chrome.md` | Product overrides (compact EQ/PL titles; EQ fill beyond mockup HTML) |
 | `docs/tramp-v1-spec.md` | Window/chrome product rules |
 | `CONTEXT.md` | Docking / taskbar glossary |
 

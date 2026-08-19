@@ -1,6 +1,6 @@
 # Tramp mockup multi-window redesign — design
 
-Host is Qt 6 ([ADR 0016](../../adr/0016-qt-for-v1.md)); Flutter mentions below are historical.
+Host is Qt 6; Flutter mentions below are historical.
 
 Rebuild Tramp around [`player-mockup-2.html`](../../../player-mockup-2.html):
 three Winamp-style dockable windows, **code-constructed** chrome that matches the
@@ -18,7 +18,7 @@ band fill, `.wbtn` bevel fidelity, and Windows taskbar (main only) are pinned in
 Where that polish doc conflicts with docking/title details below, **prefer the
 polish doc**.
 
-Product/architecture/CONTEXT/ADRs that conflict with this document are
+Product, architecture, and CONTEXT that conflict with this document are
 **rewritten or explicitly superseded in the same delivery** — legacy decisions
 must not clutter the path forward.
 
@@ -40,7 +40,7 @@ Mockup (visual + geometric authority): [`player-mockup-2.html`](../../../player-
 - Audible 10-band EQ (measurement-gated), **real** LCD spectrum (20 bars),
   force-mono.
 - Global discrete zoom from the main title bar applies to all three windows.
-- Revise product spec, architecture, CONTEXT, and ADRs so recorded decisions
+- Revise product spec, architecture, and CONTEXT so recorded decisions
   match this direction.
 
 ## 2. Non-goals
@@ -179,7 +179,7 @@ Flutter ink splash as the visible affordance.
 
 - `GraphiteSkin` / PNG assets under `assets/skin/graphite/` — removed from the
   product path
-- ADR 0004 PNG-first mandate — superseded
+- PNG-first graphite mandate — superseded
 - Brand mark remains vector (mockup embedded logo) in the title-bar disc and
   playlist watermark treatment
 
@@ -389,7 +389,7 @@ flowchart TB
 
 ---
 
-## 12. Decision hygiene (docs / ADRs)
+## 12. Decision hygiene
 
 Delivered with this redesign (not deferred):
 
@@ -398,11 +398,6 @@ Delivered with this redesign (not deferred):
 | `docs/tramp-v1-spec.md` | Rewrite for multi-window, code chrome, full libmpv, audible EQ, real spectrum, O/A/I, Mono, fidelity bar |
 | `docs/architecture.md` | Reflect three windows, docking, code chrome, full libmpv, real EQ/spectrum |
 | `CONTEXT.md` | Cyan phosphor; docking; code-constructed chrome; retire PNG-graphite-as-current; update synthetic-levels language |
-| ADR 0001 (Flutter) | **Keep** |
-| ADR 0002 (fixed canvas zoom) | **Revise** — global zoom across three canvases; playlist free resize |
-| ADR 0003 (zoom-only / single-window framing) | **Supersede** — replace with multi-window + docking ADR |
-| ADR 0004 (PNG graphite) | **Supersede** — replace with code-constructed mockup-chrome ADR |
-| New ADRs | Full libmpv bundling; multi-window docking; code-constructed mockup chrome |
 
 Prior research that concluded EQ/spectrum impossible on **slim** libmpv remains
 valid as history for those binaries; it is **not** an active constraint under

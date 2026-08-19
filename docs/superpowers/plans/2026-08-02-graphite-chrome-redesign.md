@@ -6748,7 +6748,6 @@ and Ctrl +/-/0 drive zoom from the keyboard."
 - Modify: `docs/architecture.md`
 - Modify: `docs/tramp-v1-spec.md`
 - Modify: `CONTEXT.md`
-- Create: `docs/adr/0002-fixed-canvas-zoom.md`
 
 **Interfaces:**
 - Consumes: `MainPlayerPanel` (Task 13), `EqualizerPanel` (Task 11).
@@ -6913,47 +6912,11 @@ flutter test test/golden/panels_golden_test.dart
 
 Expected: PASS. If text renders as boxes, the bundled fonts are not loading — recheck Task 1 Step 10.
 
-- [ ] **Step 4: Write the zoom ADR**
-
-Create `docs/adr/0002-fixed-canvas-zoom.md`:
-
-```markdown
-# 2. Fixed logical canvas plus a single transform for zoom
-
-Date: 2026-08-02
-
-## Status
-
-Accepted
-
-## Context
-
-The graphite chrome redesign must support several zoom levels for high-DPI
-displays while looking identical at every one. Two approaches were considered:
-scaling a fixed logical canvas with one transform, or threading a scale factor
-through every metric so widgets lay out natively at the scaled size.
-
-## Decision
+- [ ] **Step 4: Record the zoom decision in `docs/architecture.md`**
 
 Each panel is authored once against a fixed logical canvas — main player
 812x242, equalizer 812x206 — and the zoom factor is applied by a single
 `Transform.scale` at the root of the panel stack.
-
-## Consequences
-
-There is exactly one source of geometry, so no zoom step can drift from the
-reference mockup, and adding a step costs nothing. Because every surface is
-vector and Flutter rasterizes text at final device resolution, output is crisp
-at any factor.
-
-The cost is that 1px bevels land on fractional device pixels at 125% and 150%.
-`ZoomScope.snap` rounds hairlines to whole device pixels to compensate.
-
-The rejected alternative — scaled metric tokens — keeps hairlines exact without
-snapping, but requires every widget to consume metrics correctly. A single
-widget forgetting one silently breaks visual fidelity, which is the specific
-failure this redesign cannot tolerate.
-```
 
 - [ ] **Step 5: Update the architecture doc**
 
@@ -6962,7 +6925,7 @@ In `docs/architecture.md`, replace the UI section so it reflects the built struc
 - `TrampShell` hosts the zoom transform and switches the lower region between `EqualizerPanel` and `PlaylistPanel`.
 - `MainPlayerPanel` and `EqualizerPanel` are fixed logical canvases; `lib/ui/chrome/` holds the shared primitives (`MetalPanel`, `ChromeButton`, `ChromeSlider`, `TrampTitleBar`, `LcdText`, `SpectrumVisualizer`, `TransportIcons`).
 - `lib/theme/` holds colours, surfaces, text and metrics; note that no widget composes its own gradient.
-- `lib/ui/zoom/` holds `ZoomController` and `ZoomScope`; link the new ADR.
+- `lib/ui/zoom/` holds `ZoomController` and `ZoomScope`.
 - `lib/eq/` holds `EqualizerController` and the `EqualizerSink` seam, and state that the equalizer is not audible and why.
 - `PlayerEngine` now carries `levelsStream` and `formatStream`; state that media_kit levels are synthetic and link the spec's "Audio levels" section.
 - Under known gaps, add: equalizer is chrome-only pending a libmpv that can build filter graphs; spectrum levels are synthetic pending the spectrogram subsystem.
@@ -7003,7 +6966,7 @@ git add test/golden docs CONTEXT.md
 git commit -m "test(golden): pin both panels at 100% and 200%, update docs
 
 Goldens are the acceptance gate for the redesign's visual fidelity. Documents
-the fixed-canvas zoom decision as an ADR and records that equalizer audio and
+the fixed-canvas zoom decision and records that equalizer audio and
 measured levels are blocked on the shipped libmpv."
 ```
 

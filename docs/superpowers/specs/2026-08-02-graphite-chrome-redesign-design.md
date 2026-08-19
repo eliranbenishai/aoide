@@ -296,7 +296,7 @@ occurrences of `astats`, `aspectralstats`, `ebur128`, `bandpass`, `amix` or
 populate it. The macOS build recipe is equally minimal; Linux links the system
 libmpv and would work.
 
-Two independent limits follow, both confirmed in local graphite-chrome audio-levels notes (historical; the lock is [ADR 0005](../../adr/0005-full-libmpv.md)):
+Two independent limits follow, both confirmed in local graphite-chrome audio-levels notes (historical; the lock is full libmpv):
 
 1. **No levels at all** on Windows and macOS without replacing the libmpv binary.
 2. **No true per-band spectrum, ever, from mpv's filter chain** — mpv reads
@@ -318,8 +318,7 @@ per-band spectrum**, and it sidesteps every limit above: no filter graph, no 20 
 cadence ceiling, and no 200 ms lead error, because frames are indexed by position
 rather than arriving live.
 
-Verified viable by experiment (historical PCM spike; the lock is
-[ADR 0005](../../adr/0005-full-libmpv.md)):
+Verified viable by experiment (historical PCM spike; the lock is full libmpv):
 mpv's `ao=pcm` output is compiled in, produces a **byte-identical** PCM payload,
 and decodes a 240-second track in 1.13 s wall clock — roughly 212× realtime.
 
@@ -367,8 +366,7 @@ during analysis, no change to the cached output.
 ## Equalizer audio path
 
 Settled by experiment: **the equalizer cannot be made audible with the libmpv
-media_kit ships.** Evidence was a historical PCM/EQ spike; the lock is
-[ADR 0005](../../adr/0005-full-libmpv.md).
+media_kit ships.** Evidence was a historical PCM/EQ spike; the lock is full libmpv.
 
 `--enable-filter=equalizer` is genuinely present, and mpv accepts a ten-filter
 chain on the `af` property — but the graph never configures, because mpv's
@@ -422,4 +420,3 @@ are viable here precisely because fonts are bundled and every surface is vector.
 - `docs/architecture.md` — new UI module map, zoom layer, EQ state, levels seam
 - `docs/tramp-v1-spec.md` — EQ chrome, zoom, and maximize enter scope; VU meters leave it
 - `CONTEXT.md` — vocabulary for zoom step, lower region, phosphor, rail, well
-- `docs/adr/` — an ADR for the fixed-canvas-plus-transform zoom decision

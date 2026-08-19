@@ -1,8 +1,7 @@
 # Full libmpv bundle
 
 Tramp ships **full** libmpv (+ FFmpeg filter graph support), not a compressed
-“audio-default” / slim build. See
-[`docs/adr/0005-full-libmpv.md`](../../docs/adr/0005-full-libmpv.md).
+“audio-default” / slim build. See [`docs/architecture.md`](../../docs/architecture.md).
 
 Slim builds often embed `--disable-filters`. That removes `aresample` from
 libavfilter, so EQ filter graphs silently no-op. Packaging must load the

@@ -1,6 +1,6 @@
 # Issue tracker: Local Markdown
 
-Issues and specs (you may know a spec as a PRD) live as markdown files in `.scratch/`. That directory is **gitignored** — session dumps, briefs, and tickets stay on the machine that wrote them. Do not `git add` `.scratch`. Anything that should survive a clone belongs in `CONTEXT.md`, `docs/adr/`, or `docs/architecture.md`.
+Issues and specs (you may know a spec as a PRD) live as markdown files in `.scratch/`. That directory is **gitignored** — session dumps, briefs, and tickets stay on the machine that wrote them. Do not `git add` `.scratch`. Anything that should survive a clone belongs in `CONTEXT.md` or `docs/architecture.md`.
 
 ## Conventions
 

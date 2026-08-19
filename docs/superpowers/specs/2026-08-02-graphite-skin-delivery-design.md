@@ -11,8 +11,7 @@ rules (TRAMP, no bolt), fixed logical canvases, and control vocabulary from that
 doc remain unless this document overrides them.
 
 Product: [`docs/tramp-v1-spec.md`](../../tramp-v1-spec.md).  
-Vocabulary: [`CONTEXT.md`](../../../CONTEXT.md).  
-ADRs: [0002](../../adr/0002-fixed-canvas-zoom.md), [0003](../../adr/0003-zoom-only-window-size.md), [0004](../../adr/0004-png-graphite-skin.md).
+Vocabulary: [`CONTEXT.md`](../../../CONTEXT.md).
 
 ## Goals
 
@@ -82,7 +81,7 @@ Master density: **2×** logical canvas. One set scales with the zoom step.
 
 ### Shell and zoom
 
-- Keep single root `Transform.scale` ([ADR 0002](../../adr/0002-fixed-canvas-zoom.md)).
+- Keep single root `Transform.scale`.
 - Logical canvases unchanged: main **812×242**, equalizer **812×206**.
 - Title bar controls: minimize, **zoom−**, **zoom+**, close. No maximize-as-size.
 - Drop the redundant **ZOOM** dropdown once title-bar ± ship; keep Ctrl±/0 and
@@ -134,8 +133,7 @@ QA):
 
 ## Doc impact
 
-- Amend [ADR 0003](../../adr/0003-zoom-only-window-size.md) for playlist-mode
-  free resize; main/EQ remain zoom-only forever.
+- Record playlist-mode free resize; main/EQ remain zoom-only forever.
 - Update `tramp-v1-spec.md`, `architecture.md`, `CONTEXT.md` to match.
 - Treat painted-chrome construction in the earlier graphite redesign design as
   superseded by this document.

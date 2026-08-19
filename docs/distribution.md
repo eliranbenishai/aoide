@@ -1,6 +1,6 @@
 # Distribution and CI
 
-How Tramp is built and handed to listeners. Decisions: [ADR 0010](adr/0010-open-source-website-download.md)–[0014](adr/0014-ci-and-architectures.md), [ADR 0016](adr/0016-qt-for-v1.md). Product page: `https://tramp.music`. GitHub Releases on a version tag are a **mirror**, not the product surface.
+How Tramp is built and handed to listeners. Product page: `https://tramp.music`. GitHub Releases on a version tag are a **mirror**, not the product surface.
 
 ## Workflows
 
@@ -8,7 +8,7 @@ How Tramp is built and handed to listeners. Decisions: [ADR 0010](adr/0010-open-
 |----------|------|------|
 | [`.github/workflows/open-pr.yml`](../.github/workflows/open-pr.yml) | Push to a feature branch | Opens a PR against `main` if one is missing (`research/*`, `spike/*`, `wip/*` skipped) |
 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PR and `main` | CMake build + `ctest` on Ubuntu and Windows; PR review comment with the result |
-| [`.github/workflows/merge-if-green.yml`](../.github/workflows/merge-if-green.yml) | CI completed | Squash-merges a same-repo, non-draft PR at that SHA when CI is green ([ADR 0018](adr/0018-pr-ci-auto-merge.md)). Skips forks, drafts, and `do-not-merge` |
+| [`.github/workflows/merge-if-green.yml`](../.github/workflows/merge-if-green.yml) | CI completed | Squash-merges a same-repo, non-draft PR at that SHA when CI is green. Skips forks, drafts, and `do-not-merge` |
 | [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Tag `v*` or **Run workflow** | Test, then Windows / Linux packages; tags also attach a GitHub Release |
 
 Cut a release by bumping [`VERSION`](../VERSION), committing, then:

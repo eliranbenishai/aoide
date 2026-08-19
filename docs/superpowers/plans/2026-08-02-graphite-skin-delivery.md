@@ -565,6 +565,6 @@ git commit -m "refactor(ui): retire painted chrome look; docs match skin deliver
 | Zoom± replace maximize; drop ZOOM dropdown | 6 |
 | Playlist invent in-family 9-slice | 8 |
 | Side-by-side QA | 6–7 |
-| ADR/docs sync | 9 (+ already committed design ADRs) |
+| Docs sync | 9 |
 
 No TBD placeholders left in task steps. Types: `GraphiteSkin`, `SkinImage`, `SkinButton`, `SkinSlider`, `NineSliceSkin`, `TrampSettings.playlistWindowWidth/Height`, `setTrampWindowResizable` are consistent across tasks.

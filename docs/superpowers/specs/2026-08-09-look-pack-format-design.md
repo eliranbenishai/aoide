@@ -4,7 +4,7 @@ Date: 2026-08-09
 Status: Implemented  
 Branch intent: shareable pack format for recoloring / retyping mockup chrome (`src/look.*`)
 
-Related: [`src/mockup_tokens.h`](../../../src/mockup_tokens.h), [ADR 0007](../../adr/0007-code-constructed-mockup-chrome.md), [`architecture.md`](../../architecture.md), [`CONTEXT.md`](../../../CONTEXT.md).
+Related: [`src/mockup_tokens.h`](../../../src/mockup_tokens.h), [`architecture.md`](../../architecture.md), [`CONTEXT.md`](../../../CONTEXT.md).
 
 ## Problem
 

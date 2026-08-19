@@ -62,7 +62,7 @@ Use **`find-skills`** only when the user wants to **discover or install** a skil
 | Implement from a spec/tickets | `implement` (+ `tdd` at seams) |
 | Huge multi-session effort / foggy map | `wayfinder` |
 | Hard bug / unexpected failure | `diagnosing-bugs` |
-| Domain language / ADR | `domain-modeling` |
+| Domain language | `domain-modeling` |
 | Review branch/PR vs standards + spec | `code-review` |
 | Which skill should I use? | `ask-matt` |
 

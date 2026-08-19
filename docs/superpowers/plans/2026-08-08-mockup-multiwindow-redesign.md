@@ -22,7 +22,7 @@
 - Full libmpv only — no media_kit compressed audio builds. EQ ships only after **measurement** proves bands. Spectrum must be `synthetic: false` in normal play.
 - Branding: `TRAMP` / `TRAMP` + `1.0` on main. No Material icon font / tofu glyphs on chrome.
 - Every task: `flutter analyze` clean and relevant `flutter test` green before commit.
-- Docs/ADRs that conflict are rewritten in Task 1 / Task 12 — do not leave obsolete locks active.
+- Product, architecture, and CONTEXT that conflict are rewritten in Task 1 / Task 12 — do not leave obsolete locks active.
 
 ### Pinned implementation choices (from design §15)
 
@@ -70,9 +70,6 @@
 | `lib/eq/mpv_equalizer_sink.dart` | Real EQ sink |
 | `lib/analysis/spectrum_analyzer.dart` | PCM → STFT → 20 bands |
 | `lib/playback/mono_controller.dart` | Force-mono flag on engine |
-| `docs/adr/0005-full-libmpv.md` | New ADR |
-| `docs/adr/0006-multi-window-docking.md` | New ADR |
-| `docs/adr/0007-code-constructed-mockup-chrome.md` | New ADR |
 
 **Modified:**
 
@@ -89,24 +86,17 @@
 | `lib/playback/media_kit_player_engine.dart` | Full libmpv props; stop synthetic-as-normal |
 | `lib/eq/equalizer_controller.dart` | Drop “noop forever” comments; wire real sink |
 | `docs/tramp-v1-spec.md`, `docs/architecture.md`, `CONTEXT.md` | Rewrite |
-| `docs/adr/0002-*.md`, `0003-*.md`, `0004-*.md` | Revise / supersede |
 
 **Deleted (after cutover):** `lib/ui/skin/**`, `assets/skin/graphite/**`, `lib/ui/tramp_shell.dart` (replaced by window roots), obsolete lower-region layout helpers that assume one window.
 
 ---
 
-### Task 1: Decision hygiene — rewrite docs and supersede ADRs
+### Task 1: Decision hygiene — rewrite living docs
 
 **Files:**
 - Modify: `docs/tramp-v1-spec.md`
 - Modify: `docs/architecture.md`
 - Modify: `CONTEXT.md`
-- Modify: `docs/adr/0002-fixed-canvas-zoom.md`
-- Modify: `docs/adr/0003-zoom-only-window-size.md` (Status: Superseded by 0006)
-- Modify: `docs/adr/0004-png-graphite-skin.md` (Status: Superseded by 0007)
-- Create: `docs/adr/0005-full-libmpv.md`
-- Create: `docs/adr/0006-multi-window-docking.md`
-- Create: `docs/adr/0007-code-constructed-mockup-chrome.md`
 
 **Interfaces:**
 - Consumes: design spec sections 1–15
@@ -118,24 +108,17 @@ Replace window/chrome/EQ/spectrum/non-goals to match the design spec. Keep Flutt
 
 - [ ] **Step 2: Rewrite `docs/architecture.md`**
 
-Update status, mermaid (three windows + session bus + full libmpv), modules table, known gaps (remove chrome-only EQ / synthetic-as-end-state). Link ADRs 0005–0007.
+Update status, mermaid (three windows + session bus + full libmpv), modules table, known gaps (remove chrome-only EQ / synthetic-as-end-state).
 
 - [ ] **Step 3: Update `CONTEXT.md`**
 
 Phosphor = cyan for current chrome. Add docking / session-host terms. Retire PNG graphite as *current* look. Synthetic levels = failure mode, not product end-state.
 
-- [ ] **Step 4: Write ADRs 0005–0007; mark 0003/0004 superseded; revise 0002**
-
-0002: global zoom across three logical canvases; playlist free resize.  
-0005: full libmpv bundled; features first.  
-0006: multi-window + Winamp docking.  
-0007: code-constructed mockup chrome; PNG skin retired.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add docs/tramp-v1-spec.md docs/architecture.md CONTEXT.md docs/adr/
-git commit -m "docs: align spec, architecture, and ADRs with mockup multi-window redesign"
+git add docs/tramp-v1-spec.md docs/architecture.md CONTEXT.md
+git commit -m "docs: align spec and architecture with mockup multi-window redesign"
 ```
 
 ---
@@ -611,7 +594,7 @@ git commit -m "feat(audio): real spectrum and force-mono; remove PNG graphite sk
 | Playlist footer/menus/resize | 9 |
 | Full libmpv | 10 |
 | Real spectrum | 12 |
-| Docs/ADR hygiene | 1, 12 |
+| Docs hygiene | 1, 12 |
 | Measurement gate | 11 |
 
 No TBD placeholders. Pins table locks docking/mpv/multi-window choices.
@@ -623,4 +606,4 @@ No TBD placeholders. Pins table locks docking/mpv/multi-window choices.
 - Prefer implementing on a feature branch / worktree.
 - Task 10–11 may need network to fetch libmpv sources/binaries (`all` permissions).
 - Goldens are Windows-authored unless CI gains per-OS sets (existing project convention).
-- If `desktop_multi_window` + current `window_manager` conflict, use the plugin’s documented `window_manager` git fork pin — record the pin in `pubspec.yaml` and ADR 0006.
+- If `desktop_multi_window` + current `window_manager` conflict, use the plugin’s documented `window_manager` git fork pin — record the pin in `pubspec.yaml` and `docs/architecture.md`.

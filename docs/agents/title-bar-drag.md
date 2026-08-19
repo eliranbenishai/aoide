@@ -2,7 +2,7 @@
 
 Read this before changing title-bar drag, playlist resize motion, `placePanels`, `applyPunch`, or `grabMouse`. The cheap path already shipped, felt wrong on KWin, and was undone. The constraints and measurements below are the starting map.
 
-Domain words: **host window**, **panel**, **punch** — [`CONTEXT.md`](../../CONTEXT.md). Geometry law: [ADR 0019](../adr/0019-virtual-desktop-punched-host.md), [`.cursor/rules/compositor-geometry.mdc`](../../.cursor/rules/compositor-geometry.mdc).
+Domain words: **host window**, **panel**, **punch** — [`CONTEXT.md`](../../CONTEXT.md). Geometry law: [`.cursor/rules/compositor-geometry.mdc`](../../.cursor/rules/compositor-geometry.mdc).
 
 ## What “good” looks like
 
@@ -33,7 +33,7 @@ Relevant code: `src/host_shell_window.cpp` (`placePanels`, `applyPunch`), `src/h
 
 ## Cost (why this feels heavy)
 
-ADR 0019 already removed host resize during drag. The remaining tax is **per-move punch + per-move live paint**, not “moving a rectangle.”
+Host resize during drag is already gone. The remaining tax is **per-move punch + per-move live paint**, not “moving a rectangle.”
 
 | Observation | Number / note |
 |---|---|
@@ -78,7 +78,7 @@ These were not isolated on KWin after the undo. Prefer one seam per trial; resta
 3. **Thin `windowMoved` during drag.** Today every move re-runs shade, playlist size, zoom, visibility, then `placePanels` for the whole set. A move-only `setGeometry` on the dragged panel (cluster translate for main) plus punch of the current union may be enough until mouse-up.
 4. **Honor `QPaintEvent` / host dirty.** Main/EQ live-paint the full widget; the host already tracks old∪new. Clipping live paint to the well during drag is a smaller change than skipping punch.
 
-`startSystemMove` on this host is not a seam: it would slide a virtual-desktop-sized toplevel (ADR 0019). Extra OS windows per panel are the retired 0017 shape.
+`startSystemMove` on this host is not a seam: it would slide a virtual-desktop-sized toplevel. Extra OS windows per panel are a retired host shape.
 
 ## How to time a retry
 
