@@ -183,7 +183,7 @@ void HostWindow::applyHitCursor(const QPointF& widgetPos) {
     setCursor(Qt::SplitHCursor);
   } else if (hit.kind == tramp::ChromeHit::Kind::volume || hit.kind == tramp::ChromeHit::Kind::seek ||
              hit.kind == tramp::ChromeHit::Kind::eqPreamp || hit.kind == tramp::ChromeHit::Kind::eqBand) {
-    setCursor(Qt::SizeHorCursor);
+    setCursor(Qt::ArrowCursor);
   } else if (hit.kind != tramp::ChromeHit::Kind::none) {
     setCursor(Qt::PointingHandCursor);
   } else {
