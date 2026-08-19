@@ -29,4 +29,7 @@ QPoint panelLocalTopLeft(QPoint screenTopLeft, QPoint actualHostGlobal);
 /// Native size for a panel. Zoomed logical size wins over an unmapped 0×0 widget.
 QSize panelNativeSize(QSize logicalZoomed, QSize widgetSize);
 
+/// `TRAMP_LEGACY_DRAG=1` restores per-move punch and live paint during title drag.
+bool legacyTitleDragPath();
+
 }  // namespace tramp

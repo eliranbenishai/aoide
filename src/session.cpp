@@ -651,7 +651,7 @@ void TrampSession::windowMoved(WindowId id, QPoint nativeTopLeft, bool finalize)
   if (id == WindowId::main) fitClusterToHost();
   else clampOneToHost(id);
   applyFramesToWindows();
-  schedulePersist();
+  if (!titleDragging_ || tramp::legacyTitleDragPath()) schedulePersist();
 }
 
 void TrampSession::titleDragBegan(WindowId id) {

@@ -2,6 +2,7 @@
 
 #include "chrome_layout.h"
 #include "chrome_paint.h"
+#include "host_shell.h"
 #include "mockup_draw.h"
 #include "tramp_fonts.h"
 #include "tramp_metrics.h"
@@ -213,6 +214,7 @@ void HostWindow::paintEvent(QPaintEvent*) {
       !view_.goldenDemo && !shaded_) {
     if (!chassisValid_) rebuildChassis();
     p.drawImage(QPointF(0, 0), chassis_);
+    if (draggingTitle_ && !tramp::legacyTitleDragPath()) return;
     p.scale(sx, sy);
     tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_,
                              tramp::BodyPaint::live);
@@ -303,7 +305,7 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
 }
 
 void HostWindow::mouseMoveEvent(QMouseEvent* event) {
-  applyHitCursor(event->position());
+  if (!draggingTitle_) applyHitCursor(event->position());
   if (draggingTitle_ && (event->buttons() & Qt::LeftButton)) {
     const QPoint newTopLeft = event->globalPosition().toPoint() - grabOffset_;
     emit nativeMoved(newTopLeft);

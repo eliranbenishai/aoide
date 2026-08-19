@@ -1,5 +1,7 @@
 #include "host_shell.h"
 
+#include <QString>
+#include <QtGlobal>
 #include <algorithm>
 
 namespace tramp {
@@ -43,6 +45,10 @@ QPoint panelLocalTopLeft(QPoint screenTopLeft, QPoint actualHostGlobal) {
 QSize panelNativeSize(QSize logicalZoomed, QSize widgetSize) {
   if (logicalZoomed.width() > 0 && logicalZoomed.height() > 0) return logicalZoomed;
   return widgetSize;
+}
+
+bool legacyTitleDragPath() {
+  return qEnvironmentVariable("TRAMP_LEGACY_DRAG") == QLatin1String("1");
 }
 
 }  // namespace tramp
