@@ -170,12 +170,21 @@ QT_QPA_PLATFORM=offscreen "$BUILD/host_shell_window_test"
   "$ROOT/src/mockup_draw.cpp" "$ROOT/src/tramp_fonts.cpp" \
   "$ROOT/src/session_view.cpp" "$ROOT/src/look.cpp" \
   "$ROOT/src/settings.cpp" "$ROOT/src/equalizer.cpp" \
+  "$ROOT/src/wait_cursor.cpp" \
   "$BUILD/moc_host_shell_window.cpp" "$BUILD/moc_host_window.cpp" \
   "$ROOT/tests/host_window_move_test.cpp" \
   -L"$QT/lib" -lQt6Test -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread \
   -Wl,-rpath,"$QT/lib" \
   -o "$BUILD/host_window_move_test"
 QT_QPA_PLATFORM=offscreen "$BUILD/host_window_move_test"
+
+"$MOC" "$ROOT/tests/wait_cursor_test.cpp" -o "$BUILD/wait_cursor_test.moc"
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
+  "$ROOT/src/wait_cursor.cpp" \
+  "$ROOT/tests/wait_cursor_test.cpp" \
+  -L"$QT/lib" -lQt6Test -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
+  -o "$BUILD/wait_cursor_test"
+QT_QPA_PLATFORM=offscreen "$BUILD/wait_cursor_test"
 
 "$MOC" "$ROOT/tests/chrome_spec_test.cpp" -o "$BUILD/chrome_spec_test.moc"
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \

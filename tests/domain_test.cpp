@@ -876,6 +876,7 @@ int main() {
     tramp::WaitCursorScope::installHooks({[&]() { ++applied; }, [&]() { ++restored; }});
     {
       tramp::WaitCursorScope outer;
+      REQUIRE(tramp::WaitCursorScope::showing());
       REQUIRE_EQ(applied, 1);
       REQUIRE_EQ(restored, 0);
       {
@@ -905,8 +906,10 @@ int main() {
       REQUIRE_EQ(applied, 1);
       {
         tramp::WaitCursorPause pause;
+        REQUIRE(!tramp::WaitCursorScope::showing());
         REQUIRE_EQ(restored, 1);
       }
+      REQUIRE(tramp::WaitCursorScope::showing());
       REQUIRE_EQ(applied, 2);
     }
     REQUIRE_EQ(restored, 2);

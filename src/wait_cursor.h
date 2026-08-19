@@ -18,12 +18,14 @@ class WaitCursorScope {
 
   static void installHooks(WaitCursorHooks hooks);
   static void resetHooks();
+  static bool showing();
 
  private:
   friend class WaitCursorPause;
   static void applyNow();
   static void restoreNow();
   static int depth_;
+  static int paused_;
   static WaitCursorHooks hooks_;
 };
 

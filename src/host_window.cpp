@@ -5,6 +5,7 @@
 #include "mockup_draw.h"
 #include "tramp_fonts.h"
 #include "tramp_metrics.h"
+#include "wait_cursor.h"
 
 #include <QCoreApplication>
 #include <QGuiApplication>
@@ -189,6 +190,10 @@ QRect HostWindow::widgetRectFromLogical(const QRect& logical) const {
 }
 
 void HostWindow::applyHitCursor(const QPointF& widgetPos) {
+  if (tramp::WaitCursorScope::showing()) {
+    setCursor(Qt::WaitCursor);
+    return;
+  }
   const QPoint logical = logicalFrom(widgetPos);
   const auto titleHit = title_.hit(logical);
   if (titleHit == tramp::TitleChromeLayout::Hit::drag) {

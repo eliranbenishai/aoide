@@ -172,6 +172,7 @@ qt_add_executable(host_window_move_test
   src/look.cpp
   src/settings.cpp
   src/equalizer.cpp
+  src/wait_cursor.cpp
 )
 target_include_directories(host_window_move_test PRIVATE src)
 target_compile_definitions(host_window_move_test PRIVATE
@@ -184,6 +185,14 @@ set_target_properties(host_window_move_test PROPERTIES AUTOMOC ON)
 qt_add_executable(chrome_spec_test tests/chrome_spec_test.cpp)
 target_link_libraries(chrome_spec_test PRIVATE tramp_window_spec Qt6::Test)
 set_target_properties(chrome_spec_test PROPERTIES AUTOMOC ON)
+
+qt_add_executable(wait_cursor_test
+  tests/wait_cursor_test.cpp
+  src/wait_cursor.cpp
+)
+target_include_directories(wait_cursor_test PRIVATE src)
+target_link_libraries(wait_cursor_test PRIVATE Qt6::Test Qt6::Widgets)
+set_target_properties(wait_cursor_test PROPERTIES AUTOMOC ON)
 
 qt_add_executable(domain_test
   tests/domain_test.cpp
@@ -234,6 +243,7 @@ add_test(NAME host_shell COMMAND host_shell_test)
 add_test(NAME host_shell_window COMMAND host_shell_window_test)
 add_test(NAME host_window_move COMMAND host_window_move_test)
 add_test(NAME chrome_spec COMMAND chrome_spec_test)
+add_test(NAME wait_cursor COMMAND wait_cursor_test)
 add_test(NAME domain COMMAND domain_test)
 add_test(NAME look COMMAND look_test)
 add_test(NAME font_metrics COMMAND font_metrics_test)
