@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "id": "shield",
   "name": "Shield",
-  "author": "Tramp",
+  "author": "Proxima Magnifica",
   "extends": "builtin",
   "colors": {
     "shell": {

@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "id": "thunder",
   "name": "Thunder",
-  "author": "Tramp",
+  "author": "Proxima Magnifica",
   "extends": "builtin",
   "colors": {
     "shell": {

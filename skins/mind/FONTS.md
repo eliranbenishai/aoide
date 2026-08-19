@@ -1,4 +1,4 @@
-# Chaos fonts
+# Mind fonts
 
 | Role | Face | Source |
 |------|------|--------|

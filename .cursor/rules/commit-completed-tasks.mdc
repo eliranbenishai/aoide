@@ -11,7 +11,7 @@ When a **discrete task is finished** (feature slice, bugfix, polish pass, design
 
 - The agreed scope for that task is implemented (or docs-only delivery is written)
 - Relevant verification you already owe for the task has been run (tests/goldens/smoke as appropriate)
-- Living docs (`docs/architecture.md`, ADRs, specs) are updated in the **same** change when the architecture rule requires it
+- Living docs (`docs/architecture.md`, specs) are updated in the **same** change when the architecture rule requires it
 
 ## How to commit
 

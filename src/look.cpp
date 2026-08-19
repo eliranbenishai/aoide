@@ -27,12 +27,14 @@ constexpr int kMaxChain = 8;
 const QStringList kBundledCatalogOrder = {
     QStringLiteral("arc"),       QStringLiteral("shield"), QStringLiteral("thunder"),
     QStringLiteral("gamma"),     QStringLiteral("widow"),  QStringLiteral("marksman"),
-    QStringLiteral("chaos"),
+    QStringLiteral("mind"),
 };
 const QStringList kRetiredBundledIds = {QStringLiteral("amber-terminal"),
-                                        QStringLiteral("violet-pulse")};
+                                        QStringLiteral("violet-pulse"),
+                                        QStringLiteral("chaos")};
 
 QString canonicalActiveSkinId(const QString& id) {
+  if (id == QLatin1String("chaos")) return QStringLiteral("mind");
   if (id.isEmpty() || kRetiredBundledIds.contains(id)) return QStringLiteral("builtin");
   return id;
 }
@@ -408,7 +410,7 @@ LookManifest builtinLookManifest() {
     "formatVersion": 1,
     "id": "builtin",
     "name": "Tramp",
-    "author": "Tramp",
+    "author": "Proxima Magnifica",
     "extends": "builtin",
     "colors": {
       "shell": {

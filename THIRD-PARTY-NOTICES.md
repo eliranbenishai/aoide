@@ -12,7 +12,7 @@ The UI is built with [Qt](https://www.qt.io/) 6 (LGPL-3.0 / GPL-3.0 / commercial
 
 ## Playback engine (binaries)
 
-Release builds bundle **libmpv** and **FFmpeg** (full, filters enabled — [ADR 0005](docs/adr/0005-full-libmpv.md)). Those libraries are copyleft (GPL family, including the pinned Windows shinchiro `mpv-dev` build). Their source is upstream mpv/FFmpeg; pins live in [`third_party/libmpv/`](third_party/libmpv/).
+Release builds bundle **libmpv** and **FFmpeg** (full, filters enabled). Those libraries are copyleft (GPL family, including the pinned Windows shinchiro `mpv-dev` build). Their source is upstream mpv/FFmpeg; pins live in [`third_party/libmpv/`](third_party/libmpv/).
 
 ## Trademarks
 

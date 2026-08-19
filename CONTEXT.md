@@ -37,7 +37,7 @@ A Winamp-compatible skin that replaces the built-in chrome with the skin's own l
 _Avoid_: theme (when meaning a classic Winamp skin), skin pack (unless referring to a collection)
 
 **Skin** (mockup recolor):
-A shareable folder or zip (`skin.json` preferred, legacy `look.json` accepted + optional TTF/OTF) that recolors and optionally retypes the built-in mockup chrome — palette, a few named materials (bevel, spectrum/rail gradients), and font roles — without changing layout or art. Friendly slug ids; the embedded default is **Tramp** (id `builtin`). Bundled homage skins (Arc, Shield, Thunder, Gamma, Widow, Marksman, Chaos) sit beside it. May extend `builtin` or another skin. Not a classic Winamp WSZ skin. Catalog default directory name is `skins`.
+A shareable folder or zip (`skin.json` preferred, legacy `look.json` accepted + optional TTF/OTF) that recolors and optionally retypes the built-in mockup chrome — palette, a few named materials (bevel, spectrum/rail gradients), and font roles — without changing layout or art. Friendly slug ids; the embedded default is **Tramp** (id `builtin`). Bundled homage skins (Arc, Shield, Thunder, Gamma, Widow, Marksman, Mind) sit beside it. May extend `builtin` or another skin. Not a classic Winamp WSZ skin. Catalog default directory name is `skins`.
 _Avoid_: classic skin, WSZ, theme (when meaning this pack), graphite skin, look pack (retired product term — same concept)
 
 **Host window**:
@@ -57,7 +57,7 @@ The built-in look for main, equalizer, and playlist — painted from the recipe 
 _Avoid_: graphite skin (as the *current* look), PNG skin, coded chrome (vague), vector chrome (alone), theme (when meaning this construction), Classic skin (Winamp WSZ — different thing)
 
 **Graphite skin** *(historical)*:
-The retired PNG-first chrome look (panel faces under `assets/skin/graphite/`). Kept only as history; must not steer new work. Superseded by mockup chrome / [ADR 0007](docs/adr/0007-code-constructed-mockup-chrome.md).
+The retired PNG-first chrome look (panel faces under `assets/skin/graphite/`). Kept only as history; must not steer new work.
 _Avoid_: using this term for the current product look
 
 **Session host**:
@@ -73,7 +73,7 @@ An ordered list of playable tracks the user can manage (add, remove, reorder, pl
 _Avoid_: queue (unless a separate now-playing queue is later distinguished), library (the collection of known media)
 
 **Playlist file**:
-A saved playlist on disk (v1: M3U/M3U8) that Tramp can open and write. Its track lines are **hints, not addresses**: the same album is `\\server\share` on Windows and a mount point on Linux, and a mount point that moves leaves every absolute line stale, so a line that lands on nothing is re-read against the folder the playlist itself sits in. Tramp resolves on load and never rewrites the listener's file to suit this machine — that would break it for the machine that wrote it ([ADR 0008](docs/adr/0008-playlist-collection-stores-references.md)).
+A saved playlist on disk (v1: M3U/M3U8) that Tramp can open and write. Its track lines are **hints, not addresses**: the same album is `\\server\share` on Windows and a mount point on Linux, and a mount point that moves leaves every absolute line stale, so a line that lands on nothing is re-read against the folder the playlist itself sits in. Tramp resolves on load and never rewrites the listener's file to suit this machine — that would break it for the machine that wrote it.
 _Avoid_: playlist document, playlist export (unless meaning a one-way share), fixing / correcting a playlist file (Tramp reinterprets, it does not edit)
 
 **Playlist collection**:

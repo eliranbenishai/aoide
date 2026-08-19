@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "id": "marksman",
   "name": "Marksman",
-  "author": "Tramp",
+  "author": "Proxima Magnifica",
   "extends": "builtin",
   "colors": {
     "shell": {

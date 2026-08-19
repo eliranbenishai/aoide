@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "id": "widow",
   "name": "Widow",
-  "author": "Tramp",
+  "author": "Proxima Magnifica",
   "extends": "builtin",
   "colors": {
     "shell": {

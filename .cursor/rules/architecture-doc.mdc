@@ -29,4 +29,3 @@ Do not leave architecture drift for a follow-up. If the change is tiny and truly
 ## Related docs
 
 - Domain vocabulary: `CONTEXT.md`
-- Hard-to-reverse decisions: `docs/adr/` (ADRs) — link from the architecture doc when relevant

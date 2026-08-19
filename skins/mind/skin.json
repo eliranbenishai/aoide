@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "id": "chaos",
-  "name": "Chaos",
-  "author": "Tramp",
+  "id": "mind",
+  "name": "Mind",
+  "author": "Proxima Magnifica",
   "extends": "builtin",
   "colors": {
     "shell": {

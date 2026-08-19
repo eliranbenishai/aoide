@@ -186,12 +186,12 @@ int main() {
 
   {
     REQUIRE_EQ(tramp::builtinLookManifest().name, QStringLiteral("Tramp"));
-    REQUIRE_EQ(tramp::builtinLookManifest().author, QStringLiteral("Tramp"));
+    REQUIRE_EQ(tramp::builtinLookManifest().author, QStringLiteral("Proxima Magnifica"));
     tramp::SkinController skins;
     REQUIRE_EQ(skins.catalog().size(), 1);
     REQUIRE_EQ(skins.catalog()[0].id, QStringLiteral("builtin"));
     REQUIRE_EQ(skins.catalog()[0].name, QStringLiteral("Tramp"));
-    REQUIRE_EQ(skins.catalog()[0].author, QStringLiteral("Tramp"));
+    REQUIRE_EQ(skins.catalog()[0].author, QStringLiteral("Proxima Magnifica"));
   }
 
   {
@@ -323,6 +323,25 @@ int main() {
 
   {
     QTemporaryDir support;
+    QTemporaryDir bundled;
+    writePack(support.path() + QStringLiteral("/skins"), QStringLiteral("chaos"),
+              QStringLiteral(R"({
+      "formatVersion": 1, "id": "chaos", "name": "Chaos", "extends": "builtin"
+    })"));
+    writePack(bundled.path(), QStringLiteral("mind"), QStringLiteral(R"({
+      "formatVersion": 1, "id": "mind", "name": "Mind", "extends": "builtin"
+    })"));
+    TrampSettings settings;
+    settings.activeSkinId = QStringLiteral("chaos");
+    SkinController skins;
+    skins.bootstrap(support.path(), bundled.path(), settings);
+    REQUIRE_EQ(settings.activeSkinId, QStringLiteral("mind"));
+    REQUIRE(!QDir(QDir(support.path()).filePath(QStringLiteral("skins/chaos"))).exists());
+    REQUIRE(QDir(QDir(support.path()).filePath(QStringLiteral("skins/mind"))).exists());
+  }
+
+  {
+    QTemporaryDir support;
     QTemporaryDir custom;
     writePack(custom.path(), QStringLiteral("amber-terminal"), QStringLiteral(R"({
       "formatVersion": 1, "id": "amber-terminal", "name": "Amber Terminal", "extends": "builtin"
@@ -438,7 +457,7 @@ int main() {
     REQUIRE_EQ(bundled.manifests.size(), 7);
     QStringList ids;
     for (const auto& m : bundled.manifests) ids.push_back(m.id);
-    for (const char* id : {"arc", "shield", "thunder", "gamma", "widow", "marksman", "chaos"}) {
+    for (const char* id : {"arc", "shield", "thunder", "gamma", "widow", "marksman", "mind"}) {
       REQUIRE(ids.contains(QString::fromUtf8(id)));
     }
     const auto arc = resolveLook(QStringLiteral("arc"), bundled.manifests);
@@ -467,7 +486,7 @@ int main() {
     REQUIRE_EQ(skins.catalog()[4].id, QStringLiteral("gamma"));
     REQUIRE_EQ(skins.catalog()[5].id, QStringLiteral("widow"));
     REQUIRE_EQ(skins.catalog()[6].id, QStringLiteral("marksman"));
-    REQUIRE_EQ(skins.catalog()[7].id, QStringLiteral("chaos"));
+    REQUIRE_EQ(skins.catalog()[7].id, QStringLiteral("mind"));
   }
 #endif
 

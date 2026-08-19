@@ -28,7 +28,7 @@ jobs:
             - Opened automatically when this branch was pushed.
 
             ## Merge gate
-            Ubuntu + Windows Qt CI must pass. GitHub records that as a PR review comment. The PR squash-merges only after that gate is green ([ADR 0018](docs/adr/0018-pr-ci-auto-merge.md)).
+            Ubuntu + Windows Qt CI must pass. GitHub records that as a PR review comment. The PR squash-merges only after that gate is green.
 
             Add the `do-not-merge` label (or mark the PR draft) to keep it open.
         run: |

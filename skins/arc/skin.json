@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "id": "arc",
   "name": "Arc",
-  "author": "Tramp",
+  "author": "Proxima Magnifica",
   "extends": "builtin",
   "colors": {
     "shell": {
