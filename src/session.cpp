@@ -651,7 +651,7 @@ void TrampSession::windowMoved(WindowId id, QPoint nativeTopLeft, bool finalize)
   if (id == WindowId::main) fitClusterToHost();
   else clampOneToHost(id);
   applyFramesToWindows();
-  if (!titleDragging_ || tramp::legacyTitleDragPath()) schedulePersist();
+  schedulePersist();
 }
 
 void TrampSession::titleDragBegan(WindowId id) {
@@ -725,15 +725,7 @@ void TrampSession::applyDockToWindows(std::optional<WindowId> skip) {
   }
 
   if (shell_) {
-    bool pointerBusy = false;
-    for (HostWindow* w : {main_, eq_, pl_, settingsWin_, about_}) {
-      if (w && w->holdingPointer()) {
-        pointerBusy = true;
-        break;
-      }
-    }
-    shell_->placePanels(visible, tramp::placePanelsShouldPunch(tramp::legacyTitleDragPath(),
-                                                              pointerBusy));
+    shell_->placePanels(visible);
   } else {
     for (const HostPanelPlacement& place : visible) {
       if (!place.widget) continue;

@@ -44,6 +44,7 @@ void HostShell::applyLayout(const tramp::HostShellLayout& layout) {
 }
 
 void HostShell::placePanels(const QVector<HostPanelPlacement>& panels, bool updatePunch) {
+  Q_UNUSED(updatePunch);
   QVector<QRect> screenRects;
   screenRects.reserve(panels.size());
   for (const HostPanelPlacement& place : panels) {
@@ -78,11 +79,8 @@ void HostShell::placePanels(const QVector<HostPanelPlacement>& panels, bool upda
   }
 
   lastLayout_.screenRect = QRect(origin, size());
-  const bool punch = tramp::legacyTitleDragPath() || updatePunch || lastLayout_.localMask.isEmpty();
-  if (punch && !mask.isEmpty()) {
-    lastLayout_.localMask = mask;
-    applyPunch(mask);
-  }
+  lastLayout_.localMask = mask;
+  applyPunch(mask);
   if (!dirty.isEmpty()) update(dirty);
 }
 

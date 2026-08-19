@@ -6,7 +6,7 @@ Living map of how Tramp is structured. Domain terms: [`CONTEXT.md`](../CONTEXT.m
 
 **Qt 6 C++** is the only build ([ADR 0016](adr/0016-qt-for-v1.md)). One process, one frameless **host window**, five **panel** views, QWidget + QPainter in [`src/`](../src/). Binary: `build/tramp`.
 
-`TrampSession` owns playback (libmpv), playlist/collection, EQ, spectrum, docking, zoom, skins, and persistence. Panels are views onto that session, not extra engines or extra OS windows. Title-bar drags are app-owned: main translates the cluster inside the host; other panels move alone. No skip-taskbar transients, no pin-against-recenter. Host geometry is the virtual desktop (bounding rect of every screen); it does not resize on panel drag; input is punched to panel shapes so the desktop is clickable in the gaps, with the punch catching up on mouse-up ([ADR 0017](adr/0017-one-host-window-internal-panels.md), [ADR 0019](adr/0019-virtual-desktop-punched-host.md)). `--dump-chrome` writes 1× logical PNGs from `SessionView::golden()`.
+`TrampSession` owns playback (libmpv), playlist/collection, EQ, spectrum, docking, zoom, skins, and persistence. Panels are views onto that session, not extra engines or extra OS windows. Title-bar drags are app-owned: main translates the cluster inside the host; other panels move alone. No skip-taskbar transients, no pin-against-recenter. Host geometry is the virtual desktop (bounding rect of every screen); it does not resize on panel drag; input is punched to panel shapes so the desktop is clickable in the gaps ([ADR 0017](adr/0017-one-host-window-internal-panels.md), [ADR 0019](adr/0019-virtual-desktop-punched-host.md)). `--dump-chrome` writes 1× logical PNGs from `SessionView::golden()`.
 
 Linux + Windows are the pairing hosts; macOS follows.
 
@@ -90,7 +90,7 @@ flowchart TB
 |------|------|
 | Host | `HostShell` (`host_shell_window.*`) + five `HostWindow` panels — one frameless host window titled Tramp, sized to the virtual desktop; taskbar/dock/pager icon from `assets/branding/app_icon.png` (`app_icon.*`); punched input from child panel rects (never an empty mask while mapped); main close persists then quits; extra panels hide |
 | Session | `session.*`, `session_view.*` — shared controllers, commands, `--dump-chrome` golden |
-| Docking | `docking.*` — peel 8 logical px; EQ and playlist any side and both axes (two neighbors); settings/about never snap. Title-bar drags are app-owned. Child drags move one panel in host-local space; main drag translates the cluster. `placePanels` uses `mapToGlobal` origin and does not resize the host unless the virtual desktop changed. During a title-bar drag the input punch stays put until mouse-up (from the panel drag flag, not `grabMouse` — Wayland only allows that on popups); main/EQ blit the chassis and skip the live pass. `TRAMP_LEGACY_DRAG=1` restores per-move punch and live paint. Panels stay fully on the virtual desktop. |
+| Docking | `docking.*` — peel 8 logical px; EQ and playlist any side and both axes (two neighbors); settings/about never snap. Title-bar drags are app-owned. Child drags move one panel in host-local space; main drag translates the cluster. `placePanels` uses `mapToGlobal` origin and does not resize the host unless the virtual desktop changed. Panels stay fully on the virtual desktop. |
 | Chrome | `chrome_paint.cpp`, `chrome_bodies.cpp`, `chrome_hits.cpp`, `chrome_layout.h`, `title_chrome.*`, `mockup_draw.cpp`, `mockup_tokens.h`, `tramp_metrics.h`, `tramp_fonts.*` — mockup `.win` / `.tbar` / `.wbtn` at discrete zoom (default 75%). Main title-bar: zoom cluster, then minimize flush to close. Display-well STEREO/PLAYLIST keep a fixed gap; overflowing track/album lines marquee on the live pass when Scroll title is on (static titles stay on the chassis); close buttons take hue from the more saturated of skin ink vs accent. |
 | Skins | `look.*` — `skin.json` / legacy `look.json`; embedded **Tramp** (id `builtin`) plus bundled homage packs under `skins/` (Arc, Shield, Thunder, Gamma, Widow, Marksman, Chaos); catalog `<support>/skins`. Settings Skins tab is a clipped scrolling list. |
 | Playback | `playback.*`, `player_engine.h`, `mpv_engine.*`, `transport.*` — libmpv `vo=null`; playing **path** not index; stop unloads media |
@@ -131,7 +131,6 @@ Support dir: `$XDG_DATA_HOME/com.proximamagnifica.tramp` (adopts legacy `…/com
 - Fidelity is mockup-absolute at 100%. No PNG graphite faces. No Material ink.
 - Tests that assert text must load Tramp Condensed / Tramp Mono.
 - Version is [`VERSION`](../VERSION) (CMake `PROJECT_VERSION`, About readout).
-- Title-bar drag cheap path: revert the commit, or run with `TRAMP_LEGACY_DRAG=1`.
 
 ## ADRs
 

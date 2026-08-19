@@ -21,8 +21,8 @@ class HostShell : public QWidget {
   explicit HostShell(QWidget* parent = nullptr);
 
   void applyLayout(const tramp::HostShellLayout& layout);
-  /// Places children. When [updatePunch] is false, widgets move but the input
-  /// mask stays put (never emptied). `TRAMP_LEGACY_DRAG=1` punches every call.
+  /// Places children. Punch is always the current panel union (`updatePunch` is
+  /// accepted and ignored: an empty mask is full-desktop input on Wayland).
   void placePanels(const QVector<HostPanelPlacement>& panels, bool updatePunch = true);
   void setAlwaysOnTop(bool on);
   void setPrimaryPanel(QWidget* panel);

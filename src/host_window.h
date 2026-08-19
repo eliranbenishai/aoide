@@ -37,7 +37,6 @@ class HostWindow : public QWidget {
   void setQuitConfirmer(std::function<bool()> fn) { quitConfirmer_ = std::move(fn); }
   void setAlwaysOnTop(bool on);
   bool shaded() const { return shaded_; }
-  bool holdingPointer() const { return draggingTitle_ || resizingPlaylist_; }
   QPoint nativeTopLeft() const;
   QRect widgetRectFromLogical(const QRect& logical) const;
 

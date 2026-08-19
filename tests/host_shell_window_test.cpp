@@ -189,21 +189,17 @@ void HostShellWindowTest::deferredPunchStillAppliesWhenLayoutAlreadyCaughtUp() {
   const QRect end(200, 80, 120, 60);
   shell.placePanels({{&panel, start}});
   shell.show();
-  const QPoint startCenter = panel.geometry().center();
-  QVERIFY(shell.mask().contains(startCenter));
+  QVERIFY(shell.mask().contains(panel.geometry().center()));
 
   shell.placePanels({{&panel, end}}, false);
   QCOMPARE(panel.mapToGlobal(QPoint(0, 0)), end.topLeft());
   QVERIFY2(!shell.mask().isEmpty(),
            "empty mask is full input on Wayland; punch must stay a panel union");
-  QVERIFY2(shell.mask().contains(startCenter),
-           "updatePunch=false must keep the previous punch, not follow the move");
-  QVERIFY2(!shell.mask().contains(panel.geometry().center()),
-           "deferred punch must not jump to the new rect until updatePunch=true");
+  QVERIFY(shell.mask().contains(panel.geometry().center()));
+  QVERIFY(!shell.mask().contains(QPoint(10, 10)));
 
   shell.placePanels({{&panel, end}}, true);
   QVERIFY(shell.mask().contains(panel.geometry().center()));
-  QVERIFY(!shell.mask().contains(startCenter));
   QVERIFY(!shell.mask().contains(QPoint(10, 10)));
 }
 
