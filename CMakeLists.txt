@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets Test)
+find_package(Qt6 QUIET COMPONENTS DBus)
 find_package(PkgConfig QUIET)
 
 qt_standard_project_setup()
@@ -88,6 +89,9 @@ set(TRAMP_SOURCES
   src/persist.cpp
   src/collection.cpp
   src/files.cpp
+  src/native_file_dialog.cpp
+  src/native_file_dialog.h
+  src/native_file_dialog_p.h
   src/playback.cpp
   src/docking.cpp
   src/look.cpp
@@ -123,6 +127,10 @@ if(TRAMP_HAVE_MPV)
   endif()
 endif()
 target_link_libraries(tramp PRIVATE tramp_window_spec Qt6::Widgets)
+if(TARGET Qt6::DBus)
+  target_link_libraries(tramp PRIVATE Qt6::DBus)
+  target_compile_definitions(tramp PRIVATE TRAMP_HAVE_DBUS)
+endif()
 
 qt_add_executable(window_spec_test tests/window_spec_test.cpp)
 target_link_libraries(window_spec_test PRIVATE tramp_window_spec Qt6::Test)

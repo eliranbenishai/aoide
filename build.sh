@@ -19,20 +19,21 @@ if [[ -d "$STUB_SRC" ]]; then
 fi
 
 INC=(
-  -I"$QT/include" -I"$QT/include/QtWidgets" -I"$QT/include/QtGui" -I"$QT/include/QtCore"
+  -I"$QT/include" -I"$QT/include/QtWidgets" -I"$QT/include/QtGui" -I"$QT/include/QtCore" \
+  -I"$QT/include/QtDBus"
   -I"$MPV_INC"
   -I"$ROOT/src" -I"$BUILD"
 )
 VERSION="$(head -n 1 "$ROOT/VERSION" | tr -d '\r[:space:]')"
 DEFS=(
-  -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DTRAMP_HAVE_MPV
+  -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_DBUS_LIB -DTRAMP_HAVE_MPV -DTRAMP_HAVE_DBUS
   -DTRAMP_VERSION="\"$VERSION\""
   -DTRAMP_ASSET_DIR="\"$ROOT/assets\""
   -DTRAMP_SKINS_DIR="\"$ROOT/skins\""
 )
 LIBS=(
   -L"$QT/lib" -L"$BREW/lib" -L"$MPV_LIB" -L"$STUB"
-  -lQt6Widgets -lQt6Gui -lQt6Core -lmpv -lstdc++ -lm -lgcc_s -pthread
+  -lQt6Widgets -lQt6Gui -lQt6Core -lQt6DBus -lmpv -lstdc++ -lm -lgcc_s -pthread
   -Wl,--no-as-needed
   "$STUB/libmujs.so.0.1"
   "$STUB/liblua-5.1.so"
@@ -49,6 +50,7 @@ CXXFLAGS=(-std=c++17 -fPIC -Wall -Wextra -Wno-unused-parameter)
 "$MOC" "$ROOT/src/host_shell_window.h" -o "$BUILD/moc_host_shell_window.cpp"
 "$MOC" "$ROOT/src/session.h" -o "$BUILD/moc_session.cpp"
 "$MOC" "$ROOT/src/mpv_engine.h" -o "$BUILD/moc_mpv_engine.cpp"
+"$MOC" "$ROOT/src/native_file_dialog_p.h" -o "$BUILD/moc_native_file_dialog_p.cpp"
 
 SRCS=(
   "$ROOT/src/window_spec.cpp"
@@ -71,6 +73,8 @@ SRCS=(
   "$ROOT/src/persist.cpp"
   "$ROOT/src/collection.cpp"
   "$ROOT/src/files.cpp"
+  "$ROOT/src/native_file_dialog.cpp"
+  "$BUILD/moc_native_file_dialog_p.cpp"
   "$ROOT/src/playback.cpp"
   "$ROOT/src/mpv_engine.cpp"
   "$ROOT/src/pcm_decoder.cpp"

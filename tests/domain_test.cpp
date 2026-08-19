@@ -1,5 +1,6 @@
 #include "chrome_hits.h"
 #include "collection.h"
+#include "native_file_dialog.h"
 #include "docking.h"
 #include "equalizer.h"
 #include "m3u.h"
@@ -82,6 +83,23 @@ int main() {
     REQUIRE(std::abs(tramp::sliderFractionX(seekWell, seekWell.left() + seekWell.width() / 2) - 0.5) <
             1e-9);
     REQUIRE_EQ(qint64(tramp::sliderFractionX(seekWell, engage.x()) * 400000), qint64(100000));
+  }
+
+  {
+    REQUIRE(!tramp::qtPluginPathNeedsSanitize(QByteArray()));
+    REQUIRE(!tramp::qtPluginPathNeedsSanitize(QByteArray("/opt/qt/6.11.1/plugins")));
+    REQUIRE(tramp::qtPluginPathNeedsSanitize(
+        QByteArray("/tmp/.mount_cursorABC/usr/lib/qt5/plugins:/tmp/.mount_cursorABC/usr/lib64/qt5/"
+                   "plugins")));
+    REQUIRE(tramp::qtPluginPathNeedsSanitize(QByteArray("/usr/lib/qt4/plugins")));
+    const auto audio = tramp::parseQtFileFilter(
+        QStringLiteral("Audio (*.mp3 *.m4a *.aac *.flac *.wav *.ogg *.opus)"));
+    REQUIRE(audio.size() == 1);
+    REQUIRE_EQ(audio.front().name, QStringLiteral("Audio"));
+    REQUIRE(audio.front().globs.contains(QStringLiteral("*.flac")));
+    REQUIRE_EQ(tramp::fileUrisToLocalPaths(QStringList{QStringLiteral("file:///home/music/a.mp3")})
+                   .front(),
+               QStringLiteral("/home/music/a.mp3"));
   }
 
   {

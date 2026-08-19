@@ -3,6 +3,7 @@
 #include "host_shell_window.h"
 #include "host_window.h"
 #include "mockup_draw.h"
+#include "native_file_dialog.h"
 #include "session.h"
 #include "session_view.h"
 #include "support_dir.h"
@@ -195,6 +196,7 @@ QStringList launchFiles(const QStringList& args) {
 }  // namespace
 
 int main(int argc, char** argv) {
+  tramp::sanitizeInheritedQtPluginPath();
   QApplication app(argc, argv);
   std::setlocale(LC_NUMERIC, "C");
   app.setApplicationName(QStringLiteral("Tramp"));

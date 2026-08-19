@@ -99,6 +99,7 @@ flowchart TB
 | Playlist | `playlist.*`, `m3u.*` — M3U/M3U8; multi-select; reorder; sort; resolve track lines as hints on **read** ([ADR 0008](adr/0008-playlist-collection-stores-references.md)) |
 | Collection | `collection.*` — references, not copies; disabled rows when the file is gone; create-from-selection does not touch the current list |
 | Persistence | `persist.*`, `settings.*`, `support_dir.*`, `files.*` — see below |
+| File chooser | `native_file_dialog.*` — host OS picker (xdg-desktop-portal on Linux → Dolphin/Nautilus; native `QFileDialog` on Windows/macOS). kdialog, then the Qt widget dialog, only if the portal is unavailable. Drops leaked Qt 4/5 `QT_PLUGIN_PATH` (Cursor AppImage) before `QApplication`. |
 | Libmpv bundle | `third_party/libmpv` pins + fetch; Windows DLL / Linux staged `.so` |
 
 **Playback vs selection.** `playingIndex` / path is not the playlist highlight. Reorder re-derives the index without re-opening. `playPause` opens the selected row when nothing is open or selection differs from the playing track.

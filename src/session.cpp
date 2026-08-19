@@ -7,6 +7,7 @@
 #include "host_window.h"
 #include "look.h"
 #include "m3u.h"
+#include "native_file_dialog.h"
 #ifdef TRAMP_HAVE_MPV
 #include "mpv_engine.h"
 #include "pcm_decoder.h"
@@ -20,7 +21,6 @@
 #include <QAction>
 #include <QDesktopServices>
 #include <QDir>
-#include <QFileDialog>
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QInputDialog>
@@ -741,22 +741,28 @@ void TrampSession::openPaths(const QStringList& paths, bool enqueue) {
 }
 
 QString TrampSession::pickAudio(bool multiple) {
-  const QString filter = QStringLiteral("Audio (*.mp3 *.m4a *.aac *.flac *.wav *.ogg *.opus)");
-  if (multiple) {
-    const QStringList files = QFileDialog::getOpenFileNames(main_, QStringLiteral("Add audio files"),
-                                                            QString(), filter);
-    return files.join(QLatin1Char('\n'));
-  }
-  return QFileDialog::getOpenFileName(main_, QStringLiteral("Open audio"), QString(), filter);
+  FilePick pick;
+  pick.parent = main_;
+  pick.title = multiple ? QStringLiteral("Add audio files") : QStringLiteral("Open audio");
+  pick.filter = QStringLiteral("Audio (*.mp3 *.m4a *.aac *.flac *.wav *.ogg *.opus)");
+  pick.kind = multiple ? FilePickKind::openFiles : FilePickKind::openFile;
+  if (multiple) return pickFiles(pick).join(QLatin1Char('\n'));
+  return pickFile(pick);
 }
 
 QString TrampSession::pickPlaylist(bool save) {
-  const QString filter = QStringLiteral("Playlists (*.m3u *.m3u8)");
+  FilePick pick;
+  pick.parent = main_;
+  pick.filter = QStringLiteral("Playlists (*.m3u *.m3u8)");
   if (save) {
-    return QFileDialog::getSaveFileName(main_, QStringLiteral("Save playlist"),
-                                        QStringLiteral("playlist.m3u"), filter);
+    pick.title = QStringLiteral("Save playlist");
+    pick.suggestedName = QStringLiteral("playlist.m3u");
+    pick.kind = FilePickKind::saveFile;
+    return pickFile(pick);
   }
-  return QFileDialog::getOpenFileName(main_, QStringLiteral("Open playlist"), QString(), filter);
+  pick.title = QStringLiteral("Open playlist");
+  pick.kind = FilePickKind::openFile;
+  return pickFile(pick);
 }
 
 void TrampSession::loadCollectionRow(int index) {
@@ -1088,9 +1094,12 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       break;
     }
     case K::settingsInstallZip: {
-      const QString path = QFileDialog::getOpenFileName(
-          settingsWin_, QStringLiteral("Install skin"), QString(),
-          QStringLiteral("Skin zip (*.zip)"));
+      FilePick pick;
+      pick.parent = settingsWin_;
+      pick.title = QStringLiteral("Install skin");
+      pick.filter = QStringLiteral("Skin zip (*.zip)");
+      pick.kind = FilePickKind::openFile;
+      const QString path = pickFile(pick);
       if (!path.isEmpty() && skins_.installZip(path, skinConflictPrompt())) {
         schedulePersist();
       }
@@ -1098,8 +1107,11 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       break;
     }
     case K::settingsInstallFolder: {
-      const QString path =
-          QFileDialog::getExistingDirectory(settingsWin_, QStringLiteral("Install skin folder"));
+      FilePick pick;
+      pick.parent = settingsWin_;
+      pick.title = QStringLiteral("Install skin folder");
+      pick.kind = FilePickKind::openDirectory;
+      const QString path = pickFile(pick);
       if (!path.isEmpty() && skins_.installDirectory(path, skinConflictPrompt())) {
         schedulePersist();
       }
@@ -1107,8 +1119,11 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       break;
     }
     case K::settingsSkinsFolder: {
-      const QString path =
-          QFileDialog::getExistingDirectory(settingsWin_, QStringLiteral("Skins folder"));
+      FilePick pick;
+      pick.parent = settingsWin_;
+      pick.title = QStringLiteral("Skins folder");
+      pick.kind = FilePickKind::openDirectory;
+      const QString path = pickFile(pick);
       if (!path.isEmpty()) {
         skins_.setSkinsDirectory(path, settings_);
         schedulePersist();
