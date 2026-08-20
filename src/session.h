@@ -167,6 +167,7 @@ class TrampSession : public QObject {
   bool applyingDock_ = false;
   bool titleDragging_ = false;
   int skinsScroll_ = 0;
+  bool playlistRefreshing_ = false;
 };
 
 }  // namespace tramp

@@ -416,20 +416,24 @@ void TrampSession::refreshCurrentPlaylist() {
     return;
   }
   WaitCursorScope wait;
+  playlistRefreshing_ = true;
+  refreshChrome();
   QFile file(path);
-  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return;
-  QVector<Track> parsed =
-      M3uCodec().parse(QString::fromUtf8(file.readAll()), path);
-  QVector<Track> tracks = dropMissingTrackFiles(parsed);
-  const bool dropped = tracks.size() != parsed.size();
-  probeTracksBlocking(tracks, true);
-  if (dropped) playlist_.restoreAlteredTracks(tracks, path);
-  else playlist_.setTracks(tracks, path);
-  if (collection_.contains(path)) {
-    collection_.addWritten(path, tracks);
-    persistCollectionCache();
+  if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    QVector<Track> parsed =
+        M3uCodec().parse(QString::fromUtf8(file.readAll()), path);
+    QVector<Track> tracks = dropMissingTrackFiles(parsed);
+    const bool dropped = tracks.size() != parsed.size();
+    probeTracksBlocking(tracks, true);
+    if (dropped) playlist_.restoreAlteredTracks(tracks, path);
+    else playlist_.setTracks(tracks, path);
+    if (collection_.contains(path)) {
+      collection_.addWritten(path, tracks);
+      persistCollectionCache();
+    }
+    collection_.select(path);
   }
-  collection_.select(path);
+  playlistRefreshing_ = false;
   refreshChrome();
 }
 
@@ -672,6 +676,7 @@ SessionView TrampSession::view() const {
   v.playlistTrackCount = listed;
   v.playlistRefreshEnabled =
       !playlist_.sourcePath().isEmpty() && QFileInfo::exists(playlist_.sourcePath());
+  v.playlistRefreshing = playlistRefreshing_;
   if (!playlist_.sourcePath().isEmpty()) {
     v.playlistName = QFileInfo(playlist_.sourcePath()).fileName();
   }

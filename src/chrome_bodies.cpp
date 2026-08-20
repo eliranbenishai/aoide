@@ -697,13 +697,16 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   drawGlowText(p, strip.total.adjusted(0, 0, -18, 0), totalText, totalValue, T().phos,
                withAlpha(T().phos, 115), 4, Qt::AlignVCenter | Qt::AlignRight);
   drawScreenOverlay(p, strip.total);
-  const bool refreshOn = view.goldenDemo ? true : view.playlistRefreshEnabled;
-  drawBtn(p, strip.refresh, false);
+  const bool refreshEnabled = view.goldenDemo ? true : view.playlistRefreshEnabled;
+  const bool refreshLit = view.playlistRefreshing;
+  drawBtn(p, strip.refresh, refreshLit);
   {
     const qreal icon = 16;
     const QRectF box(strip.refresh.center().x() - icon / 2, strip.refresh.center().y() - icon / 2,
                      icon, icon);
-    drawReload(p, box, refreshOn ? T().glyphInk : T().inkFaint);
+    const QColor ink =
+        refreshLit ? T().btnOnInk : refreshEnabled ? T().glyphInk : T().inkFaint;
+    drawReload(p, box, ink);
   }
 
   const QFont statusFont = condensedFont(12, 0.18);

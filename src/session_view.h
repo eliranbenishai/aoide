@@ -66,6 +66,7 @@ struct SessionView {
   qint64 playlistTotalMs = 0;
   int playlistTrackCount = 0;
   bool playlistRefreshEnabled = false;
+  bool playlistRefreshing = false;
   int settingsTab = 0;
   bool resumeLastSession = true;
   bool confirmBeforeQuit = false;
