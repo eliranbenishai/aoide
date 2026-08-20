@@ -77,6 +77,8 @@ set(TRAMP_SOURCES
   src/chrome_paint.cpp
   src/chrome_bodies.cpp
   src/chrome_hits.cpp
+  src/chrome_tooltip.cpp
+  src/chrome_tooltip.h
   src/session_view.cpp
   src/mockup_draw.cpp
   src/tramp_fonts.cpp
@@ -166,6 +168,7 @@ qt_add_executable(host_window_move_test
   src/chrome_paint.cpp
   src/chrome_bodies.cpp
   src/chrome_hits.cpp
+  src/chrome_tooltip.cpp
   src/mockup_draw.cpp
   src/tramp_fonts.cpp
   src/session_view.cpp
@@ -185,6 +188,22 @@ set_target_properties(host_window_move_test PROPERTIES AUTOMOC ON)
 qt_add_executable(chrome_spec_test tests/chrome_spec_test.cpp)
 target_link_libraries(chrome_spec_test PRIVATE tramp_window_spec Qt6::Test)
 set_target_properties(chrome_spec_test PROPERTIES AUTOMOC ON)
+
+qt_add_executable(chrome_tooltip_test
+  tests/chrome_tooltip_test.cpp
+  src/chrome_tooltip.cpp
+  src/look.cpp
+  src/settings.cpp
+  src/equalizer.cpp
+  src/tramp_fonts.cpp
+)
+target_include_directories(chrome_tooltip_test PRIVATE src)
+target_compile_definitions(chrome_tooltip_test PRIVATE
+  TRAMP_ASSET_DIR="${TRAMP_ASSET_DIR}"
+  TRAMP_SKINS_DIR="${TRAMP_SKINS_DIR}"
+)
+target_link_libraries(chrome_tooltip_test PRIVATE tramp_window_spec Qt6::Test Qt6::Widgets)
+set_target_properties(chrome_tooltip_test PROPERTIES AUTOMOC ON)
 
 qt_add_executable(wait_cursor_test
   tests/wait_cursor_test.cpp
@@ -255,6 +274,7 @@ add_test(NAME host_shell COMMAND host_shell_test)
 add_test(NAME host_shell_window COMMAND host_shell_window_test)
 add_test(NAME host_window_move COMMAND host_window_move_test)
 add_test(NAME chrome_spec COMMAND chrome_spec_test)
+add_test(NAME chrome_tooltip COMMAND chrome_tooltip_test)
 add_test(NAME wait_cursor COMMAND wait_cursor_test)
 add_test(NAME domain COMMAND domain_test)
 add_test(NAME look COMMAND look_test)

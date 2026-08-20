@@ -2,6 +2,7 @@
 
 #include "chrome_layout.h"
 #include "chrome_paint.h"
+#include "chrome_tooltip.h"
 #include "mockup_draw.h"
 #include "tramp_fonts.h"
 #include "tramp_metrics.h"
@@ -29,6 +30,11 @@ HostWindow::HostWindow(const tramp::WindowSpec& spec, QWidget* parent)
     winId();
   }
   logo_ = tramp::loadTrampLogo();
+  tooltipTimer_.setSingleShot(true);
+  connect(&tooltipTimer_, &QTimer::timeout, this, [this]() {
+    if (tooltipCandidate_.isEmpty()) return;
+    tramp::showChromeTooltip(tooltipGlobal_, tooltipCandidate_, zoomPercent_, view_.look);
+  });
   applyNativeSize();
   if (parent && spec.id != tramp::WindowId::main) hide();
 }
@@ -62,6 +68,7 @@ void HostWindow::setZoomPercent(int percent) {
   if (zoomPercent_ == percent && view_.zoomPercent == percent) return;
   zoomPercent_ = percent;
   view_.zoomPercent = percent;
+  hideChromeTooltipNow();
   applyNativeSize();
 }
 
@@ -193,34 +200,93 @@ QRect HostWindow::widgetRectFromLogical(const QRect& logical) const {
                qMax(1, int(std::lround(logical.height() * sy))));
 }
 
+void HostWindow::hideChromeTooltipNow() {
+  tooltipTimer_.stop();
+  tooltipCandidate_.clear();
+  tooltipTitle_ = tramp::TitleChromeLayout::Hit::none;
+  tooltipChrome_ = {};
+  tramp::hideChromeTooltip();
+}
+
+QRect HostWindow::tooltipAnchorRect(tramp::TitleChromeLayout::Hit title,
+                                    const tramp::ChromeHit& chrome) const {
+  using Hit = tramp::TitleChromeLayout::Hit;
+  switch (title) {
+    case Hit::minimize:
+    case Hit::collapse:
+      return title_.minimize;
+    case Hit::zoomOut:
+      return title_.zoomOut;
+    case Hit::zoomIn:
+      return title_.zoomIn;
+    case Hit::close:
+      return title_.close;
+    case Hit::drag:
+    case Hit::none:
+      break;
+  }
+  return chrome.rect;
+}
+
+void HostWindow::applyChromeTooltip(const QPointF& widgetPos) {
+  const bool busy = draggingTitle_ || resizingPlaylist_ || draggingChrome_ ||
+                    tramp::WaitCursorScope::showing();
+  const QPoint logical = logicalFrom(widgetPos);
+  const auto titleHit = title_.hit(logical);
+  const auto chrome = tramp::hitTest(spec_.id, spec_.logicalSize, logical, view_);
+  const QString next = tramp::chromeTooltip(titleHit, chrome, view_);
+  const bool sameControl = titleHit == tooltipTitle_ && chrome.kind == tooltipChrome_.kind &&
+                           chrome.index == tooltipChrome_.index;
+  switch (tramp::tooltipMotion(tooltipCandidate_, next, busy, sameControl)) {
+    case tramp::TooltipMotion::hide:
+      hideChromeTooltipNow();
+      break;
+    case tramp::TooltipMotion::restartWait: {
+      tramp::hideChromeTooltip();
+      tooltipCandidate_ = next;
+      tooltipTitle_ = titleHit;
+      tooltipChrome_ = chrome;
+      QRect logicalRect = tooltipAnchorRect(titleHit, chrome);
+      if (logicalRect.isEmpty()) logicalRect = QRect(logical, QSize(1, 1));
+      const QRect widgetRect = widgetRectFromLogical(logicalRect);
+      tooltipGlobal_ = mapToGlobal(QPoint(widgetRect.center().x(), widgetRect.top()));
+      tooltipTimer_.start(tramp::kTooltipWaitMs);
+      break;
+    }
+    case tramp::TooltipMotion::keep:
+      break;
+  }
+}
+
 void HostWindow::applyHitCursor(const QPointF& widgetPos) {
   if (tramp::WaitCursorScope::showing()) {
     setCursor(Qt::WaitCursor);
+    hideChromeTooltipNow();
     return;
   }
   const QPoint logical = logicalFrom(widgetPos);
   const auto titleHit = title_.hit(logical);
   if (titleHit == tramp::TitleChromeLayout::Hit::drag) {
     setCursor(Qt::OpenHandCursor);
-    return;
-  }
-  if (titleHit != tramp::TitleChromeLayout::Hit::none) {
-    setCursor(Qt::PointingHandCursor);
-    return;
-  }
-  const auto hit = tramp::hitTest(spec_.id, spec_.logicalSize, logical, view_);
-  if (hit.kind == tramp::ChromeHit::Kind::plResize) {
-    setCursor(Qt::SizeFDiagCursor);
-  } else if (hit.kind == tramp::ChromeHit::Kind::plDivider) {
-    setCursor(Qt::SplitHCursor);
-  } else if (hit.kind == tramp::ChromeHit::Kind::volume || hit.kind == tramp::ChromeHit::Kind::seek ||
-             hit.kind == tramp::ChromeHit::Kind::eqPreamp || hit.kind == tramp::ChromeHit::Kind::eqBand) {
-    setCursor(Qt::ArrowCursor);
-  } else if (hit.kind != tramp::ChromeHit::Kind::none) {
+  } else if (titleHit != tramp::TitleChromeLayout::Hit::none) {
     setCursor(Qt::PointingHandCursor);
   } else {
-    setCursor(Qt::ArrowCursor);
+    const auto hit = tramp::hitTest(spec_.id, spec_.logicalSize, logical, view_);
+    if (hit.kind == tramp::ChromeHit::Kind::plResize) {
+      setCursor(Qt::SizeFDiagCursor);
+    } else if (hit.kind == tramp::ChromeHit::Kind::plDivider) {
+      setCursor(Qt::SplitHCursor);
+    } else if (hit.kind == tramp::ChromeHit::Kind::volume || hit.kind == tramp::ChromeHit::Kind::seek ||
+               hit.kind == tramp::ChromeHit::Kind::eqPreamp ||
+               hit.kind == tramp::ChromeHit::Kind::eqBand) {
+      setCursor(Qt::ArrowCursor);
+    } else if (hit.kind != tramp::ChromeHit::Kind::none) {
+      setCursor(Qt::PointingHandCursor);
+    } else {
+      setCursor(Qt::ArrowCursor);
+    }
   }
+  applyChromeTooltip(widgetPos);
 }
 
 void HostWindow::paintEvent(QPaintEvent*) {
@@ -249,6 +315,11 @@ void HostWindow::showEvent(QShowEvent* event) {
   if (spec_.id != tramp::WindowId::main) emit extraMapped();
 }
 
+void HostWindow::hideEvent(QHideEvent* event) {
+  hideChromeTooltipNow();
+  QWidget::hideEvent(event);
+}
+
 void HostWindow::changeEvent(QEvent* event) {
   QWidget::changeEvent(event);
   if (event->type() == QEvent::DevicePixelRatioChange) {
@@ -275,6 +346,7 @@ void HostWindow::closeEvent(QCloseEvent* event) {
 
 void HostWindow::mousePressEvent(QMouseEvent* event) {
   if (event->button() != Qt::LeftButton) return;
+  hideChromeTooltipNow();
   const QPoint logical = logicalFrom(event->position());
   const auto hit = title_.hit(logical);
   switch (hit) {
@@ -322,6 +394,11 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
     emit chromePressed(chrome, event->modifiers(), logical);
     event->accept();
   }
+}
+
+void HostWindow::leaveEvent(QEvent* event) {
+  hideChromeTooltipNow();
+  QWidget::leaveEvent(event);
 }
 
 void HostWindow::mouseMoveEvent(QMouseEvent* event) {

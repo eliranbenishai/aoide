@@ -10,6 +10,7 @@
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QEvent>
+#include <QHideEvent>
 #include <QImage>
 #include <QMouseEvent>
 #include <QPaintEvent>
@@ -17,6 +18,7 @@
 #include <QRect>
 #include <QResizeEvent>
 #include <QShowEvent>
+#include <QTimer>
 #include <QWheelEvent>
 #include <QWidget>
 #include <functional>
@@ -64,10 +66,12 @@ class HostWindow : public QWidget {
   void paintEvent(QPaintEvent* event) override;
   void closeEvent(QCloseEvent* event) override;
   void showEvent(QShowEvent* event) override;
+  void hideEvent(QHideEvent* event) override;
   void changeEvent(QEvent* event) override;
   void mousePressEvent(QMouseEvent* event) override;
   void mouseMoveEvent(QMouseEvent* event) override;
   void mouseReleaseEvent(QMouseEvent* event) override;
+  void leaveEvent(QEvent* event) override;
   void mouseDoubleClickEvent(QMouseEvent* event) override;
   void wheelEvent(QWheelEvent* event) override;
   void moveEvent(QMoveEvent* event) override;
@@ -80,6 +84,9 @@ class HostWindow : public QWidget {
   void applyNativeSize();
   QPoint logicalFrom(const QPointF& widgetPos) const;
   void applyHitCursor(const QPointF& widgetPos);
+  void applyChromeTooltip(const QPointF& widgetPos);
+  void hideChromeTooltipNow();
+  QRect tooltipAnchorRect(tramp::TitleChromeLayout::Hit title, const tramp::ChromeHit& chrome) const;
   void invalidateChassis();
   void rebuildChassis();
   void grabPointerIfAllowed();
@@ -100,5 +107,10 @@ class HostWindow : public QWidget {
   bool grabbedPointer_ = false;
   QPoint grabOffset_;
   tramp::ChromeHit dragHit_;
+  QTimer tooltipTimer_;
+  QString tooltipCandidate_;
+  QPoint tooltipGlobal_;
+  tramp::TitleChromeLayout::Hit tooltipTitle_ = tramp::TitleChromeLayout::Hit::none;
+  tramp::ChromeHit tooltipChrome_;
   std::function<bool()> quitConfirmer_;
 };
