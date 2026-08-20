@@ -358,13 +358,9 @@ void TrampSession::persistCollectionCache() {
 void TrampSession::indexAndProbeCurrent() {
   QVector<Track> tracks = playlist_.tracks();
   collection_.hydrateDurations(tracks);
-  QMap<QString, qint64> known;
   for (const Track& t : tracks) {
-    if (t.durationMs && *t.durationMs > 0) {
-      known.insert(normalizePlaylistPath(t.path), *t.durationMs);
-    }
+    playlist_.applyMetadata(t.path, t.title, t.artist, t.album, t.durationMs.value_or(0));
   }
-  playlist_.applyDurations(known);
   if (!playlist_.sourcePath().isEmpty() && collection_.contains(playlist_.sourcePath())) {
     collection_.addWritten(playlist_.sourcePath(), playlist_.tracks());
     persistCollectionCache();
@@ -373,10 +369,7 @@ void TrampSession::indexAndProbeCurrent() {
 }
 
 void TrampSession::startDurationProbe(const QVector<Track>& tracks) {
-  QStringList missing;
-  for (const Track& t : tracks) {
-    if (!t.durationMs || *t.durationMs <= 0) missing.push_back(t.path);
-  }
+  const QStringList missing = pathsNeedingAudioProbe(tracks);
   ++durationGen_;
   if (missing.isEmpty()) return;
   const int gen = durationGen_;
@@ -404,11 +397,15 @@ void TrampSession::startDurationProbe(const QVector<Track>& tracks) {
 void TrampSession::onProbedAudio(const QString& path, const QString& title, const QString& artist,
                                 const QString& album, qint64 ms) {
   playlist_.applyMetadata(path, title, artist, album, ms);
+  collection_.mergeTrackTags(path, title, artist, album);
   if (ms > 0) {
     collection_.mergeTrackDuration(path, ms);
     if (!collectionPersistTimer_.isActive()) collectionPersistTimer_.start();
     figures_ = collection_.readFigures();
     figuresLoaded_ = true;
+  } else if (!title.trimmed().isEmpty() || !artist.trimmed().isEmpty() ||
+             !album.trimmed().isEmpty()) {
+    if (!collectionPersistTimer_.isActive()) collectionPersistTimer_.start();
   }
 }
 

@@ -220,6 +220,17 @@ CollectionTrackSets SupportStore::readTrackSets() const {
   for (auto it = durations.begin(); it != durations.end(); ++it) {
     sets.durationsMs.insert(it.key(), qint64(it.value().toDouble()));
   }
+  const QJsonObject meta = o.value(QStringLiteral("meta")).toObject();
+  for (auto it = meta.begin(); it != meta.end(); ++it) {
+    const QJsonObject m = it.value().toObject();
+    CachedTrackMeta tags;
+    tags.title = m.value(QStringLiteral("title")).toString();
+    tags.artist = m.value(QStringLiteral("artist")).toString();
+    tags.album = m.value(QStringLiteral("album")).toString();
+    if (!tags.title.isEmpty() || !tags.artist.isEmpty() || !tags.album.isEmpty()) {
+      sets.meta.insert(it.key(), tags);
+    }
+  }
   return sets;
 }
 
@@ -236,9 +247,18 @@ void SupportStore::writeTrackSets(const CollectionTrackSets& sets) const {
   for (auto it = sets.durationsMs.begin(); it != sets.durationsMs.end(); ++it) {
     durations.insert(it.key(), it.value());
   }
+  QJsonObject meta;
+  for (auto it = sets.meta.begin(); it != sets.meta.end(); ++it) {
+    QJsonObject m;
+    if (!it.value().title.isEmpty()) m.insert(QStringLiteral("title"), it.value().title);
+    if (!it.value().artist.isEmpty()) m.insert(QStringLiteral("artist"), it.value().artist);
+    if (!it.value().album.isEmpty()) m.insert(QStringLiteral("album"), it.value().album);
+    if (!m.isEmpty()) meta.insert(it.key(), m);
+  }
   QJsonObject root;
   root.insert(QStringLiteral("trackSets"), trackSets);
   root.insert(QStringLiteral("durationsMs"), durations);
+  if (!meta.isEmpty()) root.insert(QStringLiteral("meta"), meta);
   writeObject(QStringLiteral("playlist_tracks.json"), root);
 }
 

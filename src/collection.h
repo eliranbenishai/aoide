@@ -28,6 +28,8 @@ class PlaylistCollection {
   void validateReferences();
   void hydrateDurations(QVector<Track>& tracks) const;
   void mergeTrackDuration(const QString& trackPath, qint64 durationMs);
+  void mergeTrackTags(const QString& trackPath, const QString& title, const QString& artist,
+                      const QString& album);
   CollectionFigures readFigures() const;
 
  private:

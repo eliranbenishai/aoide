@@ -36,9 +36,16 @@ struct SavedPlaylist {
   QString displayName() const;
 };
 
+struct CachedTrackMeta {
+  QString title;
+  QString artist;
+  QString album;
+};
+
 struct CollectionTrackSets {
   QMap<QString, QStringList> byEntry;
   QMap<QString, qint64> durationsMs;
+  QMap<QString, CachedTrackMeta> meta;
 };
 
 struct CollectionFigures {

@@ -863,6 +863,16 @@ int main() {
     col.hydrateDurations(hydrated);
     REQUIRE(hydrated[0].durationMs == 50000);
 
+    col.mergeTrackTags(other, QStringLiteral("Other Side"), QStringLiteral("Wire Garden"),
+                       QStringLiteral("Demos"));
+    Track titledBare;
+    titledBare.path = other;
+    QVector<Track> titled = {titledBare};
+    col.hydrateDurations(titled);
+    REQUIRE_EQ(titled[0].title, QStringLiteral("Other Side"));
+    REQUIRE_EQ(titled[0].artist, QStringLiteral("Wire Garden"));
+    REQUIRE_EQ(titled[0].album, QStringLiteral("Demos"));
+
     tramp::SupportStore store(tmp.path());
     col.saveIndex(store);
     col.saveTrackSets(store);
@@ -870,6 +880,12 @@ int main() {
     loaded.load(store);
     REQUIRE_EQ(loaded.readFigures().totalDurationMs, 250000);
     REQUIRE_EQ(loaded.readFigures().tracks, 2);
+    Track reloadedBare;
+    reloadedBare.path = other;
+    QVector<Track> reloaded = {reloadedBare};
+    loaded.hydrateDurations(reloaded);
+    REQUIRE_EQ(reloaded[0].title, QStringLiteral("Other Side"));
+    REQUIRE_EQ(reloaded[0].durationMs, 50000);
   }
 
   {
@@ -914,6 +930,43 @@ int main() {
     REQUIRE(list.tracks()[0].displayTitle() == QStringLiteral("Static Hymn"));
     REQUIRE(!list.applyMetadata(t.path, QString(), QString(), QString(), 0));
     REQUIRE(list.tracks()[0].title == QStringLiteral("Static Hymn"));
+  }
+
+  {
+    Track timed;
+    timed.path = QStringLiteral("/tmp/tagged.mp3");
+    timed.durationMs = 221000;
+    REQUIRE(tramp::trackNeedsAudioProbe(timed));
+    REQUIRE(tramp::pathsNeedingAudioProbe({timed}).contains(timed.path));
+    timed.title = QStringLiteral("Static Hymn");
+    REQUIRE(!tramp::trackNeedsAudioProbe(timed));
+    REQUIRE(tramp::pathsNeedingAudioProbe({timed}).isEmpty());
+  }
+
+  {
+    PlaylistController list;
+    Track t;
+    t.path = QStringLiteral("/tmp/keep-playing.mp3");
+    t.durationMs = 221000;
+    list.setTracks({t}, QStringLiteral("/tmp/current.m3u"));
+    REQUIRE(list.tracks()[0].displayTitle() == QFileInfo(t.path).fileName());
+    tramp::PlaylistCollection col;
+    col.mergeTrackDuration(t.path, 221000);
+    QVector<Track> copy = list.tracks();
+    col.hydrateDurations(copy);
+    list.applyMetadata(copy[0].path, copy[0].title, copy[0].artist, copy[0].album,
+                       copy[0].durationMs.value_or(0));
+    REQUIRE(list.tracks()[0].durationMs == 221000);
+    REQUIRE(list.tracks()[0].displayTitle() == QFileInfo(t.path).fileName());
+    REQUIRE(tramp::trackNeedsAudioProbe(list.tracks()[0]));
+    col.mergeTrackTags(t.path, QStringLiteral("Keep Playing"), QStringLiteral("Wire Garden"),
+                       QString());
+    copy = list.tracks();
+    col.hydrateDurations(copy);
+    list.applyMetadata(copy[0].path, copy[0].title, copy[0].artist, copy[0].album,
+                       copy[0].durationMs.value_or(0));
+    REQUIRE_EQ(list.tracks()[0].displayTitle(), QStringLiteral("Keep Playing"));
+    REQUIRE(!tramp::trackNeedsAudioProbe(list.tracks()[0]));
   }
 
   {

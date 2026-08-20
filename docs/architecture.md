@@ -100,8 +100,8 @@ flowchart TB
 | EQ / mono | `equalizer.*` — lavfi `af`; On / Auto / Presets; ±12 dB; force-mono via `audio-channels` |
 | Spectrum | `spectrum.*`, `stft.*`, `pcm_decoder.*`, `wav_reader.*` — 20 log bands (40 Hz–Nyquist, 4096-point STFT, unique FFT bins per bar) from a throwaway `ao=pcm` pass; honest silence until ready |
 | Playlist | `playlist.*`, `m3u.*` — M3U/M3U8; multi-select; reorder; sort; resolve track lines as hints on **read**. Track-list scrollbar paints only when rows overflow the well. |
-| Collection | `collection.*` — references, not copies; disabled rows when the file is gone; create-from-selection does not touch the current list. On add / create / load, track durations are hydrated from the cache, missing times are probed (that pass also applies tag titles to the current playlist), and `playlists.json` + `playlist_tracks.json` are rewritten. About **TOTAL TIME** only reads `readFigures()`. |
-| Duration probe | `duration_probe.*` — WAV header first, then a throwaway libmpv `ao=null` pass for other kinds; fills current-playlist times, titles/artist/album from tags, and the collection duration cache without playing |
+| Collection | `collection.*` — references, not copies; disabled rows when the file is gone; create-from-selection does not touch the current list. On add / create / load, times **and** tag titles are hydrated from the cache; missing times or empty titles are probed, and `playlists.json` + `playlist_tracks.json` are rewritten. About **TOTAL TIME** only reads `readFigures()`. |
+| Duration probe | `duration_probe.*` — WAV header first, then a throwaway libmpv `ao=null` pass for other kinds; fills current-playlist times, titles/artist/album from tags, and the collection time/tag cache without playing |
 | Persistence | `persist.*`, `settings.*`, `support_dir.*`, `files.*` — see below |
 | File chooser | `native_file_dialog.*` — host OS picker (xdg-desktop-portal FileChooser on Linux → Dolphin/Nautilus; native `QFileDialog` on Windows/macOS). Folder pick is `OpenFile` + `directory`. kdialog, then a non-native Qt widget dialog, only if the portal is unavailable. Drops leaked Qt 4/5 `QT_PLUGIN_PATH` (Cursor AppImage) before `QApplication`. |
 | Libmpv bundle | `third_party/libmpv` pins + fetch; Windows DLL / Linux staged `.so` |
@@ -118,7 +118,7 @@ Support dir: `$XDG_DATA_HOME/com.proximamagnifica.tramp` (adopts legacy `…/tra
 |------|------|
 | `settings.json` | Zoom, window frames, EQ, skins, prefs (including elapsed/remain and scroll title) |
 | `session_resume.json` | Last transport / playlist origin |
-| `playlists.json` + `playlist_tracks.json` | Collection index + track-set cache |
+| `playlists.json` + `playlist_tracks.json` | Collection index + track-set cache (paths, times, tag titles) |
 | `altered_playlist.json` | Unsaved current list (survives restart) |
 | `usage.json` | Lifetime **spins** |
 

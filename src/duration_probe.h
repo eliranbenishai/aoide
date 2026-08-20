@@ -1,7 +1,10 @@
 #pragma once
 
+#include "track.h"
+
 #include <QString>
 #include <QStringList>
+#include <QVector>
 #include <functional>
 #include <optional>
 
@@ -13,6 +16,19 @@ struct ProbedAudio {
   QString album;
   std::optional<qint64> durationMs;
 };
+
+inline bool trackNeedsAudioProbe(const Track& t) {
+  if (!t.durationMs || *t.durationMs <= 0) return true;
+  return t.title.trimmed().isEmpty();
+}
+
+inline QStringList pathsNeedingAudioProbe(const QVector<Track>& tracks) {
+  QStringList paths;
+  for (const Track& t : tracks) {
+    if (trackNeedsAudioProbe(t)) paths.push_back(t.path);
+  }
+  return paths;
+}
 
 std::optional<qint64> probeWavDurationMs(const QByteArray& bytes);
 std::optional<qint64> probeAudioDurationMs(const QString& path);
