@@ -74,8 +74,9 @@ class PlaybackController {
   QVector<int> shuffledOrder_;
   std::optional<int> playingIndex_;
   QString playingPath_;
+  std::optional<Track> playingTrack_;
   bool mediaOpen_ = false;
-  int previousTrackCount_ = 0;
+  QVector<QString> previousPaths_;
   AudioFormatInfo format_;
   QString failureMessage_;
   int spins_ = 0;

@@ -10,6 +10,7 @@
 #include "player_engine.h"
 #include "playlist.h"
 #include "popup_anchor.h"
+#include "session_view.h"
 #include "spectrum.h"
 #include "support_dir.h"
 #include "wait_cursor.h"
@@ -699,16 +700,21 @@ int main() {
   {
     class WatchEngine : public NullEngine {
      public:
+      void open(const Track& track) override { opened = track.path; }
       void play() override { stopped = false; }
       void stop() override {
         stopped = true;
         NullEngine::stop();
       }
       bool stopped = false;
+      QString opened;
     };
     PlaylistController playlist;
     Track a;
     a.path = QStringLiteral("/tmp/keep-playing.mp3");
+    a.title = QStringLiteral("Keep Playing");
+    a.artist = QStringLiteral("Wire Garden");
+    a.album = QStringLiteral("Copper Rain EP");
     Track b;
     b.path = QStringLiteral("/tmp/other.mp3");
     playlist.setTracks({a, b}, QStringLiteral("/tmp/current.m3u"));
@@ -721,9 +727,62 @@ int main() {
     REQUIRE(!engine.stopped);
     Track c;
     c.path = QStringLiteral("/tmp/from-another-list.mp3");
+    c.title = QStringLiteral("From Another List");
     playlist.setTracks({c}, QStringLiteral("/tmp/other.m3u"));
+    playback.onPlaylistChanged();
     REQUIRE(playback.playing());
     REQUIRE(!engine.stopped);
+    REQUIRE_EQ(engine.opened, a.path);
+    const auto nowPlaying = playback.currentTrack();
+    REQUIRE(nowPlaying.has_value());
+    REQUIRE_EQ(nowPlaying->path, a.path);
+    REQUIRE_EQ(nowPlaying->title, a.title);
+    REQUIRE_EQ(nowPlaying->artist, a.artist);
+    REQUIRE(!playback.playingIndex().has_value());
+    playback.playPause();
+    REQUIRE(!playback.playing());
+    REQUIRE(playback.paused());
+    REQUIRE_EQ(playback.currentTrack()->path, a.path);
+    playback.playIndex(0);
+    REQUIRE_EQ(playback.currentTrack()->path, c.path);
+  }
+
+  {
+    PlaylistController playlist;
+    Track a;
+    a.path = QStringLiteral("/tmp/first.mp3");
+    Track b;
+    b.path = QStringLiteral("/tmp/second.mp3");
+    Track c;
+    c.path = QStringLiteral("/tmp/third.mp3");
+    playlist.setTracks({a, b, c});
+    NullEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.playIndex(0);
+    playlist.removeAt(0);
+    playback.onPlaylistChanged();
+    REQUIRE(playback.playing());
+    REQUIRE_EQ(playback.currentTrack()->path, b.path);
+    REQUIRE_EQ(*playback.playingIndex(), 0);
+  }
+
+  {
+    Track t;
+    t.path = QStringLiteral("/tmp/keep-playing.mp3");
+    t.title = QStringLiteral("Keep Playing");
+    t.artist = QStringLiteral("Wire Garden");
+    t.album = QStringLiteral("Copper Rain EP");
+    const auto shown = tramp::nowPlayingDisplay(t, std::nullopt, 1);
+    REQUIRE_EQ(shown.title, QStringLiteral("Wire Garden — Keep Playing"));
+    REQUIRE_EQ(shown.subtitle, QStringLiteral("COPPER RAIN EP"));
+    REQUIRE_EQ(shown.formatChip, QStringLiteral("MP3"));
+    REQUIRE(shown.title != QStringLiteral("No track"));
+    const auto numbered = tramp::nowPlayingDisplay(t, 2, 12);
+    REQUIRE_EQ(numbered.title, QStringLiteral("3. Wire Garden — Keep Playing"));
+    REQUIRE_EQ(numbered.subtitle, QStringLiteral("COPPER RAIN EP · TRACK 3 OF 12"));
+    const auto empty = tramp::nowPlayingDisplay(std::nullopt, std::nullopt, 0);
+    REQUIRE_EQ(empty.title, QStringLiteral("No track"));
+    REQUIRE_EQ(empty.formatChip, QStringLiteral("—"));
   }
 
   {

@@ -4,9 +4,36 @@
 
 namespace tramp {
 
+namespace {
+
+QVector<QString> trackPaths(const QVector<Track>& tracks) {
+  QVector<QString> paths;
+  paths.reserve(tracks.size());
+  for (const Track& t : tracks) paths.push_back(t.path);
+  return paths;
+}
+
+bool isSameListMinusPath(const QVector<QString>& previous, const QVector<Track>& next,
+                         const QString& removed) {
+  if (next.size() != previous.size() - 1) return false;
+  int j = 0;
+  bool skipped = false;
+  for (const QString& path : previous) {
+    if (!skipped && path == removed) {
+      skipped = true;
+      continue;
+    }
+    if (j >= next.size() || next[j].path != path) return false;
+    ++j;
+  }
+  return skipped && j == next.size();
+}
+
+}  // namespace
+
 PlaybackController::PlaybackController(PlaylistController* playlist, PlayerEngine* engine)
     : playlist_(playlist), engine_(engine) {
-  previousTrackCount_ = playlist_->tracks().size();
+  previousPaths_ = trackPaths(playlist_->tracks());
   bindEngine();
 }
 
@@ -48,13 +75,18 @@ void PlaybackController::bindEngine() {
         break;
       }
     }
-    if (next.path.isEmpty()) return;
+    if (next.path.isEmpty()) {
+      if (playingTrack_ && playingTrack_->path == path) next = *playingTrack_;
+      else return;
+    }
     if (!title.isEmpty()) next.title = title;
     if (!artist.isEmpty()) next.artist = artist;
     if (!album.isEmpty()) next.album = album;
     if (durationMs > 0) next.durationMs = durationMs;
-    playlist_->updateTrackByPath(path, next);
+    const bool inList = playlist_->updateTrackByPath(path, next);
+    if (playingPath_ == path) playingTrack_ = next;
     if (durationMs > 0 && onTrackDuration_) onTrackDuration_(path, durationMs);
+    if (!inList && playingPath_ == path) notify();
   };
 }
 
@@ -63,20 +95,27 @@ void PlaybackController::notify() {
 }
 
 std::optional<Track> PlaybackController::currentTrack() const {
-  if (!playingIndex_ || *playingIndex_ < 0 || *playingIndex_ >= playlist_->tracks().size()) {
-    return std::nullopt;
+  if (playingPath_.isEmpty()) return std::nullopt;
+  const auto tracks = playlist_->tracks();
+  if (playingIndex_ && *playingIndex_ >= 0 && *playingIndex_ < tracks.size() &&
+      tracks[*playingIndex_].path == playingPath_) {
+    return tracks[*playingIndex_];
   }
-  return playlist_->tracks()[*playingIndex_];
+  for (const Track& t : tracks) {
+    if (t.path == playingPath_) return t;
+  }
+  if (playingTrack_ && playingTrack_->path == playingPath_) return playingTrack_;
+  return std::nullopt;
 }
 
 void PlaybackController::playPause() {
   const auto selected = playlist_->selectedIndex();
-  const bool nothingOpen = !playingIndex_;
-  const bool selectionDiffers = selected && selected != playingIndex_;
-  if (nothingOpen || selectionDiffers) {
+  const bool haveNowPlaying = !playingPath_.isEmpty();
+  const bool selectionDiffers = selected && playingIndex_ && selected != playingIndex_;
+  if (!haveNowPlaying || selectionDiffers) {
     if (selected) {
       playIndex(*selected);
-    } else if (playingIndex_) {
+    } else if (haveNowPlaying) {
       pauseOrResumeCurrent();
     } else if (!playlist_->tracks().isEmpty()) {
       playIndex(0);
@@ -123,6 +162,7 @@ void PlaybackController::playIndex(int index) {
   if (index < 0 || index >= tracks.size()) return;
   playingIndex_ = index;
   playingPath_ = tracks[index].path;
+  playingTrack_ = tracks[index];
   format_ = {};
   failureMessage_.clear();
   playlist_->select(index);
@@ -134,7 +174,7 @@ void PlaybackController::playIndex(int index) {
 }
 
 void PlaybackController::pauseOrResumeCurrent() {
-  if (!playingIndex_) return;
+  if (playingPath_.isEmpty() && !playingIndex_) return;
   if (playing_) {
     engine_->pause();
     playing_ = false;
@@ -142,7 +182,7 @@ void PlaybackController::pauseOrResumeCurrent() {
     return;
   }
   if (!mediaOpen_) {
-    playIndex(*playingIndex_);
+    if (playingIndex_) playIndex(*playingIndex_);
     return;
   }
   engine_->play();
@@ -252,8 +292,8 @@ void PlaybackController::rebuildShuffleOrder() {
 void PlaybackController::onPlaylistChanged() {
   if (shuffle_) rebuildShuffleOrder();
   const auto tracks = playlist_->tracks();
-  const int previousLength = previousTrackCount_;
-  previousTrackCount_ = tracks.size();
+  const QVector<QString> previous = previousPaths_;
+  previousPaths_ = trackPaths(tracks);
   if (!playingPath_.isEmpty()) {
     int newIndex = -1;
     for (int i = 0; i < tracks.size(); ++i) {
@@ -264,9 +304,11 @@ void PlaybackController::onPlaylistChanged() {
     }
     if (newIndex != -1) {
       playingIndex_ = newIndex;
-    } else if (tracks.size() == previousLength - 1) {
+      playingTrack_ = tracks[newIndex];
+    } else if (isSameListMinusPath(previous, tracks, playingPath_)) {
       const auto advanceIndex = playingIndex_;
       playingPath_.clear();
+      playingTrack_.reset();
       if (advanceIndex && *advanceIndex < tracks.size()) {
         playIndex(*advanceIndex);
         return;

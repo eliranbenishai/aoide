@@ -607,23 +607,11 @@ SessionView TrampSession::view() const {
     v.playlistName = QFileInfo(playlist_.sourcePath()).fileName();
   }
 
-  const auto current = playback_->playingIndex();
-  if (current && *current >= 0 && *current < tracks.size()) {
-    const Track& t = tracks[*current];
-    QStringList parts;
-    parts << QString::number(*current + 1) + QLatin1Char('.');
-    if (!t.artist.trimmed().isEmpty()) parts << t.artist.trimmed() + QStringLiteral(" —");
-    parts << t.displayTitle();
-    v.title = parts.join(QLatin1Char(' '));
-    QStringList sub;
-    if (!t.album.trimmed().isEmpty()) sub << t.album.trimmed();
-    sub << QStringLiteral("track %1 of %2").arg(*current + 1).arg(tracks.size());
-    v.subtitle = sub.join(QStringLiteral(" · ")).toUpper();
-    const QString ext = QFileInfo(t.path).suffix().toUpper();
-    v.formatChip = ext.isEmpty() ? QStringLiteral("—") : ext;
-  } else {
-    v.title = QStringLiteral("No track");
-  }
+  const auto nowPlaying =
+      nowPlayingDisplay(playback_->currentTrack(), playback_->playingIndex(), tracks.size());
+  v.title = nowPlaying.title;
+  v.subtitle = nowPlaying.subtitle;
+  v.formatChip = nowPlaying.formatChip;
 
   const AudioFormatInfo fmt = playback_->format();
   v.bitrate = fmt.bitrateKbps ? QStringLiteral("%1 kbps").arg(*fmt.bitrateKbps)
