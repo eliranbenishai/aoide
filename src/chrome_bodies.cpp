@@ -602,7 +602,8 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
                      listWell.width(), kPlaylistRowStride);
     const bool playing = rows[i].playing;
     const bool selected = rows[i].selected;
-    const QColor color = playing ? T().phosHot : withAlpha(T().phos, 115);
+    const bool disabled = rows[i].disabled;
+    const QColor color = disabled ? T().inkFaint : (playing ? T().phosHot : withAlpha(T().phos, 115));
     if (selected) {
       QLinearGradient g(row.topLeft(), row.bottomLeft());
       g.setColorAt(0, withAlpha(T().phos, 33));
@@ -696,6 +697,14 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   drawGlowText(p, strip.total.adjusted(0, 0, -18, 0), totalText, totalValue, T().phos,
                withAlpha(T().phos, 115), 4, Qt::AlignVCenter | Qt::AlignRight);
   drawScreenOverlay(p, strip.total);
+  const bool refreshOn = view.goldenDemo ? true : view.playlistRefreshEnabled;
+  drawBtn(p, strip.refresh, false);
+  {
+    const qreal icon = 16;
+    const QRectF box(strip.refresh.center().x() - icon / 2, strip.refresh.center().y() - icon / 2,
+                     icon, icon);
+    drawReload(p, box, refreshOn ? T().glyphInk : T().inkFaint);
+  }
 
   const QFont statusFont = condensedFont(12, 0.18);
   p.setFont(statusFont);
@@ -710,7 +719,7 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   statusBit(statusName);
   drawStatusDot(p, QPointF(sx + 18 + 2.5, status.center().y()));
   sx += 18 + 5 + 18;
-  statusBit(QStringLiteral("%1 TRACKS").arg(rows.size()));
+  statusBit(QStringLiteral("%1 TRACKS").arg(view.goldenDemo ? rows.size() : view.playlistTrackCount));
   drawStatusDot(p, QPointF(sx + 18 + 2.5, status.center().y()));
   sx += 18 + 5 + 18;
   statusBit(playingN > 0 ? QStringLiteral("PLAYING %1").arg(playingN) : QStringLiteral("STOPPED"));

@@ -26,6 +26,7 @@ struct TrackRowView {
   QString time;
   bool selected = false;
   bool playing = false;
+  bool disabled = false;
 };
 
 struct SessionView {
@@ -63,6 +64,8 @@ struct SessionView {
   QString playlistName;
   bool playlistAltered = false;
   qint64 playlistTotalMs = 0;
+  int playlistTrackCount = 0;
+  bool playlistRefreshEnabled = false;
   int settingsTab = 0;
   bool resumeLastSession = true;
   bool confirmBeforeQuit = false;

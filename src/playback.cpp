@@ -109,19 +109,28 @@ std::optional<Track> PlaybackController::currentTrack() const {
 }
 
 void PlaybackController::playPause() {
+  const auto tracks = playlist_->tracks();
   const auto selected = playlist_->selectedIndex();
   const bool haveNowPlaying = !playingPath_.isEmpty();
+  const bool selectedPlayable =
+      selected && *selected >= 0 && *selected < tracks.size() && !tracks[*selected].disabled;
   const bool selectionDiffers = selected && playingIndex_ && selected != playingIndex_;
-  if (!haveNowPlaying || selectionDiffers) {
-    if (selected) {
-      playIndex(*selected);
-    } else if (haveNowPlaying) {
-      pauseOrResumeCurrent();
-    } else if (!playlist_->tracks().isEmpty()) {
-      playIndex(0);
+  if (selectedPlayable && (!haveNowPlaying || selectionDiffers)) {
+    playIndex(*selected);
+    return;
+  }
+  if (!haveNowPlaying) {
+    if (!selected) {
+      for (int i = 0; i < tracks.size(); ++i) {
+        if (!tracks[i].disabled) {
+          playIndex(i);
+          return;
+        }
+      }
     }
     return;
   }
+  if (selectionDiffers) return;
   pauseOrResumeCurrent();
 }
 
@@ -137,7 +146,9 @@ void PlaybackController::next() {
   const auto tracks = playlist_->tracks();
   if (tracks.isEmpty()) return;
   const int current = playingIndex_.value_or(playlist_->selectedIndex().value_or(0));
-  const auto next = nextIndex(current, tracks.size(), shuffle_, repeatMode_, shuffledOrder_);
+  auto playable = [&](int i) { return i >= 0 && i < tracks.size() && !tracks[i].disabled; };
+  const auto next =
+      nextPlayableIndex(current, tracks.size(), shuffle_, repeatMode_, shuffledOrder_, playable);
   if (!next) {
     stop();
     return;
@@ -149,7 +160,9 @@ void PlaybackController::previous() {
   const auto tracks = playlist_->tracks();
   if (tracks.isEmpty()) return;
   const int current = playingIndex_.value_or(playlist_->selectedIndex().value_or(0));
-  const auto prev = previousIndex(current, tracks.size(), shuffle_, repeatMode_, shuffledOrder_);
+  auto playable = [&](int i) { return i >= 0 && i < tracks.size() && !tracks[i].disabled; };
+  const auto prev = previousPlayableIndex(current, tracks.size(), shuffle_, repeatMode_,
+                                          shuffledOrder_, playable);
   if (!prev) {
     engine_->seekMs(0);
     return;
@@ -160,6 +173,7 @@ void PlaybackController::previous() {
 void PlaybackController::playIndex(int index) {
   const auto tracks = playlist_->tracks();
   if (index < 0 || index >= tracks.size()) return;
+  if (tracks[index].disabled) return;
   playingIndex_ = index;
   playingPath_ = tracks[index].path;
   playingTrack_ = tracks[index];

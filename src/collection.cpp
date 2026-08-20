@@ -192,31 +192,32 @@ bool PlaylistCollection::contains(const QString& path) const { return indexOf(pa
 bool PlaylistCollection::resolveForLoad(const QString& path, SavedPlaylist* out) const {
   const int i = indexOf(path);
   if (i < 0) return false;
-  const QString n = entries_[i].path;
-  if (disabledPaths_.contains(n) || !QFileInfo::exists(n)) return false;
   if (out) *out = entries_[i];
   return true;
 }
 
 void PlaylistCollection::validateReferences() {
   disabledPaths_.clear();
-  for (SavedPlaylist& e : entries_) {
-    const QFileInfo info(e.path);
-    if (!info.exists()) {
-      disabledPaths_.insert(e.path);
-      continue;
-    }
-    const qint64 mtime = info.lastModified().toMSecsSinceEpoch();
-    if (e.modifiedMs != 0 && mtime == e.modifiedMs) continue;
-    QFile f(e.path);
-    if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
-      disabledPaths_.insert(e.path);
-      continue;
-    }
-    auto tracks = M3uCodec().parse(QString::fromUtf8(f.readAll()), e.path);
-    hydrateDurations(tracks);
-    refreshFigures(e, tracks);
+  for (const SavedPlaylist& e : entries_) {
+    if (!QFileInfo::exists(e.path)) disabledPaths_.insert(e.path);
   }
+}
+
+QVector<Track> PlaylistCollection::tracksFor(const QString& path) const {
+  const QString n = normalizePlaylistPath(path);
+  QVector<Track> tracks;
+  for (const QString& p : trackSets_.byEntry.value(n)) {
+    Track t;
+    t.path = p;
+    const qint64 cached = trackSets_.durationsMs.value(p, 0);
+    if (cached > 0) t.durationMs = cached;
+    const CachedTrackMeta tags = trackSets_.meta.value(p);
+    t.title = tags.title;
+    t.artist = tags.artist;
+    t.album = tags.album;
+    tracks.push_back(t);
+  }
+  return tracks;
 }
 
 CollectionFigures PlaylistCollection::readFigures() const {
@@ -235,6 +236,15 @@ CollectionFigures PlaylistCollection::readFigures() const {
   fig.tracks = unique.size();
   fig.totalDurationMs = total;
   return fig;
+}
+
+QVector<Track> dropMissingTrackFiles(const QVector<Track>& tracks) {
+  QVector<Track> kept;
+  kept.reserve(tracks.size());
+  for (const Track& t : tracks) {
+    if (QFileInfo::exists(t.path)) kept.push_back(t);
+  }
+  return kept;
 }
 
 }  // namespace tramp

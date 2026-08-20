@@ -44,6 +44,7 @@ class PlaylistController {
   bool applyDurations(const QMap<QString, qint64>& durations);
   bool applyMetadata(const QString& path, const QString& title, const QString& artist,
                      const QString& album, qint64 durationMs);
+  void markMissingPaths(const QSet<QString>& missingNormalized);
 
   bool openPlaylistFile(const QString& path, const M3uCodec& codec = M3uCodec());
   bool savePlaylistFile(const QString& path, const M3uCodec& codec = M3uCodec());

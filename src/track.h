@@ -2,6 +2,7 @@
 
 #include <QFileInfo>
 #include <QString>
+#include <QVector>
 #include <optional>
 
 namespace tramp {
@@ -15,6 +16,7 @@ struct Track {
   QString album;
   std::optional<int> year;
   std::optional<qint64> durationMs;
+  bool disabled = false;
 
   QString displayTitle() const {
     const QString trimmed = title.trimmed();
@@ -27,7 +29,7 @@ struct Track {
 
 inline bool operator==(const Track& a, const Track& b) {
   return a.path == b.path && a.title == b.title && a.artist == b.artist && a.album == b.album &&
-         a.year == b.year && a.durationMs == b.durationMs;
+         a.year == b.year && a.durationMs == b.durationMs && a.disabled == b.disabled;
 }
 
 inline bool operator!=(const Track& a, const Track& b) { return !(a == b); }
@@ -52,6 +54,23 @@ inline QString groupedInt(int value) {
     out += digits[i];
   }
   return out;
+}
+
+inline int playableTrackCount(const QVector<Track>& tracks) {
+  int n = 0;
+  for (const Track& t : tracks) {
+    if (!t.disabled) ++n;
+  }
+  return n;
+}
+
+inline qint64 playableTotalMs(const QVector<Track>& tracks) {
+  qint64 total = 0;
+  for (const Track& t : tracks) {
+    if (t.disabled) continue;
+    if (t.durationMs) total += *t.durationMs;
+  }
+  return total;
 }
 
 inline QString formatTotalTime(qint64 ms) {

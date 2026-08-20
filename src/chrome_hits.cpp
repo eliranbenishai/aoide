@@ -208,6 +208,9 @@ ChromeHit hitPlaylist(QSize logical, QPoint pos, const SessionView& view) {
   if (auto h = hitBtn(strip.next, ChromeHit::Kind::plNext); h.kind != ChromeHit::Kind::none) {
     return h;
   }
+  if (auto h = hitBtn(strip.refresh, ChromeHit::Kind::plRefresh); h.kind != ChromeHit::Kind::none) {
+    return h;
+  }
 
   const QRect grip(logical.width() - 18, logical.height() - 18, 18, 18);
   if (auto h = hitIf(grip, pos, ChromeHit::Kind::plResize); h.kind != ChromeHit::Kind::none) return h;

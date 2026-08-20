@@ -385,14 +385,28 @@ bool PlaylistController::applyMetadata(const QString& path, const QString& title
   return changed;
 }
 
+void PlaylistController::markMissingPaths(const QSet<QString>& missingNormalized) {
+  bool changed = false;
+  for (Track& t : tracks_) {
+    const bool missing = missingNormalized.contains(normalizePlaylistPath(t.path)) ||
+                         missingNormalized.contains(t.path);
+    if (t.disabled == missing) continue;
+    t.disabled = missing;
+    changed = true;
+  }
+  if (changed) notify();
+}
+
 bool PlaylistController::updateTrackByPath(const QString& path, const Track& next) {
   for (Track& t : tracks_) {
     if (t.path == path) {
       if (t.path == next.path && t.title == next.title && t.artist == next.artist &&
-          t.album == next.album && t.durationMs == next.durationMs) {
+          t.album == next.album && t.durationMs == next.durationMs && t.disabled == next.disabled) {
         return false;
       }
+      const bool disabled = t.disabled;
       t = next;
+      t.disabled = disabled;
       notify();
       return true;
     }

@@ -127,6 +127,7 @@ inline constexpr qreal kPlaylistStripGap = 8;
 inline constexpr qreal kPlaylistStripBtn = 52;
 inline constexpr qreal kPlaylistStripBtnH = 52;
 inline constexpr qreal kPlaylistStripTotalH = 34;
+inline constexpr qreal kPlaylistStripRefresh = 34;
 inline constexpr qreal kPlaylistStripSepExtra = 6;
 inline constexpr qreal kPlaylistStripSepW = 1;
 inline constexpr qreal kPlaylistStripSepAfter = 14;
@@ -142,6 +143,7 @@ struct PlaylistStripLayout {
   QRectF play;
   QRectF next;
   QRectF total;
+  QRectF refresh;
 };
 
 /// `.pl-total` horizontal pad 18 + label/value gap 12.
@@ -149,9 +151,10 @@ inline qreal playlistStripTotalWidth(qreal labelW, qreal valueW) {
   return 18 + labelW + 12 + valueW + 18;
 }
 
-/// Playlist Manager button row under the track list. Transport cluster is
-/// packed from the right against the length well, with [kPlaylistStripGap]
-/// between Next and TOTAL (mockup `.pl-strip` flex gap).
+/// Playlist Manager button row under the track list. Refresh sits on the
+/// right edge; TOTAL sits to its left; the transport cluster is packed from
+/// the right against TOTAL, with [kPlaylistStripGap] between Next and TOTAL
+/// (mockup `.pl-strip` flex gap).
 inline PlaylistStripLayout layoutPlaylistStrip(const QRectF& plateInner, qreal totalW) {
   PlaylistStripLayout out;
   const qreal y = plateInner.top();
@@ -171,7 +174,11 @@ inline PlaylistStripLayout layoutPlaylistStrip(const QRectF& plateInner, qreal t
   place(out.sort);
   place(out.options);
 
-  const qreal totalLeft = plateInner.right() - totalW;
+  const qreal refreshW = kPlaylistStripRefresh;
+  const qreal refreshH = kPlaylistStripTotalH;
+  out.refresh =
+      QRectF(plateInner.right() - refreshW, y + (h - refreshH) / 2, refreshW, refreshH);
+  const qreal totalLeft = out.refresh.left() - gap - totalW;
   const qreal cluster = w * 3 + gap * 2;
   const qreal nextRight = totalLeft - gap;
   const qreal prevLeft = nextRight - cluster;

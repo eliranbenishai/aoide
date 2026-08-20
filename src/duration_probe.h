@@ -22,6 +22,21 @@ inline bool trackNeedsAudioProbe(const Track& t) {
   return t.title.trimmed().isEmpty();
 }
 
+inline void applyProbedAudio(Track& t, const ProbedAudio& probed, bool overwrite) {
+  auto take = [&](const QString& src, QString& dest) {
+    const QString trimmed = src.trimmed();
+    if (trimmed.isEmpty()) return;
+    if (!overwrite && !dest.trimmed().isEmpty()) return;
+    dest = trimmed;
+  };
+  take(probed.title, t.title);
+  take(probed.artist, t.artist);
+  take(probed.album, t.album);
+  if (probed.durationMs && *probed.durationMs > 0) {
+    if (overwrite || !t.durationMs || *t.durationMs <= 0) t.durationMs = probed.durationMs;
+  }
+}
+
 inline QStringList pathsNeedingAudioProbe(const QVector<Track>& tracks) {
   QStringList paths;
   for (const Track& t : tracks) {

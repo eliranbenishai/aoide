@@ -293,6 +293,12 @@ int main() {
     REQUIRE(!nextIndex(1, 3, true, RepeatMode::off, order).has_value());
     REQUIRE(nextIndex(1, 3, true, RepeatMode::all, order).value() == 2);
     REQUIRE(previousIndex(2, 3, true, RepeatMode::all, order).value() == 1);
+    auto skipMiddle = [](int i) { return i != 1; };
+    REQUIRE(tramp::nextPlayableIndex(0, 3, false, RepeatMode::off, {}, skipMiddle).value() == 2);
+    REQUIRE(tramp::previousPlayableIndex(2, 3, false, RepeatMode::off, {}, skipMiddle).value() ==
+            0);
+    REQUIRE(!tramp::nextPlayableIndex(0, 2, false, RepeatMode::off, {}, [](int) { return false; })
+                 .has_value());
   }
 
   {
@@ -767,6 +773,27 @@ int main() {
   }
 
   {
+    PlaylistController playlist;
+    Track a;
+    a.path = QStringLiteral("/tmp/one.mp3");
+    Track b;
+    b.path = QStringLiteral("/tmp/two.mp3");
+    b.disabled = true;
+    Track c;
+    c.path = QStringLiteral("/tmp/three.mp3");
+    playlist.setTracks({a, b, c});
+    NullEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.playIndex(0);
+    playback.next();
+    REQUIRE_EQ(*playback.playingIndex(), 2);
+    playback.playIndex(1);
+    REQUIRE_EQ(*playback.playingIndex(), 2);
+    playback.previous();
+    REQUIRE_EQ(*playback.playingIndex(), 0);
+  }
+
+  {
     Track t;
     t.path = QStringLiteral("/tmp/keep-playing.mp3");
     t.title = QStringLiteral("Keep Playing");
@@ -886,6 +913,82 @@ int main() {
     loaded.hydrateDurations(reloaded);
     REQUIRE_EQ(reloaded[0].title, QStringLiteral("Other Side"));
     REQUIRE_EQ(reloaded[0].durationMs, 50000);
+
+    const QVector<Track> fromCache = loaded.tracksFor(pl);
+    REQUIRE_EQ(fromCache.size(), 2);
+    REQUIRE_EQ(fromCache[1].title, QStringLiteral("Other Side"));
+    REQUIRE_EQ(fromCache[1].durationMs, 50000);
+  }
+
+  {
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    const QString dir = tmp.path();
+    const QString keep = QDir(dir).filePath(QStringLiteral("keep.wav"));
+    const QString gone = QDir(dir).filePath(QStringLiteral("gone.wav"));
+    QFile keepFile(keep);
+    REQUIRE(keepFile.open(QIODevice::WriteOnly));
+    keepFile.write("x");
+    keepFile.close();
+    const QString pl = QDir(dir).filePath(QStringLiteral("set.m3u"));
+    QFile f(pl);
+    REQUIRE(f.open(QIODevice::WriteOnly | QIODevice::Text));
+    f.write(QStringLiteral("#EXTM3U\n%1\n%2\n").arg(keep, gone).toUtf8());
+    f.close();
+
+    tramp::PlaylistCollection col;
+    Track kept;
+    kept.path = keep;
+    kept.title = QStringLiteral("Keep");
+    kept.durationMs = 1000;
+    Track missing;
+    missing.path = gone;
+    missing.title = QStringLiteral("Gone");
+    missing.durationMs = 2000;
+    col.addWritten(pl, {kept, missing});
+    REQUIRE_EQ(col.tracksFor(pl).size(), 2);
+
+    QFile::remove(pl);
+    QFile rewritten(pl);
+    REQUIRE(rewritten.open(QIODevice::WriteOnly | QIODevice::Text));
+    rewritten.write("#EXTM3U\nonly-on-disk.mp3\n");
+    rewritten.close();
+    col.validateReferences();
+    REQUIRE(col.disabledPaths().isEmpty());
+    REQUIRE_EQ(col.tracksFor(pl).size(), 2);
+    REQUIRE_EQ(col.tracksFor(pl)[0].title, QStringLiteral("Keep"));
+    tramp::SavedPlaylist resolved;
+    REQUIRE(col.resolveForLoad(pl, &resolved));
+
+    QFile::remove(pl);
+    col.validateReferences();
+    REQUIRE(col.disabledPaths().contains(tramp::normalizePlaylistPath(pl)));
+    REQUIRE(col.resolveForLoad(pl, &resolved));
+    REQUIRE_EQ(col.tracksFor(pl).size(), 2);
+
+    Track diskKeep = kept;
+    Track diskGone = missing;
+    const QVector<Track> purged = tramp::dropMissingTrackFiles({diskKeep, diskGone});
+    REQUIRE_EQ(purged.size(), 1);
+    REQUIRE_EQ(purged[0].path, keep);
+  }
+
+  {
+    PlaylistController list;
+    Track live;
+    live.path = QStringLiteral("/tmp/live.mp3");
+    live.durationMs = 10000;
+    Track dead;
+    dead.path = QStringLiteral("/tmp/dead.mp3");
+    dead.durationMs = 20000;
+    list.setTracks({live, dead}, QStringLiteral("/tmp/p.m3u"));
+    REQUIRE(!list.altered());
+    list.markMissingPaths({tramp::normalizePlaylistPath(dead.path)});
+    REQUIRE(!list.altered());
+    REQUIRE(list.tracks()[1].disabled);
+    REQUIRE(!list.tracks()[0].disabled);
+    REQUIRE_EQ(tramp::playableTrackCount(list.tracks()), 1);
+    REQUIRE_EQ(tramp::playableTotalMs(list.tracks()), 10000);
   }
 
   {

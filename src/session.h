@@ -93,7 +93,10 @@ class TrampSession : public QObject {
   void scheduleUsage();
   void refreshAboutFigures();
   void persistCollectionCache();
-  void indexAndProbeCurrent();
+  QVector<Track> ingestPlaylistFile(const QString& path);
+  void probeTracksBlocking(QVector<Track>& tracks, bool overwrite);
+  void schedulePathVerify();
+  void refreshCurrentPlaylist();
   void startDurationProbe(const QVector<Track>& tracks);
   void onProbedAudio(const QString& path, const QString& title, const QString& artist,
                      const QString& album, qint64 ms);
@@ -113,7 +116,7 @@ class TrampSession : public QObject {
   void showOptionsMenu(QRect logicalHit);
   QAction* execAnchoredMenu(QMenu& menu, HostWindow* host, QRect logicalHit, bool above);
   void showTrackInfo();
-  bool confirmReplaceAltered();
+  bool confirmReplaceAltered(const QString& consequence = {});
   void quitFromMenu();
   void syncSpectrum();
   void tickSpectrum();
@@ -159,6 +162,7 @@ class TrampSession : public QObject {
   QTimer collectionPersistTimer_;
   CollectionFigures figures_;
   std::atomic<int> durationGen_{0};
+  std::atomic<int> verifyGen_{0};
   bool figuresLoaded_ = false;
   bool applyingDock_ = false;
   bool titleDragging_ = false;

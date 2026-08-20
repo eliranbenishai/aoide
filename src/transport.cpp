@@ -1,8 +1,18 @@
 #include "transport.h"
 
 #include <QRandomGenerator>
+#include <functional>
 
 namespace tramp {
+
+namespace {
+
+bool indexPlayable(int i, int length, const std::function<bool(int)>& playable) {
+  if (i < 0 || i >= length) return false;
+  return !playable || playable(i);
+}
+
+}  // namespace
 
 std::optional<int> nextIndex(int current, int length, bool shuffle, RepeatMode repeat,
                              const QVector<int>& shuffledOrder) {
@@ -54,6 +64,30 @@ std::optional<int> previousIndex(int current, int length, bool shuffle, RepeatMo
   }
   if (repeat == RepeatMode::all) {
     return length - 1;
+  }
+  return std::nullopt;
+}
+
+std::optional<int> nextPlayableIndex(int current, int length, bool shuffle, RepeatMode repeat,
+                                     const QVector<int>& shuffledOrder,
+                                     const std::function<bool(int)>& playable) {
+  std::optional<int> idx = nextIndex(current, length, shuffle, repeat, shuffledOrder);
+  for (int guard = 0; idx && guard <= length; ++guard) {
+    if (indexPlayable(*idx, length, playable)) return idx;
+    if (*idx == current) return std::nullopt;
+    idx = nextIndex(*idx, length, shuffle, repeat, shuffledOrder);
+  }
+  return std::nullopt;
+}
+
+std::optional<int> previousPlayableIndex(int current, int length, bool shuffle, RepeatMode repeat,
+                                         const QVector<int>& shuffledOrder,
+                                         const std::function<bool(int)>& playable) {
+  std::optional<int> idx = previousIndex(current, length, shuffle, repeat, shuffledOrder);
+  for (int guard = 0; idx && guard <= length; ++guard) {
+    if (indexPlayable(*idx, length, playable)) return idx;
+    if (*idx == current) return std::nullopt;
+    idx = previousIndex(*idx, length, shuffle, repeat, shuffledOrder);
   }
   return std::nullopt;
 }

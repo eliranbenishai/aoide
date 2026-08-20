@@ -26,6 +26,7 @@ class PlaylistCollection {
   bool contains(const QString& path) const;
   bool resolveForLoad(const QString& path, SavedPlaylist* out) const;
   void validateReferences();
+  QVector<Track> tracksFor(const QString& path) const;
   void hydrateDurations(QVector<Track>& tracks) const;
   void mergeTrackDuration(const QString& trackPath, qint64 durationMs);
   void mergeTrackTags(const QString& trackPath, const QString& title, const QString& artist,
@@ -53,5 +54,7 @@ inline QString collectionHighlightPath(const QString& currentSourcePath,
   if (!currentSourcePath.isEmpty()) return normalizePlaylistPath(currentSourcePath);
   return selectedPath;
 }
+
+QVector<Track> dropMissingTrackFiles(const QVector<Track>& tracks);
 
 }  // namespace tramp

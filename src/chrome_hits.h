@@ -51,6 +51,7 @@ struct ChromeHit {
     plPrev,
     plPlay,
     plNext,
+    plRefresh,
     settingsGeneral,
     settingsSkins,
     settingsResume,

@@ -24,6 +24,7 @@ class ChromeSpecTest : public QObject {
   void skinsListScrollsLastRowIntoView();
   void playlistHidesScrollbarWhenRowsFit();
   void playlistStripKeepsGapBeforeLengthWell();
+  void playlistStripRefreshSitsRightOfTotal();
 };
 
 void ChromeSpecTest::tokensMatchMockupCssRoot() {
@@ -212,6 +213,15 @@ void ChromeSpecTest::playlistStripKeepsGapBeforeLengthWell() {
   QVERIFY(!strip.next.intersects(strip.total));
   QCOMPARE(strip.play.left() - strip.prev.right(), tramp::kPlaylistStripGap);
   QCOMPARE(strip.next.left() - strip.play.right(), tramp::kPlaylistStripGap);
+}
+
+void ChromeSpecTest::playlistStripRefreshSitsRightOfTotal() {
+  const QRectF plateInner(0, 0, 800, 54);
+  const auto strip = tramp::layoutPlaylistStrip(plateInner, 140);
+  QCOMPARE(strip.refresh.left() - strip.total.right(), tramp::kPlaylistStripGap);
+  QCOMPARE(strip.refresh.right(), plateInner.right());
+  QCOMPARE(strip.total.left() - strip.next.right(), tramp::kPlaylistStripGap);
+  QVERIFY(!strip.total.intersects(strip.refresh));
 }
 
 QTEST_APPLESS_MAIN(ChromeSpecTest)
