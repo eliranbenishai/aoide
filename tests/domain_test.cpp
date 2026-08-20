@@ -19,6 +19,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QMap>
 #include <QTemporaryDir>
 #include <QByteArray>
@@ -836,6 +837,24 @@ int main() {
     REQUIRE(list.applyDurations(durations));
     REQUIRE(!list.altered());
     REQUIRE(list.tracks()[0].durationMs == 123000);
+  }
+
+  {
+    PlaylistController list;
+    Track t;
+    t.path = QDir::cleanPath(QDir::current().filePath(QStringLiteral("tagged.mp3")));
+    list.setTracks({t}, QStringLiteral("/tmp/p.m3u"));
+    REQUIRE(list.tracks()[0].displayTitle() == QFileInfo(t.path).fileName());
+    REQUIRE(list.applyMetadata(t.path, QStringLiteral("Static Hymn"),
+                               QStringLiteral("Wire Garden"), QStringLiteral("Demos"), 221000));
+    REQUIRE(!list.altered());
+    REQUIRE(list.tracks()[0].title == QStringLiteral("Static Hymn"));
+    REQUIRE(list.tracks()[0].artist == QStringLiteral("Wire Garden"));
+    REQUIRE(list.tracks()[0].album == QStringLiteral("Demos"));
+    REQUIRE(list.tracks()[0].durationMs == 221000);
+    REQUIRE(list.tracks()[0].displayTitle() == QStringLiteral("Static Hymn"));
+    REQUIRE(!list.applyMetadata(t.path, QString(), QString(), QString(), 0));
+    REQUIRE(list.tracks()[0].title == QStringLiteral("Static Hymn"));
   }
 
   {

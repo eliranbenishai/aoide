@@ -359,6 +359,32 @@ bool PlaylistController::applyDurations(const QMap<QString, qint64>& durations) 
   return changed;
 }
 
+bool PlaylistController::applyMetadata(const QString& path, const QString& title,
+                                       const QString& artist, const QString& album,
+                                       qint64 durationMs) {
+  const QString n = normalizePlaylistPath(path);
+  bool changed = false;
+  for (Track& t : tracks_) {
+    if (normalizePlaylistPath(t.path) != n && t.path != path) continue;
+    auto take = [&](const QString& src, QString& dest) {
+      const QString trimmed = src.trimmed();
+      if (trimmed.isEmpty() || dest.trimmed() == trimmed) return;
+      if (!dest.trimmed().isEmpty()) return;
+      dest = trimmed;
+      changed = true;
+    };
+    take(title, t.title);
+    take(artist, t.artist);
+    take(album, t.album);
+    if (durationMs > 0 && (!t.durationMs || *t.durationMs != durationMs)) {
+      t.durationMs = durationMs;
+      changed = true;
+    }
+  }
+  if (changed) notify();
+  return changed;
+}
+
 bool PlaylistController::updateTrackByPath(const QString& path, const Track& next) {
   for (Track& t : tracks_) {
     if (t.path == path) {

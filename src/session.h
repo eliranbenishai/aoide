@@ -95,7 +95,8 @@ class TrampSession : public QObject {
   void persistCollectionCache();
   void indexAndProbeCurrent();
   void startDurationProbe(const QVector<Track>& tracks);
-  void onProbedDuration(const QString& path, qint64 ms);
+  void onProbedAudio(const QString& path, const QString& title, const QString& artist,
+                     const QString& album, qint64 ms);
   HostWindow* windowFor(WindowId id) const;
   QString pickAudio(bool multiple);
   QString pickPlaylist(bool save);

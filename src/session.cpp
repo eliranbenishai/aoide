@@ -384,28 +384,32 @@ void TrampSession::startDurationProbe(const QVector<Track>& tracks) {
   std::thread([missing, gen, session]() {
     probeAudioDurations(
         missing, [session]() { return bool(session); },
-        [session, gen](const QString& path, qint64 ms) {
+        [session, gen](const QString& path, const ProbedAudio& probed) {
           if (!session) return;
+          const QString title = probed.title;
+          const QString artist = probed.artist;
+          const QString album = probed.album;
+          const qint64 ms = probed.durationMs.value_or(0);
           QMetaObject::invokeMethod(
               session.data(),
-              [session, path, ms, gen]() {
+              [session, path, title, artist, album, ms, gen]() {
                 if (!session || gen != session->durationGen_) return;
-                session->onProbedDuration(path, ms);
+                session->onProbedAudio(path, title, artist, album, ms);
               },
               Qt::QueuedConnection);
         });
   }).detach();
 }
 
-void TrampSession::onProbedDuration(const QString& path, qint64 ms) {
-  QMap<QString, qint64> one;
-  one.insert(path, ms);
-  one.insert(normalizePlaylistPath(path), ms);
-  playlist_.applyDurations(one);
-  collection_.mergeTrackDuration(path, ms);
-  if (!collectionPersistTimer_.isActive()) collectionPersistTimer_.start();
-  figures_ = collection_.readFigures();
-  figuresLoaded_ = true;
+void TrampSession::onProbedAudio(const QString& path, const QString& title, const QString& artist,
+                                const QString& album, qint64 ms) {
+  playlist_.applyMetadata(path, title, artist, album, ms);
+  if (ms > 0) {
+    collection_.mergeTrackDuration(path, ms);
+    if (!collectionPersistTimer_.isActive()) collectionPersistTimer_.start();
+    figures_ = collection_.readFigures();
+    figuresLoaded_ = true;
+  }
 }
 
 void TrampSession::persistNow() {

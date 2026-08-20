@@ -3,6 +3,7 @@
 #include <QFile>
 #ifdef TRAMP_HAVE_MPV
 #include <mpv/client.h>
+#include <QByteArray>
 #endif
 #include <QtEndian>
 
@@ -45,10 +46,31 @@ mpv_handle* createProbeMpv() {
     mpv_terminate_destroy(mpv);
     return nullptr;
   }
+  mpv_observe_property(mpv, 0, "metadata", MPV_FORMAT_NODE);
   return mpv;
 }
 
-std::optional<qint64> probeWithMpv(mpv_handle* mpv, const QString& path) {
+void readMpvMetadata(mpv_handle* mpv, QString& title, QString& artist, QString& album) {
+  mpv_node node{};
+  if (mpv_get_property(mpv, "metadata", MPV_FORMAT_NODE, &node) < 0) return;
+  if (node.format == MPV_FORMAT_NODE_MAP && node.u.list) {
+    auto take = [&](const char* want, QString& dest) {
+      for (int i = 0; i < node.u.list->num; ++i) {
+        if (QByteArray(node.u.list->keys[i]).toLower() != want) continue;
+        const mpv_node& val = node.u.list->values[i];
+        if (val.format == MPV_FORMAT_STRING && val.u.string) {
+          dest = QString::fromUtf8(val.u.string);
+        }
+      }
+    };
+    take("title", title);
+    take("artist", artist);
+    take("album", album);
+  }
+  mpv_free_node_contents(&node);
+}
+
+std::optional<ProbedAudio> probeWithMpv(mpv_handle* mpv, const QString& path) {
   const QByteArray encoded = path.toUtf8();
   const char* cmd[] = {"loadfile", encoded.constData(), "replace", nullptr};
   if (mpv_command(mpv, cmd) < 0) return std::nullopt;
@@ -63,11 +85,25 @@ std::optional<qint64> probeWithMpv(mpv_handle* mpv, const QString& path) {
     if (ev->event_id == MPV_EVENT_END_FILE || ev->event_id == MPV_EVENT_SHUTDOWN) break;
   }
   if (!loaded) return std::nullopt;
+  ProbedAudio out;
   double secs = 0;
-  if (mpv_get_property(mpv, "duration", MPV_FORMAT_DOUBLE, &secs) < 0 || secs <= 0) {
+  if (mpv_get_property(mpv, "duration", MPV_FORMAT_DOUBLE, &secs) >= 0 && secs > 0) {
+    out.durationMs = qint64(secs * 1000.0);
+  }
+  readMpvMetadata(mpv, out.title, out.artist, out.album);
+  if (out.title.isEmpty()) {
+    for (int i = 0; i < 20; ++i) {
+      mpv_event* ev = mpv_wait_event(mpv, 0.1);
+      if (!ev) continue;
+      if (ev->event_id == MPV_EVENT_END_FILE || ev->event_id == MPV_EVENT_SHUTDOWN) break;
+      readMpvMetadata(mpv, out.title, out.artist, out.album);
+      if (!out.title.isEmpty()) break;
+    }
+  }
+  if (!out.durationMs && out.title.isEmpty() && out.artist.isEmpty() && out.album.isEmpty()) {
     return std::nullopt;
   }
-  return qint64(secs * 1000.0);
+  return out;
 }
 #endif
 
@@ -110,7 +146,7 @@ std::optional<qint64> probeAudioDurationMs(const QString& path) {
   if (!mpv) return std::nullopt;
   std::optional<qint64> ms;
   try {
-    ms = probeWithMpv(mpv, path);
+    if (const auto probed = probeWithMpv(mpv, path)) ms = probed->durationMs;
   } catch (...) {
     ms = std::nullopt;
   }
@@ -122,7 +158,7 @@ std::optional<qint64> probeAudioDurationMs(const QString& path) {
 }
 
 void probeAudioDurations(const QStringList& paths, const std::function<bool()>& stillWanted,
-                         const std::function<void(const QString&, qint64)>& onDuration) {
+                         const std::function<void(const QString&, const ProbedAudio&)>& onProbed) {
 #ifdef TRAMP_HAVE_MPV
   mpv_handle* mpv = nullptr;
 #endif
@@ -131,7 +167,9 @@ void probeAudioDurations(const QStringList& paths, const std::function<bool()>& 
     QFile file(path);
     if (file.open(QIODevice::ReadOnly)) {
       if (const auto wav = probeWavDurationMs(file.read(64 * 1024))) {
-        onDuration(path, *wav);
+        ProbedAudio probed;
+        probed.durationMs = wav;
+        onProbed(path, probed);
         continue;
       }
     }
@@ -139,7 +177,7 @@ void probeAudioDurations(const QStringList& paths, const std::function<bool()>& 
     if (!mpv) mpv = createProbeMpv();
     if (!mpv) continue;
     try {
-      if (const auto ms = probeWithMpv(mpv, path)) onDuration(path, *ms);
+      if (const auto probed = probeWithMpv(mpv, path)) onProbed(path, *probed);
     } catch (...) {
     }
 #endif
