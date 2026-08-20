@@ -889,6 +889,31 @@ int main() {
     REQUIRE(tramp::probeAudioDurationMs(path) == 1000);
   }
 
+#ifdef TRAMP_HAVE_MPV
+  {
+    const QString fixture =
+        QFileInfo(QString::fromUtf8(__FILE__)).dir().filePath(QStringLiteral("fixtures/probe-tone.mp3"));
+    REQUIRE(QFileInfo::exists(fixture));
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    QStringList paths;
+    for (int i = 0; i < 8; ++i) {
+      const QString dest = tmp.filePath(QStringLiteral("t%1.mp3").arg(i));
+      REQUIRE(QFile::copy(fixture, dest));
+      paths.push_back(dest);
+    }
+    int probed = 0;
+    int complete = 0;
+    tramp::probeAudioDurations(paths, [] { return true; },
+                               [&](const QString&, const tramp::ProbedAudio& p) {
+                                 ++probed;
+                                 if (!p.title.isEmpty() && p.durationMs && *p.durationMs > 0) ++complete;
+                               });
+    REQUIRE_EQ(probed, 8);
+    REQUIRE_EQ(complete, 8);
+  }
+#endif
+
   {
     int applied = 0;
     int restored = 0;

@@ -214,6 +214,18 @@ qt_add_executable(domain_test
 )
 target_include_directories(domain_test PRIVATE src)
 target_link_libraries(domain_test PRIVATE tramp_window_spec Qt6::Widgets)
+if(TRAMP_HAVE_MPV)
+  target_compile_definitions(domain_test PRIVATE TRAMP_HAVE_MPV)
+  target_include_directories(domain_test PRIVATE "${TRAMP_MPV_ROOT}/include")
+  target_link_libraries(domain_test PRIVATE ${TRAMP_MPV_LIBS})
+  if(UNIX AND NOT APPLE AND EXISTS "${BUNDLED_MPV_SO}" AND NOT TARGET PkgConfig::MPV)
+    target_link_options(domain_test PRIVATE
+      "-Wl,--allow-shlib-undefined"
+      "-Wl,-rpath,${TRAMP_MPV_ROOT}/linux/x86_64"
+      "-Wl,-rpath,${CMAKE_CURRENT_BINARY_DIR}/mpv-stubs"
+    )
+  endif()
+endif()
 
 qt_add_executable(look_test
   tests/look_test.cpp

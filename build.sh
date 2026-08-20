@@ -98,7 +98,7 @@ SRCS=(
 mv -f "$BUILD/tramp.next" "$BUILD/tramp"
 
 # Domain tests (playlist / playback / docking / collection)
-"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DTRAMP_HAVE_MPV \
   "$ROOT/src/m3u.cpp" "$ROOT/src/equalizer.cpp" "$ROOT/src/support_dir.cpp" \
   "$ROOT/src/wait_cursor.cpp" \
   "$ROOT/src/playlist.cpp" "$ROOT/src/transport.cpp" \
@@ -107,8 +107,17 @@ mv -f "$BUILD/tramp.next" "$BUILD/tramp"
   "$ROOT/src/collection.cpp" "$ROOT/src/duration_probe.cpp" "$ROOT/src/persist.cpp" "$ROOT/src/settings.cpp" \
   "$ROOT/src/window_spec.cpp" \
   "$ROOT/tests/domain_test.cpp" \
-  -L"$QT/lib" -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread \
-  -Wl,-rpath,"$QT/lib" \
+  -L"$QT/lib" -L"$BREW/lib" -L"$MPV_LIB" -L"$STUB" \
+  -lQt6Widgets -lQt6Gui -lQt6Core -lmpv -lstdc++ -lm -lgcc_s -pthread \
+  -Wl,--no-as-needed \
+  "$STUB/libmujs.so.0.1" \
+  "$STUB/liblua-5.1.so" \
+  "$STUB/libuchardet.so.0" \
+  "$STUB/libvapoursynth-script.so.0" \
+  "$STUB/libXpresent.so.1" \
+  -Wl,--as-needed \
+  -Wl,--allow-shlib-undefined \
+  -Wl,-rpath,"$QT/lib" -Wl,-rpath,"$BREW/lib" -Wl,-rpath,"$MPV_LIB" -Wl,-rpath,"$STUB" \
   -o "$BUILD/domain_test"
 "$BUILD/domain_test"
 

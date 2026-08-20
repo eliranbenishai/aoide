@@ -46,7 +46,6 @@ mpv_handle* createProbeMpv() {
     mpv_terminate_destroy(mpv);
     return nullptr;
   }
-  mpv_observe_property(mpv, 0, "metadata", MPV_FORMAT_NODE);
   return mpv;
 }
 
@@ -70,19 +69,29 @@ void readMpvMetadata(mpv_handle* mpv, QString& title, QString& artist, QString& 
   mpv_free_node_contents(&node);
 }
 
+void drainMpvEvents(mpv_handle* mpv) {
+  for (;;) {
+    mpv_event* ev = mpv_wait_event(mpv, 0);
+    if (!ev || ev->event_id == MPV_EVENT_NONE) break;
+    if (ev->event_id == MPV_EVENT_SHUTDOWN) break;
+  }
+}
+
 std::optional<ProbedAudio> probeWithMpv(mpv_handle* mpv, const QString& path) {
+  drainMpvEvents(mpv);
   const QByteArray encoded = path.toUtf8();
   const char* cmd[] = {"loadfile", encoded.constData(), "replace", nullptr};
   if (mpv_command(mpv, cmd) < 0) return std::nullopt;
   bool loaded = false;
   for (int i = 0; i < 80; ++i) {
     mpv_event* ev = mpv_wait_event(mpv, 0.25);
-    if (!ev) continue;
+    if (!ev || ev->event_id == MPV_EVENT_NONE) continue;
     if (ev->event_id == MPV_EVENT_FILE_LOADED) {
       loaded = true;
       break;
     }
-    if (ev->event_id == MPV_EVENT_END_FILE || ev->event_id == MPV_EVENT_SHUTDOWN) break;
+    if (ev->event_id == MPV_EVENT_SHUTDOWN) break;
+    // END_FILE is the previous replace on this handle; keep waiting.
   }
   if (!loaded) return std::nullopt;
   ProbedAudio out;
@@ -91,15 +100,6 @@ std::optional<ProbedAudio> probeWithMpv(mpv_handle* mpv, const QString& path) {
     out.durationMs = qint64(secs * 1000.0);
   }
   readMpvMetadata(mpv, out.title, out.artist, out.album);
-  if (out.title.isEmpty()) {
-    for (int i = 0; i < 20; ++i) {
-      mpv_event* ev = mpv_wait_event(mpv, 0.1);
-      if (!ev) continue;
-      if (ev->event_id == MPV_EVENT_END_FILE || ev->event_id == MPV_EVENT_SHUTDOWN) break;
-      readMpvMetadata(mpv, out.title, out.artist, out.album);
-      if (!out.title.isEmpty()) break;
-    }
-  }
   if (!out.durationMs && out.title.isEmpty() && out.artist.isEmpty() && out.album.isEmpty()) {
     return std::nullopt;
   }
