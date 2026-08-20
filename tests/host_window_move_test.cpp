@@ -37,6 +37,7 @@ class HostWindowMoveTest : public QObject {
   void siblingDragDoesNotPayFullClusterPaint();
   void waitCursorRebuildsChassisBeforeRefreshReturns();
   void refreshButtonLightsWhilePlaylistRefreshing();
+  void waitCursorFlushShowsRefreshOn();
 };
 
 void HostWindowMoveTest::parentedPanelMoveDoesNotEmitNativeMoved() {
@@ -124,6 +125,40 @@ int rgbDistance(QRgb a, const QColor& b) {
 }
 
 }  // namespace
+
+void HostWindowMoveTest::waitCursorFlushShowsRefreshOn() {
+  const auto specs = tramp::windowSpecs();
+  HostShell shell;
+  HostWindow pl(specs[2], &shell);
+  shell.show();
+  pl.show();
+  QVERIFY(QTest::qWaitForWindowExposed(&pl));
+
+  tramp::SessionView idle;
+  idle.playlistRefreshEnabled = true;
+  pl.setSessionView(idle);
+  QApplication::processEvents();
+
+  tramp::SessionView busy = idle;
+  busy.playlistRefreshing = true;
+  const tramp::ChromeHit hit = refreshHit(busy);
+  QCOMPARE(hit.kind, tramp::ChromeHit::Kind::plRefresh);
+
+  const tramp::ChromeTokens tokens = tramp::ChromeTokens::builtin();
+  auto distanceToOn = [&]() {
+    const QImage img = pl.grab(pl.widgetRectFromLogical(hit.rect)).toImage();
+    const QPoint sample(img.width() / 2, qMin(4, img.height() - 1));
+    return rgbDistance(img.pixel(sample), tokens.btnOn0);
+  };
+  const int idleToOn = distanceToOn();
+
+  pl.setSessionView(busy);
+  {
+    tramp::WaitCursorScope wait;
+    QVERIFY2(distanceToOn() < idleToOn,
+             "Refresh on-face must flush with the wait cursor, not after blocking work");
+  }
+}
 
 void HostWindowMoveTest::refreshButtonLightsWhilePlaylistRefreshing() {
   tramp::SessionView idle;

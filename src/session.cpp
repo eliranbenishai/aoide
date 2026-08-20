@@ -415,9 +415,9 @@ void TrampSession::refreshCurrentPlaylist() {
           "Missing tracks are removed."))) {
     return;
   }
-  WaitCursorScope wait;
   playlistRefreshing_ = true;
   refreshChrome();
+  WaitCursorScope wait;
   QFile file(path);
   if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
     QVector<Track> parsed =
