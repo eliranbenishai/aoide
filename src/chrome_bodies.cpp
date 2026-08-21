@@ -718,10 +718,13 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
       drawScrollbar(p, track, thumb.top() - track.top(), thumb.height());
     }
     if (!view.skinsError.isEmpty()) {
+      const QRectF strip = skinsErrorStrip(viewport);
+      p.save();
+      p.setClipRect(strip);
       p.setFont(monoFont(10));
       p.setPen(T().accent);
-      p.drawText(QRectF(pane.left() + 12, pane.bottom() - 92, pane.width() - 24, 28),
-                 Qt::AlignLeft | Qt::AlignVCenter | Qt::TextWordWrap, view.skinsError);
+      p.drawText(strip, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextWordWrap, view.skinsError);
+      p.restore();
     }
     const qreal btnY = pane.bottom() - kSkinsBtnStackH;
     drawBtn(p, QRectF(pane.left() + 12, btnY, 148, 26), faceOf(phases, K::settingsInstallZip, false),
