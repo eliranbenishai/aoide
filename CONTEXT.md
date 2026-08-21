@@ -4,8 +4,11 @@ A multi-platform desktop music player positioned as a spiritual successor to Win
 
 ## Language
 
+Most entries here are settled: the term means what it says, and the phrasings in `_Avoid_` were considered and rejected. Eight rest on a product bet nobody has tested. Those carry a `_Premise_` line — the bet, and the observable event that should reopen it — between the definition and `_Avoid_`. The dated record, with what each one costs today and what is genuinely known, is `docs/premises.md`; the section numbers match. An entry with no `_Premise_` line is vocabulary, not a wager.
+
 **Tramp**:
 The product — a desktop music player that can be built for Windows, Linux, and macOS.
+_Premise_ (2026-08-21, accepted without evidence): that the homage is the product and the nostalgia is not — that people want this player rather than classic skins, visualisations, doublesize, global hotkeys and plugins. Revisit if over half of the first twenty unprompted reactions name a v1 non-goal as the thing that was missing — `docs/premises.md` §5.
 _Avoid_: Winamp clone, media player (when meaning this product)
 
 **Proxima Magnifica**:
@@ -18,6 +21,7 @@ _Avoid_: com.tramp.tramp (retired), com.tramp, treating this as the product name
 
 **Free Forever**:
 The product pledge on the maker's plate: Tramp costs nothing to use. Price, not a license name.
+_Premise_ (2026-08-21, cost partly evidenced, capacity unevidenced): that one maintainer can carry five install channels and a GPL release indefinitely for nothing. Revisit if two consecutive releases slip for want of a human, or a recurring bill (the Apple Developer membership first) comes due with no decided payer — `docs/premises.md` §7.
 _Avoid_: freeware, donationware (unless donations become a product); using this phrase to mean open-source
 
 **Official download**:
@@ -26,6 +30,7 @@ _Avoid_: GitHub Release as the product surface, treating Store or Flathub as the
 
 **Store listing name**:
 The Microsoft Store catalog title: **tramp.music**. The product is still Tramp; this is only the reserved Store name (the bare word was taken).
+_Premise_ (2026-08-21, constraint evidenced, consequence unevidenced): the bare name being taken is fact; that a listener searching the Store finds and recognises `tramp.music` regardless is not. Revisit if support meets "I installed tramp.music, where is Tramp", or the bare name frees up — re-check that at each Store upload, since nothing else will surface it — `docs/premises.md` §6.
 _Avoid_: renaming the product, using this as the wordmark, assuming the website EXE listing is named tramp.music
 
 **Install channel**:
@@ -38,10 +43,12 @@ _Avoid_: theme (when meaning a classic Winamp skin), skin pack (unless referring
 
 **Skin** (mockup recolor):
 A shareable folder or zip (`skin.json` preferred, legacy `look.json` accepted + optional TTF/OTF) that recolors and optionally retypes the built-in mockup chrome — palette, a few named materials (bevel, spectrum/rail gradients), and font roles — without changing layout or art. Friendly slug ids; the embedded default is **Tramp** (id `builtin`). Bundled homage skins (Arc, Shield, Thunder, Gamma, Widow, Marksman, Mind) sit beside it. May extend `builtin` or another skin. Not a classic Winamp WSZ skin. Catalog default directory name is `skins`.
+_Premise_ (2026-08-21, constraint evidenced, bet unevidenced): that a skin community forms around retinting, while the existing Winamp community's artefacts are WSZ files v1 does not read. Revisit at six months from the first public download (2027-02-21 at the earliest) if no third-party skin has appeared anywhere visible and three or more people have asked for WSZ import — `docs/premises.md` §4.
 _Avoid_: classic skin, WSZ, theme (when meaning this pack), graphite skin, look pack (retired product term — same concept)
 
 **Host window**:
 The single OS toplevel the compositor sees. Frameless; titled `Tramp`; the taskbar/pager entry. Geometry is the **virtual desktop** (bounding rectangle of every screen). It does not grow, shrink, or move with panel drags; it refits only when that desktop rectangle changes. Input is punched to panel shapes so the desktop is clickable in the gaps. Dragging the main panel’s title bar translates all panels inside the host (the cluster moves as a unit); dragging any other panel moves only that panel. Every panel stays fully on the virtual desktop.
+_Premise_ (2026-08-21, cost evidenced, value unevidenced): that app-owned panel dragging is worth ~64 MB of translucent surface, a ~38 ms stall per second of dragging, a stream of Wayland edge cases, and no accessibility tree — keyboard navigation and that tree were deferred whole on 2026-08-21. Wayland offers no other mechanism, which is the strongest thing said for any premise here. Revisit if a compositor update breaks dragging again, or a wanted feature cannot be built on this shape — `docs/premises.md` §8.
 _Avoid_: treating this as the main player canvas, extra toplevels, tight union of panels (retired host geometry)
 
 **Panel**:
@@ -74,6 +81,7 @@ _Avoid_: queue (unless a separate now-playing queue is later distinguished), lib
 
 **Playlist file**:
 A saved playlist on disk (v1: M3U/M3U8) that Tramp can open and write. Its track lines are **hints, not addresses**: the same album is `\\server\share` on Windows and a mount point on Linux, and a mount point that moves leaves every absolute line stale, so a line that lands on nothing is re-read against the folder the playlist itself sits in. Tramp resolves those hints on **add** and **Refresh**, stores the resolved paths in the track-set cache, and never rewrites the listener's file to suit this machine — that would break it for the machine that wrote it. Clicking a saved playlist reads the cache, not the file.
+_Premise_ (2026-08-21, accepted without evidence): that hints-not-addresses is worth the disabled rows and cache-versus-file drift it produces. Revisit if greyed-out tracks become the commonest support theme in a release cycle, a listener's own M3U is found rewritten, or reconciling cache against file needs a third entry point beyond add and Refresh — `docs/premises.md` §2.
 _Avoid_: playlist document, playlist export (unless meaning a one-way share), fixing / correcting a playlist file (Tramp reinterprets, it does not edit)
 
 **Playlist collection**:
@@ -110,10 +118,12 @@ _Avoid_: missing track (as a state name), broken track, dead row
 
 **Library** *(reserved — deliberately unused)*:
 A persisted, browsable catalog of known tracks on disk, built by indexing designated folders. Out of scope for v1 — music enters via open, drag-and-drop, and playlists only. The word stays parked rather than repurposed: what Tramp stores is the **playlist collection**, which is not a track catalog.
+_Premise_ (2026-08-21, accepted without evidence): that the listener already lives in folders and playlists rather than expecting scan-and-browse. Revisit if three or more people ask for a library, or if anything wants to *browse or search* the track-set cache rather than look one path up in it — `docs/premises.md` §1.
 _Avoid_: collection, media database (in v1 discussions); using "library" for the playlist collection
 
 **Zoom step**:
 One of the discrete scale factors (75%, 100%, 125%, 150%; default **75%**) applied globally to the main, equalizer, and playlist panels’ logical canvases. Persisted — a saved factor that is no longer a step snaps to the nearest surviving one; steps that would not fit the display’s work area are disabled. Changes via main title-bar zoom-in / zoom-out (and matching menu or shortcut). Scales main/EQ canvases and the playlist’s stored logical size; does not replace playlist free resize.
+_Premise_ (2026-08-21, accepted without evidence): that 75% is the right size to ship at, while fidelity is mockup-absolute at 100% and 75% is now the floor of the ladder — zoom-out at the default does nothing. Revisit if first-run size arrives unprompted in an issue or a store review, or a crispness defect needs 75% special-cased in drawing code — `docs/premises.md` §3.
 _Avoid_: DPI scale (OS setting), continuous zoom, maximize (as a window-size control), per-panel zoom (product model is global), stretching main/EQ via panel drag, 50% / 200% / 250% / 300% (retired steps)
 
 **Clutterbar**:

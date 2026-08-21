@@ -111,6 +111,10 @@ Associate Tramp with v1 audio formats and `.m3u` / `.m3u8` so “Open with Tramp
 - Approximate or partial chrome cutovers (no half-mockup / half-graphite ship)
 - Mac App Store and Snap Store listings
 
+## Premises
+
+Eight rules in this file are bets rather than findings: no media library, playlist-only organisation on paths-as-hints, the 75% default against mockup-absolute fidelity at 100%, recolour-only skins, the homage as the product, the `tramp.music` Store listing, Free Forever with no funding model, and the virtual-desktop host with fully custom chrome. [`premises.md`](premises.md) records each one dated, with what is genuinely known, what it costs today, and the observable event that should reopen it. There is no telemetry, so none of them will be settled by measurement; a dated note that a premise is unsettled is the honest version, and that register is where it lives. Glossary entries resting on one carry a `_Premise_` line.
+
 ## Success criteria
 
 v1 is done when a user can install Tramp on Windows, Linux, and macOS, open local audio and playlists, manage a large playlist in a freely resizable playlist panel, control playback with three dockable panels inside one host window whose chrome matches `player-mockup-2.html` at 100% zoom, hear measurement-proven EQ, see a real 20-bar spectrum, and use Mono — without depending on a library, WSZ skins, PNG graphite faces, or any single store. Windows install must work from the Microsoft Store and from the website EXE; Linux from Flathub and from the AppImage.
@@ -121,6 +125,7 @@ v1 is done when a user can install Tramp on Windows, Linux, and macOS, open loca
 |----------|------|
 | [`CONTEXT.md`](../CONTEXT.md) | Domain glossary |
 | [`architecture.md`](architecture.md) | Living structure map |
+| [`premises.md`](premises.md) | Dated record of the product bets and what would reopen each |
 | [`player-mockup-2.html`](../player-mockup-2.html) | Visual + geometric authority |
 | [`superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md`](superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md) | Redesign design (multi-window cutover) |
 | [`superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md`](superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md) | Docking / title / EQ fill / taskbar polish |
