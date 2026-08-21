@@ -349,7 +349,7 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
                                             labelBtnWidth(QStringLiteral("AUTO")),
                                             labelBtnWidth(QStringLiteral("PRESETS"), 16, 22));
   const QRectF& curveWell = header.curveWell;
-  const QRectF bandRow(body.left() + 22, body.top() + 92, body.width() - 44, 196);
+  const QRectF bandRow = eqBandRow(body);
   const char* labels[] = {"PREAMP", "60", "170", "310", "600", "1k",
                           "3k",     "6k", "12k", "14k", "16k"};
   qreal allGains[11] = {preamp};
@@ -367,20 +367,15 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
     drawScreenWell(p, curveWell);
     p.setFont(monoFont(11));
     p.setPen(T().inkFaint);
-    p.drawText(QRectF(bandRow.left(), bandRow.top() + 18, 36, 14),
-               Qt::AlignRight | Qt::AlignVCenter, QStringLiteral("+12"));
-    p.drawText(QRectF(bandRow.left(), bandRow.top() + 18 + 67, 36, 14),
-               Qt::AlignRight | Qt::AlignVCenter, QStringLiteral("0"));
-    p.drawText(QRectF(bandRow.left(), bandRow.top() + 18 + 134, 36, 14),
-               Qt::AlignRight | Qt::AlignVCenter, QStringLiteral("−12"));
-    qreal lx = bandRow.left() + 44;
-    for (int i = 0; i < 11; ++i) {
-      const qreal w = i == 0 ? 62 : 50;
+    const QString scale[] = {QStringLiteral("+12"), QStringLiteral("0"), QStringLiteral("−12")};
+    for (int i = 0; i < 3; ++i) {
+      p.drawText(eqScaleMark(bandRow, i), Qt::AlignRight | Qt::AlignVCenter, scale[i]);
+    }
+    for (int i = 0; i < kEqBandCount; ++i) {
       p.setFont(condensedFont(11, i == 0 ? 0.18 : 0.1));
       p.setPen(i == 0 ? withAlpha(T().phos, 140) : T().inkFaint);
-      p.drawText(QRectF(lx, bandRow.top() + 166, w, 26), Qt::AlignHCenter | Qt::AlignVCenter,
+      p.drawText(eqBandColumn(bandRow, i).label, Qt::AlignHCenter | Qt::AlignVCenter,
                  QString::fromLatin1(labels[i]));
-      lx += w + (i == 0 ? 16 : 0);
     }
   }
 
@@ -435,15 +430,12 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
     p.restore();
     drawScreenOverlay(p, curveWell);
 
-    qreal x = bandRow.left() + 44;
-    for (int i = 0; i < 11; ++i) {
-      const qreal w = i == 0 ? 62 : 50;
+    for (int i = 0; i < kEqBandCount; ++i) {
+      const EqBandColumn column = eqBandColumn(bandRow, i);
       p.setFont(monoFont(11));
       p.setPen(T().ink);
-      p.drawText(QRectF(x, bandRow.top(), w, 18), Qt::AlignHCenter | Qt::AlignVCenter,
-                 formatGain(allGains[i]));
-      drawVBand(p, QRectF(x, bandRow.top() + 18, w, 148), allGains[i]);
-      x += w + (i == 0 ? 16 : 0);
+      p.drawText(column.gain, Qt::AlignHCenter | Qt::AlignVCenter, formatGain(allGains[i]));
+      drawVBand(p, column.well, allGains[i]);
     }
     drawLogoMark(p, QRectF(body.right() - 36 - 120, body.top() + 120, 120, 120), logo, 0.14);
   }

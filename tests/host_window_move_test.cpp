@@ -131,12 +131,12 @@ void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
 
   const QSize main = specs[0].logicalSize;
   auto grabCoversPaint = [&](tramp::WindowId id, QSize logical, const QRectF& painted,
-                             tramp::ChromeHit::Kind kind, const char* what) {
+                             tramp::ChromeHit::Kind kind, const char* what, int index = -1) {
     for (int zoom : {75, 150}) {
       for (const QPointF& at : paintedSamples(logical, painted, zoom)) {
         const tramp::ChromeHit hit =
             tramp::hitTest(id, logical, logicalAtZoom(logical, zoom, at), view);
-        QVERIFY2(hit.kind == kind,
+        QVERIFY2(hit.kind == kind && hit.index == index,
                  qPrintable(QStringLiteral("%1 paints into (%2, %3) at %4%, which is not a hit")
                                 .arg(QLatin1String(what))
                                 .arg(at.x())
@@ -195,6 +195,23 @@ void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
                   "EQ AUTO");
   grabCoversPaint(tramp::WindowId::equalizer, eq, header.presets,
                   tramp::ChromeHit::Kind::eqPresets, "EQ PRESETS");
+
+  // The gain readout is painted above the well and reads as part of the same
+  // control, so it drags the band. The rect the hit carries stays the well:
+  // it is the domain the gain is read off, and dragging must not squash it.
+  const QRectF bandRow = tramp::eqBandRow(tramp::panelBody(eq));
+  for (int i = 0; i < tramp::kEqBandCount; ++i) {
+    const tramp::EqBandColumn column = tramp::eqBandColumn(bandRow, i);
+    const auto kind = i == 0 ? tramp::ChromeHit::Kind::eqPreamp : tramp::ChromeHit::Kind::eqBand;
+    const int index = i == 0 ? -1 : i - 1;
+    const QByteArray what =
+        (i == 0 ? QStringLiteral("the preamp") : QStringLiteral("band %1").arg(i - 1)).toLatin1();
+    grabCoversPaint(tramp::WindowId::equalizer, eq, column.gain, kind, what.constData(), index);
+    grabCoversPaint(tramp::WindowId::equalizer, eq, column.well, kind, what.constData(), index);
+    const tramp::ChromeHit hit = tramp::hitTest(tramp::WindowId::equalizer, eq,
+                                                column.well.center().toPoint(), view);
+    QCOMPARE(hit.rect, column.well.toAlignedRect());
+  }
 
   tramp::ChromeHit volume;
   tramp::ChromeHit seek;

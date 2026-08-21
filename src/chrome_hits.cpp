@@ -95,16 +95,13 @@ ChromeHit hitEq(QSize logical, QPoint pos) {
     return h;
   }
 
-  const QRectF bandRow(body.left() + 22, body.top() + 92, body.width() - 44, 196);
-  qreal x = bandRow.left() + 44;
-  for (int i = 0; i < 11; ++i) {
-    const qreal w = i == 0 ? 62 : 50;
-    const QRect band(int(x), int(bandRow.top() + 18), int(w), 148);
-    if (band.contains(pos)) {
+  const QRectF bandRow = eqBandRow(body);
+  for (int i = 0; i < kEqBandCount; ++i) {
+    const EqBandColumn column = eqBandColumn(bandRow, i);
+    if (toHitRect(column.grab).contains(pos)) {
       return {i == 0 ? ChromeHit::Kind::eqPreamp : ChromeHit::Kind::eqBand, i == 0 ? -1 : i - 1,
-              band};
+              toHitRect(column.well)};
     }
-    x += w + (i == 0 ? 16 : 0);
   }
   return {};
 }

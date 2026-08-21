@@ -237,6 +237,56 @@ inline EqHeaderRow layoutEqHeader(const QRectF& body, qreal onW, qreal autoW, qr
   return out;
 }
 
+inline constexpr int kEqBandCount = 11;
+inline constexpr qreal kEqBandRowTop = 92;
+inline constexpr qreal kEqBandRowH = 196;
+inline constexpr qreal kEqScaleW = 36;
+inline constexpr qreal kEqScaleH = 14;
+inline constexpr qreal kEqBandsLeft = 44;
+inline constexpr qreal kEqPreampW = 62;
+inline constexpr qreal kEqPreampGap = 16;
+inline constexpr qreal kEqBandW = 50;
+inline constexpr qreal kEqGainH = 18;
+inline constexpr qreal kEqWellH = 148;
+inline constexpr qreal kEqBandLabelTop = 166;
+inline constexpr qreal kEqBandLabelH = 26;
+
+inline QRectF eqBandRow(const QRectF& body) {
+  return QRectF(body.left() + kBodySidePad, body.top() + kEqBandRowTop,
+                body.width() - 2 * kBodySidePad, kEqBandRowH);
+}
+
+/// The +12 / 0 / −12 marks down the left gutter, level with the top, middle
+/// and bottom of the wells beside them.
+inline QRectF eqScaleMark(const QRectF& bandRow, int index) {
+  return QRectF(bandRow.left(), bandRow.top() + kEqGainH + index * (kEqWellH - kEqScaleH) / 2,
+                kEqScaleW, kEqScaleH);
+}
+
+struct EqBandColumn {
+  QRectF gain;
+  QRectF well;
+  QRectF label;
+  /// What the pointer may grab. The readout is part of the control the eye
+  /// sees, so it drags the band; the well alone stays the value's domain.
+  QRectF grab;
+};
+
+/// Column 0 is the preamp: wider than the ten bands and set off from them.
+inline EqBandColumn eqBandColumn(const QRectF& bandRow, int index) {
+  qreal x = bandRow.left() + kEqBandsLeft;
+  for (int i = 0; i < index; ++i) {
+    x += i == 0 ? kEqPreampW + kEqPreampGap : kEqBandW;
+  }
+  const qreal w = index == 0 ? kEqPreampW : kEqBandW;
+  EqBandColumn out;
+  out.gain = QRectF(x, bandRow.top(), w, kEqGainH);
+  out.well = QRectF(x, bandRow.top() + kEqGainH, w, kEqWellH);
+  out.label = QRectF(x, bandRow.top() + kEqBandLabelTop, w, kEqBandLabelH);
+  out.grab = QRectF(x, out.gain.top(), w, out.well.bottom() - out.gain.top());
+  return out;
+}
+
 /// The maker's-plate web pill is sized to its own text, so a fixed-width hit box
 /// drifts from it as soon as a skin changes the LCD face. Callers pass the
 /// measured text width; layout stays independent of the font machinery.
