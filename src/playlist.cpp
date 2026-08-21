@@ -3,6 +3,7 @@
 #include "persist.h"
 
 #include <QFile>
+#include <QSaveFile>
 #include <algorithm>
 
 namespace tramp {
@@ -425,11 +426,21 @@ bool PlaylistController::openPlaylistFile(const QString& path, const M3uCodec& c
 }
 
 bool PlaylistController::savePlaylistFile(const QString& path, const M3uCodec& codec) {
-  QFile file(path);
-  if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
+  // This is the listener's own file. Truncating it before writing meant a failed
+  // or interrupted save destroyed the playlist it was meant to record, so write
+  // through a temporary and rename on commit.
+  QSaveFile file(path);
+  if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
     return false;
   }
-  file.write(codec.encode(tracks_).toUtf8());
+  const QByteArray payload = codec.encode(tracks_).toUtf8();
+  if (file.write(payload) != payload.size()) {
+    file.cancelWriting();
+    return false;
+  }
+  if (!file.commit()) {
+    return false;
+  }
   sourcePath_ = path;
   altered_ = false;
   notify();

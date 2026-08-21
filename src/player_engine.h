@@ -39,6 +39,9 @@ class PlayerEngine {
       onMetadata;
 };
 
+/// Inert stand-in used by tests. It reports playback so transport behaviour can
+/// be exercised without an audio backend — see `MissingAudioEngine` for what the
+/// application uses when it genuinely cannot play.
 class NullEngine : public PlayerEngine {
  public:
   void open(const Track&) override {}
@@ -59,6 +62,35 @@ class NullEngine : public PlayerEngine {
   void setForceMono(bool) override {}
   void setEqualizerAf(const QString&) override {}
   void dispose() override {}
+};
+
+/// What the application falls back to when there is no usable audio backend:
+/// libmpv absent from the build, or present and refusing to initialise. It
+/// refuses the open with a reason, so the transport stays stopped and the panel
+/// says why. Reporting playback of silence instead is how a package built
+/// without an engine managed to look healthy.
+class MissingAudioEngine : public PlayerEngine {
+ public:
+  explicit MissingAudioEngine(QString reason) : reason_(std::move(reason)) {}
+
+  void open(const Track&) override {
+    if (onFormat) onFormat({});
+    if (onError) onError(reason_);
+  }
+  void play() override {}
+  void pause() override {}
+  void stop() override {
+    if (onPlaying) onPlaying(false);
+    if (onPosition) onPosition(0);
+  }
+  void seekMs(qint64) override {}
+  void setVolume(double) override {}
+  void setForceMono(bool) override {}
+  void setEqualizerAf(const QString&) override {}
+  void dispose() override {}
+
+ private:
+  QString reason_;
 };
 
 }  // namespace tramp

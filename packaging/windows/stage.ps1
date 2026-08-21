@@ -44,7 +44,7 @@ if ($Windeploy) {
   }
   & $deployBin (Join-Path $Stage "tramp.exe") --release --no-translations
 } else {
-  Write-Warning "windeployqt not on PATH — stage has tramp.exe without Qt DLLs"
+  throw "stage: windeployqt not found — refusing to ship tramp.exe without Qt DLLs"
 }
 
 Write-Host "Staged $Stage"

@@ -41,6 +41,8 @@ jobs:
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --config Release
           ctest --test-dir build -C Release --output-on-failure
+      - name: Paint budget
+        run: QT_QPA_PLATFORM=offscreen ./build/tramp --bench-chrome
 
   windows:
     name: Windows EXE + MSIX
@@ -116,6 +118,7 @@ jobs:
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --config Release
           ctest --test-dir build -C Release --output-on-failure
+          QT_QPA_PLATFORM=offscreen ./build/tramp --bench-chrome
           ./packaging/linux/stage_bundle.sh
       - name: AppImage + tarball
         run: |

@@ -83,10 +83,14 @@ PcmBuffer WavReader::read(const QByteArray& bytes) const {
   bool haveFmt = false;
   bool haveData = false;
 
+  // Chunk sizes are unsigned 32-bit and routinely exceed INT_MAX here, because
+  // this parses mpv's whole-track PCM render. Widen to qint64 so a big size
+  // cannot go negative, and never let the cursor move backwards.
   while (offset + 8 <= bytes.size()) {
-    const int size = int(u32le(bytes, offset + 4));
+    const qint64 size = qint64(u32le(bytes, offset + 4));
+    if (size + qint64(offset) + 8 > bytes.size()) break;
+    // Past the guard the chunk fits in the buffer, so int is safe again.
     const int body = offset + 8;
-    if (body + size > bytes.size()) break;
 
     if (eq4(bytes, offset, "fmt ")) {
       audioFormat = u16le(bytes, body);
@@ -98,11 +102,13 @@ PcmBuffer WavReader::read(const QByteArray& bytes) const {
       }
       haveFmt = true;
     } else if (eq4(bytes, offset, "data")) {
-      data = bytes.mid(body, size);
+      data = bytes.mid(body, int(size));
       haveData = true;
     }
 
-    offset = body + size + (size % 2);
+    const qint64 next = qint64(body) + size + (size % 2);
+    if (next <= offset) break;  // a zero or hostile size must not stall or rewind
+    offset = int(qMin(next, qint64(bytes.size())));
   }
 
   if (!haveFmt || !haveData) {

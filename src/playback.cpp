@@ -181,6 +181,14 @@ void PlaybackController::playIndex(int index) {
   failureMessage_.clear();
   playlist_->select(index);
   engine_->open(tracks[index]);
+  // mpv reports a loadfile failure inline from open(), and onEngineError has
+  // already cleared the flags by the time we get here. Do not put them back.
+  if (!failureMessage_.isEmpty()) {
+    mediaOpen_ = false;
+    playing_ = false;
+    notify();
+    return;
+  }
   mediaOpen_ = true;
   engine_->play();
   playing_ = true;

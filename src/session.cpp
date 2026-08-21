@@ -58,10 +58,12 @@ TrampSession::TrampSession(QObject* parent)
     engine_.reset(mpv);
   } else {
     delete mpv;
-    engine_ = std::make_unique<NullEngine>();
+    engine_ = std::make_unique<MissingAudioEngine>(
+        QStringLiteral("libmpv could not start, so playback is unavailable"));
   }
 #else
-  engine_ = std::make_unique<NullEngine>();
+  engine_ = std::make_unique<MissingAudioEngine>(
+      QStringLiteral("this build has no audio engine"));
 #endif
   playback_ = std::make_unique<PlaybackController>(&playlist_, engine_.get());
   playback_->setSpins(store_.readUsage().spins);

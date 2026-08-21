@@ -19,6 +19,20 @@ find_package(PkgConfig QUIET)
 
 qt_standard_project_setup()
 
+# CI compiles through CMake, not build.sh, so this path has to raise the same
+# diagnostics build.sh does — ignored return values and signed/unsigned
+# conversions are how the worst bugs here got in. Warnings only: the tree is not
+# clean, so -Werror would fail on day one. Linked privately into our own targets;
+# Qt arrives as -isystem and stays quiet.
+add_library(tramp_warnings INTERFACE)
+if(MSVC)
+  target_compile_options(tramp_warnings INTERFACE /W4 /wd4100 /w14834)
+else()
+  target_compile_options(tramp_warnings INTERFACE
+    -Wall -Wextra -Wno-unused-parameter
+    -Wunused-result -Wsign-compare -Wsign-conversion)
+endif()
+
 file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/assets" TRAMP_ASSET_DIR)
 file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/skins" TRAMP_SKINS_DIR)
 file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libmpv" TRAMP_MPV_ROOT)
@@ -69,6 +83,21 @@ elseif(UNIX AND NOT APPLE AND EXISTS "${BUNDLED_MPV_SO}")
     stub_libvapoursynth-script.so.0
     stub_libXpresent.so.1
   )
+endif()
+
+# A music player that cannot play music must not be packageable by accident.
+# TRAMP_HAVE_MPV only turns on via pkg-config or the bundled Linux .so, so a
+# Windows configure silently produced a binary with no engine — which then
+# shipped next to libmpv-2.dll and looked healthy. Opt in explicitly to build
+# one, and never opt in for a release.
+option(TRAMP_ALLOW_NO_AUDIO "Build without an audio engine (playback disabled)" OFF)
+if(NOT TRAMP_HAVE_MPV AND NOT TRAMP_ALLOW_NO_AUDIO)
+  message(FATAL_ERROR
+    "No audio engine: libmpv was not found, so this build could not play anything.\n"
+    "  Linux/macOS: install libmpv development files (pkg-config must find 'mpv'),\n"
+    "               or place the bundle at third_party/libmpv/linux/x86_64/libmpv.so.\n"
+    "  Windows:     linking libmpv is not implemented yet (no import library).\n"
+    "Configure with -DTRAMP_ALLOW_NO_AUDIO=ON to build a deliberately silent binary.")
 endif()
 
 set(TRAMP_SOURCES
@@ -274,6 +303,14 @@ target_compile_definitions(font_metrics_test PRIVATE
   TRAMP_SKINS_DIR="${TRAMP_SKINS_DIR}"
 )
 target_link_libraries(font_metrics_test PRIVATE Qt6::Gui)
+
+foreach(tramp_target IN ITEMS
+    tramp_window_spec tramp
+    window_spec_test host_shell_test host_shell_window_test host_window_move_test
+    chrome_spec_test chrome_tooltip_test wait_cursor_test domain_test
+    look_test font_metrics_test)
+  target_link_libraries(${tramp_target} PRIVATE tramp_warnings)
+endforeach()
 
 enable_testing()
 add_test(NAME window_spec COMMAND window_spec_test)

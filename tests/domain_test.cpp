@@ -696,6 +696,150 @@ int main() {
   }
 
   {
+    // MpvEngine reports a loadfile failure synchronously from open(). playIndex
+    // used to set playing_ = true immediately afterwards, so a file that never
+    // opened still read as playing and the chrome showed the pause face.
+    class RefusingEngine : public NullEngine {
+     public:
+      void open(const Track&) override {
+        if (onError) onError(QStringLiteral("cannot open"));
+      }
+      void play() override { played = true; }
+      bool played = false;
+    };
+    PlaylistController playlist;
+    Track track;
+    track.path = QStringLiteral("/tmp/gone.mp3");
+    playlist.setTracks({track});
+    RefusingEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.playIndex(0);
+    REQUIRE(!playback.playing());
+    REQUIRE(!engine.played);
+    REQUIRE_EQ(playback.failureMessage(), QStringLiteral("cannot open"));
+  }
+
+  {
+    // A build with no audio backend must say so. Reporting playback of silence
+    // is how a Windows package with no engine looked healthy.
+    PlaylistController playlist;
+    Track track;
+    track.path = QStringLiteral("/tmp/quiet.flac");
+    playlist.setTracks({track});
+    tramp::MissingAudioEngine engine(QStringLiteral("no audio engine in this build"));
+    PlaybackController playback(&playlist, &engine);
+    playback.playIndex(0);
+    REQUIRE(!playback.playing());
+    REQUIRE_EQ(playback.failureMessage(), QStringLiteral("no audio engine in this build"));
+  }
+
+  {
+    // A data chunk size past INT_MAX used to become a negative int, slip through
+    // the bounds check, and walk `offset` backwards into a read before the
+    // buffer. mpv renders a whole track to PCM for the spectrum, so any track
+    // past roughly 3.4 hours produces exactly this header.
+    QByteArray wav(64, 0);
+    std::memcpy(wav.data(), "RIFF", 4);
+    std::memcpy(wav.data() + 8, "WAVE", 4);
+    std::memcpy(wav.data() + 12, "fmt ", 4);
+    qToLittleEndian(quint32(16), reinterpret_cast<uchar*>(wav.data() + 16));
+    qToLittleEndian(quint16(1), reinterpret_cast<uchar*>(wav.data() + 20));
+    qToLittleEndian(quint16(2), reinterpret_cast<uchar*>(wav.data() + 22));
+    qToLittleEndian(quint32(44100), reinterpret_cast<uchar*>(wav.data() + 24));
+    qToLittleEndian(quint16(16), reinterpret_cast<uchar*>(wav.data() + 34));
+    std::memcpy(wav.data() + 36, "data", 4);
+    qToLittleEndian(quint32(0x80000000u), reinterpret_cast<uchar*>(wav.data() + 40));
+    bool refused = false;
+    try {
+      WavReader().read(wav);
+    } catch (const std::exception&) {
+      refused = true;
+    }
+    REQUIRE(refused);
+
+    // A chunk size of zero must not spin forever either.
+    QByteArray stuck = wav;
+    qToLittleEndian(quint32(0), reinterpret_cast<uchar*>(stuck.data() + 16));
+    bool refusedZero = false;
+    try {
+      WavReader().read(stuck);
+    } catch (const std::exception&) {
+      refusedZero = true;
+    }
+    REQUIRE(refusedZero);
+  }
+
+  {
+    // A save that did not land must not report success, and must leave the
+    // playlist altered so the discard prompt still fires. Clearing the flag on an
+    // unchecked write is how unsaved edits disappeared without a word.
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    PlaylistController playlist;
+    Track a;
+    a.path = QStringLiteral("/music/a.mp3");
+    Track b;
+    b.path = QStringLiteral("/music/b.mp3");
+    playlist.setTracks({a, b});
+    REQUIRE(!playlist.altered());
+    playlist.removeAt(1);
+    REQUIRE(playlist.altered());
+
+    // Parent directory does not exist, so the write cannot land.
+    const QString target =
+        QDir(tmp.path()).filePath(QStringLiteral("no-such-dir/out.m3u"));
+    REQUIRE(!playlist.savePlaylistFile(target, M3uCodec{}));
+    REQUIRE(playlist.altered());
+    REQUIRE(!QFile::exists(target));
+
+    // And a save that does land clears it.
+    const QString good = QDir(tmp.path()).filePath(QStringLiteral("out.m3u"));
+    REQUIRE(playlist.savePlaylistFile(good, M3uCodec{}));
+    REQUIRE(!playlist.altered());
+    REQUIRE(QFile::exists(good));
+  }
+
+  {
+    // Persistence must never destroy what it cannot replace. writeObject used to
+    // truncate the target before writing, so an interrupted or failed write left
+    // an empty file — which then read back as defaults and got persisted over
+    // whatever had survived.
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    tramp::SupportStore store(tmp.path());
+    tramp::TrampSettings first;
+    first.zoomPercent = 150;
+    REQUIRE(store.writeSettings(first));
+    REQUIRE_EQ(store.readSettings().zoomPercent, 150);
+    REQUIRE(!QFile::exists(tmp.filePath(QStringLiteral("settings.json.tmp"))));
+
+    // An unwritable directory must fail loudly and leave the old file intact.
+    REQUIRE(QFile::setPermissions(tmp.path(), QFile::ReadOwner | QFile::ExeOwner));
+    tramp::TrampSettings second;
+    second.zoomPercent = 50;
+    const bool wrote = store.writeSettings(second);
+    REQUIRE(QFile::setPermissions(
+        tmp.path(), QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+    REQUIRE(!wrote);
+    REQUIRE_EQ(store.readSettings().zoomPercent, 150);
+  }
+
+  {
+    // A corrupt state file must not vanish into defaults. Keep the bytes aside so
+    // the listener's collection can be recovered rather than overwritten.
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    const QString path = QDir(tmp.path()).filePath(QStringLiteral("settings.json"));
+    QFile broken(path);
+    REQUIRE(broken.open(QIODevice::WriteOnly));
+    broken.write(QByteArray("{ this is not json"));
+    broken.close();
+    tramp::SupportStore store(tmp.path());
+    REQUIRE_EQ(store.readSettings().zoomPercent, tramp::TrampSettings{}.zoomPercent);
+    REQUIRE(QFile::exists(path + QStringLiteral(".corrupt")));
+  }
+
+  {
     REQUIRE(tramp::samePlaylistFile(QStringLiteral("/music/set.m3u"),
                                     QStringLiteral("/music/./set.m3u")));
     REQUIRE(!tramp::samePlaylistFile(QStringLiteral("/music/a.m3u"),

@@ -2,6 +2,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QSaveFile>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -59,20 +60,51 @@ QString SupportStore::filePath(const QString& name) const {
 }
 
 QJsonObject SupportStore::readObject(const QString& name) const {
-  QFile file(filePath(name));
+  const QString path = filePath(name);
+  QFile file(path);
   if (!file.open(QIODevice::ReadOnly)) {
     return {};
   }
-  const auto doc = QJsonDocument::fromJson(file.readAll());
-  return doc.isObject() ? doc.object() : QJsonObject{};
+  const QByteArray raw = file.readAll();
+  file.close();
+  if (raw.isEmpty()) {
+    return {};
+  }
+  const auto doc = QJsonDocument::fromJson(raw);
+  if (doc.isObject()) {
+    return doc.object();
+  }
+  // Present but unreadable. Returning defaults here is how a single bad byte
+  // used to erase a collection: the caller persists those defaults straight
+  // back over the file. Keep the bytes so the listener can recover them.
+  const QString aside = path + QStringLiteral(".corrupt");
+  if (!QFile::exists(aside)) {
+    QFile::rename(path, aside);
+  }
+  qWarning("tramp: %s is not valid JSON; kept a copy at %s", qPrintable(name),
+           qPrintable(aside));
+  return {};
 }
 
-void SupportStore::writeObject(const QString& name, const QJsonObject& o) const {
-  QFile file(filePath(name));
-  if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-    return;
+bool SupportStore::writeObject(const QString& name, const QJsonObject& o) const {
+  // QSaveFile writes to a temporary beside the target and renames on commit, so
+  // an interrupted write leaves the previous file untouched instead of empty.
+  QSaveFile file(filePath(name));
+  if (!file.open(QIODevice::WriteOnly)) {
+    qWarning("tramp: cannot open %s for writing", qPrintable(name));
+    return false;
   }
-  file.write(QJsonDocument(o).toJson(QJsonDocument::Compact));
+  const QByteArray payload = QJsonDocument(o).toJson(QJsonDocument::Compact);
+  if (file.write(payload) != payload.size()) {
+    file.cancelWriting();
+    qWarning("tramp: short write to %s", qPrintable(name));
+    return false;
+  }
+  if (!file.commit()) {
+    qWarning("tramp: cannot commit %s", qPrintable(name));
+    return false;
+  }
+  return true;
 }
 
 TrampSettings SupportStore::readSettings() const {
@@ -81,8 +113,8 @@ TrampSettings SupportStore::readSettings() const {
   return TrampSettings::fromJson(o);
 }
 
-void SupportStore::writeSettings(const TrampSettings& s) const {
-  writeObject(QStringLiteral("settings.json"), s.toJson());
+bool SupportStore::writeSettings(const TrampSettings& s) const {
+  return writeObject(QStringLiteral("settings.json"), s.toJson());
 }
 
 UsageCounters SupportStore::readUsage() const {
@@ -93,10 +125,10 @@ UsageCounters SupportStore::readUsage() const {
   return u;
 }
 
-void SupportStore::writeUsage(const UsageCounters& u) const {
+bool SupportStore::writeUsage(const UsageCounters& u) const {
   QJsonObject o;
   o.insert(QStringLiteral("spins"), u.spins);
-  writeObject(QStringLiteral("usage.json"), o);
+  return writeObject(QStringLiteral("usage.json"), o);
 }
 
 SessionResume SupportStore::readResume() const {
@@ -110,7 +142,7 @@ SessionResume SupportStore::readResume() const {
   return r;
 }
 
-void SupportStore::writeResume(const SessionResume& r) const {
+bool SupportStore::writeResume(const SessionResume& r) const {
   QJsonObject o;
   if (r.playingIndex) {
     o.insert(QStringLiteral("playingIndex"), *r.playingIndex);
@@ -119,7 +151,7 @@ void SupportStore::writeResume(const SessionResume& r) const {
   }
   o.insert(QStringLiteral("positionMs"), r.positionMs);
   o.insert(QStringLiteral("wasPlaying"), r.wasPlaying);
-  writeObject(QStringLiteral("session_resume.json"), o);
+  return writeObject(QStringLiteral("session_resume.json"), o);
 }
 
 AlteredPlaylist SupportStore::readAltered() const {
@@ -136,7 +168,7 @@ AlteredPlaylist SupportStore::readAltered() const {
   return p;
 }
 
-void SupportStore::writeAltered(const AlteredPlaylist& p) const {
+bool SupportStore::writeAltered(const AlteredPlaylist& p) const {
   QJsonObject o;
   if (!p.sourcePath.isEmpty()) {
     o.insert(QStringLiteral("sourcePath"), p.sourcePath);
@@ -148,7 +180,7 @@ void SupportStore::writeAltered(const AlteredPlaylist& p) const {
     tracks.append(trackToJson(t));
   }
   o.insert(QStringLiteral("tracks"), tracks);
-  writeObject(QStringLiteral("altered_playlist.json"), o);
+  return writeObject(QStringLiteral("altered_playlist.json"), o);
 }
 
 void SupportStore::clearAltered() const {
@@ -159,14 +191,14 @@ QString SupportStore::readLastPlaylistPath() const {
   return readObject(QStringLiteral("session.json")).value(QStringLiteral("lastPlaylistPath")).toString();
 }
 
-void SupportStore::writeLastPlaylistPath(const QString& path) const {
+bool SupportStore::writeLastPlaylistPath(const QString& path) const {
   QJsonObject o;
   if (path.isEmpty()) {
     o.insert(QStringLiteral("lastPlaylistPath"), QJsonValue::Null);
   } else {
     o.insert(QStringLiteral("lastPlaylistPath"), path);
   }
-  writeObject(QStringLiteral("session.json"), o);
+  return writeObject(QStringLiteral("session.json"), o);
 }
 
 QVector<SavedPlaylist> SupportStore::readCollectionIndex() const {
@@ -189,7 +221,7 @@ QVector<SavedPlaylist> SupportStore::readCollectionIndex() const {
   return out;
 }
 
-void SupportStore::writeCollectionIndex(const QVector<SavedPlaylist>& entries) const {
+bool SupportStore::writeCollectionIndex(const QVector<SavedPlaylist>& entries) const {
   QJsonArray raw;
   for (const SavedPlaylist& e : entries) {
     QJsonObject o;
@@ -202,7 +234,7 @@ void SupportStore::writeCollectionIndex(const QVector<SavedPlaylist>& entries) c
   }
   QJsonObject root;
   root.insert(QStringLiteral("entries"), raw);
-  writeObject(QStringLiteral("playlists.json"), root);
+  return writeObject(QStringLiteral("playlists.json"), root);
 }
 
 CollectionTrackSets SupportStore::readTrackSets() const {
@@ -234,7 +266,7 @@ CollectionTrackSets SupportStore::readTrackSets() const {
   return sets;
 }
 
-void SupportStore::writeTrackSets(const CollectionTrackSets& sets) const {
+bool SupportStore::writeTrackSets(const CollectionTrackSets& sets) const {
   QJsonObject trackSets;
   for (auto it = sets.byEntry.begin(); it != sets.byEntry.end(); ++it) {
     QJsonArray arr;
@@ -259,7 +291,7 @@ void SupportStore::writeTrackSets(const CollectionTrackSets& sets) const {
   root.insert(QStringLiteral("trackSets"), trackSets);
   root.insert(QStringLiteral("durationsMs"), durations);
   if (!meta.isEmpty()) root.insert(QStringLiteral("meta"), meta);
-  writeObject(QStringLiteral("playlist_tracks.json"), root);
+  return writeObject(QStringLiteral("playlist_tracks.json"), root);
 }
 
 }  // namespace tramp
