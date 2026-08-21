@@ -25,7 +25,7 @@ On each title-bar mouse-move:
 
 1. `HostWindow` emits `nativeMoved`.
 2. `TrampSession::windowMoved` runs docking + clamp/fit, then `applyDockToWindows` over all five panels.
-3. `HostShell::placePanels` `setGeometry`s whoever moved, builds the panel-union mask, and **punches every call** (`QWidget::setMask` and `QWindow::setMask`). `updatePunch` is accepted and ignored.
+3. `HostShell::placePanels` `setGeometry`s whoever moved, builds the panel-union mask, and **punches every call** (`QWidget::setMask` and `QWindow::setMask`). There is no flag to skip it: the `updatePunch` parameter was deleted, and the constraint now lives on the `placePanels` declaration.
 4. Moved panels `paintEvent`. Main/EQ blit `chassis_` then a full **live** pass (clock, spectrum, overlay). `paintEvent` ignores the dirty rect. Playlist / settings / about have no chassis: full `BodyPaint::full`.
 5. The host `update`s the old∪new widget rects and fills them transparent in its own `paintEvent`.
 
@@ -76,7 +76,7 @@ Tried in `5b7d0aa` / `f1b166b`, undone in `d9cdc81` after the user saw trails on
 
 **Idea:** move widgets during drag; leave the punch put until mouse-up; blit chassis and skip the live pass on main/EQ while `draggingTitle_`; skip `applyHitCursor` and `schedulePersist` during the drag. Escape hatch was `TRAMP_LEGACY_DRAG=1` (removed).
 
-**Why it looked cheap in tests:** `placePanels(..., false)` kept the previous mask. Offscreen CPU dropped. Punch-lag was the point.
+**Why it looked cheap in tests:** the deferred call kept the previous mask. Offscreen CPU dropped. Punch-lag was the point.
 
 **Why it failed on KWin:** `setMask` is not an input-only hint here. The host is a virtual-desktop-sized translucent surface. The punch is the hole the compositor actually shows and hits. When the panel widget moved and the mask stayed on the old rect:
 
@@ -93,7 +93,7 @@ Tried in `5b7d0aa` / `f1b166b`, undone in `d9cdc81` after the user saw trails on
 
 - **Marquee off the live glow path** (`7ca6b62`). Static titles on chassis; live marquee only while scrolling, no Gaussian blur. Reverting that brings the 104 ms tax back.
 - **Skip `grabMouse` on Wayland** (still in `HostWindow::grabPointerIfAllowed`). The warning is Qt refusing the grab, not a product feature.
-- **`updatePunch` on `placePanels`** remains in the signature. It is unused (always punch). A retry that honors it must prove on KWin that vacated pixels clear. The test `HostShellWindowTest::deferredPunchStillAppliesWhenLayoutAlreadyCaughtUp` currently asserts that `updatePunch=false` **still** follows the panel (flag ignored).
+- **Punch is unconditional.** `placePanels` no longer takes an `updatePunch` flag — a parameter documented as ignored still invited someone to pass it and expect something. A retry has to reintroduce it and prove on KWin that vacated pixels clear. `HostShellWindowTest::punchFollowsEveryPlacementWhileMapped` pins the invariant: after a placement the punch contains the new panel rect and no longer contains the vacated one.
 
 ## Seams worth trying next
 
