@@ -80,6 +80,54 @@ inline QRect sliderHitRect(const QRectF& track, qreal thumbH) {
                int(track.width()), int(h));
 }
 
+/// Main and EQ bodies inset their rows by the same pad.
+inline constexpr qreal kBodySidePad = 22;
+
+inline constexpr qreal kVolRowTop = 156;
+inline constexpr qreal kVolRowH = 40;
+inline constexpr qreal kVolMuteW = 40;
+inline constexpr qreal kVolLabelGap = 14;
+inline constexpr qreal kVolLabelW = 34;
+inline constexpr qreal kVolTrackGap = 10;
+inline constexpr qreal kVolTrackH = 14;
+inline constexpr qreal kVolTrackToMono = 14;
+inline constexpr qreal kVolBtnH = 38;
+inline constexpr qreal kVolBtnInset = 1;
+inline constexpr qreal kMonoBtnW = 86;
+inline constexpr qreal kMonoToEqGap = 14;
+inline constexpr qreal kPanelBtnW = 74;
+inline constexpr qreal kPanelBtnGap = 8;
+
+struct MainVolumeRow {
+  QRectF row;
+  QRectF mute;
+  QRectF label;
+  QRectF track;
+  QRectF mono;
+  QRectF eq;
+  QRectF pl;
+};
+
+/// Mute and the VOL label flow from the left; PL, EQ and MONO pack from the
+/// right; the volume well takes the span between them.
+inline MainVolumeRow layoutMainVolumeRow(const QRectF& body) {
+  MainVolumeRow out;
+  out.row = QRectF(body.left() + kBodySidePad, body.top() + kVolRowTop,
+                   body.width() - 2 * kBodySidePad, kVolRowH);
+  const QRectF& row = out.row;
+  out.mute = QRectF(row.left(), row.top(), kVolMuteW, kVolRowH);
+  out.label = QRectF(out.mute.right() + kVolLabelGap, row.top(), kVolLabelW, kVolRowH);
+  const qreal btnY = row.top() + kVolBtnInset;
+  out.pl = QRectF(row.right() - kPanelBtnW, btnY, kPanelBtnW, kVolBtnH);
+  out.eq = QRectF(out.pl.left() - kPanelBtnGap - kPanelBtnW, btnY, kPanelBtnW, kVolBtnH);
+  out.mono = QRectF(out.eq.left() - kMonoToEqGap - kMonoBtnW, btnY, kMonoBtnW, kVolBtnH);
+  const qreal trackLeft = out.label.right() + kVolTrackGap;
+  const qreal trackRight = out.mono.left() - kVolTrackToMono;
+  out.track = QRectF(trackLeft, row.center().y() - kVolTrackH / 2, trackRight - trackLeft,
+                     kVolTrackH);
+  return out;
+}
+
 /// The maker's-plate web pill is sized to its own text, so a fixed-width hit box
 /// drifts from it as soon as a skin changes the LCD face. Callers pass the
 /// measured text width; layout stays independent of the font machinery.
@@ -101,12 +149,14 @@ inline constexpr int kSkinsBtnGap = 8;
 inline constexpr int kSkinsScrollW = 14;
 inline constexpr int kSkinsScrollGap = 10;
 
-inline QRectF settingsBody(QSize logical) {
+/// Everything a panel owns below its title bar. Hit-testing and painting both
+/// start here, so it is the one place the title bar is subtracted.
+inline QRectF panelBody(QSize logical) {
   return QRectF(0, kTitleBar, logical.width(), logical.height() - kTitleBar);
 }
 
 inline QRectF settingsPane(QSize logical) {
-  const QRectF body = settingsBody(logical);
+  const QRectF body = panelBody(logical);
   return QRectF(body.left() + 108, body.top(), body.width() - 108, body.height() - 40);
 }
 

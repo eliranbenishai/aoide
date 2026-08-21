@@ -19,10 +19,6 @@ namespace {
 
 const ChromeTokens& T() { return currentLook(); }
 
-QRectF bodyRect(QSize logical) {
-  return QRectF(0, kTitleBar, logical.width(), logical.height() - kTitleBar);
-}
-
 /// A control's face. Panels paint from the phase store so a state change
 /// cross-fades instead of snapping; a golden dump or a test paints without a
 /// live store and takes plain session state.
@@ -286,27 +282,15 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
   }
 
   if (chassis) {
-    const QRectF volRow(body.left() + 22, body.top() + 156, body.width() - 44, 40);
-    drawGlyphBtn(p, QRectF(volRow.left(), volRow.top(), 40, 40), MockupIcon::mute,
-                 faceOf(phases, K::mute, view.muted), 21);
+    const MainVolumeRow vol = layoutMainVolumeRow(body);
+    drawGlyphBtn(p, vol.mute, MockupIcon::mute, faceOf(phases, K::mute, view.muted), 21);
     p.setFont(condensedFont(11, 0.2));
     p.setPen(T().inkFaint);
-    const qreal volLabelLeft = volRow.left() + 40 + 14;
-    p.drawText(QRectF(volLabelLeft, volRow.top(), 34, 40), Qt::AlignVCenter,
-               QStringLiteral("VOL"));
-    const qreal plLeft = volRow.right() - 74;
-    const qreal eqLeft = plLeft - 8 - 74;
-    const qreal monoLeft = eqLeft - 14 - 86;
-    const qreal sliderLeft = volLabelLeft + 34 + 10;
-    const qreal sliderRight = monoLeft - 14;
-    drawSlider(p, QRectF(sliderLeft, volRow.center().y() - 7, sliderRight - sliderLeft, 14),
-               volume);
-    drawBtn(p, QRectF(monoLeft, volRow.top() + 1, 86, 38), faceOf(phases, K::mono, view.forceMono),
-            QStringLiteral("MONO"));
-    drawBtn(p, QRectF(eqLeft, volRow.top() + 1, 74, 38), faceOf(phases, K::eqToggle, view.eqOn),
-            QStringLiteral("EQ"));
-    drawBtn(p, QRectF(plLeft, volRow.top() + 1, 74, 38), faceOf(phases, K::plToggle, view.plOn),
-            QStringLiteral("PL"));
+    p.drawText(vol.label, Qt::AlignVCenter, QStringLiteral("VOL"));
+    drawSlider(p, vol.track, volume);
+    drawBtn(p, vol.mono, faceOf(phases, K::mono, view.forceMono), QStringLiteral("MONO"));
+    drawBtn(p, vol.eq, faceOf(phases, K::eqToggle, view.eqOn), QStringLiteral("EQ"));
+    drawBtn(p, vol.pl, faceOf(phases, K::plToggle, view.plOn), QStringLiteral("PL"));
   }
 
   if (live) {
@@ -1039,7 +1023,7 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
 
 void paintWindowBody(QPainter& painter, WindowId id, QSize logical, const QImage* logo,
                      const SessionView& view, BodyPaint pass, const ChromePhases& phases) {
-  const QRectF body = bodyRect(logical);
+  const QRectF body = panelBody(logical);
   switch (id) {
     case WindowId::main:
       paintMain(painter, body, view, pass, phases);

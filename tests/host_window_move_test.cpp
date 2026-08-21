@@ -16,6 +16,7 @@
 #include <QPainter>
 #include <QSignalSpy>
 #include <QTest>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 
@@ -81,15 +82,79 @@ void HostWindowMoveTest::siblingDragDoesNotPayFullClusterPaint() {
            "moving a sibling must not pay a full cluster paint (10ms for 20 moves)");
 }
 
-// Hit geometry and paint geometry are derived separately, so they can and did
-// drift apart. These pin the two cases that had actually diverged: slider thumbs
-// are painted taller than their groove, and the About web pill is sized to its
-// own text rather than a fixed width.
+namespace {
+
+/// `HostWindow::logicalFrom`: a click lands on whatever logical pixel the widget
+/// pixel divides down to. Going through this is the closest an automated test
+/// gets to clicking the chrome at a given zoom.
+QPoint logicalAtZoom(QSize logical, int zoomPercent, QPointF widgetPos) {
+  const QSize widget = tramp::zoomed(logical, zoomPercent);
+  const qreal sx = qreal(widget.width()) / qMax(1, logical.width());
+  const qreal sy = qreal(widget.height()) / qMax(1, logical.height());
+  return QPoint(int(widgetPos.x() / sx), int(widgetPos.y() / sy));
+}
+
+/// First and last widget pixel whose centre falls inside a painted span.
+QPair<int, int> paintedPixels(qreal from, qreal to, qreal scale) {
+  return {int(std::ceil(from * scale - 0.5)), int(std::ceil(to * scale - 0.5)) - 1};
+}
+
+/// Pointer positions on the extremes and the middle of what the chrome paints
+/// for one control. The extremes are the whole question: a hit region that
+/// stops short of the paint fails there and nowhere else.
+QVector<QPointF> paintedSamples(QSize logical, const QRectF& painted, int zoomPercent) {
+  const QSize widget = tramp::zoomed(logical, zoomPercent);
+  const qreal sx = qreal(widget.width()) / qMax(1, logical.width());
+  const qreal sy = qreal(widget.height()) / qMax(1, logical.height());
+  const QPair<int, int> xs = paintedPixels(painted.left(), painted.right(), sx);
+  const QPair<int, int> ys = paintedPixels(painted.top(), painted.bottom(), sy);
+  QVector<QPointF> out;
+  for (int x : {xs.first, (xs.first + xs.second) / 2, xs.second}) {
+    for (int y : {ys.first, (ys.first + ys.second) / 2, ys.second}) {
+      out.push_back(QPointF(x + 0.5, y + 0.5));
+    }
+  }
+  return out;
+}
+
+}  // namespace
+
+// Hit geometry and paint geometry used to be derived separately, so they could
+// and did drift apart: slider thumbs painted taller than their groove, and a
+// fixed-width hit box against a text-measured About pill. Both sides now share
+// `chrome_layout.h`, and these walk the painted extent of each control at the
+// zoom levels the chrome ships at to keep it that way.
 void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
   const auto specs = tramp::windowSpecs();
   const tramp::SessionView view;
 
   const QSize main = specs[0].logicalSize;
+  auto grabCoversPaint = [&](tramp::WindowId id, QSize logical, const QRectF& painted,
+                             tramp::ChromeHit::Kind kind, const char* what) {
+    for (int zoom : {75, 150}) {
+      for (const QPointF& at : paintedSamples(logical, painted, zoom)) {
+        const tramp::ChromeHit hit =
+            tramp::hitTest(id, logical, logicalAtZoom(logical, zoom, at), view);
+        QVERIFY2(hit.kind == kind,
+                 qPrintable(QStringLiteral("%1 paints into (%2, %3) at %4%, which is not a hit")
+                                .arg(QLatin1String(what))
+                                .arg(at.x())
+                                .arg(at.y())
+                                .arg(zoom)));
+      }
+    }
+  };
+
+  const tramp::MainVolumeRow vol = tramp::layoutMainVolumeRow(tramp::panelBody(main));
+  grabCoversPaint(tramp::WindowId::main, main, vol.mute, tramp::ChromeHit::Kind::mute, "Mute");
+  grabCoversPaint(tramp::WindowId::main, main,
+                  QRectF(vol.track.left(), vol.track.center().y() - tramp::kVolumeThumbH / 2,
+                         vol.track.width(), tramp::kVolumeThumbH),
+                  tramp::ChromeHit::Kind::volume, "the volume well and its thumb");
+  grabCoversPaint(tramp::WindowId::main, main, vol.mono, tramp::ChromeHit::Kind::mono, "MONO");
+  grabCoversPaint(tramp::WindowId::main, main, vol.eq, tramp::ChromeHit::Kind::eqToggle, "EQ");
+  grabCoversPaint(tramp::WindowId::main, main, vol.pl, tramp::ChromeHit::Kind::plToggle, "PL");
+
   tramp::ChromeHit volume;
   tramp::ChromeHit seek;
   for (int y = 0; y < main.height(); ++y) {
