@@ -123,7 +123,6 @@ class TrampSession : public QObject, public PanelSurfaces {
   void applyDockToWindows(std::optional<WindowId> skip = {});
   void syncLayoutFromWindows(std::optional<WindowId> skip = {});
   QRect hostRect() const override;
-  void fitClusterToHost();
   void showOptionsMenu(QRect logicalHit);
   int execAnchoredMenu(const QVector<ChromeMenuItem>& items, HostWindow* host, QRect logicalHit,
                        PopupAnchor anchor);

@@ -35,6 +35,8 @@ class LayoutSyncTest : public QObject {
   void clampPullsAPanelBackOntoTheDesktop();
   void clampLeavesEverythingAloneWhenThereIsNoHostYet();
   void clampAcceptsAScreenLeftOfThePrimary();
+  void unpluggingAMonitorTranslatesAClusterThatStillFits();
+  void aClusterTooWideForTheDesktopFallsBackToClampingEachPanel();
 };
 
 void LayoutSyncTest::nativeAndLogicalAreInversesAcrossTheZoomLadder() {
@@ -136,6 +138,48 @@ void LayoutSyncTest::clampAcceptsAScreenLeftOfThePrimary() {
 
   layout.clampToHost(WindowId::about);
   QCOMPARE(layout.nativeFrameRect(WindowId::about), QRect(-1920, -200, 480, 360));
+}
+
+void LayoutSyncTest::unpluggingAMonitorTranslatesAClusterThatStillFits() {
+  FakeDesktop desktop(QRect(0, 0, 3840, 1080));
+  DockLayout dock;
+  dock.main = {true, false, 2000, 100, {}, {}};
+  dock.equalizer = {true, false, 2000, 448, {}, {}};
+  dock.playlist = {false, false, 2000, 796, {}, {}};
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  layout.fitClusterToHost();
+  QCOMPARE(layout.nativeFrameRect(WindowId::main), QRect(2000, 100, 825, 348));
+
+  desktop.setHostRect(QRect(0, 0, 1920, 1080));
+  layout.fitClusterToHost();
+
+  // The cluster still fits, so it is translated whole: the equalizer stays
+  // flush under main rather than each panel being pulled back on its own.
+  QCOMPARE(layout.nativeFrameRect(WindowId::main), QRect(1095, 100, 825, 348));
+  QCOMPARE(layout.nativeFrameRect(WindowId::equalizer), QRect(1095, 448, 825, 348));
+  // The closed playlist did not decide how far to move, but it rides along, or
+  // it would be left on the monitor that has gone.
+  QCOMPARE(layout.nativeFrameRect(WindowId::playlist).topLeft(), QPoint(1095, 796));
+}
+
+void LayoutSyncTest::aClusterTooWideForTheDesktopFallsBackToClampingEachPanel() {
+  // Today's answer when the union cannot fit at any origin: each visible panel
+  // is pulled back on its own, which stacks panels that were docked apart. What
+  // it should do instead is ticket 08's decision, not this seam's — this pins
+  // what the code does now so that change is visible when it is made.
+  FakeDesktop desktop(QRect(0, 0, 900, 1080));
+  DockLayout dock;
+  dock.main = {true, false, 0, 0, {}, {}};
+  dock.playlist = {true, false, 825, 0, 1073.0, 696.0};
+  dock.equalizer.visible = false;
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  layout.fitClusterToHost();
+  QCOMPARE(layout.nativeFrameRect(WindowId::main), QRect(0, 0, 825, 348));
+  QCOMPARE(layout.nativeFrameRect(WindowId::playlist), QRect(0, 0, 900, 696));
 }
 
 QTEST_APPLESS_MAIN(LayoutSyncTest)

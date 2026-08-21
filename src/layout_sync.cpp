@@ -5,6 +5,12 @@
 #include <cmath>
 
 namespace tramp {
+namespace {
+
+constexpr WindowId kAllPanels[] = {WindowId::main, WindowId::equalizer, WindowId::playlist,
+                                   WindowId::settings, WindowId::about};
+
+}  // namespace
 
 LayoutSync::LayoutSync(DockLayout layout, int zoomPercent)
     : docking_(std::move(layout)), zoomPercent_(zoomPercent) {}
@@ -46,6 +52,27 @@ void LayoutSync::clampToHost(WindowId id) {
   const QRect host = hostRect();
   if (host.isEmpty()) return;
   setNativeFrame(id, clampRectToHost(nativeFrameRect(id), host));
+}
+
+void LayoutSync::fitClusterToHost() {
+  const QRect host = hostRect();
+  if (host.isEmpty()) return;
+  const QVector<WindowId> ids = visibleClusterMembers(docking_.layout());
+  QVector<QRect> rects;
+  rects.reserve(ids.size());
+  for (WindowId id : ids) rects.push_back(nativeFrameRect(id));
+  const auto delta = clusterDeltaToFit(rects, host);
+  if (delta) {
+    if (delta->isNull()) return;
+    // Only visible panels decide how far the cluster has to move, but a hidden
+    // one still rides along: a main drag already carries it, and leaving it
+    // behind here would walk it out of the cluster one correction at a time.
+    for (WindowId id : kAllPanels) {
+      setNativeFrame(id, nativeFrameRect(id).translated(*delta));
+    }
+    return;
+  }
+  for (WindowId id : ids) clampToHost(id);
 }
 
 }  // namespace tramp

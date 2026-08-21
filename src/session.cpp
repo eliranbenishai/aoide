@@ -300,7 +300,7 @@ void TrampSession::setShell(HostShell* shell) {
   shell_ = shell;
   if (shell_) {
     connect(shell_, &HostShell::desktopGeometryChanged, this, [this]() {
-      fitClusterToHost();
+      layout_.fitClusterToHost();
       applyFramesToWindows();
     });
   }
@@ -342,7 +342,7 @@ void TrampSession::bootstrap(const QStringList& argvFiles) {
   }
   layout_.docking().nudgeOffMainIfStacked(WindowId::equalizer);
   layout_.docking().nudgeOffMainIfStacked(WindowId::playlist);
-  fitClusterToHost();
+  layout_.fitClusterToHost();
   applyFramesToWindows();
   if (settings_.about.visible) refreshAboutFigures();
   applyAlwaysOnTop();
@@ -661,28 +661,6 @@ HostWindow* TrampSession::windowFor(WindowId id) const {
 
 QRect TrampSession::hostRect() const { return shell_ ? shell_->virtualDesktop() : QRect(); }
 
-void TrampSession::fitClusterToHost() {
-  const QRect host = hostRect();
-  if (host.isEmpty()) return;
-  const QVector<WindowId> ids = visibleClusterMembers(layout_.layout());
-  QVector<QRect> rects;
-  rects.reserve(ids.size());
-  for (WindowId id : ids) rects.push_back(layout_.nativeFrameRect(id));
-  const auto delta = tramp::clusterDeltaToFit(rects, host);
-  if (delta) {
-    if (delta->isNull()) return;
-    // Only visible panels decide how far the cluster has to move, but a hidden
-    // one still rides along: a main drag already carries it, and leaving it
-    // behind here would walk it out of the cluster one correction at a time.
-    for (WindowId id : {WindowId::main, WindowId::equalizer, WindowId::playlist,
-                        WindowId::settings, WindowId::about}) {
-      layout_.setNativeFrame(id, layout_.nativeFrameRect(id).translated(*delta));
-    }
-    return;
-  }
-  for (WindowId id : ids) layout_.clampToHost(id);
-}
-
 SessionView TrampSession::view() const {
   SessionView v;
   v.eqOn = layout_.layout().equalizer.visible;
@@ -814,7 +792,7 @@ void TrampSession::setZoomPercent(int percent) {
   layout_.setZoomPercent(percent);
   schedulePersist();
   emit zoomChanged(percent);
-  fitClusterToHost();
+  layout_.fitClusterToHost();
   applyFramesToWindows();
 }
 
@@ -900,7 +878,7 @@ void TrampSession::windowMoved(WindowId id, QPoint nativeTopLeft, bool finalize)
   const bool shiftUndock = QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier);
   layout_.docking().move(id, layout_.nativeToLogical(nativeTopLeft), shiftUndock,
                          finalize && id != WindowId::main);
-  if (id == WindowId::main) fitClusterToHost();
+  if (id == WindowId::main) layout_.fitClusterToHost();
   else layout_.clampToHost(id);
   applyFramesToWindows();
   schedulePersist();

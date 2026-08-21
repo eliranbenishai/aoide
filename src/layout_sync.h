@@ -49,6 +49,10 @@ class LayoutSync {
 
   /// Pull [id] back onto the virtual desktop, shrinking it if it is larger.
   void clampToHost(WindowId id);
+  /// Bring the cluster back onto the virtual desktop after it, or the desktop,
+  /// changed shape. Translating keeps the panels' relationship to each other;
+  /// only a cluster that cannot fit at all falls back to clamping one at a time.
+  void fitClusterToHost();
 
  private:
   QRect hostRect() const;
