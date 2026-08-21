@@ -1941,6 +1941,44 @@ int main() {
   }
 
   {
+    // The two ends of the background probe apply an answer differently on
+    // purpose. An ingest fills in what the row does not know; Refresh believes
+    // the file over the file that listed it, so a stale #EXTINF is corrected
+    // rather than kept.
+    Track stale;
+    stale.path = QStringLiteral("/tmp/stale.mp3");
+    stale.title = QStringLiteral("Wrong Title");
+    stale.durationMs = 9000;
+
+    tramp::ProbedAudio truth;
+    truth.title = QStringLiteral("Right Title");
+    truth.durationMs = 221000;
+
+    Track kept = stale;
+    tramp::applyProbedAudio(kept, truth, false);
+    REQUIRE_EQ(kept.title, QStringLiteral("Wrong Title"));
+    REQUIRE_EQ(kept.durationMs.value_or(0), qint64(9000));
+
+    Track corrected = stale;
+    tramp::applyProbedAudio(corrected, truth, true);
+    REQUIRE_EQ(corrected.title, QStringLiteral("Right Title"));
+    REQUIRE_EQ(corrected.durationMs.value_or(0), qint64(221000));
+
+    // Refresh puts the corrected row back by path, and a row the path verify
+    // has already disabled stays disabled.
+    PlaylistController list;
+    Track row = stale;
+    row.disabled = true;
+    list.setTracks({row}, QStringLiteral("/tmp/current.m3u"));
+    Track next = list.tracks()[0];
+    tramp::applyProbedAudio(next, truth, true);
+    REQUIRE(list.updateTrackByPath(stale.path, next));
+    REQUIRE_EQ(list.tracks()[0].title, QStringLiteral("Right Title"));
+    REQUIRE_EQ(list.tracks()[0].durationMs.value_or(0), qint64(221000));
+    REQUIRE(list.tracks()[0].disabled);
+  }
+
+  {
     PlaylistController list;
     Track t;
     t.path = QStringLiteral("/tmp/keep-playing.mp3");
