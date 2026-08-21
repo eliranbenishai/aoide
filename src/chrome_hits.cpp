@@ -110,8 +110,8 @@ ChromeHit hitPlaylist(QSize logical, QPoint pos, const SessionView& view) {
   const QRectF body = panelBody(logical);
   const qreal collectionW = view.collectionCollapsed ? 0 : view.collectionWidth;
   if (view.collectionCollapsed) {
-    const QRect reopen(int(body.left() + 4), int(body.top() + 12), 14, 56);
-    if (auto h = hitIf(reopen, pos, ChromeHit::Kind::plCollapse); h.kind != ChromeHit::Kind::none) {
+    if (auto h = hitIf(toHitRect(playlistReopenTab(body)), pos, ChromeHit::Kind::plCollapse);
+        h.kind != ChromeHit::Kind::none) {
       return h;
     }
   } else {

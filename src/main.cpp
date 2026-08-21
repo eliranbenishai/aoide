@@ -55,24 +55,37 @@ int dumpChrome(const QString& dirPath) {
   tramp::loadTrampFonts();
   QImage logo = tramp::loadTrampLogo();
   const tramp::SessionView golden = tramp::SessionView::golden();
-  for (const tramp::WindowSpec& spec : tramp::windowSpecs()) {
+
+  auto shoot = [&](const tramp::WindowSpec& spec, const tramp::SessionView& view,
+                   const QString& name) {
     QImage img(spec.logicalSize, QImage::Format_ARGB32_Premultiplied);
     img.fill(Qt::transparent);
     QPainter p(&img);
     p.setRenderHint(QPainter::Antialiasing);
     p.setRenderHint(QPainter::TextAntialiasing);
     const auto title = tramp::TitleChromeLayout::forWindow(spec.id, spec.logicalSize);
-    tramp::paintMockupWindow(p, spec.logicalSize, spec.id, title, &logo, golden);
+    tramp::paintMockupWindow(p, spec.logicalSize, spec.id, title, &logo, view);
     p.end();
     const QRgb tl = img.pixel(0, 0);
     const QRgb tr = img.pixel(img.width() - 1, 0);
     if (qAlpha(tl) != 0 || qAlpha(tr) != 0) {
       std::fprintf(stderr, "dump-chrome: square title corners in %s (tl a=%d tr a=%d)\n",
-                   qPrintable(dumpName(spec.id)), qAlpha(tl), qAlpha(tr));
-      return 1;
+                   qPrintable(name), qAlpha(tl), qAlpha(tr));
+      return false;
     }
-    const QString path = QDir(dirPath).filePath(dumpName(spec.id) + QStringLiteral(".png"));
-    if (!img.save(path)) return 1;
+    return img.save(QDir(dirPath).filePath(name + QStringLiteral(".png")));
+  };
+
+  for (const tramp::WindowSpec& spec : tramp::windowSpecs()) {
+    if (!shoot(spec, golden, dumpName(spec.id))) return 1;
+    // Collapsing the collection is persisted, so a listener can spend every
+    // session in it, and it lays the panel out differently. Dumping only the
+    // default state left that layout with nothing watching it.
+    if (spec.id == tramp::WindowId::playlist) {
+      tramp::SessionView collapsed = golden;
+      collapsed.collectionCollapsed = true;
+      if (!shoot(spec, collapsed, dumpName(spec.id) + QStringLiteral("_collapsed"))) return 1;
+    }
   }
   return 0;
 }

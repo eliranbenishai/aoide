@@ -450,7 +450,7 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   int playingN = view.playingIndex ? *view.playingIndex + 1 : 0;
   qreal collectionW = view.collectionCollapsed ? 0 : view.collectionWidth;
   if (view.goldenDemo) {
-    collectionW = 240;
+    collectionW = view.collectionCollapsed ? 0 : 240;
     lists = {
         {QStringLiteral("ANALOGUE GHOSTS"), 24, false, false},
         {QStringLiteral("COPPER RAIN EP"), 13, true, false},
@@ -477,8 +477,8 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   }
 
   const QRectF collection(body.left(), body.top(), collectionW, body.height());
-  const QRectF divider(collection.right(), collection.top(), collectionW > 0 ? 8 : 0,
-                       collection.height());
+  const QRectF divider(collection.right(), collection.top(),
+                       collectionW > 0 ? kPlaylistDividerW : 0, collection.height());
   const QRectF tracksPane = playlistTracksPane(body, collectionW);
   if (collectionW > 0) {
     p.fillRect(divider, T().shellDeep);
@@ -548,8 +548,8 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
     drawIcon(p, QRectF(r.center().x() - 6.5, r.center().y() - 6.5, 13, 13), MockupIcon::remove,
              T().glyphInk);
   }, false);
-  } else if (!view.goldenDemo) {
-    const QRectF tab(tracksPane.left() + 4, tracksPane.top() + 12, 14, 56);
+  } else {
+    const QRectF tab = playlistReopenTab(body);
     drawBtn(p, tab, faceOf(phases, K::plCollapse, false), {});
     drawChevron(p, QRectF(tab.center().x() - 2.8, tab.center().y() - 4, 5.6, 8), false,
                 T().glyphInk);
