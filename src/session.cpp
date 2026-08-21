@@ -522,11 +522,12 @@ void TrampSession::applyProbedBatch(const QVector<ProbedTrack>& batch, int gen, 
   holdChrome_ = true;
   bool touchedCache = false;
   bool gotDuration = false;
-  QMap<QString, QString> exactPath;
+  // Read the list once for the whole batch. No answer in a batch names the same
+  // row twice, and nothing turns the event loop in here, so a row taken now is
+  // still the row when its answer comes up.
+  QMap<QString, Track> rows;
   if (overwrite) {
-    for (const Track& t : playlist_.tracks()) {
-      exactPath.insert(normalizePlaylistPath(t.path), t.path);
-    }
+    for (const Track& t : playlist_.tracks()) rows.insert(normalizePlaylistPath(t.path), t);
   }
   for (const ProbedTrack& answer : batch) {
     probeOutstanding_.remove(answer.path);
@@ -534,19 +535,17 @@ void TrampSession::applyProbedBatch(const QVector<ProbedTrack>& batch, int gen, 
       // `applyMetadata` deliberately never replaces a title that is already
       // there, which is the wrong answer for Refresh: the point of Refresh is
       // that the file wins.
-      ProbedAudio probed;
-      probed.title = answer.title;
-      probed.artist = answer.artist;
-      probed.album = answer.album;
-      if (answer.durationMs > 0) probed.durationMs = answer.durationMs;
-      const QString exact =
-          exactPath.value(normalizePlaylistPath(answer.path), answer.path);
-      for (const Track& t : playlist_.tracks()) {
-        if (t.path != exact) continue;
-        Track next = t;
+      const auto row = rows.constFind(normalizePlaylistPath(answer.path));
+      if (row != rows.constEnd()) {
+        ProbedAudio probed;
+        probed.title = answer.title;
+        probed.artist = answer.artist;
+        probed.album = answer.album;
+        if (answer.durationMs > 0) probed.durationMs = answer.durationMs;
+        Track next = *row;
         applyProbedAudio(next, probed, true);
-        playlist_.updateTrackByPath(exact, next);
-        break;
+        // Keeps whatever the path verify has said about the row since.
+        playlist_.updateTrackByPath(next.path, next);
       }
     } else {
       playlist_.applyMetadata(answer.path, answer.title, answer.artist, answer.album,
