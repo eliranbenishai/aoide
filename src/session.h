@@ -3,7 +3,7 @@
 #include "chrome_hits.h"
 #include "chrome_menu.h"
 #include "collection.h"
-#include "docking.h"
+#include "layout_sync.h"
 #include "look.h"
 #include "persist.h"
 #include "playback.h"
@@ -23,14 +23,13 @@
 #include <QVector>
 #include <atomic>
 #include <memory>
-#include <optional>
 
 class HostWindow;
 class HostShell;
 
 namespace tramp {
 
-class TrampSession : public QObject {
+class TrampSession : public QObject, public PanelSurfaces {
   Q_OBJECT
 
  public:
@@ -43,7 +42,7 @@ class TrampSession : public QObject {
   void bootstrap(const QStringList& argvFiles);
   SessionView view() const;
   MainLiveReadouts mainLive() const;
-  int zoomPercent() const { return settings_.zoomPercent; }
+  int zoomPercent() const { return layout_.zoomPercent(); }
   bool confirmQuit() const;
   bool windowShouldShow(WindowId id) const;
   void persistNow();
@@ -87,7 +86,6 @@ class TrampSession : public QObject {
   void scheduleApplyEq();
   void refreshEqChrome();
   void applyAlwaysOnTop();
-  void applyFramesToWindows();
   void schedulePersist();
   QString bundledSkinsDir() const;
   SkinController::ConflictFn skinConflictPrompt();
@@ -120,14 +118,8 @@ class TrampSession : public QObject {
   QString pickPlaylist(bool save);
   void openPaths(const QStringList& paths, bool enqueue);
   void loadCollectionRow(int index);
-  void applyDockToWindows(std::optional<WindowId> skip = {});
-  void syncLayoutFromWindows(std::optional<WindowId> skip = {});
-  QPointF nativeToLogical(QPoint native) const;
-  QPoint logicalToNative(QPointF logical) const;
-  QRect nativeFrameRect(WindowId id) const;
-  void writeNativeFrame(WindowId id, QRect native);
-  void clampOneToHost(WindowId id);
-  void fitClusterToHost();
+  QRect hostRect() const override;
+  void placePanels(const QVector<PanelPlacement>& panels) override;
   void showOptionsMenu(QRect logicalHit);
   int execAnchoredMenu(const QVector<ChromeMenuItem>& items, HostWindow* host, QRect logicalHit,
                        PopupAnchor anchor);
@@ -159,7 +151,7 @@ class TrampSession : public QObject {
   // every loop iteration, so all three have to be atomic.
   std::atomic<int> spectrumGen_{0};
   bool spectrumReady_ = false;
-  DockingCoordinator docking_;
+  LayoutSync layout_;
   SkinController skins_;
   HostWindow* main_ = nullptr;
   HostWindow* eq_ = nullptr;
@@ -172,7 +164,6 @@ class TrampSession : public QObject {
   ChromeHit::Kind sliderKind_ = ChromeHit::Kind::none;
   int sliderIndex_ = -1;
   QPoint dragOrigin_;
-  QSet<WindowId> hiddenByMinimize_;
   QTimer marqueeTimer_;
   QElapsedTimer marqueeClock_;
   QString marqueeIdentity_;
@@ -190,7 +181,6 @@ class TrampSession : public QObject {
   /// than staying at --:-- until the list is opened again.
   QSet<QString> probeOutstanding_;
   bool figuresLoaded_ = false;
-  bool applyingDock_ = false;
   bool titleDragging_ = false;
   int skinsScroll_ = 0;
   /// A playlist is still taking on track data — what the Refresh lamp reports.
