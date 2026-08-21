@@ -10,6 +10,9 @@
 namespace tramp {
 namespace {
 
+/// A run with no cancel function is one nobody can call off.
+bool wanted(const ProbeCancelFn& stillWanted) { return !stillWanted || stillWanted(); }
+
 quint32 u32le(const QByteArray& bytes, int offset) {
   return qFromLittleEndian<quint32>(reinterpret_cast<const uchar*>(bytes.constData() + offset));
 }
@@ -77,13 +80,18 @@ void drainMpvEvents(mpv_handle* mpv) {
   }
 }
 
-std::optional<ProbedAudio> probeWithMpv(mpv_handle* mpv, const QString& path) {
+std::optional<ProbedAudio> probeWithMpv(mpv_handle* mpv, const QString& path,
+                                        const ProbeCancelFn& stillWanted) {
   drainMpvEvents(mpv);
   const QByteArray encoded = path.toUtf8();
   const char* cmd[] = {"loadfile", encoded.constData(), "replace", nullptr};
   if (mpv_command(mpv, cmd) < 0) return std::nullopt;
   bool loaded = false;
   for (int i = 0; i < 80; ++i) {
+    // Every tick, not once per file. mpv can accept a file off a stalled mount
+    // and never report it loaded, and the twenty seconds that costs used to be
+    // twenty seconds nobody could interrupt.
+    if (!wanted(stillWanted)) return std::nullopt;
     mpv_event* ev = mpv_wait_event(mpv, 0.25);
     if (!ev || ev->event_id == MPV_EVENT_NONE) continue;
     if (ev->event_id == MPV_EVENT_FILE_LOADED) {
@@ -153,7 +161,7 @@ std::optional<qint64> probeAudioDurationMs(const QString& path) {
   if (!mpv) return std::nullopt;
   std::optional<qint64> ms;
   try {
-    if (const auto probed = probeWithMpv(mpv, path)) ms = probed->durationMs;
+    if (const auto probed = probeWithMpv(mpv, path, {})) ms = probed->durationMs;
   } catch (...) {
     ms = std::nullopt;
   }
@@ -164,13 +172,18 @@ std::optional<qint64> probeAudioDurationMs(const QString& path) {
 #endif
 }
 
-void probeAudioDurations(const QStringList& paths, const std::function<bool()>& stillWanted,
-                         const std::function<void(const QString&, const ProbedAudio&)>& onProbed) {
+void probeAudioDurations(const QStringList& paths, const ProbeCancelFn& stillWanted,
+                         const std::function<void(const QString&, const ProbedAudio&)>& onProbed,
+                         const ProbeOneFn& probeOne) {
 #ifdef TRAMP_HAVE_MPV
   mpv_handle* mpv = nullptr;
 #endif
   for (const QString& path : paths) {
-    if (stillWanted && !stillWanted()) break;
+    if (!wanted(stillWanted)) break;
+    if (probeOne) {
+      if (const auto probed = probeOne(path, stillWanted)) onProbed(path, *probed);
+      continue;
+    }
     QFile file(path);
     if (file.open(QIODevice::ReadOnly)) {
       const QByteArray head = file.read(64 * 1024);
@@ -185,7 +198,7 @@ void probeAudioDurations(const QStringList& paths, const std::function<bool()>& 
     if (!mpv) mpv = createProbeMpv();
     if (!mpv) continue;
     try {
-      if (const auto probed = probeWithMpv(mpv, path)) onProbed(path, *probed);
+      if (const auto probed = probeWithMpv(mpv, path, stillWanted)) onProbed(path, *probed);
     } catch (...) {
     }
 #endif

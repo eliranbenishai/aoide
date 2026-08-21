@@ -95,13 +95,26 @@ class TrampSession : public QObject {
   void scheduleUsage();
   void refreshAboutFigures();
   void persistCollectionCache();
+  /// One probe answer on its way back to the GUI thread. Answers travel in
+  /// batches: a thousand-track open landing one row at a time would rebuild
+  /// every panel a thousand times.
+  struct ProbedTrack {
+    QString path;
+    QString title;
+    QString artist;
+    QString album;
+    qint64 durationMs = 0;
+  };
+
   QVector<Track> ingestPlaylistFile(const QString& path);
-  void probeTracksBlocking(QVector<Track>& tracks, bool overwrite);
   void schedulePathVerify();
   void refreshCurrentPlaylist();
-  void startDurationProbe(const QVector<Track>& tracks);
-  void onProbedAudio(const QString& path, const QString& title, const QString& artist,
-                     const QString& album, qint64 ms);
+  /// Ask about every track this list still needs, on a worker. [overwrite] is
+  /// Refresh: believe the files over the file that listed them.
+  void startDurationProbe(const QVector<Track>& tracks, bool overwrite = false);
+  void applyProbedBatch(const QVector<ProbedTrack>& batch, int gen, bool overwrite);
+  void probeFinished(int gen);
+  void setIngesting(bool ingesting);
   HostWindow* windowFor(WindowId id) const;
   QString pickAudio(bool multiple);
   QString pickPlaylist(bool save);
@@ -172,11 +185,21 @@ class TrampSession : public QObject {
   CollectionFigures figures_;
   std::atomic<int> durationGen_{0};
   std::atomic<int> verifyGen_{0};
+  /// Paths the live probe generation still owes an answer for. A second ingest
+  /// supersedes the first worker, so these ride along into the new run rather
+  /// than staying at --:-- until the list is opened again.
+  QSet<QString> probeOutstanding_;
   bool figuresLoaded_ = false;
   bool applyingDock_ = false;
   bool titleDragging_ = false;
   int skinsScroll_ = 0;
-  bool playlistRefreshing_ = false;
+  /// A playlist is still taking on track data — what the Refresh lamp reports.
+  bool ingesting_ = false;
+  /// Set while a batch of probe answers is being applied: every answer touches
+  /// the list, and every touch would otherwise rebuild the view and hand it to
+  /// five panels. One batch is one change as far as the chrome is concerned.
+  bool holdChrome_ = false;
+  bool chromeHeld_ = false;
   /// Last, so that even a teardown path that forgets to stop the workers joins
   /// them before any member they touch is destroyed.
   WorkerCrew workers_;

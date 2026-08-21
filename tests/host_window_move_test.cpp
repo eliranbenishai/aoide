@@ -44,7 +44,7 @@ class HostWindowMoveTest : public QObject {
   void hitRegionsDoNotOverlap();
   void waitCursorRebuildsChassisBeforeRefreshReturns();
   void refreshButtonLightsWhilePlaylistRefreshing();
-  void waitCursorFlushShowsRefreshOn();
+  void refreshLampLightsOnTheLiveEventLoop();
 };
 
 void HostWindowMoveTest::parentedPanelMoveDoesNotEmitNativeMoved() {
@@ -547,10 +547,16 @@ int rgbDistance(QRgb a, const QColor& b) {
 
 }  // namespace
 
-void HostWindowMoveTest::waitCursorFlushShowsRefreshOn() {
+// The lamp used to have to flush with the wait cursor, because the work it
+// announced held the event loop: nothing reached the screen until that work had
+// already finished. Ingest runs on a worker now, so the lamp gets there the
+// ordinary way — publish the view, turn the loop — and there is no wait cursor
+// on that path at all. Which face it lights is
+// `refreshButtonLightsWhilePlaylistRefreshing`.
+void HostWindowMoveTest::refreshLampLightsOnTheLiveEventLoop() {
   const auto specs = tramp::windowSpecs();
   HostShell shell;
-  HostWindow pl(specs[2], &shell);
+  PaintCountHost pl(specs[2], &shell);
   shell.show();
   pl.show();
   QVERIFY(QTest::qWaitForWindowExposed(&pl));
@@ -562,23 +568,11 @@ void HostWindowMoveTest::waitCursorFlushShowsRefreshOn() {
 
   tramp::SessionView busy = idle;
   busy.playlistRefreshing = true;
-  const tramp::ChromeHit hit = refreshHit(busy);
-  QCOMPARE(hit.kind, tramp::ChromeHit::Kind::plRefresh);
-
-  const tramp::ChromeTokens tokens = tramp::ChromeTokens::builtin();
-  auto distanceToOn = [&]() {
-    const QImage img = pl.grab(pl.widgetRectFromLogical(hit.rect)).toImage();
-    const QPoint sample(img.width() / 2, qMin(4, img.height() - 1));
-    return rgbDistance(img.pixel(sample), tokens.btnOn0);
-  };
-  const int idleToOn = distanceToOn();
-
+  const int before = pl.paints;
   pl.setSessionView(busy);
-  {
-    tramp::WaitCursorScope wait;
-    QVERIFY2(distanceToOn() < idleToOn,
-             "Refresh on-face must flush with the wait cursor, not after blocking work");
-  }
+  QVERIFY2(!tramp::WaitCursorScope::showing(), "a playlist ingest must not raise a wait cursor");
+  QCOMPARE(pl.paints, before);
+  QTRY_VERIFY2(pl.paints > before, "the lamp must reach the screen on the next turn of the loop");
 }
 
 void HostWindowMoveTest::refreshButtonLightsWhilePlaylistRefreshing() {

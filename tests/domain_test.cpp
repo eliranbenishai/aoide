@@ -19,6 +19,7 @@
 #include "wav_reader.h"
 
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QMap>
@@ -28,11 +29,15 @@
 #include <QVariant>
 #include <QVector>
 #include <array>
+#include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 #include <stdexcept>
+#include <thread>
 
 namespace {
 
@@ -1969,6 +1974,44 @@ int main() {
   }
 
   {
+    // The two ends of the background probe apply an answer differently on
+    // purpose. An ingest fills in what the row does not know; Refresh believes
+    // the file over the file that listed it, so a stale #EXTINF is corrected
+    // rather than kept.
+    Track stale;
+    stale.path = QStringLiteral("/tmp/stale.mp3");
+    stale.title = QStringLiteral("Wrong Title");
+    stale.durationMs = 9000;
+
+    tramp::ProbedAudio truth;
+    truth.title = QStringLiteral("Right Title");
+    truth.durationMs = 221000;
+
+    Track kept = stale;
+    tramp::applyProbedAudio(kept, truth, false);
+    REQUIRE_EQ(kept.title, QStringLiteral("Wrong Title"));
+    REQUIRE_EQ(kept.durationMs.value_or(0), qint64(9000));
+
+    Track corrected = stale;
+    tramp::applyProbedAudio(corrected, truth, true);
+    REQUIRE_EQ(corrected.title, QStringLiteral("Right Title"));
+    REQUIRE_EQ(corrected.durationMs.value_or(0), qint64(221000));
+
+    // Refresh puts the corrected row back by path, and a row the path verify
+    // has already disabled stays disabled.
+    PlaylistController list;
+    Track row = stale;
+    row.disabled = true;
+    list.setTracks({row}, QStringLiteral("/tmp/current.m3u"));
+    Track next = list.tracks()[0];
+    tramp::applyProbedAudio(next, truth, true);
+    REQUIRE(list.updateTrackByPath(stale.path, next));
+    REQUIRE_EQ(list.tracks()[0].title, QStringLiteral("Right Title"));
+    REQUIRE_EQ(list.tracks()[0].durationMs.value_or(0), qint64(221000));
+    REQUIRE(list.tracks()[0].disabled);
+  }
+
+  {
     PlaylistController list;
     Track t;
     t.path = QStringLiteral("/tmp/keep-playing.mp3");
@@ -2081,6 +2124,64 @@ int main() {
     REQUIRE_EQ(complete, 8);
   }
 #endif
+
+  {
+    // Every answer is reported the moment it lands, so a list can paint itself
+    // while the rest of it is still being asked about.
+    const QStringList paths{QStringLiteral("a.flac"), QStringLiteral("b.flac")};
+    QStringList order;
+    tramp::probeAudioDurations(
+        paths, {},
+        [&](const QString& p, const tramp::ProbedAudio&) { order.push_back(QLatin1String("said ") + p); },
+        [&](const QString& p, const tramp::ProbeCancelFn&) {
+          order.push_back(QLatin1String("asked ") + p);
+          tramp::ProbedAudio probed;
+          probed.durationMs = 2000;
+          return std::optional<tramp::ProbedAudio>(probed);
+        });
+    REQUIRE_EQ(order.join(QLatin1Char('/')),
+               QStringLiteral("asked a.flac/said a.flac/asked b.flac/said b.flac"));
+  }
+
+  {
+    // A stalled network mount cannot be mounted in a test, so the per-file probe
+    // is the seam: this one takes as long as a file mpv accepts and never
+    // reports loaded, and answers the cancel question on the same small ticks
+    // the libmpv wait does. Cancelling has to land inside the file being probed
+    // — waiting out the file is what held teardown for twenty seconds.
+    QStringList paths;
+    for (int i = 0; i < 20; ++i) paths.push_back(QStringLiteral("/slow/mount/%1.flac").arg(i));
+    std::atomic<bool> live{true};
+    QStringList asked;
+    QStringList said;
+
+    QElapsedTimer clock;
+    clock.start();
+    std::thread worker([&]() {
+      tramp::probeAudioDurations(
+          paths, [&]() { return live.load(); },
+          [&](const QString& p, const tramp::ProbedAudio&) { said.push_back(p); },
+          [&](const QString& p, const tramp::ProbeCancelFn& stillWanted) {
+            asked.push_back(p);
+            for (int tick = 0; tick < 200; ++tick) {
+              if (stillWanted && !stillWanted()) return std::optional<tramp::ProbedAudio>();
+              std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            tramp::ProbedAudio probed;
+            probed.durationMs = 1000;
+            return std::optional<tramp::ProbedAudio>(probed);
+          });
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+    live.store(false);
+    worker.join();
+
+    // One file is 200 ms and the whole run is four seconds; stopping has to cost
+    // a tick, not a file, and nothing after the cancelled file gets asked at all.
+    REQUIRE(clock.elapsed() < 150);
+    REQUIRE_EQ(asked.size(), 1);
+    REQUIRE(said.isEmpty());
+  }
 
   {
     int applied = 0;

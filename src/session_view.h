@@ -66,6 +66,10 @@ struct SessionView {
   qint64 playlistTotalMs = 0;
   int playlistTrackCount = 0;
   bool playlistRefreshEnabled = false;
+  /// The playlist is still taking on track data: the rows are there, but some
+  /// of their durations and titles are still being asked for. Lights the
+  /// Refresh lamp, and now covers every ingest — open, add, Refresh, Save and
+  /// drop — rather than only the one that used to freeze the window.
   bool playlistRefreshing = false;
   int settingsTab = 0;
   bool resumeLastSession = true;
