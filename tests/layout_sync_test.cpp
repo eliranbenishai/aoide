@@ -60,6 +60,8 @@ class LayoutSyncTest : public QObject {
   void clampPullsAPanelBackOntoTheDesktop();
   void clampLeavesEverythingAloneWhenThereIsNoHostYet();
   void clampAcceptsAScreenLeftOfThePrimary();
+  void aClusterIsTranslatedWholeOntoAScreenLeftOfThePrimary();
+  void clampingOntoAScreenLeftOfThePrimaryDropsTheEdgesItBreaks();
   void unpluggingAMonitorTranslatesAClusterThatStillFits();
   void aClusterTooWideForTheDesktopClampsEachPanelAndDropsTheEdgesThatBreaks();
   void aCrawlTooSlowToPeelStillLosesTheEdgeItCrawledAwayFrom();
@@ -178,6 +180,60 @@ void LayoutSyncTest::clampAcceptsAScreenLeftOfThePrimary() {
 
   layout.clampToHost(WindowId::about);
   QCOMPARE(layout.nativeFrameRect(WindowId::about), QRect(-1920, -200, 480, 360));
+
+  // And the far edge is a distance from that origin rather than from zero, so a
+  // panel overshooting the right-hand monitor comes back to the same place it
+  // would on a desktop that started at zero.
+  layout.setNativeFrame(WindowId::about, QRect(5000, 5000, 480, 360));
+  layout.clampToHost(WindowId::about);
+  QCOMPARE(layout.nativeFrameRect(WindowId::about), QRect(1440, 720, 480, 360));
+}
+
+void LayoutSyncTest::aClusterIsTranslatedWholeOntoAScreenLeftOfThePrimary() {
+  // A monitor left of and above the primary puts the whole cluster in negative
+  // coordinates. Every unit test before this one used a desktop starting at
+  // zero, where a sign error and a correct answer look the same.
+  FakeDesktop desktop(QRect(-1920, -1080, 3840, 2160));
+  DockLayout dock;
+  dock.main = {true, false, -4000, -3000, {}, {}};
+  dock.equalizer = {true, false, -4000, -2652, {}, {}};
+  dock.playlist.visible = false;
+  dock.dockEdges = {{WindowId::equalizer, WindowId::main, tramp::DockSide::top}};
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  layout.fitClusterToHost();
+  layout.place();
+
+  QCOMPARE(layout.nativeFrameRect(WindowId::main), QRect(-1920, -1080, 825, 348));
+  // Translated whole, so the equalizer is still flush under main and its edge
+  // survives the trip: the cluster moved, the arrangement did not.
+  QCOMPARE(layout.nativeFrameRect(WindowId::equalizer), QRect(-1920, -732, 825, 348));
+  QCOMPARE(layout.layout().dockEdges.size(), 1);
+}
+
+void LayoutSyncTest::clampingOntoAScreenLeftOfThePrimaryDropsTheEdgesItBreaks() {
+  // The same fallback as a desktop starting at zero, on the monitor that is left
+  // of the primary: each panel pulled inside, and the edges clamping breaks
+  // dropped rather than left pointing at a contact on the monitor that has gone.
+  FakeDesktop desktop(QRect(-1920, -200, 900, 1080));
+  DockLayout dock;
+  dock.main = {true, false, -1920, -200, {}, {}};
+  dock.playlist = {true, false, -1095, -200, 1073.0, 696.0};
+  dock.equalizer.visible = false;
+  dock.dockEdges = {
+      {WindowId::playlist, WindowId::main, tramp::DockSide::left},
+      {WindowId::playlist, WindowId::main, tramp::DockSide::top},
+  };
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  layout.fitClusterToHost();
+  layout.place();
+
+  QCOMPARE(layout.nativeFrameRect(WindowId::main), QRect(-1920, -200, 825, 348));
+  QCOMPARE(layout.nativeFrameRect(WindowId::playlist), QRect(-1920, -200, 900, 696));
+  QVERIFY(layout.layout().dockEdges.isEmpty());
 }
 
 void LayoutSyncTest::unpluggingAMonitorTranslatesAClusterThatStillFits() {
