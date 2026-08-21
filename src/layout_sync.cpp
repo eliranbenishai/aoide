@@ -3,6 +3,7 @@
 #include "host_shell.h"
 
 #include <cmath>
+#include <iterator>
 
 namespace tramp {
 namespace {
@@ -73,6 +74,40 @@ void LayoutSync::fitClusterToHost() {
     return;
   }
   for (WindowId id : ids) clampToHost(id);
+}
+
+void LayoutSync::setMainMinimized(bool minimized) {
+  suppressed_.clear();
+  if (!minimized) return;
+  for (WindowId id : kAllPanels) {
+    if (id != WindowId::main && docking_.layout().frameOf(id).visible) suppressed_.insert(id);
+  }
+}
+
+void LayoutSync::place() {
+  if (!surfaces_ || placing_) return;
+  placing_ = true;
+  docking_.ensureMainVisible();
+  const QRect host = surfaces_->hostRect();
+
+  QVector<PanelPlacement> panels;
+  panels.reserve(int(std::size(kAllPanels)));
+  for (WindowId id : kAllPanels) {
+    const WindowFrame& frame = docking_.layout().frameOf(id);
+    const QSizeF canvas = docking_.canvasSize(id);
+    PanelPlacement panel;
+    panel.id = id;
+    panel.logicalSize = QSize(qRound(canvas.width()), qRound(canvas.height()));
+    panel.shaded = frame.shaded;
+    panel.visible = frame.visible && !suppressed_.contains(id);
+    if (panel.visible) {
+      panel.screen = nativeFrameRect(id);
+      if (!host.isEmpty()) panel.screen = clampRectToHost(panel.screen, host);
+    }
+    panels.push_back(panel);
+  }
+  surfaces_->placePanels(panels);
+  placing_ = false;
 }
 
 }  // namespace tramp

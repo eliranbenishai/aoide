@@ -87,7 +87,6 @@ class TrampSession : public QObject, public PanelSurfaces {
   void scheduleApplyEq();
   void refreshEqChrome();
   void applyAlwaysOnTop();
-  void applyFramesToWindows();
   void schedulePersist();
   QString bundledSkinsDir() const;
   SkinController::ConflictFn skinConflictPrompt();
@@ -120,9 +119,9 @@ class TrampSession : public QObject, public PanelSurfaces {
   QString pickPlaylist(bool save);
   void openPaths(const QStringList& paths, bool enqueue);
   void loadCollectionRow(int index);
-  void applyDockToWindows(std::optional<WindowId> skip = {});
   void syncLayoutFromWindows(std::optional<WindowId> skip = {});
   QRect hostRect() const override;
+  void placePanels(const QVector<PanelPlacement>& panels) override;
   void showOptionsMenu(QRect logicalHit);
   int execAnchoredMenu(const QVector<ChromeMenuItem>& items, HostWindow* host, QRect logicalHit,
                        PopupAnchor anchor);
@@ -167,7 +166,6 @@ class TrampSession : public QObject, public PanelSurfaces {
   ChromeHit::Kind sliderKind_ = ChromeHit::Kind::none;
   int sliderIndex_ = -1;
   QPoint dragOrigin_;
-  QSet<WindowId> hiddenByMinimize_;
   QTimer marqueeTimer_;
   QElapsedTimer marqueeClock_;
   QString marqueeIdentity_;

@@ -16,6 +16,21 @@ class FakeDesktop : public tramp::PanelSurfaces {
   QRect hostRect() const override { return host_; }
   void setHostRect(QRect host) { host_ = host; }
 
+  void placePanels(const QVector<tramp::PanelPlacement>& panels) override {
+    ++passes;
+    last = panels;
+  }
+
+  tramp::PanelPlacement placementOf(WindowId id) const {
+    for (const tramp::PanelPlacement& panel : last) {
+      if (panel.id == id) return panel;
+    }
+    return {};
+  }
+
+  int passes = 0;
+  QVector<tramp::PanelPlacement> last;
+
  private:
   QRect host_;
 };
@@ -37,6 +52,9 @@ class LayoutSyncTest : public QObject {
   void clampAcceptsAScreenLeftOfThePrimary();
   void unpluggingAMonitorTranslatesAClusterThatStillFits();
   void aClusterTooWideForTheDesktopFallsBackToClampingEachPanel();
+  void everyPanelReachesTheSurfacesIncludingTheHiddenOnes();
+  void minimizingMainSuppressesThePanelsWithoutForgettingThem();
+  void aShadedPanelKeepsTheCanvasItWillGoBackTo();
 };
 
 void LayoutSyncTest::nativeAndLogicalAreInversesAcrossTheZoomLadder() {
@@ -180,6 +198,59 @@ void LayoutSyncTest::aClusterTooWideForTheDesktopFallsBackToClampingEachPanel() 
   layout.fitClusterToHost();
   QCOMPARE(layout.nativeFrameRect(WindowId::main), QRect(0, 0, 825, 348));
   QCOMPARE(layout.nativeFrameRect(WindowId::playlist), QRect(0, 0, 900, 696));
+}
+
+void LayoutSyncTest::everyPanelReachesTheSurfacesIncludingTheHiddenOnes() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  DockLayout dock;
+  dock.main = {true, false, 40, 40, {}, {}};
+  dock.equalizer = {true, false, 40, 388, {}, {}};
+  dock.playlist.visible = false;
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  layout.place();
+  QCOMPARE(desktop.last.size(), 5);
+  QCOMPARE(desktop.placementOf(WindowId::main).screen, QRect(40, 40, 825, 348));
+  QVERIFY(desktop.placementOf(WindowId::equalizer).visible);
+  QVERIFY(!desktop.placementOf(WindowId::playlist).visible);
+}
+
+void LayoutSyncTest::minimizingMainSuppressesThePanelsWithoutForgettingThem() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  DockLayout dock;
+  dock.equalizer = {true, false, 0, 348, {}, {}};
+  dock.about = {false, false, 900, 40, {}, {}};
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  layout.setMainMinimized(true);
+  layout.place();
+  QVERIFY(!desktop.placementOf(WindowId::equalizer).visible);
+  // The frame is untouched: minimize hides a panel, it does not close it.
+  QVERIFY(layout.layout().equalizer.visible);
+
+  layout.setMainMinimized(false);
+  layout.place();
+  QVERIFY(desktop.placementOf(WindowId::equalizer).visible);
+  // A panel that was already closed stays closed through the round trip.
+  QVERIFY(!desktop.placementOf(WindowId::about).visible);
+}
+
+void LayoutSyncTest::aShadedPanelKeepsTheCanvasItWillGoBackTo() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  DockLayout dock;
+  dock.playlist = {true, true, 0, 0, 900.0, 600.0};
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  layout.place();
+  const tramp::PanelPlacement pl = desktop.placementOf(WindowId::playlist);
+  // The screen rectangle collapses to the title bar; the canvas handed to the
+  // panel does not, or unshading would restore a 42px playlist.
+  QCOMPARE(pl.screen.height(), tramp::kTitleBar);
+  QCOMPARE(pl.logicalSize, QSize(900, 600));
+  QVERIFY(pl.shaded);
 }
 
 QTEST_APPLESS_MAIN(LayoutSyncTest)

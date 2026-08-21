@@ -59,6 +59,11 @@ class DockingCoordinator {
   /// default offset: EQ flush below main, playlist flush to main's right.
   void nudgeOffMainIfStacked(WindowId id);
   QRectF rectFor(WindowId id) const;
+  /// The panel's logical canvas, ignoring windowshade — the size it goes back
+  /// to. Only the playlist's varies.
+  QSizeF canvasSize(WindowId id) const;
+  /// What docking measures the panel by: its canvas, collapsed to the title bar
+  /// while it is shaded.
   QSizeF logicalSize(WindowId id) const;
 
  private:

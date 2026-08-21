@@ -26,7 +26,7 @@ const WindowFrame& DockLayout::frameOf(WindowId id) const {
 
 DockingCoordinator::DockingCoordinator(DockLayout layout) : layout_(std::move(layout)) {}
 
-QSizeF DockingCoordinator::logicalSize(WindowId id) const {
+QSizeF DockingCoordinator::canvasSize(WindowId id) const {
   const WindowFrame& frame = layout_.frameOf(id);
   QSizeF base;
   switch (id) {
@@ -47,7 +47,12 @@ QSizeF DockingCoordinator::logicalSize(WindowId id) const {
       base = QSizeF(kAbout);
       break;
   }
-  if (frame.shaded) {
+  return base;
+}
+
+QSizeF DockingCoordinator::logicalSize(WindowId id) const {
+  QSizeF base = canvasSize(id);
+  if (layout_.frameOf(id).shaded) {
     base.setHeight(kTitleBar);
   }
   return base;
