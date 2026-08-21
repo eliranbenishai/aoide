@@ -35,6 +35,7 @@ class HostWindowMoveTest : public QObject {
  private slots:
   void parentedPanelMoveDoesNotEmitNativeMoved();
   void siblingDragDoesNotPayFullClusterPaint();
+  void movingAPanelDoesNotRerasteriseIt();
   void waitCursorRebuildsChassisBeforeRefreshReturns();
   void refreshButtonLightsWhilePlaylistRefreshing();
   void waitCursorFlushShowsRefreshOn();
@@ -75,6 +76,42 @@ void HostWindowMoveTest::siblingDragDoesNotPayFullClusterPaint() {
   QCOMPARE(pl.mapToGlobal(QPoint(0, 0)), plR.topLeft());
   QVERIFY2(ns < 10'000'000,
            "moving a sibling must not pay a full cluster paint (10ms for 20 moves)");
+}
+
+// Dragging a panel used to re-run its whole procedural paint on every mouse
+// move, which is what made drags crawl. Moving cannot change a panel's pixels,
+// so it must come out of the cache; changing its content must not.
+void HostWindowMoveTest::movingAPanelDoesNotRerasteriseIt() {
+  const auto specs = tramp::windowSpecs();
+  HostShell shell;
+  HostWindow pl(specs[2], &shell);
+  shell.show();
+  pl.show();
+  QVERIFY(QTest::qWaitForWindowExposed(&pl));
+
+  tramp::SessionView view;
+  view.playlistRefreshEnabled = true;
+  pl.setSessionView(view);
+  const QImage before = pl.grab().toImage();
+  pl.resetPaintStats();
+
+  pl.move(pl.pos() + QPoint(11, 7));
+  const QImage after = pl.grab().toImage();
+  QVERIFY2(pl.paintStats().paints > 0, "the move must actually have repainted");
+  QCOMPARE(pl.paintStats().chassisBuilds, 0);
+  QVERIFY2(before == after, "a move must not change a panel's pixels");
+
+  pl.resetPaintStats();
+  tramp::SessionView changed = view;
+  changed.playlistRefreshing = true;
+  pl.setSessionView(changed);
+  pl.grab();
+  QCOMPARE(pl.paintStats().chassisBuilds, 1);
+
+  pl.resetPaintStats();
+  pl.resize(pl.size() + QSize(40, 20));
+  pl.grab();
+  QVERIFY2(pl.paintStats().chassisBuilds >= 1, "a resize must re-rasterise at the new size");
 }
 
 void HostWindowMoveTest::waitCursorRebuildsChassisBeforeRefreshReturns() {

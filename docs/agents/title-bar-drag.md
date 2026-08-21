@@ -41,7 +41,7 @@ Measure with `--bench-drag` (below) before theorising. What the numbers say:
 - **Paint is the problem**, and two things made it enormous:
   1. **The build had no optimisation.** `build.sh` passed no `-O` flag and `CMakeLists.txt` set no default `CMAKE_BUILD_TYPE`, so the binary anyone dragged was `-O0`. That alone was ~12× on every paint. Both now default to optimised, and `--bench-chrome` fails the gate when `__OPTIMIZE__` is absent.
   2. **`gaussianBlur` dominated everything else.** A naive `double` separable convolution, `constScanLine()` per tap, radius `3σ` (73 taps at σ=12), two allocations per call. It was **99% of all paint cost**: ablating it took a full main paint from 282 ms to 2.6 ms.
-- **Panels without a chassis/live split pay that cost on every move.** Main and EQ cache a chassis and run zero blurs per paint. Playlist, settings and about call `paintMockupWindow` with the default `BodyPaint::full`, which also sets `glow = true`.
+- **Panels that re-rasterise per move pay that cost per move.** Main and EQ cached a chassis and ran zero blurs. Playlist, settings and about called `paintMockupWindow` with the default `BodyPaint::full`, which also sets `glow = true`. They now cache their whole paint, because none of them has per-frame content.
 
 Per-repaint cost, KWin/Wayland, zoom 75%:
 
@@ -53,17 +53,18 @@ Per-repaint cost, KWin/Wayland, zoom 75%:
 | playlist | 49.1 ms (18 blurs, 84% blur) | 8.7 ms |
 | about | 200.3 ms (18 blurs, 98% blur) | 6.3 ms |
 
-Per-move drag cost, same conditions:
+A main-panel drag translates the cluster, so **every visible panel repaints on every move** — the 5-panel drag cost is the sum of the column above. Per-move cost, same conditions, after both the paint fix and per-panel caching:
 
 | Gesture | Before | After |
 |---|---|---|
-| main, main only | 0.55 ms (740 fps) | 0.7 ms |
-| main, all five open | 281 ms (**3.5 fps**) | 27 ms (36 fps) |
-| playlist | 49.7 ms (20 fps) | 10.8 ms (92 fps) |
-| about | 200 ms (5 fps) | 10.1 ms (99 fps) |
-| playlist resize | 157 ms (8.4 fps) | 20 ms (58 fps) |
+| main, main only | 0.55 ms (740 fps) | 0.51 ms (596 fps) |
+| main, all five open | 281 ms (**3.5 fps**) | **4.7 ms (210 fps)** |
+| playlist | 49.7 ms (20 fps) | 0.87 ms (475 fps) |
+| settings | 27.9 ms (36 fps) | 0.25 ms (763 fps) |
+| about | 200 ms (5 fps) | 0.35 ms (419 fps) |
+| playlist resize | 157 ms (8.4 fps) | 20.8 ms (53 fps) |
 
-A main-panel drag translates the cluster, so **every visible panel repaints on every move** — the 5-panel figure is the sum of the column above it. That is the remaining work: give playlist/settings/about the chassis/live split main and EQ already have. Resize cannot use a chassis (size change invalidates it), so resize stays bounded by raw paint cost.
+Resize is the one gesture a cache cannot help: the size changes every move, so the panel is genuinely re-rasterised. It is bounded by playlist full-paint cost.
 
 Also still true: `placePanels` CPU for 20 sibling moves is ~**193 µs**, and `HostWindowMoveTest::siblingDragDoesNotPayFullClusterPaint` bounds it at 10 ms. That test measures `placePanels` only — it does **not** exercise `paintEvent`, so it never saw any of the above.
 
@@ -98,10 +99,10 @@ Tried in `5b7d0aa` / `f1b166b`, undone in `d9cdc81` after the user saw trails on
 
 Ranked by measured headroom. Prefer one seam per trial; restart `./build/tramp` each time (an already-running binary will not pick up `./build.sh`).
 
-1. **Chassis/live split for playlist, settings and about.** The only remaining large win for dragging. Each is a full procedural repaint today; main and EQ prove the pattern costs ~0.3–1.3 ms instead. Playlist needs care: the chassis must be keyed on widget size, and free resize invalidates it every move.
+1. **Playlist full-paint cost (~8.7 ms).** The only thing still bounding resize. Non-blur work dominates now: ~15 rows of shaped text, 14–18 button faces, three wells, zebra bands, all recomputed per paint. Caching button faces or the empty list well by size would go straight into resize smoothness.
 2. **Skip work that a pure move cannot change.** `applyHitCursor` (with a full `hitTest`) runs on every drag move; `placePanels` calls `show()` on all five panels and re-pushes the mask with no equality check; `fitClusterToHost` walks all five ids. Small next to paint, but free to remove.
-3. **Cache what is re-derived per paint.** `loadProximaMark()` decodes a PNG from disk on every about repaint; `QPixmap::fromImage(noiseTile())` allocates per shell paint; fonts and gradients are rebuilt per call site.
-4. **Quiet the analyser during drag.** Spectrum/marquee ticks repaint main mid-gesture.
+3. **Cache what is re-derived per paint.** `QPixmap::fromImage(noiseTile())` allocates per shell paint; fonts, gradients and icon paths are rebuilt per call site. (`loadProximaMark()` used to decode a PNG from disk per about repaint — now cached.)
+4. **Quiet the analyser during drag.** Spectrum/marquee ticks repaint main mid-gesture; that is the ~33 ms `max` in a drag run.
 
 Not seams: **punch deferral** (measured free, and it caused the trails below); `startSystemMove` on this host (it would slide a virtual-desktop-sized toplevel); extra OS windows per panel (retired host shape, and Wayland has no `xdg_toplevel` set_position anyway).
 
@@ -138,6 +139,7 @@ Build with `./build.sh` (Homebrew Qt on this machine). System `cmake` on PATH is
 | `f1b166b` | Skip `grabMouse` on Wayland; defer punch from drag flags (grabber was a no-op). |
 | `d9cdc81` | Undo punch deferral and live-skip. Wayland grab skip kept. |
 | `feat/png-compilation` | Precompiled skin chrome to 3× PNG faces. Abandoned: it cached main's chassis, which was already cached and already 0.3 ms, while leaving the blur cost in playlist/settings/about. Marginal by construction. |
-| — | Optimised build defaults, fast `gaussianBlur`, `--bench-drag` / `--bench-resize`, fidelity gate. Drag 281 → 27 ms worst case. |
+| — | Optimised build defaults, fast `gaussianBlur`, `--bench-drag` / `--bench-resize`, fidelity gate. Worst-case drag 281 → 27 ms. |
+| — | Per-panel paint cache for playlist / settings / about. Worst-case drag 27 → 4.7 ms; guarded by `HostWindowMoveTest::movingAPanelDoesNotRerasteriseIt`. |
 
 Session that produced the experiment: [title-bar drag cheap path](f946af79-c7ed-4e6b-b4ab-ff3cd6c6f626).

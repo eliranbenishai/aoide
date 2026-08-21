@@ -1252,7 +1252,9 @@ QImage loadTrampLogo() {
 }
 
 QImage loadProximaMark() {
-  return QImage(assetPath("branding/proxima_mark.png"));
+  // Static asset — decoding it per paint showed up in the about panel's cost.
+  static const QImage mark(assetPath("branding/proxima_mark.png"));
+  return mark;
 }
 
 BlurCost blurCost() { return g_blurCost; }

@@ -147,6 +147,10 @@ void HostWindow::releasePointerIfHeld() {
   releaseMouse();
 }
 
+bool HostWindow::hasLiveBody() const {
+  return (spec_.id == tramp::WindowId::main || spec_.id == tramp::WindowId::equalizer) && !shaded_;
+}
+
 void HostWindow::rebuildChassis() {
   const QSize logical = paintLogical();
   const QSize widget = size();
@@ -161,10 +165,26 @@ void HostWindow::rebuildChassis() {
   const qreal sx = qreal(qMax(1, widget.width())) / qMax(1, logical.width());
   const qreal sy = qreal(qMax(1, widget.height())) / qMax(1, logical.height());
   p.scale(sx, sy);
+  // Panels with a live body cache only their static chrome; the rest have no
+  // per-frame content at all, so the whole paint is cacheable.
+  chassisIsFullPaint_ = !hasLiveBody();
   tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_,
-                           tramp::BodyPaint::chassis);
+                           chassisIsFullPaint_ ? tramp::BodyPaint::full : tramp::BodyPaint::chassis);
   p.end();
   chassisValid_ = true;
+}
+
+/// Rebuilds when the cache is stale, the widget was resized, or the split
+/// changed. Keying on the buffer size means a resize cannot show stale pixels
+/// even if some path forgets to invalidate.
+void HostWindow::ensureChassis() {
+  const qreal dpr = qMax(devicePixelRatioF(), qreal(0.5));
+  if (chassisValid_ && chassisIsFullPaint_ == !hasLiveBody() &&
+      chassis_.size() == tramp::chromePaintBufferSize(size(), dpr)) {
+    return;
+  }
+  rebuildChassis();
+  paintStats_.chassisBuilds += 1;
 }
 
 void HostWindow::setAlwaysOnTop(bool on) {
@@ -297,20 +317,17 @@ void HostWindow::paintChrome(QPainter& p) {
   const QSize logical = paintLogical();
   const qreal sx = qreal(width()) / qMax(1, logical.width());
   const qreal sy = qreal(height()) / qMax(1, logical.height());
-  if ((spec_.id == tramp::WindowId::main || spec_.id == tramp::WindowId::equalizer) &&
-      !view_.goldenDemo && !shaded_) {
-    if (!chassisValid_) {
-      rebuildChassis();
-      paintStats_.chassisBuilds += 1;
-    }
-    p.drawImage(QPointF(0, 0), chassis_);
+  // The golden demo is the fidelity reference: paint it straight, uncached.
+  if (view_.goldenDemo) {
     p.scale(sx, sy);
-    tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_,
-                             tramp::BodyPaint::live);
+    tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_);
     return;
   }
+  ensureChassis();
+  p.drawImage(QPointF(0, 0), chassis_);
+  if (chassisIsFullPaint_) return;
   p.scale(sx, sy);
-  tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_);
+  tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_, tramp::BodyPaint::live);
 }
 
 void HostWindow::paintEvent(QPaintEvent*) {

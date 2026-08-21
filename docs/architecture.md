@@ -118,7 +118,7 @@ Three things hold that budget:
 
 - **Optimised builds are mandatory.** `build.sh` compiles `-O2`; `CMakeLists.txt` defaults `CMAKE_BUILD_TYPE` to `RelWithDebInfo`. An `-O0` build drags at a few frames per second. `--bench-chrome` fails when `__OPTIMIZE__` is absent, and `build.sh` runs it as part of the gate.
 - **Blur is the expensive primitive.** `gaussianBlur` (`mockup_draw.cpp`) backs every glow, drop shadow and bloom, 8–18 times per full panel paint. It uses a fixed-point separable kernel, and for σ ≥ 4 a three-pass box approximation whose cost is independent of radius. `TRAMP_BLUR=exact` and `TRAMP_BENCH_NO_BLUR=1` exist for measurement.
-- **Static chrome belongs on a chassis.** `BodyPaint::chassis` / `live` splits a panel into a cached `QImage` plus the pixels that actually change. Main and EQ do this and repaint in ~0.3–1.3 ms with zero blur calls. Playlist, settings and about still paint `BodyPaint::full` every time and are correspondingly heavier.
+- **Rasterised chrome is cached per panel.** Every panel keeps a `chassis_` image at widget × DPR size. Main and EQ cache `BodyPaint::chassis` and paint `BodyPaint::live` (clock, spectrum, seek, EQ curve) on top each frame; playlist, settings and about have no per-frame content, so their whole `BodyPaint::full` paint is the cache. A move therefore costs one `drawImage`. The cache is keyed on buffer size as well as the invalidation flag, so a resize cannot show stale pixels even if a call site forgets to invalidate. `SessionView::goldenDemo` bypasses the cache — that path is the fidelity reference.
 
 Measurement lives in `--bench-drag` / `--bench-resize` (synthetic gesture through the real event path, reporting per-panel repaint count, cost and blur share), `tool/bench-drag-matrix.sh`, and `tool/fidelity-diff.sh` (mockup-fidelity gate for any change to drawing). Detail and history: [`title-bar-drag.md`](agents/title-bar-drag.md).
 
@@ -141,8 +141,7 @@ Support dir: `$XDG_DATA_HOME/com.proximamagnifica.tramp` (adopts legacy `…/tra
 - Linux MPRIS; second-instance “Open with”
 - Qt macOS host (and therefore the notarized DMG)
 - Spectrum: second `ao=pcm` pass per open; long tracks analyse in the background
-- Playlist / settings / about have no chassis/live split, so they fully repaint per drag move; a main drag with all five panels open costs ~27 ms/move — [`title-bar-drag.md`](agents/title-bar-drag.md)
-- Playlist free resize cannot use a chassis (size change invalidates it) and stays bounded by raw paint cost
+- Playlist free resize re-rasterises per move (size change invalidates the cache), so it is bounded by raw paint cost — ~20 ms/move — [`title-bar-drag.md`](agents/title-bar-drag.md)
 
 ## Notes
 

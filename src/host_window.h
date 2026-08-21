@@ -103,7 +103,9 @@ class HostWindow : public QWidget {
   void applyChromeTooltip(const QPointF& widgetPos);
   void hideChromeTooltipNow();
   QRect tooltipAnchorRect(tramp::TitleChromeLayout::Hit title, const tramp::ChromeHit& chrome) const;
+  bool hasLiveBody() const;
   void invalidateChassis();
+  void ensureChassis();
   void rebuildChassis();
   void grabPointerIfAllowed();
   void releasePointerIfHeld();
@@ -114,6 +116,7 @@ class HostWindow : public QWidget {
   QImage logo_;
   QImage chassis_;
   bool chassisValid_ = false;
+  bool chassisIsFullPaint_ = false;
   bool titleMarqueeLive_ = false;
   int zoomPercent_ = tramp::kDefaultZoomPercent;
   bool shaded_ = false;
