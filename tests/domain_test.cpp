@@ -302,6 +302,19 @@ int main() {
   }
 
   {
+    // Next must never hand back the track that is already playing. When the
+    // current index is missing from the shuffle order — a playlist replace
+    // clears it while the open file keeps playing — the fallback used to be
+    // the current index itself, so Next re-opened the same track.
+    const QVector<int> order{2, 0, 1};
+    REQUIRE_EQ(nextIndex(3, 4, true, RepeatMode::off, order).value_or(-1), 2);
+    REQUIRE_EQ(previousIndex(3, 4, true, RepeatMode::off, order).value_or(-1), 1);
+    // With no order drawn yet, shuffle walks the list rather than standing still.
+    REQUIRE_EQ(nextIndex(0, 3, true, RepeatMode::off, {}).value_or(-1), 1);
+    REQUIRE_EQ(previousIndex(2, 3, true, RepeatMode::off, {}).value_or(-1), 1);
+  }
+
+  {
     PlaylistController pl;
     Track a;
     a.path = QStringLiteral("/a.mp3");
@@ -822,13 +835,21 @@ int main() {
     // MpvEngine reports a loadfile failure synchronously from open(). playIndex
     // used to set playing_ = true immediately afterwards, so a file that never
     // opened still read as playing and the chrome showed the pause face.
+    // The refused file also has to be let go: stop is what unloads media, and
+    // without it mpv keeps the errored load attached.
     class RefusingEngine : public NullEngine {
      public:
       void open(const Track&) override {
+        if (onDuration) onDuration(200000);
         if (onError) onError(QStringLiteral("cannot open"));
       }
       void play() override { played = true; }
+      void stop() override {
+        stopped = true;
+        NullEngine::stop();
+      }
       bool played = false;
+      bool stopped = false;
     };
     PlaylistController playlist;
     Track track;
@@ -839,7 +860,24 @@ int main() {
     playback.playIndex(0);
     REQUIRE(!playback.playing());
     REQUIRE(!engine.played);
+    REQUIRE(engine.stopped);
     REQUIRE_EQ(playback.failureMessage(), QStringLiteral("cannot open"));
+    REQUIRE_EQ(playback.durationMs(), qint64(200000));
+
+    // Stop unloads media, and the readouts let go with it. They used to
+    // survive: the subtitle still carried the error and the clock still showed
+    // the length of a track nothing was playing.
+    playback.stop();
+    REQUIRE(playback.failureMessage().isEmpty());
+    REQUIRE_EQ(playback.durationMs(), qint64(0));
+    REQUIRE_EQ(playback.positionMs(), qint64(0));
+    REQUIRE(!playback.currentTrack().has_value());
+    REQUIRE(!playback.playingIndex().has_value());
+    REQUIRE(!playback.playing());
+    REQUIRE(!playback.paused());
+    // Play picks the list back up from the row still selected.
+    playback.playPause();
+    REQUIRE_EQ(playback.playingIndex().value_or(-1), 0);
   }
 
   {
@@ -1005,6 +1043,76 @@ int main() {
   }
 
   {
+    // A relative path in a state file keys everything on whichever directory
+    // Tramp happened to be started from: the same collection read from another
+    // working directory misses every cached track. Nothing relative is written,
+    // and nothing relative survives a read.
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    tramp::SupportStore store(tmp.path());
+    const QString relList = QStringLiteral("lists/set.m3u");
+    const QString relTrack = QStringLiteral("lists/a.mp3");
+    const QString absList = tramp::normalizePlaylistPath(relList);
+    const QString absTrack = tramp::normalizePlaylistPath(relTrack);
+
+    tramp::SavedPlaylist entry;
+    entry.path = relList;
+    entry.trackCount = 1;
+    REQUIRE(store.writeCollectionIndex({entry}));
+    tramp::CollectionTrackSets sets;
+    sets.byEntry.insert(relList, {relTrack});
+    sets.durationsMs.insert(relTrack, 1000);
+    sets.meta.insert(relTrack, {QStringLiteral("A"), QString(), QString()});
+    REQUIRE(store.writeTrackSets(sets));
+
+    auto slurp = [&](const QString& name) {
+      QFile f(QDir(tmp.path()).filePath(name));
+      REQUIRE(f.open(QIODevice::ReadOnly));
+      const QByteArray text = f.readAll();
+      f.close();
+      return text;
+    };
+    const QByteArray index = slurp(QStringLiteral("playlists.json"));
+    REQUIRE(!index.contains(QByteArray("\"") + relList.toUtf8() + "\""));
+    REQUIRE(index.contains(absList.toUtf8()));
+    const QByteArray cached = slurp(QStringLiteral("playlist_tracks.json"));
+    REQUIRE(!cached.contains(QByteArray("\"") + relTrack.toUtf8() + "\""));
+    REQUIRE(cached.contains(absTrack.toUtf8()));
+
+    // And the two files still describe the same tracks after the round trip.
+    const tramp::CollectionTrackSets back = store.readTrackSets();
+    REQUIRE_EQ(back.byEntry.value(absList).size(), 1);
+    REQUIRE_EQ(back.byEntry.value(absList).value(0), absTrack);
+    REQUIRE_EQ(back.durationsMs.value(absTrack, -1), qint64(1000));
+    REQUIRE_EQ(back.meta.value(absTrack).title, QStringLiteral("A"));
+  }
+
+  {
+    // A disabled row has to come back disabled. The kept playlist was written
+    // without that state, so a restored altered list painted every row enabled
+    // until the background check caught up — and while it did, footer TOTAL and
+    // N TRACKS counted files that are not there.
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    tramp::SupportStore store(tmp.path());
+    Track live;
+    live.path = QStringLiteral("/music/live.mp3");
+    live.durationMs = 1000;
+    Track dead;
+    dead.path = QStringLiteral("/music/dead.mp3");
+    dead.durationMs = 2000;
+    dead.disabled = true;
+    REQUIRE(store.writeAltered({{live, dead}, QStringLiteral("/music/set.m3u")}));
+
+    const tramp::AlteredPlaylist back = store.readAltered();
+    REQUIRE_EQ(back.tracks.size(), 2);
+    REQUIRE(!back.tracks[0].disabled);
+    REQUIRE(back.tracks[1].disabled);
+    REQUIRE_EQ(tramp::playableTrackCount(back.tracks), 1);
+    REQUIRE_EQ(tramp::playableTotalMs(back.tracks), 1000);
+  }
+
+  {
     REQUIRE(tramp::samePlaylistFile(QStringLiteral("/music/set.m3u"),
                                     QStringLiteral("/music/./set.m3u")));
     REQUIRE(!tramp::samePlaylistFile(QStringLiteral("/music/a.m3u"),
@@ -1103,6 +1211,169 @@ int main() {
   }
 
   {
+    // Shuffle was seeded from the playing index, so turning it on at the same
+    // track always dealt the same order — the listener's second evening was
+    // the first one again.
+    PlaylistController playlist;
+    QVector<Track> many;
+    for (int i = 0; i < 30; ++i) {
+      Track t;
+      t.path = QStringLiteral("/tmp/shuffle-%1.mp3").arg(i);
+      many.push_back(t);
+    }
+    playlist.setTracks(many);
+    NullEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    QSet<int> dealt;
+    for (int attempt = 0; attempt < 8; ++attempt) {
+      playback.setShuffle(false);
+      playback.playIndex(0);
+      playback.setShuffle(true);
+      playback.next();
+      dealt.insert(playback.playingIndex().value_or(-1));
+    }
+    REQUIRE(dealt.size() > 1);
+  }
+
+  {
+    // Repeat-all has to deal a new pass when the list wraps. Replaying the one
+    // order is the same complaint one lap later.
+    PlaylistController playlist;
+    QVector<Track> many;
+    for (int i = 0; i < 12; ++i) {
+      Track t;
+      t.path = QStringLiteral("/tmp/lap-%1.mp3").arg(i);
+      many.push_back(t);
+    }
+    playlist.setTracks(many);
+    NullEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.setRepeatMode(RepeatMode::all);
+    playback.playIndex(0);
+    playback.setShuffle(true);
+    auto restOfPass = [&]() {
+      QVector<int> visited;
+      for (int i = 1; i < many.size(); ++i) {
+        playback.next();
+        visited.push_back(playback.playingIndex().value_or(-1));
+      }
+      return visited;
+    };
+    const QVector<int> first = restOfPass();
+    playback.next();
+    const int secondOpener = playback.playingIndex().value_or(-1);
+    const QVector<int> second = restOfPass();
+    REQUIRE(first != second);
+    // A new deal must not re-open the track that just finished.
+    REQUIRE(secondOpener != first.back());
+    // And each pass still gives every enabled row exactly one turn.
+    QSet<int> firstPass(first.begin(), first.end());
+    firstPass.insert(0);
+    REQUIRE_EQ(firstPass.size(), many.size());
+    QSet<int> secondPass(second.begin(), second.end());
+    secondPass.insert(secondOpener);
+    REQUIRE_EQ(secondPass.size(), many.size());
+  }
+
+  {
+    // Auto-start and resume both hand the transport an index nothing checked:
+    // the first row, or the one the listener left. playIndex refuses a disabled
+    // row, so a playlist whose first file went missing came up silent with
+    // nothing on the display saying why.
+    PlaylistController playlist;
+    Track gone;
+    gone.path = QStringLiteral("/tmp/gone.mp3");
+    gone.disabled = true;
+    Track live;
+    live.path = QStringLiteral("/tmp/live.mp3");
+    playlist.setTracks({gone, live});
+    NullEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.playFrom(0);
+    REQUIRE(playback.playing());
+    REQUIRE_EQ(playback.playingIndex().value_or(-1), 1);
+    REQUIRE(playback.failureMessage().contains(QStringLiteral("gone.mp3")));
+    // A playable row is played as asked, with nothing to report.
+    playback.playFrom(1);
+    REQUIRE_EQ(playback.playingIndex().value_or(-1), 1);
+    REQUIRE(playback.failureMessage().isEmpty());
+    // Play and double-click still refuse a disabled row outright.
+    playback.playIndex(0);
+    REQUIRE_EQ(playback.playingIndex().value_or(-1), 1);
+  }
+
+  {
+    // A Spin is one track played through to the end. The counter used to fire
+    // on the end-of-file event alone, so dragging the seek bar to the last
+    // second of a track earned a spin nobody listened to.
+    class ClockEngine : public NullEngine {
+     public:
+      void open(const Track&) override {
+        at = 0;
+        if (onDuration) onDuration(200000);
+      }
+      void seekMs(qint64 positionMs) override {
+        at = positionMs;
+        NullEngine::seekMs(positionMs);
+      }
+      /// Hand the clock forward the way playback does, a tick at a time.
+      void playTo(qint64 ms) {
+        for (qint64 t = at + 250; t <= ms; t += 250) {
+          at = t;
+          if (onPosition) onPosition(t);
+        }
+      }
+      void finish() {
+        if (onCompleted) onCompleted();
+      }
+      qint64 at = 0;
+    };
+    PlaylistController playlist;
+    Track track;
+    track.path = QStringLiteral("/tmp/spin.mp3");
+    playlist.setTracks({track});
+    ClockEngine engine;
+    PlaybackController playback(&playlist, &engine);
+
+    playback.playIndex(0);
+    engine.playTo(200000);
+    engine.finish();
+    REQUIRE_EQ(playback.spins(), 1);
+
+    playback.playIndex(0);
+    engine.playTo(5000);
+    playback.seekMs(199000);
+    engine.playTo(200000);
+    engine.finish();
+    REQUIRE_EQ(playback.spins(), 1);
+
+    // Most of the track is enough — the last few seconds of applause are not
+    // what makes it a listen.
+    playback.playIndex(0);
+    engine.playTo(195000);
+    engine.finish();
+    REQUIRE_EQ(playback.spins(), 2);
+  }
+
+  {
+    // Nothing left to fall through to: say so rather than sit silent.
+    PlaylistController playlist;
+    Track gone;
+    gone.path = QStringLiteral("/tmp/gone.mp3");
+    gone.disabled = true;
+    Track alsoGone;
+    alsoGone.path = QStringLiteral("/tmp/also-gone.mp3");
+    alsoGone.disabled = true;
+    playlist.setTracks({gone, alsoGone});
+    NullEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.playFrom(1);
+    REQUIRE(!playback.playing());
+    REQUIRE(!playback.playingIndex().has_value());
+    REQUIRE(!playback.failureMessage().isEmpty());
+  }
+
+  {
     Track t;
     t.path = QStringLiteral("/tmp/keep-playing.mp3");
     t.title = QStringLiteral("Keep Playing");
@@ -1172,6 +1443,14 @@ int main() {
     REQUIRE(f.open(QIODevice::WriteOnly | QIODevice::Text));
     f.write(QByteArray("#EXTM3U\n#EXTINF:221,Wire - Hymn\ntrack.mp3\nother.flac\n"));
     f.close();
+    // The figures count the files that are on this machine, so the two the
+    // playlist names have to be there.
+    for (const char* name : {"track.mp3", "other.flac"}) {
+      QFile audio(tmp.filePath(QString::fromLatin1(name)));
+      REQUIRE(audio.open(QIODevice::WriteOnly));
+      audio.write("x");
+      audio.close();
+    }
 
     tramp::PlaylistCollection col;
     col.add(pl);
@@ -1280,6 +1559,307 @@ int main() {
     const QVector<Track> purged = tramp::dropMissingTrackFiles({diskKeep, diskGone});
     REQUIRE_EQ(purged.size(), 1);
     REQUIRE_EQ(purged[0].path, keep);
+  }
+
+  {
+    // Pruning is the one thing here that can destroy what the app cannot get
+    // back, so the rules are pinned before anything calls it: a live list keeps
+    // every row it mentions, and only rows nothing mentions go.
+    tramp::CollectionTrackSets sets;
+    sets.byEntry.insert(QStringLiteral("/music/keep.m3u"),
+                        {QStringLiteral("/music/a.mp3"), QStringLiteral("/music/shared.mp3")});
+    sets.byEntry.insert(QStringLiteral("/music/gone.m3u"),
+                        {QStringLiteral("/music/b.mp3"), QStringLiteral("/music/shared.mp3")});
+    sets.durationsMs.insert(QStringLiteral("/music/a.mp3"), 1000);
+    sets.durationsMs.insert(QStringLiteral("/music/b.mp3"), 2000);
+    sets.durationsMs.insert(QStringLiteral("/music/shared.mp3"), 3000);
+    sets.durationsMs.insert(QStringLiteral("/music/orphan.mp3"), 4000);
+    sets.meta.insert(QStringLiteral("/music/a.mp3"), {QStringLiteral("A"), {}, {}});
+    sets.meta.insert(QStringLiteral("/music/b.mp3"), {QStringLiteral("B"), {}, {}});
+    sets.meta.insert(QStringLiteral("/music/orphan.mp3"), {QStringLiteral("Orphan"), {}, {}});
+
+    const auto kept = tramp::pruneTrackSets(sets, {QStringLiteral("/music/keep.m3u")});
+    REQUIRE_EQ(kept.byEntry.size(), 1);
+    REQUIRE(kept.byEntry.contains(QStringLiteral("/music/keep.m3u")));
+    REQUIRE_EQ(kept.byEntry.value(QStringLiteral("/music/keep.m3u")).size(), 2);
+    REQUIRE_EQ(kept.durationsMs.value(QStringLiteral("/music/a.mp3"), -1), 1000);
+    // Shared with a list that left, but still named by one that stayed.
+    REQUIRE_EQ(kept.durationsMs.value(QStringLiteral("/music/shared.mp3"), -1), 3000);
+    REQUIRE(!kept.durationsMs.contains(QStringLiteral("/music/b.mp3")));
+    REQUIRE(!kept.durationsMs.contains(QStringLiteral("/music/orphan.mp3")));
+    REQUIRE_EQ(kept.meta.value(QStringLiteral("/music/a.mp3")).title, QStringLiteral("A"));
+    REQUIRE(!kept.meta.contains(QStringLiteral("/music/b.mp3")));
+    REQUIRE(!kept.meta.contains(QStringLiteral("/music/orphan.mp3")));
+
+    // Both entries live: nothing goes but the orphan.
+    const auto both = tramp::pruneTrackSets(
+        sets, {QStringLiteral("/music/keep.m3u"), QStringLiteral("/music/gone.m3u")});
+    REQUIRE_EQ(both.byEntry.size(), 2);
+    REQUIRE_EQ(both.durationsMs.size(), 3);
+    REQUIRE_EQ(both.meta.size(), 2);
+
+    // An empty collection keeps nothing, and a prune of nothing is not a crash.
+    REQUIRE(tramp::pruneTrackSets(sets, {}).byEntry.isEmpty());
+    REQUIRE(tramp::pruneTrackSets(sets, {}).durationsMs.isEmpty());
+    REQUIRE(tramp::pruneTrackSets({}, {QStringLiteral("/music/keep.m3u")}).byEntry.isEmpty());
+
+    // A key that was never normalized still matches the live entry it belongs
+    // to. Comparing raw strings here would throw the listener's durations away.
+    tramp::CollectionTrackSets unclean;
+    unclean.byEntry.insert(QStringLiteral("/music/./keep.m3u"),
+                           {QStringLiteral("/music/sub/../c.mp3")});
+    unclean.durationsMs.insert(QStringLiteral("/music/c.mp3"), 5000);
+    const auto tidied = tramp::pruneTrackSets(unclean, {QStringLiteral("/music/keep.m3u")});
+    REQUIRE_EQ(tidied.byEntry.size(), 1);
+    REQUIRE_EQ(tidied.durationsMs.value(QStringLiteral("/music/c.mp3"), -1), 5000);
+  }
+
+  {
+    // Whether a saved playlist is disabled was worked out once, at bootstrap.
+    // A row therefore stayed enabled after its M3U was deleted mid-session, and
+    // stayed disabled after the file came back — CONTEXT.md says it enables
+    // itself again, and it did, next restart.
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    const QString pl = QDir(tmp.path()).filePath(QStringLiteral("mid-session.m3u"));
+    auto writeList = [&]() {
+      QFile f(pl);
+      REQUIRE(f.open(QIODevice::WriteOnly | QIODevice::Text));
+      f.write(QByteArray("#EXTM3U\n"));
+      f.close();
+    };
+    writeList();
+
+    tramp::PlaylistCollection col;
+    col.setValidationIntervalMs(0);
+    col.add(pl);
+    const QString key = tramp::normalizePlaylistPath(pl);
+    REQUIRE(!col.disabledPaths().contains(key));
+
+    REQUIRE(QFile::remove(pl));
+    REQUIRE(col.disabledPaths().contains(key));
+
+    writeList();
+    REQUIRE(!col.disabledPaths().contains(key));
+  }
+
+  {
+    // ON THIS MACHINE has to mean what is on this machine. The figures summed
+    // every path the cache had ever seen, so an album deleted from disk kept
+    // padding TRACKS and TOTAL TIME for the life of the collection.
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    const QString keep = QDir(tmp.path()).filePath(QStringLiteral("keep.mp3"));
+    const QString gone = QDir(tmp.path()).filePath(QStringLiteral("gone.mp3"));
+    for (const QString& path : {keep, gone}) {
+      QFile f(path);
+      REQUIRE(f.open(QIODevice::WriteOnly));
+      f.write("x");
+      f.close();
+    }
+    const QString pl = QDir(tmp.path()).filePath(QStringLiteral("set.m3u"));
+    QFile list(pl);
+    REQUIRE(list.open(QIODevice::WriteOnly | QIODevice::Text));
+    list.write(QStringLiteral("#EXTM3U\n%1\n%2\n").arg(keep, gone).toUtf8());
+    list.close();
+
+    tramp::PlaylistCollection col;
+    Track a;
+    a.path = keep;
+    a.durationMs = 1000;
+    Track b;
+    b.path = gone;
+    b.durationMs = 2000;
+    col.addWritten(pl, {a, b});
+    REQUIRE_EQ(col.readFigures().tracks, 2);
+    REQUIRE_EQ(col.readFigures().totalDurationMs, 3000);
+
+    REQUIRE(QFile::remove(gone));
+    col.validateReferences();
+    REQUIRE_EQ(col.readFigures().tracks, 1);
+    REQUIRE_EQ(col.readFigures().totalDurationMs, 1000);
+    // The row is still in the playlist and still in the cache; it is the file
+    // that is gone, so it comes back with the file.
+    REQUIRE_EQ(col.tracksFor(pl).size(), 2);
+
+    // Refresh is the mid-session route to the same answer, and the one that
+    // runs while the app is open: re-reading a list re-asks about that list's
+    // tracks, so a file that came back is counted again without a restart.
+    QFile back(gone);
+    REQUIRE(back.open(QIODevice::WriteOnly));
+    back.write("x");
+    back.close();
+    col.addWritten(pl, {a, b});
+    REQUIRE_EQ(col.readFigures().tracks, 2);
+    REQUIRE(QFile::remove(gone));
+    col.addWritten(pl, {a, b});
+    REQUIRE_EQ(col.readFigures().tracks, 1);
+
+    tramp::SupportStore store(tmp.path());
+    col.saveIndex(store);
+    col.saveTrackSets(store);
+    tramp::PlaylistCollection reloaded;
+    reloaded.load(store);
+    reloaded.validateReferences();  // what bootstrap does, and the only sweep
+    REQUIRE_EQ(reloaded.readFigures().playlists, 1);
+    REQUIRE_EQ(reloaded.readFigures().tracks, 1);
+    REQUIRE_EQ(reloaded.readFigures().totalDurationMs, 1000);
+  }
+
+  {
+    // Presence used to be worked out lazily, by any read that found the last
+    // look two seconds old. Two of those reads are hot: readFigures runs once
+    // per probed duration through an ingest, and the collection view asks
+    // disabledPaths once per row. So a stat for every track in the collection
+    // could land inside a repaint — tens of milliseconds on an SSD, and a stall
+    // on a share that has dropped. The reads are pure now; this keeps them so.
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    tramp::PlaylistCollection col;
+    int listAsks = 0;
+    int trackAsks = 0;
+    col.setExists([&](const QString& path) {
+      if (path.endsWith(QStringLiteral(".m3u"))) ++listAsks;
+      else ++trackAsks;
+      return true;
+    });
+    for (int i = 0; i < 3; ++i) {
+      QVector<Track> tracks;
+      for (int t = 0; t < 20; ++t) {
+        Track track;
+        track.path = QDir(tmp.path()).filePath(QStringLiteral("t-%1-%2.mp3").arg(i).arg(t));
+        track.durationMs = 1000;
+        tracks.push_back(track);
+      }
+      col.addWritten(QDir(tmp.path()).filePath(QStringLiteral("set-%1.m3u").arg(i)), tracks);
+    }
+    const int rows = col.entries().size();
+    REQUIRE_EQ(rows, 3);
+
+    // Bootstrap is where the whole collection may be asked about, once.
+    listAsks = 0;
+    trackAsks = 0;
+    col.validateReferences();
+    REQUIRE_EQ(trackAsks, 60);
+    REQUIRE_EQ(listAsks, rows);
+
+    // A chrome snapshot: entries, the disabled set once per row, the About
+    // figures. Not one question about a track.
+    listAsks = 0;
+    trackAsks = 0;
+    for (int i = 0; i < rows; ++i) {
+      (void)col.entries();
+      (void)col.disabledPaths();
+    }
+    REQUIRE_EQ(col.readFigures().tracks, 60);
+    REQUIRE_EQ(trackAsks, 0);
+    REQUIRE_EQ(listAsks, 0);
+
+    // Once the validation pass goes stale a read brings it up to date, which is
+    // what notices a playlist file coming and going. That costs one question
+    // per row — never one per track, however much music the collection holds.
+    col.setValidationIntervalMs(0);
+    listAsks = 0;
+    trackAsks = 0;
+    (void)col.disabledPaths();
+    REQUIRE_EQ(listAsks, rows);
+    REQUIRE_EQ(trackAsks, 0);
+
+    // And the figures still stay off the disk when they are read hot, the way
+    // an ingest reads them.
+    listAsks = 0;
+    trackAsks = 0;
+    for (int i = 0; i < 100; ++i) {
+      col.mergeTrackDuration(QDir(tmp.path()).filePath(QStringLiteral("t-0-0.mp3")), 2000 + i);
+      (void)col.readFigures();
+    }
+    REQUIRE_EQ(trackAsks, 0);
+    REQUIRE_EQ(listAsks, 0);
+  }
+
+  {
+    // Every existence check goes through the probe, including the ones on write
+    // paths. A check that asks the real disk behind an injected double turns
+    // into a silent no-op for whoever writes the next test.
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    const QString pl = QDir(tmp.path()).filePath(QStringLiteral("set.m3u"));
+    QFile list(pl);
+    REQUIRE(list.open(QIODevice::WriteOnly | QIODevice::Text));
+    list.write("#EXTM3U\n#EXTINF:120,Wire Garden - One\none.mp3\n");
+    list.close();
+
+    tramp::PlaylistCollection col;
+    col.add(pl);
+    REQUIRE_EQ(col.entries().front().trackCount, 1);
+
+    // Re-adding a playlist whose file has gone keeps the figures it had.
+    REQUIRE(QFile::remove(pl));
+    col.setExists([](const QString&) { return false; });
+    col.add(pl);
+    REQUIRE_EQ(col.entries().front().trackCount, 1);
+
+    // Say it is there and the figures are rebuilt from what could be read,
+    // which is nothing — the probe decides, not QFileInfo behind its back.
+    col.setExists([](const QString&) { return true; });
+    col.add(pl);
+    REQUIRE_EQ(col.entries().front().trackCount, 0);
+  }
+
+  {
+    // A disabled playlist is still in the collection, and the cache is the only
+    // thing left to paint its rows from — pruning must not touch it.
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    const QString pl = QDir(tmp.path()).filePath(QStringLiteral("vanished.m3u"));
+    tramp::PlaylistCollection col;
+    Track a;
+    a.path = QDir(tmp.path()).filePath(QStringLiteral("a.mp3"));
+    a.title = QStringLiteral("A");
+    a.durationMs = 1000;
+    col.addWritten(pl, {a});
+    col.validateReferences();
+    REQUIRE(col.disabledPaths().contains(tramp::normalizePlaylistPath(pl)));
+    tramp::SupportStore store(tmp.path());
+    col.saveTrackSets(store);
+    REQUIRE_EQ(col.tracksFor(pl).size(), 1);
+    REQUIRE_EQ(col.tracksFor(pl)[0].durationMs.value_or(0), 1000);
+    tramp::PlaylistCollection reloaded;
+    reloaded.load(store);
+    REQUIRE_EQ(reloaded.tracksFor(pl).size(), 1);
+  }
+
+  {
+    // The track-set cache never evicted anything: removing a collection entry
+    // dropped its list but left every duration and tag row behind, so
+    // playlist_tracks.json grew for as long as Tramp was used and every write
+    // serialised the lot.
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    const QString cache = QDir(tmp.path()).filePath(QStringLiteral("playlist_tracks.json"));
+    tramp::SupportStore store(tmp.path());
+    tramp::PlaylistCollection col;
+    col.saveTrackSets(store);
+    const qint64 empty = QFileInfo(cache).size();
+    REQUIRE(empty > 0);
+    for (int i = 0; i < 50; ++i) {
+      const QString pl = QDir(tmp.path()).filePath(QStringLiteral("set-%1.m3u").arg(i));
+      QFile f(pl);
+      REQUIRE(f.open(QIODevice::WriteOnly | QIODevice::Text));
+      f.write(QStringLiteral("#EXTM3U\n"
+                             "#EXTINF:221,Wire Garden - Hymn %1\n"
+                             "track-%1-a.mp3\n"
+                             "#EXTINF:180,Wire Garden - Rain %1\n"
+                             "track-%1-b.mp3\n")
+                  .arg(i)
+                  .toUtf8());
+      f.close();
+      col.add(pl);
+      col.remove(pl);
+    }
+    col.saveTrackSets(store);
+    REQUIRE_EQ(QFileInfo(cache).size(), empty);
+    REQUIRE_EQ(col.readFigures().tracks, 0);
   }
 
   {
@@ -1411,6 +1991,37 @@ int main() {
     out.write(wav);
     out.close();
     REQUIRE(tramp::probeAudioDurationMs(path) == 1000);
+  }
+
+  {
+    // A WAV header promises however much audio it likes. A file cut short by a
+    // failed copy or a full disk still claimed the whole length, in the row and
+    // in TOTAL TIME, so the duration is worth no more than the bytes behind it.
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    const QByteArray full = makePcm16Wav(QVector<qint16>(8000, 0), 1, 8000);
+    REQUIRE_EQ(tramp::probeWavDurationMs(full).value_or(-1), qint64(1000));
+
+    const QByteArray cut = full.left(44 + 4000);
+    REQUIRE_EQ(tramp::probeWavDurationMs(cut).value_or(-1), qint64(250));
+
+    const QString cutPath = tmp.filePath(QStringLiteral("cut.wav"));
+    QFile cutFile(cutPath);
+    REQUIRE(cutFile.open(QIODevice::WriteOnly));
+    cutFile.write(cut);
+    cutFile.close();
+    REQUIRE_EQ(tramp::probeAudioDurationMs(cutPath).value_or(-1), qint64(250));
+
+    // And a file bigger than the window the probe reads still reports its whole
+    // length: the head is not the file.
+    const QByteArray longer = makePcm16Wav(QVector<qint16>(80000, 0), 1, 8000);
+    REQUIRE(longer.size() > 64 * 1024);
+    const QString longPath = tmp.filePath(QStringLiteral("ten-sec.wav"));
+    QFile longFile(longPath);
+    REQUIRE(longFile.open(QIODevice::WriteOnly));
+    longFile.write(longer);
+    longFile.close();
+    REQUIRE_EQ(tramp::probeAudioDurationMs(longPath).value_or(-1), qint64(10000));
   }
 
 #ifdef TRAMP_HAVE_MPV

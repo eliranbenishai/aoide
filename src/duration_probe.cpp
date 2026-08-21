@@ -109,13 +109,14 @@ std::optional<ProbedAudio> probeWithMpv(mpv_handle* mpv, const QString& path) {
 
 }  // namespace
 
-std::optional<qint64> probeWavDurationMs(const QByteArray& bytes) {
+std::optional<qint64> probeWavDurationMs(const QByteArray& bytes, qint64 fileBytes) {
   if (bytes.size() < 44 || !eq4(bytes, 0, "RIFF") || !eq4(bytes, 8, "WAVE")) return std::nullopt;
   int offset = 12;
   int sampleRate = 0;
   int channels = 0;
   int bitsPerSample = 0;
   int dataBytes = -1;
+  int dataStart = 0;
   while (offset + 8 <= bytes.size()) {
     const quint32 size = u32le(bytes, offset + 4);
     if (eq4(bytes, offset, "fmt ") && size >= 16 && offset + 8 + 16 <= bytes.size()) {
@@ -124,6 +125,7 @@ std::optional<qint64> probeWavDurationMs(const QByteArray& bytes) {
       bitsPerSample = u16le(bytes, offset + 22);
     } else if (eq4(bytes, offset, "data")) {
       dataBytes = int(size);
+      dataStart = offset + 8;
       break;
     }
     const int step = 8 + int(size) + int(size % 2);
@@ -133,14 +135,19 @@ std::optional<qint64> probeWavDurationMs(const QByteArray& bytes) {
   if (sampleRate <= 0 || channels <= 0 || bitsPerSample <= 0 || dataBytes < 0) return std::nullopt;
   const qint64 frameBytes = qint64(channels) * (bitsPerSample / 8);
   if (frameBytes <= 0) return std::nullopt;
-  return (qint64(dataBytes) * 1000) / (frameBytes * sampleRate);
+  // The header is a promise; a file cut short by a failed copy does not keep
+  // it. Believe whichever is smaller.
+  const qint64 total = fileBytes >= 0 ? fileBytes : qint64(bytes.size());
+  const qint64 present = qMax<qint64>(0, total - dataStart);
+  const qint64 usable = qMin<qint64>(qint64(dataBytes), present);
+  return (usable * 1000) / (frameBytes * sampleRate);
 }
 
 std::optional<qint64> probeAudioDurationMs(const QString& path) {
   QFile file(path);
   if (!file.open(QIODevice::ReadOnly)) return std::nullopt;
   const QByteArray head = file.read(64 * 1024);
-  if (const auto wav = probeWavDurationMs(head)) return wav;
+  if (const auto wav = probeWavDurationMs(head, file.size())) return wav;
 #ifdef TRAMP_HAVE_MPV
   mpv_handle* mpv = createProbeMpv();
   if (!mpv) return std::nullopt;
@@ -166,7 +173,8 @@ void probeAudioDurations(const QStringList& paths, const std::function<bool()>& 
     if (stillWanted && !stillWanted()) break;
     QFile file(path);
     if (file.open(QIODevice::ReadOnly)) {
-      if (const auto wav = probeWavDurationMs(file.read(64 * 1024))) {
+      const QByteArray head = file.read(64 * 1024);
+      if (const auto wav = probeWavDurationMs(head, file.size())) {
         ProbedAudio probed;
         probed.durationMs = wav;
         onProbed(path, probed);

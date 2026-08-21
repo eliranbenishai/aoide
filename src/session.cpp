@@ -320,7 +320,7 @@ void TrampSession::bootstrap(const QStringList& argvFiles) {
     const auto resume = store_.readResume();
     if (resume.playingIndex && *resume.playingIndex >= 0 &&
         *resume.playingIndex < playlist_.tracks().size()) {
-      playback_->playIndex(*resume.playingIndex);
+      playback_->playFrom(*resume.playingIndex);
       if (resume.positionMs > 0) playback_->seekMs(resume.positionMs);
       if (!resume.wasPlaying) playback_->playPause();
     }
@@ -987,7 +987,7 @@ void TrampSession::openPaths(const QStringList& paths, bool enqueue) {
     }
     refreshChrome();
   }
-  if (playFirst) playback_->playIndex(0);
+  if (playFirst) playback_->playFrom(0);
 }
 
 QString TrampSession::pickAudio(bool multiple) {
