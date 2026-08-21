@@ -447,17 +447,10 @@ void HostWindowMoveTest::hitRegionsDoNotOverlap() {
                             QStringLiteral("the empty playlist's"));
   panelHoldsItsRegionsApart(tramp::WindowId::playlist, specs[2].logicalSize, listed,
                             QStringLiteral("the full playlist's"));
-  // The one overlap the walk finds, named rather than argued away. Collapsing
-  // the collection stops the pane being painted at all, but hit-testing keeps a
-  // 14x56 reopen strip down the panel's left edge, and the track list now runs
-  // under it: the first two rows lose their leftmost six pixels to a region
-  // nothing draws. It is a bug held open, not a design, so this stays exact
-  // enough that fixing it fails here and takes the exception with it.
   tramp::SessionView collapsed = listed;
   collapsed.collectionCollapsed = true;
   panelHoldsItsRegionsApart(tramp::WindowId::playlist, specs[2].logicalSize, collapsed,
-                            QStringLiteral("the collapsed playlist's"),
-                            {int(tramp::ChromeHit::Kind::plTrackRow)});
+                            QStringLiteral("the collapsed playlist's"));
 
   panelHoldsItsRegionsApart(tramp::WindowId::settings, specs[3].logicalSize, plain,
                             QStringLiteral("the general settings'"));

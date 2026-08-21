@@ -499,10 +499,31 @@ inline int playlistListMaxScroll(int count, qreal wellH) {
   return std::max(0, count - playlistVisibleRows(wellH));
 }
 
+inline constexpr qreal kPlaylistReopenGap = 4;
+inline constexpr qreal kPlaylistReopenW = 14;
+inline constexpr qreal kPlaylistReopenH = 56;
+inline constexpr qreal kPlaylistReopenTop = 12;
+inline constexpr qreal kPlaylistDividerW = 8;
+
+/// The column a collapsed collection keeps for the tab that reopens it: the tab
+/// with the same gap either side of it.
+inline constexpr qreal kPlaylistReopenColumn = kPlaylistReopenGap * 2 + kPlaylistReopenW;
+
+/// The tab that reopens a collapsed collection. Paint and hit-test both come
+/// from here: while they were separate copies of the same numbers, the strip
+/// could take pixels off the track rows and paint none of them.
+inline QRectF playlistReopenTab(const QRectF& body) {
+  return QRectF(body.left() + kPlaylistReopenGap, body.top() + kPlaylistReopenTop,
+                kPlaylistReopenW, kPlaylistReopenH);
+}
+
+/// The track pane takes what the collection leaves. Collapsed, the collection
+/// is down to its reopen tab and keeps that tab's column — the tracks running
+/// underneath it is what cost the first rows their left edge.
 inline QRectF playlistTracksPane(const QRectF& body, qreal collectionW) {
-  const qreal divider = collectionW > 0 ? 8 : 0;
-  return QRectF(body.left() + collectionW + divider, body.top(),
-                body.width() - collectionW - divider, body.height());
+  const qreal gutter =
+      collectionW > 0 ? collectionW + kPlaylistDividerW : kPlaylistReopenColumn;
+  return QRectF(body.left() + gutter, body.top(), body.width() - gutter, body.height());
 }
 
 inline QRectF playlistTrackInner(const QRectF& tracksPane) {

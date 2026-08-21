@@ -25,6 +25,7 @@ class ChromeSpecTest : public QObject {
   void stereoPlaylistGapHoldsForWideGlyphs();
   void skinsListScrollsLastRowIntoView();
   void playlistHidesScrollbarWhenRowsFit();
+  void collapsedCollectionKeepsTheColumnItsReopenTabPaintsIn();
   void playlistStripKeepsGapBeforeLengthWell();
   void playlistStripRefreshSitsRightOfTotal();
   void buttonPhaseTakesTheWholeTransitionWhateverTheFrameRate();
@@ -236,6 +237,24 @@ void ChromeSpecTest::playlistHidesScrollbarWhenRowsFit() {
   const QRectF overflowing = tramp::playlistListWell(listRow, tramp::playlistVisibleRows(wellH) + 8);
   QCOMPARE(overflowing.width(),
            listRow.width() - tramp::kPlaylistScrollGap - tramp::kPlaylistScrollW);
+}
+
+// Collapsed, the tab is the whole of the collection: it is the only thing
+// painted down that edge and the only thing that reopens the pane. Track rows
+// reaching into its column are rows the reopen region takes the left edge off,
+// with nothing on screen to say why the click went elsewhere.
+void ChromeSpecTest::collapsedCollectionKeepsTheColumnItsReopenTabPaintsIn() {
+  const QRectF body = tramp::panelBody(tramp::kPlaylistDefault);
+  const QRectF tab = tramp::playlistReopenTab(body);
+  const QRectF collapsed = tramp::playlistTracksPane(body, 0);
+  QVERIFY(!tab.isEmpty());
+  QVERIFY(!tab.intersects(collapsed));
+  QCOMPARE(collapsed.right(), body.right());
+
+  // Expanded, the pane keeps the divider it always had and the tab is not painted.
+  const QRectF expanded = tramp::playlistTracksPane(body, 240);
+  QCOMPARE(expanded.left(), body.left() + 240 + tramp::kPlaylistDividerW);
+  QVERIFY(expanded.width() < collapsed.width());
 }
 
 void ChromeSpecTest::playlistStripKeepsGapBeforeLengthWell() {
