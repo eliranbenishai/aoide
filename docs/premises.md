@@ -99,7 +99,7 @@ Recorded 2026-08-21 · **Status:** accepted without evidence
 
 **The bet.** People want a dense, control-forward, playlist-centric player that is good on its own terms. The homage is a shape, not a promise of feature parity.
 
-**Known.** What the homage attracts cannot be known before it attracts anyone. What v1 refuses is written down and unambiguous: WSZ skins, visualisation modes and plugins (clutterbar **V**), doublesize (**D**), a plugin ecosystem, streaming. Global hotkeys are absent too — the whole keyboard surface is Space, Ctrl+A, Delete/Backspace and the four media keys.
+**Known.** What the homage attracts cannot be known before it attracts anyone. What v1 refuses is written down and unambiguous: WSZ skins, visualisation modes and plugins (clutterbar **V**), doublesize (**D**), a plugin ecosystem, streaming. Global hotkeys are absent too — the whole keyboard surface is Space, Ctrl+A, Delete/Backspace, the four media keys, the options menu's own arrows and Enter/Escape, and Shift or Ctrl qualifying a mouse gesture ([`tramp-v1-spec.md`](tramp-v1-spec.md): Accessibility).
 
 **Cost.** The first wave of attention is the wave most likely to want exactly the five things v1 does not do, and it arrives at the moment the product has the least slack to answer.
 
@@ -158,7 +158,7 @@ The most expensive premise here, and the one most likely to be right.
 - One **~38 ms stall per second of dragging** comes from committing that surface. Reproducible, and ruled out as the analyser tick, as CPU contention, and as app painting. It is a property of the shape, not a bug to chase.
 - `WA_TranslucentBackground` means Qt never sets an opaque region, so the compositor cannot occlusion-cull anything beneath the host.
 - Deferring the punch to reduce that cost was tried and undone. On KWin the mask is the hole the compositor actually shows and hits, so a deferred punch left ghost rectangles on the canvas. `grabMouse` is refused outright for non-popup windows on Wayland.
-- **There is no accessibility tree.** Nothing under `src/` mentions `QAccessible` or `setAccessibleName`; the only `keyPressEvent` in the tree belongs to our own painted popup, and the tooltip explicitly takes `Qt::NoFocus`. Everything else — volume, seek, every EQ band, presets, the whole Playlist Manager, settings, skins, zoom, shade, dock — is mouse-only, and there is no focus indication to build on later.
+- **There is no accessibility tree.** Nothing under `src/` mentions `QAccessible` or `setAccessibleName`; the only `keyPressEvent` in the tree belongs to our own painted popup, and the tooltip explicitly takes `Qt::NoFocus`. Everything else — volume, seek, every EQ band, presets, the whole Playlist Manager, settings, skins, zoom, shade, dock — is mouse-only, and there is no focus indication to build on later. Shift-undock is not a counter-example: the modifier only qualifies a mouse drag, so it opens no keyboard route and leaves that one gesture needing both devices.
 
 **Known — the other side, and it is the strongest claim in this file.** There is no alternative mechanism. Wayland has no `xdg_toplevel` set_position, so a panel-per-toplevel shape cannot place its own windows; `startSystemMove` would slide a virtual-desktop-sized toplevel; extra OS windows per panel is a retired shape for exactly these reasons. If app-owned dragging and docking are product requirements, this host is the way to have them, not a preference among several.
 

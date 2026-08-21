@@ -17,7 +17,7 @@ Tramp is a multi-platform desktop music player — a spiritual successor to Wina
 - **Official download** is `https://tramp.music`. Windows lists on the **Microsoft Store** as **tramp.music** (MSIX) **and** offers an unsigned website EXE. Linux lists on **Flathub** **and** offers an AppImage. macOS is a notarized DMG from the site. Mac App Store and Snap are **not** v1.
 - License: **GPL-3.0-or-later**.
 - Release artifacts are built on **GitHub Actions**. v1 CPUs: Windows x64, Linux x86_64, macOS universal.
-- In-app new-version prompt follows **install channel** (Store → Store, Flathub → Flathub, otherwise tramp.music). The app does not replace itself.
+- **In-app new-version prompt — intended, not built.** The design is to follow the **install channel** (Store → Store, Flathub → Flathub, otherwise tramp.music) and send the listener there rather than replace the app in place. Nothing in `src/` detects the channel, checks for a new version, or prompts.
 
 ## Stack
 
@@ -91,8 +91,8 @@ Associate Tramp with v1 audio formats and `.m3u` / `.m3u8` so “Open with Tramp
 
 ## Accessibility
 
-- **The whole keyboard surface:** Space toggles play/pause; Ctrl+A selects every row of the current playlist; Delete and Backspace remove the selected rows; the four media keys drive play/pause, stop, next and previous. Arrow keys, Enter and Escape work inside an open options menu. That is all of it.
-- **Keyboard navigation and the accessibility tree are deferred whole** (2026-08-21) — deferred, not dropped, and not staged either. There is no way to *move* the playlist selection from the keyboard, no focus policy anywhere, and nothing in `src/` builds an accessibility tree (no `QAccessible`, no `setAccessibleName`). Volume, seek, the EQ bands and presets, the Playlist Manager, settings, skins, zoom, shade and dock are mouse-only. The reasoning and the price are recorded in [`premises.md`](premises.md) §8; this is the one deferral that excludes people rather than inconveniencing them, and it should be the first thing picked up.
+- **The whole keyboard surface:** Space toggles play/pause; Ctrl+A selects every row of the current playlist; Delete and Backspace remove the selected rows; the four media keys drive play/pause, stop, next and previous. Arrow keys, Enter and Escape work inside an open options menu. Shift and Ctrl qualify a mouse gesture rather than standing alone — range- and toggle-select in the track list, and **Shift** to undock a panel that a slow drag would never peel. That is all of it.
+- **Keyboard navigation and the accessibility tree are deferred whole** (2026-08-21) — deferred, not dropped, and not staged either. There is no way to *move* the playlist selection from the keyboard, no focus policy anywhere, and nothing in `src/` builds an accessibility tree (no `QAccessible`, no `setAccessibleName`). Volume, seek, the EQ bands and presets, the Playlist Manager, settings, skins, zoom, shade and dock are mouse-only — Shift-undock included, since the modifier only qualifies a drag. The reasoning and the price are recorded in [`premises.md`](premises.md) §8; this is the one deferral that excludes people rather than inconveniencing them, and it should be the first thing picked up.
 - No WCAG certification or full a11y audit as a v1 gate.
 
 ## Non-goals (v1)
