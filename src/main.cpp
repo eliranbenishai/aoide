@@ -26,11 +26,13 @@
 #include <QPainter>
 #include <QSet>
 #include <QShortcut>
+#include <QTemporaryDir>
 #include <QTimer>
 #include <QVector>
 #include <algorithm>
 #include <clocale>
 #include <cstdio>
+#include <functional>
 #include <vector>
 
 namespace {
@@ -264,7 +266,21 @@ int benchChrome() {
   return 0;
 }
 
-const char* kValueFlags[] = {"--dump-chrome", "--bench-drag", "--bench-moves", "--bench-visible"};
+const char* kValueFlags[] = {"--dump-chrome", "--bench-drag", "--bench-moves", "--bench-visible",
+                             "--bench-tracks"};
+
+/// What `chromeChanged` costs before a single pixel is drawn: one snapshot of
+/// the whole session, rebuilt from scratch and handed to all five panels. The
+/// counterpart to `HostWindow::PaintStats::chassisBuilds`, which counts what
+/// the panels then throw away.
+struct SnapshotMeter {
+  int builds = 0;
+  qint64 nanos = 0;
+
+  void reset() { *this = {}; }
+  double totalMs() const { return nanos / 1e6; }
+  double eachMs() const { return builds ? totalMs() / builds : 0.0; }
+};
 
 QStringList launchFiles(const QStringList& args) {
   QStringList files;
@@ -368,7 +384,7 @@ void pumpFor(int ms) {
 }
 
 int runDragBench(const DragBenchOptions& opts, tramp::TrampSession& session, HostShell& shell,
-                 const std::vector<HostWindow*>& windows) {
+                 const std::vector<HostWindow*>& windows, SnapshotMeter& snapshots) {
   pumpFor(700);  // let the host map and the first full paints settle
 
   if (opts.setVisible) {
@@ -421,6 +437,7 @@ int runDragBench(const DragBenchOptions& opts, tramp::TrampSession& session, Hos
     QCoreApplication::processEvents(QEventLoop::AllEvents);
   }
   for (HostWindow* w : windows) w->resetPaintStats();
+  snapshots.reset();
 
   QVector<qint64> perMove;
   perMove.reserve(opts.moves);
@@ -471,9 +488,126 @@ int runDragBench(const DragBenchOptions& opts, tramp::TrampSession& session, Hos
                  .arg(stats.fontNanos / 1e6 / per, 0, 'f', 2)
                  .arg(stats.fonts / stats.paints);
   }
-  std::fprintf(stdout, "%s bench: paints %s  chassis-rebuilds=%d\n", tag,
-               qPrintable(paints.join(QLatin1Char(' '))), chassisBuilds);
+  std::fprintf(stdout, "%s bench: paints %s  chassis-rebuilds=%d  snapshots=%d\n", tag,
+               qPrintable(paints.join(QLatin1Char(' '))), chassisBuilds, snapshots.builds);
   std::fprintf(stdout, "%s bench: paint ms %s\n", tag, qPrintable(costs.join(QLatin1Char(' '))));
+  return 0;
+}
+
+// ---------------------------------------------------------------------------
+// --bench-invalidate: what one interaction costs the five panels.
+//
+// A title-bar drag publishes no snapshot at all, so `--bench-drag` cannot see
+// this. Here each interaction is driven through the session and the loop is
+// turned after every step, so the snapshots it builds and the panel rasters
+// those snapshots throw away are both paid inside the measured window. The
+// number to read is how many panels rebuilt for a change they do not paint.
+// ---------------------------------------------------------------------------
+
+/// A playlist long enough for its rows to dominate the snapshot. Every row
+/// carries an `#EXTINF` duration and title so nothing needs probing: the bench
+/// is measuring interaction, not ingest.
+QString writeBenchPlaylist(const QDir& dir, int tracks) {
+  QStringList lines{QStringLiteral("#EXTM3U")};
+  for (int i = 0; i < tracks; ++i) {
+    const QString audio =
+        dir.filePath(QStringLiteral("bench-%1.mp3").arg(i, 5, 10, QLatin1Char('0')));
+    QFile file(audio);
+    if (!file.open(QIODevice::WriteOnly)) return {};
+    file.close();
+    lines << QStringLiteral("#EXTINF:%1,Bench Artist %2 - Bench Title %2")
+                 .arg(120 + i % 240)
+                 .arg(i);
+    lines << audio;
+  }
+  const QString list = dir.filePath(QStringLiteral("bench.m3u"));
+  QFile out(list);
+  if (!out.open(QIODevice::WriteOnly | QIODevice::Text)) return {};
+  out.write(lines.join(QLatin1Char('\n')).toUtf8() + '\n');
+  out.close();
+  return list;
+}
+
+int runInvalidateBench(int trackCount, int reps, tramp::TrampSession& session,
+                       const std::vector<HostWindow*>& windows, SnapshotMeter& snapshots) {
+  QTemporaryDir tmp;
+  if (!tmp.isValid()) {
+    std::fprintf(stderr, "bench-invalidate: no temporary directory\n");
+    return 1;
+  }
+  const QString list = writeBenchPlaylist(QDir(tmp.path()), trackCount);
+  if (list.isEmpty()) {
+    std::fprintf(stderr, "bench-invalidate: could not write the bench playlist\n");
+    return 1;
+  }
+
+  pumpFor(700);  // let the host map and the first full paints settle
+  for (HostWindow* w : windows) {
+    if (w->id() != tramp::WindowId::main) session.setWindowVisible(w->id(), true);
+  }
+  pumpFor(400);
+  session.applyDroppedPaths({list}, true);
+  // Empty files will not play, but the open tries to; stop it so the spectrum
+  // timer is not ticking through the measurement.
+  session.handleHit(tramp::WindowId::main, {tramp::ChromeHit::Kind::stop, -1, {}}, Qt::NoModifier,
+                    {});
+  pumpFor(900);
+
+  QStringList shown;
+  for (HostWindow* w : windows) {
+    if (w->isVisible()) shown << panelName(w->id());
+  }
+  std::fprintf(stdout,
+               "invalidate bench: platform=%s visible=%s tracks=%d reps=%d zoom=%d%%\n",
+               qPrintable(QGuiApplication::platformName()),
+               qPrintable(shown.join(QLatin1Char('+'))), trackCount, reps, session.zoomPercent());
+
+  auto measure = [&](const char* name, const std::function<void(int)>& step) {
+    pumpFor(300);  // an interaction must not be charged for the one before it
+    snapshots.reset();
+    for (HostWindow* w : windows) w->resetPaintStats();
+    for (int i = 0; i < reps; ++i) {
+      step(i);
+      QCoreApplication::processEvents(QEventLoop::AllEvents);
+    }
+    QStringList rasters;
+    int total = 0;
+    int paints = 0;
+    qint64 paintNanos = 0;
+    for (HostWindow* w : windows) {
+      const auto stats = w->paintStats();
+      total += stats.chassisBuilds;
+      paints += stats.paints;
+      paintNanos += stats.nanos;
+      rasters << QStringLiteral("%1=%2").arg(panelName(w->id())).arg(stats.chassisBuilds);
+    }
+    std::fprintf(stdout,
+                 "invalidate bench: %-8s snapshots=%-4d %6.2f ms (%.3f each)  rasters=%-4d %s  "
+                 "paints=%-4d %.1f ms\n",
+                 name, snapshots.builds, snapshots.totalMs(), snapshots.eachMs(), total,
+                 qPrintable(rasters.join(QLatin1Char(' '))), paints, paintNanos / 1e6);
+  };
+
+  // The floor: whatever the timers cost with nobody touching anything. Every
+  // row below is only worth reading against this one.
+  measure("idle", [](int) { pumpFor(8); });
+  measure("scroll", [&](int) { session.handleWheel(tramp::WindowId::playlist, -120); });
+  measure("select", [&](int i) {
+    tramp::ChromeHit hit;
+    hit.kind = tramp::ChromeHit::Kind::plTrackRow;
+    hit.index = i % qMax(1, trackCount);
+    session.handleHit(tramp::WindowId::playlist, hit, Qt::NoModifier, QPoint(200, 100));
+  });
+  measure("mono", [&](int) {
+    session.handleHit(tramp::WindowId::main, {tramp::ChromeHit::Kind::mono, -1, {}},
+                      Qt::NoModifier, {});
+  });
+  measure("divider", [&](int i) {
+    tramp::ChromeHit hit;
+    hit.kind = tramp::ChromeHit::Kind::plDivider;
+    session.handleDrag(tramp::WindowId::playlist, hit, QPoint(180 + (i % 40) * 6, 200));
+  });
+  session.handleRelease(tramp::WindowId::playlist);
   return 0;
 }
 
@@ -501,8 +635,15 @@ int main(int argc, char** argv) {
     return benchChrome();
   }
   const DragBenchOptions dragBench = parseDragBench(args);
+  const bool invalidateBench = args.contains(QStringLiteral("--bench-invalidate"));
+  int benchTracks = 400;
+  const int tracksAt = args.indexOf(QStringLiteral("--bench-tracks"));
+  if (tracksAt >= 0 && tracksAt + 1 < args.size()) {
+    const int n = args.at(tracksAt + 1).toInt();
+    if (n > 0) benchTracks = n;
+  }
   // A bench run must never write the listener's settings.
-  if (dragBench.on) qputenv("TRAMP_AUTO_QUIT", "1");
+  if (dragBench.on || invalidateBench) qputenv("TRAMP_AUTO_QUIT", "1");
 
   tramp::loadTrampFonts();
   tramp::TrampSession session;
@@ -552,8 +693,13 @@ int main(int argc, char** argv) {
     for (HostWindow* window : windows) window->setZoomPercent(next);
   };
 
+  SnapshotMeter snapshots;
   auto refresh = [&]() {
+    QElapsedTimer clock;
+    clock.start();
     const tramp::SessionView view = session.view();
+    snapshots.nanos += clock.nsecsElapsed();
+    snapshots.builds += 1;
     for (HostWindow* window : windows) window->setSessionView(view);
   };
 
@@ -707,7 +853,10 @@ int main(int argc, char** argv) {
   session.reapplyWindowFrames();
 
   if (dragBench.on) {
-    return runDragBench(dragBench, session, hostShell, windows);
+    return runDragBench(dragBench, session, hostShell, windows, snapshots);
+  }
+  if (invalidateBench) {
+    return runInvalidateBench(benchTracks, 20, session, windows, snapshots);
   }
 
   if (qEnvironmentVariable("TRAMP_AUTO_QUIT") == QLatin1String("1")) {
