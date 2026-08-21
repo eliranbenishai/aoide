@@ -118,6 +118,25 @@ QVector<QPointF> paintedSamples(QSize logical, const QRectF& painted, int zoomPe
   return out;
 }
 
+/// Every extreme and midpoint pixel of what the chrome paints for one control
+/// must land on that control, at both shipping zooms.
+void assertPaintIsGrabbable(tramp::WindowId id, QSize logical, const tramp::SessionView& view,
+                            const QRectF& painted, tramp::ChromeHit::Kind kind, int index,
+                            const QString& what) {
+  for (int zoom : {75, 150}) {
+    for (const QPointF& at : paintedSamples(logical, painted, zoom)) {
+      const tramp::ChromeHit hit =
+          tramp::hitTest(id, logical, logicalAtZoom(logical, zoom, at), view);
+      QVERIFY2(hit.kind == kind && hit.index == index,
+               qPrintable(QStringLiteral("%1 paints into (%2, %3) at %4%, which is not a hit")
+                              .arg(what)
+                              .arg(at.x())
+                              .arg(at.y())
+                              .arg(zoom)));
+    }
+  }
+}
+
 }  // namespace
 
 // Hit geometry and paint geometry used to be derived separately, so they could
@@ -131,19 +150,8 @@ void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
 
   const QSize main = specs[0].logicalSize;
   auto grabCoversPaint = [&](tramp::WindowId id, QSize logical, const QRectF& painted,
-                             tramp::ChromeHit::Kind kind, const char* what, int index = -1) {
-    for (int zoom : {75, 150}) {
-      for (const QPointF& at : paintedSamples(logical, painted, zoom)) {
-        const tramp::ChromeHit hit =
-            tramp::hitTest(id, logical, logicalAtZoom(logical, zoom, at), view);
-        QVERIFY2(hit.kind == kind && hit.index == index,
-                 qPrintable(QStringLiteral("%1 paints into (%2, %3) at %4%, which is not a hit")
-                                .arg(QLatin1String(what))
-                                .arg(at.x())
-                                .arg(at.y())
-                                .arg(zoom)));
-      }
-    }
+                             tramp::ChromeHit::Kind kind, const QString& what, int index = -1) {
+    assertPaintIsGrabbable(id, logical, view, painted, kind, index, what);
   };
 
   const tramp::MainDisplayRow display = tramp::layoutMainDisplay(tramp::panelBody(main));
@@ -170,6 +178,50 @@ void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
                   QRectF(seekRow.track.left(), seekRow.track.center().y() - tramp::kSeekThumbH / 2,
                          seekRow.track.width(), tramp::kSeekThumbH),
                   tramp::ChromeHit::Kind::seek, "the seek well and its thumb");
+
+  // The seek row stamps elapsed time on the left whatever the display well
+  // above it is showing, so flipping the well to REMAIN must not move the seek
+  // well's left edge. It used to: the hit measured the remaining-time string
+  // while the row painted the elapsed one, so the two disagreed by the width of
+  // a digit exactly when the digit counts differed.
+  {
+    tramp::SessionView elapsedShown;
+    elapsedShown.durationMs = 1'200'000;  // 20:00
+    elapsedShown.positionMs = 599'000;    // 9:59 elapsed, 10:01 remaining
+    tramp::SessionView remainShown = elapsedShown;
+    remainShown.showElapsed = false;
+    QVERIFY2(!qFuzzyCompare(
+                 stamp.horizontalAdvance(tramp::formatClock(elapsedShown.positionMs)),
+                 stamp.horizontalAdvance(tramp::formatClock(elapsedShown.durationMs -
+                                                            elapsedShown.positionMs))),
+             "this case only bites while the elapsed and remaining stamps differ in width");
+
+    const int rowY = int(seekRow.row.center().y());
+    auto seekHit = [&](const tramp::SessionView& v) {
+      for (int x = 0; x < main.width(); ++x) {
+        const tramp::ChromeHit hit =
+            tramp::hitTest(tramp::WindowId::main, main, QPoint(x, rowY), v);
+        if (hit.kind == tramp::ChromeHit::Kind::seek) {
+          return hit;
+        }
+      }
+      return tramp::ChromeHit{};
+    };
+    const tramp::ChromeHit whileElapsed = seekHit(elapsedShown);
+    QCOMPARE(whileElapsed.kind, tramp::ChromeHit::Kind::seek);
+    QCOMPARE(seekHit(remainShown).rect, whileElapsed.rect);
+
+    const tramp::MainSeekRow remainRow = tramp::layoutMainSeekRow(
+        tramp::panelBody(main),
+        stamp.horizontalAdvance(tramp::formatClock(elapsedShown.positionMs)),
+        stamp.horizontalAdvance(tramp::formatClock(elapsedShown.durationMs)));
+    assertPaintIsGrabbable(
+        tramp::WindowId::main, main, remainShown,
+        QRectF(remainRow.track.left(), remainRow.track.center().y() - tramp::kSeekThumbH / 2,
+               remainRow.track.width(), tramp::kSeekThumbH),
+        tramp::ChromeHit::Kind::seek, -1,
+        QStringLiteral("the seek well while the display well shows REMAIN"));
+  }
 
   const tramp::MainTransportRow transport = tramp::layoutMainTransportRow(
       tramp::panelBody(main), tramp::toggleBtnWidth(QStringLiteral("SHUFFLE")),

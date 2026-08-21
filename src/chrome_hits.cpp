@@ -55,12 +55,11 @@ ChromeHit hitMain(QSize logical, QPoint pos, const SessionView& view) {
   }
 
   const QFontMetricsF sm(monoFont(14));
-  const QString posText = formatClock(view.showElapsed ? view.positionMs
-                                                       : qMax<qint64>(0, view.durationMs - view.positionMs));
-  const QString durText = formatClock(view.durationMs);
-  const qreal posW = sm.horizontalAdvance(view.goldenDemo ? QStringLiteral("2:41") : posText);
-  const qreal durW = sm.horizontalAdvance(view.goldenDemo ? QStringLiteral("5:47") : durText);
-  const QRect seek = sliderHitRect(layoutMainSeekRow(body, posW, durW).track, kSeekThumbH);
+  const SeekStamps stamps = mainSeekStamps(view);
+  const QRect seek = sliderHitRect(layoutMainSeekRow(body, sm.horizontalAdvance(stamps.elapsed),
+                                                     sm.horizontalAdvance(stamps.duration))
+                                       .track,
+                                   kSeekThumbH);
   if (auto h = hitIf(seek, pos, ChromeHit::Kind::seek); h.kind != ChromeHit::Kind::none) return h;
 
   const MainTransportRow play =
@@ -286,6 +285,13 @@ ChromeHit hitAbout(QSize logical, QPoint pos) {
 }
 
 }  // namespace
+
+SeekStamps mainSeekStamps(const SessionView& view) {
+  if (view.goldenDemo) {
+    return {QStringLiteral("2:41"), QStringLiteral("5:47")};
+  }
+  return {formatClock(view.positionMs), formatClock(view.durationMs)};
+}
 
 ChromeHit hitTest(WindowId id, QSize logical, QPoint pos, const SessionView& view) {
   switch (id) {

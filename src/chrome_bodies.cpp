@@ -109,8 +109,6 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
   QString fmtLabel = view.formatChip;
   qreal volume = view.muted ? 0 : view.volume;
   qreal seek = view.durationMs > 0 ? qreal(view.positionMs) / qreal(view.durationMs) : 0;
-  QString pos = formatClock(view.positionMs);
-  QString dur = formatClock(view.durationMs);
   bool playOn = view.playing;
   bool pauseOn = view.paused;
   bool shuffleOn = view.shuffle;
@@ -128,8 +126,6 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
     fmtLabel = QStringLiteral("MP3");
     volume = 0.66;
     seek = 161.0 / 347.0;
-    pos = QStringLiteral("2:41");
-    dur = QStringLiteral("5:47");
     playOn = true;
     pauseOn = false;
     shuffleOn = true;
@@ -296,12 +292,13 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
   if (live) {
     const QFont stamp = monoFont(14);
     const QFontMetricsF sm(stamp);
-    const MainSeekRow row =
-        layoutMainSeekRow(body, sm.horizontalAdvance(pos), sm.horizontalAdvance(dur));
+    const SeekStamps stamps = mainSeekStamps(view);
+    const MainSeekRow row = layoutMainSeekRow(body, sm.horizontalAdvance(stamps.elapsed),
+                                              sm.horizontalAdvance(stamps.duration));
     p.setFont(stamp);
     p.setPen(T().inkDim);
-    p.drawText(row.elapsed, Qt::AlignVCenter, pos);
-    p.drawText(row.duration, Qt::AlignVCenter, dur);
+    p.drawText(row.elapsed, Qt::AlignVCenter, stamps.elapsed);
+    p.drawText(row.duration, Qt::AlignVCenter, stamps.duration);
     drawSlider(p, row.track, seek, true, glow);
   }
 
