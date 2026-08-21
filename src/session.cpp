@@ -587,7 +587,6 @@ void TrampSession::setIngesting(bool ingesting) {
 void TrampSession::persistNow() {
   if (qEnvironmentVariable("TRAMP_AUTO_QUIT") == QLatin1String("1")) return;
   if (!main_) return;
-  if (!layout_.placing()) syncLayoutFromWindows();
   auto capture = [&](HostWindow* w, WindowFrame& frame) {
     if (!w) return;
     frame.visible = layout_.layout().frameOf(w->id()).visible;
@@ -865,7 +864,6 @@ void TrampSession::windowMoved(WindowId id, QPoint nativeTopLeft, bool finalize)
 
 void TrampSession::titleDragBegan(WindowId id) {
   Q_UNUSED(id);
-  syncLayoutFromWindows();
   titleDragging_ = true;
 }
 
@@ -880,19 +878,6 @@ void TrampSession::titleDragEnded(WindowId id) {
 void TrampSession::extraWasMapped(WindowId id) {
   if (id == WindowId::main) return;
   layout_.place();
-}
-
-void TrampSession::syncLayoutFromWindows(std::optional<WindowId> skip) {
-  for (WindowId id : {WindowId::main, WindowId::equalizer, WindowId::playlist, WindowId::settings,
-                      WindowId::about}) {
-    if (skip && id == *skip) continue;
-    HostWindow* w = windowFor(id);
-    if (!w || !w->isVisible()) continue;
-    const QPointF logical = layout_.nativeToLogical(w->nativeTopLeft());
-    WindowFrame& frame = layout_.docking().layout().frameOf(id);
-    frame.left = logical.x();
-    frame.top = logical.y();
-  }
 }
 
 void TrampSession::reapplyWindowFrames() {

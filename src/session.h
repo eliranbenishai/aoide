@@ -119,7 +119,6 @@ class TrampSession : public QObject, public PanelSurfaces {
   QString pickPlaylist(bool save);
   void openPaths(const QStringList& paths, bool enqueue);
   void loadCollectionRow(int index);
-  void syncLayoutFromWindows(std::optional<WindowId> skip = {});
   QRect hostRect() const override;
   void placePanels(const QVector<PanelPlacement>& panels) override;
   void showOptionsMenu(QRect logicalHit);

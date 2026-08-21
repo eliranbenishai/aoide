@@ -93,17 +93,25 @@ void LayoutSync::place() {
   QVector<PanelPlacement> panels;
   panels.reserve(int(std::size(kAllPanels)));
   for (WindowId id : kAllPanels) {
-    const WindowFrame& frame = docking_.layout().frameOf(id);
-    const QSizeF canvas = docking_.canvasSize(id);
     PanelPlacement panel;
     panel.id = id;
-    panel.logicalSize = QSize(qRound(canvas.width()), qRound(canvas.height()));
-    panel.shaded = frame.shaded;
-    panel.visible = frame.visible && !suppressed_.contains(id);
-    if (panel.visible) {
-      panel.screen = nativeFrameRect(id);
-      if (!host.isEmpty()) panel.screen = clampRectToHost(panel.screen, host);
+    {
+      const WindowFrame& frame = docking_.layout().frameOf(id);
+      panel.shaded = frame.shaded;
+      panel.visible = frame.visible && !suppressed_.contains(id);
     }
+    if (panel.visible) {
+      const QRect wanted = nativeFrameRect(id);
+      panel.screen = host.isEmpty() ? wanted : clampRectToHost(wanted, host);
+      // The desktop having the last word is a correction to the layout, not a
+      // note made on the way to the screen. Leaving the frame saying one thing
+      // while the panel sat somewhere else is what made a read-back from the
+      // widgets necessary in the first place. Only write when the clamp bit, so
+      // an ordinary placement cannot round its way into a drift.
+      if (panel.screen != wanted) setNativeFrame(id, panel.screen);
+    }
+    const QSizeF canvas = docking_.canvasSize(id);
+    panel.logicalSize = QSize(qRound(canvas.width()), qRound(canvas.height()));
     panels.push_back(panel);
   }
   surfaces_->placePanels(panels);

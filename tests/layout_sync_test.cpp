@@ -55,6 +55,8 @@ class LayoutSyncTest : public QObject {
   void everyPanelReachesTheSurfacesIncludingTheHiddenOnes();
   void minimizingMainSuppressesThePanelsWithoutForgettingThem();
   void aShadedPanelKeepsTheCanvasItWillGoBackTo();
+  void placeCorrectsTheFrameWhenTheDesktopOverrulesIt();
+  void placingRepeatedlyDoesNotWalkTheFrame();
 };
 
 void LayoutSyncTest::nativeAndLogicalAreInversesAcrossTheZoomLadder() {
@@ -251,6 +253,39 @@ void LayoutSyncTest::aShadedPanelKeepsTheCanvasItWillGoBackTo() {
   QCOMPARE(pl.screen.height(), tramp::kTitleBar);
   QCOMPARE(pl.logicalSize, QSize(900, 600));
   QVERIFY(pl.shaded);
+}
+
+void LayoutSyncTest::placeCorrectsTheFrameWhenTheDesktopOverrulesIt() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  DockLayout dock;
+  dock.about = {true, false, 1800, 40, {}, {}};
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  layout.place();
+  QCOMPARE(desktop.placementOf(WindowId::about).screen, QRect(1440, 40, 480, 360));
+  // The frame agrees with where the panel actually went, so nothing has to read
+  // the widget back to find out where it ended up.
+  QCOMPARE(layout.layout().about.left, 1440.0);
+  QCOMPARE(layout.nativeFrameRect(WindowId::about), desktop.placementOf(WindowId::about).screen);
+}
+
+void LayoutSyncTest::placingRepeatedlyDoesNotWalkTheFrame() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  DockLayout dock;
+  dock.main = {true, false, 101, 67, {}, {}};
+  dock.playlist = {true, false, 200, 500, 1073.0, 696.0};
+  LayoutSync layout(dock, 75);
+  layout.setSurfaces(&desktop);
+
+  for (int i = 0; i < 20; ++i) layout.place();
+
+  // A drag places on every move. Rounding through native space and back on each
+  // pass would creep the cluster a pixel at a time across a long gesture.
+  QCOMPARE(layout.layout().main.left, 101.0);
+  QCOMPARE(layout.layout().main.top, 67.0);
+  QCOMPARE(*layout.layout().playlist.width, 1073.0);
+  QCOMPARE(*layout.layout().playlist.height, 696.0);
 }
 
 QTEST_APPLESS_MAIN(LayoutSyncTest)
