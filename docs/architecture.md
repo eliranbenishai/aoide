@@ -155,7 +155,8 @@ Playlist bytes are decoded by `decodeM3uBytes`: UTF-8 or UTF-16 by byte-order ma
 
 ## Notes
 
-- Fidelity is mockup-absolute at 100%. No PNG graphite faces. No Material ink.
+- Fidelity is mockup-absolute at 100%, minus the deviations recorded here. No PNG graphite faces. No Material ink.
+- Deliberate departures from `player-mockup-2.html`, so a fidelity pass does not undo them: dark wells carry `kWellRadius` (the panel corner) instead of the mockup's 3px; the main transport row and the playlist footer drop the mockup's `.rail` filler and `.plate` deck, leaving every button row on the bare shell; the mute glyph is recentred against artwork that overflows its own 24-unit viewBox (a browser hides the spill by clipping, QPainter does not).
 - Tests that assert text must load Tramp Condensed / Tramp Mono.
 - Version is [`VERSION`](../VERSION) (CMake `PROJECT_VERSION`, About readout).
 

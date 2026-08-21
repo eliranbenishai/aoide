@@ -62,8 +62,6 @@ void drawVBand(QPainter& p, const QRectF& column, qreal gainDb);
 void drawLed(QPainter& p, QPointF c, bool on, qreal size = 8);
 qreal toggleBtnWidth(const QString& label);
 void drawToggleBtn(QPainter& p, const QRectF& r, const QString& label, bool lit);
-void drawPlate(QPainter& p, const QRectF& r);
-void drawRail(QPainter& p, const QRectF& r);
 void drawMenuCaret(QPainter& p, const QRectF& btn);
 void drawReload(QPainter& p, const QRectF& box, const QColor& color);
 void drawChevron(QPainter& p, const QRectF& box, bool pointsLeft, const QColor& color);

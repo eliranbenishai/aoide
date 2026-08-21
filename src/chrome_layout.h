@@ -145,6 +145,33 @@ inline QRectF skinsListThumb(const QRectF& track, int count, int scroll) {
 
 inline constexpr qreal kPlaylistRowStride = 37;
 inline constexpr qreal kPlaylistRowPadTop = 6;
+inline constexpr qreal kPlaylistRowPadX = 16;
+inline constexpr qreal kPlaylistRowIndexW = 34;
+inline constexpr qreal kPlaylistRowTitleX = 64;
+inline constexpr qreal kPlaylistRowTitleGap = 16;
+inline constexpr qreal kPlaylistRowTimeMinW = 36;
+
+struct PlaylistRowColumns {
+  QRectF index;
+  QRectF title;
+  QRectF time;
+};
+
+/// Index / title / time within one track row. The time column is sized to the
+/// widest stamp in the list rather than to a constant: `12:34` needs a character
+/// more than `4:12`, and a skin's LCD face widens every digit again. Against a
+/// fixed box the right-aligned stamp lost its leading minute digit on anything
+/// past ten minutes. Title takes whatever is left.
+inline PlaylistRowColumns playlistRowColumns(const QRectF& row, qreal timeTextW) {
+  const qreal timeW = std::max(kPlaylistRowTimeMinW, timeTextW);
+  PlaylistRowColumns out;
+  out.index = QRectF(row.left() + kPlaylistRowPadX, row.top(), kPlaylistRowIndexW, row.height());
+  out.time = QRectF(row.right() - kPlaylistRowPadX - timeW, row.top(), timeW, row.height());
+  const qreal titleX = row.left() + kPlaylistRowTitleX;
+  const qreal titleW = out.time.left() - kPlaylistRowTitleGap - titleX;
+  out.title = QRectF(titleX, row.top(), std::max<qreal>(0, titleW), row.height());
+  return out;
+}
 inline constexpr qreal kPlaylistScrollW = 14;
 inline constexpr qreal kPlaylistScrollGap = 10;
 inline constexpr qreal kPlaylistFooterH = 110;
@@ -165,7 +192,6 @@ struct PlaylistStripLayout {
   QRectF sep;
   QRectF sort;
   QRectF options;
-  QRectF rail;
   QRectF prev;
   QRectF play;
   QRectF next;
@@ -212,10 +238,6 @@ inline PlaylistStripLayout layoutPlaylistStrip(const QRectF& plateInner, qreal t
   out.prev = QRectF(prevLeft, y, w, h);
   out.play = QRectF(prevLeft + w + gap, y, w, h);
   out.next = QRectF(prevLeft + 2 * (w + gap), y, w, h);
-  const qreal railRight = prevLeft - gap;
-  if (railRight - x > 4) {
-    out.rail = QRectF(x, y, railRight - x, h);
-  }
   out.total = QRectF(totalLeft, y + (h - kPlaylistStripTotalH) / 2, totalW, kPlaylistStripTotalH);
   return out;
 }

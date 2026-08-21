@@ -325,15 +325,10 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
     place(66, MockupIcon::next, false);
     x += 10;
     place(66, MockupIcon::eject, false);
-    x += 6;
     const qreal shuffleW = toggleBtnWidth(QStringLiteral("SHUFFLE"));
     const qreal repeatW = toggleBtnWidth(QStringLiteral("REPEAT"));
     const QRectF repeat(playRow.right() - repeatW, playRow.top(), repeatW, 50);
     const QRectF shuffle(repeat.left() - 6 - shuffleW, playRow.top(), shuffleW, 50);
-    const qreal railW = shuffle.left() - 12 - x;
-    if (railW > 8) {
-      drawRail(p, QRectF(x, playRow.center().y() - 11, railW, 22));
-    }
     drawToggleBtn(p, shuffle, QStringLiteral("SHUFFLE"), shuffleOn);
     drawToggleBtn(p, repeat, QStringLiteral("REPEAT"), repeatOn);
   }
@@ -440,7 +435,7 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
     wash.setColorAt(1, withAlpha(T().phos, 0));
     p.save();
     QPainterPath wellClip;
-    wellClip.addRoundedRect(curveWell, 3, 3);
+    wellClip.addRoundedRect(curveWell, kWellRadius, kWellRadius);
     p.setClipPath(wellClip);
     p.fillPath(fill, wash);
     if (glow) {
@@ -499,9 +494,9 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
         {QStringLiteral("Nightbus Choir"), QStringLiteral("Fluorescent Hymn"), QStringLiteral("6:02"), false, false},
         {QStringLiteral("Second Cassette"), QStringLiteral("Static Blonde"), QStringLiteral("3:27"), false, false},
         {QStringLiteral("Velvet Static"), QStringLiteral("Neon Boulevard (Reprise)"), QStringLiteral("2:02"), false, false},
-        {QStringLiteral("Long Wave Motel"), QStringLiteral("Untitled Sketch"), QStringLiteral("3:16"), false, false},
+        {QStringLiteral("Long Wave Motel"), QStringLiteral("Untitled Sketch"), QStringLiteral("13:16"), false, false},
     };
-    totalText = QStringLiteral("55:34");
+    totalText = QStringLiteral("65:34");
     statusName = QStringLiteral("COPPER RAIN — NIGHT SET.M3U8");
     playingN = 3;
   }
@@ -530,7 +525,7 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   drawScreenWell(p, colWell);
   p.save();
   QPainterPath colClip;
-  colClip.addRoundedRect(colWell, 3, 3);
+  colClip.addRoundedRect(colWell, kWellRadius, kWellRadius);
   p.setClipPath(colClip);
   for (int i = 0; i < lists.size(); ++i) {
     QRectF row(colWell.left(), colWell.top() + 4 + i * 26, colWell.width(), 26);
@@ -592,10 +587,20 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   drawListWell(p, listWell);
   p.save();
   QPainterPath clip;
-  clip.addRoundedRect(listWell, 3, 3);
+  clip.addRoundedRect(listWell, kWellRadius, kWellRadius);
   p.setClipPath(clip);
   const int scrollRows = view.goldenDemo ? 0 : view.trackScroll;
   const int visible = playlistVisibleRows(listWell.height()) + 1;
+  const QFont lcd = monoFont(15);
+  const QFont lcdTrack = monoFont(15, 0.15 / 15.0);
+  // Measure against the whole list, not the visible page, so the column keeps
+  // its width as the list scrolls. The longest string is the widest one, so this
+  // costs one text measurement rather than one per track.
+  const QString* widestTime = nullptr;
+  for (const TrackRowView& r : rows) {
+    if (!widestTime || r.time.size() > widestTime->size()) widestTime = &r.time;
+  }
+  const qreal timeTextW = widestTime ? textWidth(lcd, *widestTime) : 0;
   for (int vis = 0; vis < visible && scrollRows + vis < rows.size(); ++vis) {
     const int i = scrollRows + vis;
     const QRectF row(listWell.left(), listWell.top() + kPlaylistRowPadTop + vis * kPlaylistRowStride,
@@ -621,33 +626,28 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
       barPath.addRoundedRect(bar, 0, 2);
       p.fillPath(barPath, T().accent);
     }
-    const QFont lcd = monoFont(15);
-    const QFont lcdTrack = monoFont(15, 0.15 / 15.0);
+    const PlaylistRowColumns col = playlistRowColumns(row, timeTextW);
     const QString label = rows[i].artist.isEmpty()
                               ? rows[i].title
                               : QStringLiteral("%1 — %2").arg(rows[i].artist, rows[i].title);
     if (playing) {
-      drawStyledText(p, QRectF(row.left() + 16, row.top(), 34, 37),
-                     QStringLiteral("%1.").arg(i + 1), lcd, T().phos,
+      drawStyledText(p, col.index, QStringLiteral("%1.").arg(i + 1), lcd, T().phos,
                      Qt::AlignVCenter | Qt::AlignRight,
                      {{withAlpha(T().phos, 0x80), QPointF(), 10}});
-      drawStyledText(p, QRectF(row.left() + 64, row.top(), row.width() - 16 - 52 - 64, 37),
-                     label, lcdTrack, color, Qt::AlignVCenter | Qt::AlignLeft,
+      drawStyledText(p, col.title, label, lcdTrack, color, Qt::AlignVCenter | Qt::AlignLeft,
                      {{withAlpha(T().phos, 0x80), QPointF(), 10}});
     } else {
       p.setFont(lcd);
       p.setPen(QColor(color.red(), color.green(), color.blue(), 179));
-      p.drawText(QRectF(row.left() + 16, row.top(), 34, 37), Qt::AlignVCenter | Qt::AlignRight,
+      p.drawText(col.index, Qt::AlignVCenter | Qt::AlignRight,
                  QStringLiteral("%1.").arg(i + 1));
       p.setFont(lcdTrack);
       p.setPen(color);
-      p.drawText(QRectF(row.left() + 64, row.top(), row.width() - 16 - 52 - 64, 37),
-                 Qt::AlignVCenter, label);
+      p.drawText(col.title, Qt::AlignVCenter, label);
     }
     p.setFont(lcd);
     p.setPen(QColor(color.red(), color.green(), color.blue(), 204));
-    p.drawText(QRectF(row.right() - 52, row.top(), 36, 37), Qt::AlignVCenter | Qt::AlignRight,
-               rows[i].time);
+    p.drawText(col.time, Qt::AlignVCenter | Qt::AlignRight, rows[i].time);
   }
   drawLogoMark(p, QRectF(listWell.right() - 26 - 178, listWell.bottom() - 8 - 178, 178, 178),
                logo, 0.05);
@@ -663,7 +663,6 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   const QRectF footer(trackInner.left(), trackInner.bottom() - kPlaylistFooterH, trackInner.width(),
                       kPlaylistFooterH);
   const QRectF plate(footer.left(), footer.top(), footer.width(), 74);
-  drawPlate(p, plate);
   const QRectF plateInner = plate.adjusted(12, 10, -12, -10);
   const QFont totalLabel = condensedFont(11, 0.2);
   const QFont totalValue = monoFont(18);
@@ -682,9 +681,6 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   drawFooterSep(p, strip.sep);
   paintBtn(strip.sort, MockupIcon::sort, true, 21);
   paintBtn(strip.options, MockupIcon::options, true, 21);
-  if (strip.rail.width() > 4) {
-    drawRail(p, strip.rail);
-  }
   paintBtn(strip.prev, MockupIcon::previous, false, 18);
   paintBtn(strip.play, view.playing ? MockupIcon::pause : MockupIcon::play, false, 18,
            view.playing);

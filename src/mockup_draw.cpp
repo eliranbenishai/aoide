@@ -452,6 +452,11 @@ void drawMute(QPainter& p, const QRectF& box, const QColor& color) {
   p.save();
   p.translate(box.topLeft());
   p.scale(box.width() / 24.0, box.height() / 24.0);
+  // The cone starts at x=4 but the outer wave's stroke reaches x=26.6, so the
+  // mockup's own artwork sits 3.3 units right of its 24-unit box and spills past
+  // it. A browser hides the spill by clipping to the viewBox; QPainter does not,
+  // which left this the one glyph visibly off its button's axis.
+  p.translate(-3.325, 0);
   QPainterPath body;
   body.moveTo(4, 9.4);
   body.lineTo(7.3, 9.4);
@@ -604,7 +609,7 @@ const CachedWell& cachedWell(int w, int h) {
     bp.translate(pad - bounds.left(), pad - bounds.top());
     bp.setPen(Qt::NoPen);
     bp.setBrush(withAlpha(T().phos, 13));
-    bp.drawRoundedRect(well.adjusted(0.5, 0.5, -0.5, -0.5), 2.5, 2.5);
+    bp.drawRoundedRect(well.adjusted(0.5, 0.5, -0.5, -0.5), kWellRadius - 0.5, kWellRadius - 0.5);
     bp.end();
     c.bloom = gaussianBlur(buf, sigma);
   }
@@ -618,7 +623,7 @@ const CachedWell& cachedWell(int w, int h) {
     bp.setRenderHint(QPainter::Antialiasing);
     bp.setPen(Qt::NoPen);
     bp.setBrush(QColor(0, 0, 0, 0xE6));
-    bp.drawRoundedRect(QRectF(pad + 1, pad + 1, w - 2, h - 2), 2, 2);
+    bp.drawRoundedRect(QRectF(pad + 1, pad + 1, w - 2, h - 2), kWellRadius - 1, kWellRadius - 1);
     bp.end();
     QImage blurred = gaussianBlur(buf, sigma);
     QImage mask(buf.size(), QImage::Format_ARGB32_Premultiplied);
@@ -627,7 +632,7 @@ const CachedWell& cachedWell(int w, int h) {
     mp.setRenderHint(QPainter::Antialiasing);
     mp.setPen(Qt::NoPen);
     mp.setBrush(Qt::white);
-    mp.drawRoundedRect(QRectF(pad, pad, w, h), 3, 3);
+    mp.drawRoundedRect(QRectF(pad, pad, w, h), kWellRadius, kWellRadius);
     mp.end();
     QPainter mix(&blurred);
     mix.setCompositionMode(QPainter::CompositionMode_DestinationIn);
@@ -644,7 +649,7 @@ const CachedWell& cachedWell(int w, int h) {
 
 void drawScreenWell(QPainter& p, const QRectF& well) {
   QPainterPath path;
-  path.addRoundedRect(well, 3, 3);
+  path.addRoundedRect(well, kWellRadius, kWellRadius);
   p.save();
   p.setClipPath(path);
   QRadialGradient wash(QPointF(well.left() + well.width() * 0.18,
@@ -659,7 +664,7 @@ void drawScreenWell(QPainter& p, const QRectF& well) {
              QPointF(well.right(), well.top() + 0.5));
   p.setPen(QPen(withAlpha(T().phos, 26), 1));
   p.setBrush(Qt::NoBrush);
-  p.drawRoundedRect(well.adjusted(0.5, 0.5, -0.5, -0.5), 2.5, 2.5);
+  p.drawRoundedRect(well.adjusted(0.5, 0.5, -0.5, -0.5), kWellRadius - 0.5, kWellRadius - 0.5);
   p.restore();
 
   const CachedWell& fx =
@@ -670,7 +675,7 @@ void drawScreenWell(QPainter& p, const QRectF& well) {
 
 void drawScreenOverlay(QPainter& p, const QRectF& well, QColor scan, bool glass) {
   QPainterPath path;
-  path.addRoundedRect(well, 3, 3);
+  path.addRoundedRect(well, kWellRadius, kWellRadius);
   p.save();
   p.setClipPath(path);
   for (qreal y = well.top(); y < well.bottom(); y += 3) {
@@ -693,7 +698,7 @@ void drawScreen(QPainter& p, const QRectF& well) {
 
 void drawListWell(QPainter& p, const QRectF& well) {
   QPainterPath path;
-  path.addRoundedRect(well, 3, 3);
+  path.addRoundedRect(well, kWellRadius, kWellRadius);
   p.save();
   p.setClipPath(path);
   QRadialGradient wash(QPointF(well.left() + well.width() * 0.2,
@@ -711,7 +716,7 @@ void drawListWell(QPainter& p, const QRectF& well) {
   p.restore();
   p.setPen(QPen(withAlpha(T().phos, 20), 1));
   p.setBrush(Qt::NoBrush);
-  p.drawRect(well.adjusted(0.5, 0.5, -0.5, -0.5));
+  p.drawRoundedRect(well.adjusted(0.5, 0.5, -0.5, -0.5), kWellRadius - 0.5, kWellRadius - 0.5);
 }
 
 void drawBtn(QPainter& p, const QRectF& r, bool on, const QString& label) {
@@ -984,37 +989,6 @@ void drawLed(QPainter& p, QPointF c, bool on, qreal size) {
     p.setPen(QPen(QColor(0, 0, 0, 204), 1));
     p.drawEllipse(c, r, r);
   }
-}
-
-void drawPlate(QPainter& p, const QRectF& r) {
-  fillRound(p, r, 4, T().plateFace);
-  p.save();
-  QPainterPath clip;
-  clip.addRoundedRect(r, 4, 4);
-  p.setClipPath(clip);
-  for (qreal y = r.top(); y < r.bottom(); y += 3) {
-    p.fillRect(QRectF(r.left(), y, r.width(), 1), withAlpha(T().coolSheen, 11));
-    p.fillRect(QRectF(r.left(), y + 1, r.width(), 1), QColor(0, 0, 0, 26));
-  }
-  p.setPen(QPen(withAlpha(T().coolSheen, 26), 1));
-  p.drawLine(QPointF(r.left() + 2, r.top() + 1), QPointF(r.right() - 2, r.top() + 1));
-  p.setPen(QPen(QColor(0, 0, 0, 179), 1));
-  p.drawLine(QPointF(r.left() + 2, r.bottom() - 1), QPointF(r.right() - 2, r.bottom() - 1));
-  p.restore();
-}
-
-void drawRail(QPainter& p, const QRectF& r) {
-  p.save();
-  p.setOpacity(0.9);
-  fillRound(p, r, 3, T().plateFace);
-  QPainterPath clip;
-  clip.addRoundedRect(r, 3, 3);
-  p.setClipPath(clip);
-  for (qreal y = r.top(); y < r.bottom(); y += 3) {
-    p.fillRect(QRectF(r.left(), y, r.width(), 1), withAlpha(T().coolSheen, 11));
-    p.fillRect(QRectF(r.left(), y + 1, r.width(), 1), QColor(0, 0, 0, 26));
-  }
-  p.restore();
 }
 
 void drawMenuCaret(QPainter& p, const QRectF& btn) {
