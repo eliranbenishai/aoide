@@ -52,6 +52,8 @@ class LayoutSyncTest : public QObject {
   void clampAcceptsAScreenLeftOfThePrimary();
   void unpluggingAMonitorTranslatesAClusterThatStillFits();
   void aClusterTooWideForTheDesktopFallsBackToClampingEachPanel();
+  void aCrawlTooSlowToPeelStillLosesTheEdgeItCrawledAwayFrom();
+  void aClusterThatOnlyMovedKeepsEveryEdgeItWasDockedBy();
   void everyPanelReachesTheSurfacesIncludingTheHiddenOnes();
   void minimizingMainSuppressesThePanelsWithoutForgettingThem();
   void aShadedPanelKeepsTheCanvasItWillGoBackTo();
@@ -200,6 +202,59 @@ void LayoutSyncTest::aClusterTooWideForTheDesktopFallsBackToClampingEachPanel() 
   layout.fitClusterToHost();
   QCOMPARE(layout.nativeFrameRect(WindowId::main), QRect(0, 0, 825, 348));
   QCOMPARE(layout.nativeFrameRect(WindowId::playlist), QRect(0, 0, 900, 696));
+}
+
+void LayoutSyncTest::aCrawlTooSlowToPeelStillLosesTheEdgeItCrawledAwayFrom() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  DockLayout dock;
+  dock.main = {true, false, 0, 0, {}, {}};
+  dock.equalizer = {true, false, 0, 348, {}, {}};
+  dock.playlist.visible = false;
+  dock.dockEdges = {{WindowId::equalizer, WindowId::main, tramp::DockSide::top}};
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  // Two logical pixels per move event is under the peel delta, so nothing in
+  // the drag itself ever breaks the edge, however far the crawl goes.
+  for (int step = 1; step <= 30; ++step) {
+    layout.docking().move(WindowId::equalizer, QPointF(0, 348 + 2 * step), false, false);
+    layout.place();
+  }
+  QCOMPARE(layout.layout().equalizer.top, 408.0);
+  QVERIFY(layout.layout().dockEdges.isEmpty());
+
+  // Losing the edge is what lets the panel back: while main was still in the
+  // dragged panel's group it was excluded as a snap target, so a drop this
+  // close to it did nothing at all.
+  layout.docking().move(WindowId::equalizer, QPointF(0, 352), false, true);
+  QCOMPARE(layout.layout().equalizer.top, 348.0);
+  QVERIFY(!layout.layout().dockEdges.isEmpty());
+}
+
+void LayoutSyncTest::aClusterThatOnlyMovedKeepsEveryEdgeItWasDockedBy() {
+  // The cluster goes through native pixels and back on every fit, and 825
+  // logical px is 618.75 native at the default step, so a snapped pair can come
+  // back a third of a pixel out of true. That is rounding, not an undock.
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  DockLayout dock;
+  dock.main = {true, false, 2000, 0, {}, {}};
+  dock.equalizer = {true, false, 2000, 348, {}, {}};
+  dock.playlist = {true, false, 2825, 0, 1073.0, 696.0};
+  dock.dockEdges = {
+      {WindowId::equalizer, WindowId::main, tramp::DockSide::top},
+      {WindowId::equalizer, WindowId::main, tramp::DockSide::left},
+      {WindowId::playlist, WindowId::main, tramp::DockSide::left},
+      {WindowId::playlist, WindowId::main, tramp::DockSide::top},
+  };
+  LayoutSync layout(dock, 75);
+  layout.setSurfaces(&desktop);
+
+  layout.fitClusterToHost();
+  layout.place();
+
+  QCOMPARE(layout.layout().dockEdges.size(), 4);
+  QVERIFY(layout.layout().playlist.left - layout.layout().main.left - 825.0 <=
+          tramp::DockingCoordinator::kEdgeSlack);
 }
 
 void LayoutSyncTest::everyPanelReachesTheSurfacesIncludingTheHiddenOnes() {

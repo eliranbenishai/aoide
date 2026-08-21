@@ -114,6 +114,12 @@ void LayoutSync::place() {
     panel.logicalSize = QSize(qRound(canvas.width()), qRound(canvas.height()));
     panels.push_back(panel);
   }
+  // Every geometry change funnels through here — a drag, a zoom step, a fit,
+  // the desktop changing shape — so this is the one moment where a dock edge
+  // can be checked against the frames it describes. The check comes after the
+  // clamp above, because the desktop overruling a panel is one of the ways an
+  // edge stops being true without anybody dragging anything.
+  docking_.validateEdges();
   surfaces_->placePanels(panels);
   placing_ = false;
 }

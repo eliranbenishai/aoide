@@ -38,6 +38,12 @@ class DockingCoordinator {
   /// keeps its edges however far it goes — which is what Shift-undock is for.
   static constexpr double kPeelDelta = 8.0;
 
+  /// How far a dock edge may be out of true and still describe a contact. A
+  /// cluster that has been translated has been through native pixels and back,
+  /// so panels that were snapped flush can come back a fraction of a logical
+  /// pixel apart. Wider than this is a gap, not rounding.
+  static constexpr double kEdgeSlack = 2.0;
+
   explicit DockingCoordinator(DockLayout layout = {});
 
   DockLayout& layout() { return layout_; }
@@ -58,6 +64,15 @@ class DockingCoordinator {
   /// If [id] sits on top of main (same origin or heavy overlap), park it at the
   /// default offset: EQ flush below main, playlist flush to main's right.
   void nudgeOffMainIfStacked(WindowId id);
+  /// Drop the dock edges whose panels are no longer touching, and say whether
+  /// any went. An edge is a claim about two logical rectangles, and until this
+  /// existed nothing re-checked it: a drag slow enough to stay under
+  /// [kPeelDelta] carried its edges away from the panel they name, and a clamp
+  /// onto a desktop that shrank moved panels the edges called flush. A stale
+  /// edge is worse than no edge, because [groupOf] then keeps the dock target
+  /// inside the dragged panel's own group, which excludes it as a snap target —
+  /// so the panel can neither hold its dock nor get it back.
+  bool validateEdges();
   QRectF rectFor(WindowId id) const;
   /// The panel's logical canvas, ignoring windowshade — the size it goes back
   /// to. Only the playlist's varies.
