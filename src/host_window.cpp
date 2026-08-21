@@ -189,9 +189,10 @@ void HostWindow::syncLatchedPhases(bool snap) {
       break;
     case tramp::WindowId::playlist:
       aim(K::plPlay, view_.playing);
-      // Refresh is a busy lamp, not a toggle. The work it announces blocks the
-      // event loop, so a fade would still be dark when the loop stops and would
-      // only reach full once the work had finished — the opposite of the signal.
+      // Refresh's `on` tracks an ingest, not a press on this button — a drop or
+      // an open lights it too — and an ingest can be over inside
+      // `kBtnTransitionMs`. Eased, the short ones would manage a dim blip and
+      // nothing else. Hover and press still fade.
       aim(K::plRefresh, view_.playlistRefreshing, true);
       break;
     case tramp::WindowId::settings:
