@@ -86,12 +86,20 @@ void paintBlurred(QPainter& p, const QRectF& bounds, qreal sigma,
 QImage loadTrampLogo();
 QImage loadProximaMark();
 
-/// Gaussian-blur accounting for the paint benches. `TRAMP_BENCH_NO_BLUR`
-/// short-circuits every blur so a run measures the rest of the chrome.
+/// Paint accounting for the benches. `TRAMP_BENCH_NO_BLUR` short-circuits every
+/// blur so a run measures the rest of the chrome.
+///
+/// `layerNanos` is the whole `paintBlurred` round trip — buffer, offscreen
+/// painter, the caller's drawing, the blur, the composite — so `layerNanos`
+/// minus `nanos` is what the blurred-layer machinery costs around the kernel.
 struct BlurCost {
   qint64 calls = 0;
   qint64 nanos = 0;
   qint64 pixels = 0;
+  qint64 layers = 0;
+  qint64 layerNanos = 0;
+  qint64 fonts = 0;
+  qint64 fontNanos = 0;
 };
 BlurCost blurCost();
 void resetBlurCost();

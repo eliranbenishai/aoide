@@ -396,14 +396,15 @@ int runDragBench(const DragBenchOptions& opts, tramp::TrampSession& session, Hos
     if (stats.paints == 0) continue;
     chassisBuilds += stats.chassisBuilds;
     paints << QStringLiteral("%1=%2").arg(panelName(w->id())).arg(stats.paints);
-    costs << QStringLiteral("%1=%2/paint (blur %3 in %4 calls, %5 kpx, %6 Mpx/s)")
+    const double per = stats.paints;
+    costs << QStringLiteral("%1=%2 [layers %3 in %4, blur %5, fonts %6 in %7]")
                  .arg(panelName(w->id()))
-                 .arg(stats.nanos / 1e6 / stats.paints, 0, 'f', 1)
-                 .arg(stats.blurNanos / 1e6 / stats.paints, 0, 'f', 1)
-                 .arg(stats.blurCalls / stats.paints)
-                 .arg(stats.blurPixels / 1000.0 / stats.paints, 0, 'f', 0)
-                 .arg(stats.blurNanos > 0 ? stats.blurPixels * 1000.0 / stats.blurNanos : 0.0, 0,
-                      'f', 0);
+                 .arg(stats.nanos / 1e6 / per, 0, 'f', 2)
+                 .arg(stats.layerNanos / 1e6 / per, 0, 'f', 2)
+                 .arg(stats.layers / stats.paints)
+                 .arg(stats.blurNanos / 1e6 / per, 0, 'f', 2)
+                 .arg(stats.fontNanos / 1e6 / per, 0, 'f', 2)
+                 .arg(stats.fonts / stats.paints);
   }
   std::fprintf(stdout, "%s bench: paints %s  chassis-rebuilds=%d\n", tag,
                qPrintable(paints.join(QLatin1Char(' '))), chassisBuilds);

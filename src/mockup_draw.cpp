@@ -10,6 +10,7 @@
 #include <QRadialGradient>
 #include <QtMath>
 #include <cmath>
+#include <deque>
 #include <functional>
 #include <vector>
 
@@ -21,6 +22,16 @@ const ChromeTokens& T() { return currentLook(); }
 QImage g_noise;
 
 BlurCost g_blurCost;
+
+struct FontAccount {
+  QElapsedTimer clock;
+  FontAccount() {
+    clock.start();
+    g_blurCost.fonts += 1;
+  }
+  ~FontAccount() { g_blurCost.fontNanos += clock.nsecsElapsed(); }
+};
+
 // Ablation switch for the drag benches: proves how much of a repaint is blur.
 const bool g_blurOff = qEnvironmentVariableIsSet("TRAMP_BENCH_NO_BLUR");
 // Escape hatch to the exact separable kernel, for fidelity comparison.
@@ -490,6 +501,13 @@ void paintBlurred(QPainter& p, const QRectF& bounds, qreal sigma,
     p.restore();
     return;
   }
+  QElapsedTimer layerClock;
+  layerClock.start();
+  g_blurCost.layers += 1;
+  const struct LayerAccount {
+    QElapsedTimer* clock;
+    ~LayerAccount() { g_blurCost.layerNanos += clock->nsecsElapsed(); }
+  } layerAccount{&layerClock};
   const int pad = qMax(2, int(std::ceil(sigma * 3)) + 1);
   QImage buf(int(std::ceil(bounds.width())) + pad * 2,
              int(std::ceil(bounds.height())) + pad * 2,
@@ -505,6 +523,7 @@ void paintBlurred(QPainter& p, const QRectF& bounds, qreal sigma,
 }
 
 QFont condensedFont(int px, qreal trackingEm) {
+  FontAccount account;
   QFont f(chromeFamily());
   f.setPixelSize(px);
   f.setWeight(QFont::Bold);
@@ -517,6 +536,7 @@ QFont condensedFont(int px, qreal trackingEm) {
 }
 
 QFont monoFont(int px, qreal trackingEm) {
+  FontAccount account;
   QFont f(lcdFamily());
   f.setPixelSize(px);
   f.setWeight(QFont::Medium);
@@ -551,10 +571,18 @@ struct CachedWell {
 };
 
 const CachedWell& cachedWell(int w, int h) {
-  static std::vector<CachedWell> cache;
+  // Bounded, most-recent-first. Every distinct well size costs two blurred
+  // ARGB images, and a playlist resize drag walks a new size per pixel of
+  // travel — unbounded this grew by megabytes per gesture.
+  constexpr size_t kMaxEntries = 24;
+  static std::deque<CachedWell> cache;
   const QString lookId = T().id;
-  for (const CachedWell& c : cache) {
-    if (c.w == w && c.h == h && c.lookId == lookId) return c;
+  for (size_t i = 0; i < cache.size(); ++i) {
+    const CachedWell& c = cache[i];
+    if (c.w == w && c.h == h && c.lookId == lookId) {
+      if (i > 0) std::swap(cache[0], cache[i]);
+      return cache.front();
+    }
   }
   CachedWell c;
   c.w = w;
@@ -606,8 +634,9 @@ const CachedWell& cachedWell(int w, int h) {
     mix.end();
     c.inner = std::move(blurred);
   }
-  cache.push_back(std::move(c));
-  return cache.back();
+  cache.push_front(std::move(c));
+  while (cache.size() > kMaxEntries) cache.pop_back();
+  return cache.front();
 }
 
 }  // namespace

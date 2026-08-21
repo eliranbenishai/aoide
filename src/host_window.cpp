@@ -344,6 +344,10 @@ void HostWindow::paintEvent(QPaintEvent*) {
   paintStats_.blurCalls += blurAfter.calls - blurBefore.calls;
   paintStats_.blurNanos += blurAfter.nanos - blurBefore.nanos;
   paintStats_.blurPixels += blurAfter.pixels - blurBefore.pixels;
+  paintStats_.layers += blurAfter.layers - blurBefore.layers;
+  paintStats_.layerNanos += blurAfter.layerNanos - blurBefore.layerNanos;
+  paintStats_.fonts += blurAfter.fonts - blurBefore.fonts;
+  paintStats_.fontNanos += blurAfter.fontNanos - blurBefore.fontNanos;
 }
 
 void HostWindow::showEvent(QShowEvent* event) {

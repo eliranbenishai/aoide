@@ -74,12 +74,15 @@ void HostShell::placePanels(const QVector<HostPanelPlacement>& panels, bool upda
       dirty += local;
       place.widget->setGeometry(local);
     }
-    place.widget->show();
+    if (!place.widget->isVisible()) place.widget->show();
     mask += local;
   }
 
   lastLayout_.screenRect = QRect(origin, size());
   lastLayout_.localMask = mask;
+  // Re-pushed every call on purpose: setMask already early-returns when the
+  // region is unchanged, and always pushing keeps the punch self-healing if the
+  // native window is ever recreated underneath us.
   applyPunch(mask);
   if (!dirty.isEmpty()) update(dirty);
 }
@@ -151,5 +154,10 @@ void HostShell::closeEvent(QCloseEvent* event) {
 void HostShell::paintEvent(QPaintEvent* event) {
   QPainter p(this);
   p.setCompositionMode(QPainter::CompositionMode_Source);
-  p.fillRect(event->rect(), Qt::transparent);
+  // Fill the damaged rects, not their bounding box. On a virtual-desktop-sized
+  // surface a cluster drag damages several far-apart panel rects, and their
+  // bounding box can be most of the desktop.
+  for (const QRect& rect : event->region()) {
+    p.fillRect(rect, Qt::transparent);
+  }
 }

@@ -120,7 +120,9 @@ Three things hold that budget:
 - **Blur is the expensive primitive.** `gaussianBlur` (`mockup_draw.cpp`) backs every glow, drop shadow and bloom, 8–18 times per full panel paint. It uses a fixed-point separable kernel, and for σ ≥ 4 a three-pass box approximation whose cost is independent of radius. `TRAMP_BLUR=exact` and `TRAMP_BENCH_NO_BLUR=1` exist for measurement.
 - **Rasterised chrome is cached per panel.** Every panel keeps a `chassis_` image at widget × DPR size. Main and EQ cache `BodyPaint::chassis` and paint `BodyPaint::live` (clock, spectrum, seek, EQ curve) on top each frame; playlist, settings and about have no per-frame content, so their whole `BodyPaint::full` paint is the cache. A move therefore costs one `drawImage`. The cache is keyed on buffer size as well as the invalidation flag, so a resize cannot show stale pixels even if a call site forgets to invalidate. `SessionView::goldenDemo` bypasses the cache — that path is the fidelity reference.
 
-Measurement lives in `--bench-drag` / `--bench-resize` (synthetic gesture through the real event path, reporting per-panel repaint count, cost and blur share), `tool/bench-drag-matrix.sh`, and `tool/fidelity-diff.sh` (mockup-fidelity gate for any change to drawing). Detail and history: [`title-bar-drag.md`](agents/title-bar-drag.md).
+Blurred well bloom / inner shade are cached per well size in a **bounded** most-recent-first cache (`cachedWell`); a resize walks a new size per step, so unbounded it grew by megabytes per gesture.
+
+Measurement lives in `--bench-drag` / `--bench-resize` (synthetic gesture through the real event path, reporting per-panel repaint count and a cost split across blur, blurred-layer machinery and font builds), `tool/bench-drag-matrix.sh`, and `tool/fidelity-diff.sh` (mockup-fidelity gate for any change to drawing). Detail and history: [`title-bar-drag.md`](agents/title-bar-drag.md).
 
 ## Persistence
 
@@ -141,7 +143,8 @@ Support dir: `$XDG_DATA_HOME/com.proximamagnifica.tramp` (adopts legacy `…/tra
 - Linux MPRIS; second-instance “Open with”
 - Qt macOS host (and therefore the notarized DMG)
 - Spectrum: second `ao=pcm` pass per open; long tracks analyse in the background
-- Playlist free resize re-rasterises per move (size change invalidates the cache), so it is bounded by raw paint cost — ~20 ms/move — [`title-bar-drag.md`](agents/title-bar-drag.md)
+- Playlist free resize re-rasterises per move (size change invalidates the cache), so it is bounded by raw paint cost — ~12 ms at the default size, ~25 ms at large sizes — [`title-bar-drag.md`](agents/title-bar-drag.md)
+- One ~38 ms stall per second of dragging comes from committing the virtual-desktop-sized ARGB host surface, not from app painting
 
 ## Notes
 

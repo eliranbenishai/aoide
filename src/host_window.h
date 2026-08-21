@@ -53,6 +53,10 @@ class HostWindow : public QWidget {
     qint64 blurCalls = 0;
     qint64 blurNanos = 0;
     qint64 blurPixels = 0;
+    qint64 layers = 0;
+    qint64 layerNanos = 0;
+    qint64 fonts = 0;
+    qint64 fontNanos = 0;
   };
   PaintStats paintStats() const { return paintStats_; }
   void resetPaintStats() { paintStats_ = {}; }

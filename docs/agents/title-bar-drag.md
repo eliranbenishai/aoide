@@ -99,10 +99,28 @@ Tried in `5b7d0aa` / `f1b166b`, undone in `d9cdc81` after the user saw trails on
 
 Ranked by measured headroom. Prefer one seam per trial; restart `./build/tramp` each time (an already-running binary will not pick up `./build.sh`).
 
-1. **Playlist full-paint cost (~8.7 ms).** The only thing still bounding resize. Non-blur work dominates now: ~15 rows of shaped text, 14–18 button faces, three wells, zebra bands, all recomputed per paint. Caching button faces or the empty list well by size would go straight into resize smoothness.
-2. **Skip work that a pure move cannot change.** `applyHitCursor` (with a full `hitTest`) runs on every drag move; `placePanels` calls `show()` on all five panels and re-pushes the mask with no equality check; `fitClusterToHost` walks all five ids. Small next to paint, but free to remove.
-3. **Cache what is re-derived per paint.** `QPixmap::fromImage(noiseTile())` allocates per shell paint; fonts, gradients and icon paths are rebuilt per call site. (`loadProximaMark()` used to decode a PNG from disk per about repaint — now cached.)
-4. **Quiet the analyser during drag.** Spectrum/marquee ticks repaint main mid-gesture; that is the ~33 ms `max` in a drag run.
+1. **Playlist full-paint cost (~14 ms while resizing).** The only thing bounding resize. Measured split of one paint: **blur 5.5 ms**, `paintBlurred` layer machinery 3.1 ms across 17 layers, fonts 0.01 ms across 6 builds, remainder in gradients / paths / rows / scanlines. Fonts are a non-issue — do not go caching `QFont`.
+
+   Most of that blur is `drawScreenWell`'s bloom, and it is *avoidable*: the bloom and inner shade are a blurred rounded rect keyed on well size, so a resize misses the cache on every step. A blurred rounded rect is translation-invariant along its straight edges, so it nine-slices **exactly** given margins above the blur support (bloom: image is well+146 px, safe margin ~120, so wells narrower than ~95 logical px need the per-size fallback; inner shade: pad 10, safe margin ~32). That would make well size free and remove the miss storm. Caching button faces would take the 3.1 ms too, but both carry the same risk: a cached raster blitted at a rounded device position can shift by a subpixel against crisp edges. Measure with `tool/fidelity-diff.sh` before believing either.
+
+2. **Skip work that a pure move cannot change.** `applyHitCursor` (with a full `hitTest`) runs on every drag move; `fitClusterToHost` walks all five ids. Small next to paint, but free to remove. Note `placePanels` re-pushes the mask deliberately — `setMask` early-returns when unchanged, and always pushing keeps the punch self-healing.
+
+3. **Cache what is re-derived per paint.** `QPixmap::fromImage(noiseTile())` allocates per shell paint; gradients and icon paths are rebuilt per call site. (`loadProximaMark()` used to decode a PNG from disk per about repaint — now cached.)
+
+## The ~38 ms stall is the host surface, not the analyser
+
+An earlier version of this page guessed the outlier was the 33 ms analyser tick. It is not — nothing is playing in a bench run, and the numbers rule it out:
+
+- It appears **once per gesture**, reproducibly, in runs of 200+ moves; runs of 60 or fewer usually miss it. `mean ≈ median` and `p95` stays under 6 ms, so it is one event, not a periodic one.
+- `chassis-rebuilds=0` — no cache invalidation.
+- Loading eight cores with busy loops does not change it, so it is not CPU contention.
+- It does not appear when only one small panel is visible.
+
+What is left is the host surface. Panel paints for a five-panel cluster drag sum to ~2.4 ms, yet a move costs ~4.0 ms, so ~1.6 ms per move already lives outside panel painting — the backing-store clear and copy plus the Wayland commit for a **virtual-desktop-sized ARGB surface** (4389×1188 at DPR 1.75 is ~64 MB per shm buffer, up to five of them). Qt's shm backing store blocks inside `beginPaint` waiting for the compositor to release a buffer, and KWin's shm upload is a blocking copy on its own main thread. `WA_TranslucentBackground` also means Qt never sets an opaque region, so KWin cannot occlusion-cull anything beneath the host.
+
+Reducing that means changing the host surface itself — a retired shape, and 4 ms/move is 250 fps. Filling the damaged rects instead of their bounding box (now done) did not move it. Treat the stall as a known property, not a bug to chase.
+
+**Bench trap:** an offscreen run may report `paints` of zero, because nothing is exposed and `update()` never syncs. Always check the `paints` line before trusting an offscreen number — a suspiciously perfect 0.01 ms/move means it never painted.
 
 Not seams: **punch deferral** (measured free, and it caused the trails below); `startSystemMove` on this host (it would slide a virtual-desktop-sized toplevel); extra OS windows per panel (retired host shape, and Wayland has no `xdg_toplevel` set_position anyway).
 
