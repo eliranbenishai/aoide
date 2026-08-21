@@ -16,6 +16,7 @@
 #include <QPainter>
 #include <QUrl>
 #include <cmath>
+#include <utility>
 
 HostWindow::HostWindow(const tramp::WindowSpec& spec, QWidget* parent)
     : QWidget(parent),
@@ -90,14 +91,29 @@ void HostWindow::setShaded(bool shaded) {
 void HostWindow::setSessionView(const tramp::SessionView& view) {
   const bool collectionChanged =
       spec_.id == tramp::WindowId::playlist && view_.collectionCollapsed != view.collectionCollapsed;
-  view_ = view;
-  view_.zoomPercent = zoomPercent_;
-  titleMarqueeLive_ = view_.scrollTitle && !view_.goldenDemo &&
-                      view_.titleScrollMs > tramp::kMarqueeHoldMs;
+  // Every snapshot goes to every panel, so most of what arrives here is a
+  // change some other panel asked for. Keep the cached raster when this one
+  // paints the same either way — the raster only. The view, the latched phases
+  // and the repaint below are what the rest of the panel reads, and none of
+  // them is conditional.
+  //
+  // Compared against the view this panel already holds, zoom included, because
+  // that is what its raster was built from. `applyLiveReadouts` and
+  // `applyEqualizer` do move that view ahead of the raster, but only in fields
+  // that are painted outside it, which is what lets them.
+  tramp::SessionView incoming = view;
+  incoming.zoomPercent = zoomPercent_;
+  const bool rerasterise = !sawFirstView_ || !tramp::paintsSame(spec_.id, view_, incoming);
+  view_ = std::move(incoming);
+  titleMarqueeLive_ = tramp::titleMarqueeRunning(view_);
   syncLatchedPhases(!sawFirstView_);
   sawFirstView_ = true;
-  invalidateChassis();
+  if (rerasterise) invalidateChassis();
   if (collectionChanged) applyNativeSize();
+  // A wait cursor means a blocking load is about to start and this is the last
+  // chance the chrome has to reach the screen before it does. Synchronous
+  // whether or not the raster was kept: the point is the pixels arriving now,
+  // and a skipped repaint here is the pre-load chrome never showing at all.
   if (tramp::WaitCursorScope::showing()) {
     repaint();
     return;
@@ -123,8 +139,7 @@ void HostWindow::applyLiveReadouts(const tramp::MainLiveReadouts& live) {
   view_.titleScrollMs = live.titleScrollMs;
   view_.spectrum = live.spectrum;
   view_.spectrumPeaks = live.spectrumPeaks;
-  const bool marqueeLive = view_.scrollTitle && !view_.goldenDemo &&
-                           live.titleScrollMs > tramp::kMarqueeHoldMs;
+  const bool marqueeLive = tramp::titleMarqueeRunning(view_);
   if (titleMarqueeLive_ != marqueeLive) {
     titleMarqueeLive_ = marqueeLive;
     invalidateChassis();

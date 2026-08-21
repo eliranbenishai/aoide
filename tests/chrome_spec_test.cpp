@@ -29,6 +29,7 @@ class ChromeSpecTest : public QObject {
   void collapsedCollectionKeepsTheColumnItsReopenTabPaintsIn();
   void playlistStripKeepsGapBeforeLengthWell();
   void playlistStripRefreshSitsRightOfTotal();
+  void longPlaylistNameGivesWayBeforeTheFooterStripDoes();
   void buttonPhaseTakesTheWholeTransitionWhateverTheFrameRate();
   void inertPhaseStoreLeavesPaintersOnPlainSessionState();
   void pointerFeedbackSkipsSlidersAndListRows();
@@ -308,6 +309,44 @@ void ChromeSpecTest::playlistStripRefreshSitsRightOfTotal() {
   QCOMPARE(strip.refresh.right(), deckInner.right());
   QCOMPARE(strip.total.left() - strip.next.right(), tramp::kPlaylistStripGap);
   QVERIFY(!strip.total.intersects(strip.refresh));
+}
+
+// The footer's status run flowed from the left at its measured width with
+// nothing clipping it to the strip, so a long enough playlist name painted past
+// the strip's right edge and off the panel. The narrowest photographed state
+// fits, which is why no picture ever showed it.
+void ChromeSpecTest::longPlaylistNameGivesWayBeforeTheFooterStripDoes() {
+  const QRectF strip(20, 100, 600, 26);
+  const qreal tracks = 70;
+  const qreal playing = 78;
+  const qreal drop = 210;
+
+  // A name with room flows as it always did: gap-dot-gap between each pair of
+  // readouts, and the hint pinned to the right edge.
+  const auto easy = tramp::layoutPlaylistStatus(strip, 90, tracks, playing, drop);
+  QCOMPARE(easy.name, QRectF(strip.left(), strip.top(), 90, strip.height()));
+  QCOMPARE(easy.nameDot,
+           QPointF(easy.name.right() + tramp::kPlaylistStatusGap + tramp::kPlaylistStatusDotW / 2,
+                   strip.center().y()));
+  QCOMPARE(easy.tracks.left(), easy.name.right() + tramp::kPlaylistStatusSep);
+  QCOMPARE(easy.playing.left(), easy.tracks.right() + tramp::kPlaylistStatusSep);
+  QCOMPARE(easy.drop.right(), strip.right());
+  QCOMPARE(easy.drop.width(), drop);
+
+  // A name of any length takes only what the readouts leave, so the run ends
+  // inside the strip rather than off the end of it — and the width the caller
+  // elides to is the width the run hands back.
+  const auto huge = tramp::layoutPlaylistStatus(strip, 40000, tracks, playing, drop);
+  QCOMPARE(huge.name.width(), tramp::playlistStatusNameWidth(strip, tracks, playing));
+  QVERIFY(huge.name.left() >= strip.left());
+  QCOMPARE(huge.playing.right(), strip.right());
+  QVERIFY(huge.drop.isEmpty());
+
+  // The hint gives way before the name does, and gives way whole.
+  const auto tight = tramp::layoutPlaylistStatus(strip, 300, tracks, playing, drop);
+  QCOMPARE(tight.name.width(), 300.0);
+  QVERIFY(tight.playing.right() <= strip.right());
+  QVERIFY(tight.drop.isEmpty());
 }
 
 void ChromeSpecTest::buttonPhaseTakesTheWholeTransitionWhateverTheFrameRate() {

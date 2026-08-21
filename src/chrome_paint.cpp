@@ -15,6 +15,13 @@
 namespace tramp {
 namespace {
 
+/// Every painter below leaves the pen, brush and font as it found them, the
+/// same contract `mockup_draw.h` states for the primitives they call. Nothing
+/// here was broken by the ones that did not: `drawTitleContents` happens to set
+/// what it needs before each call, so the leaks were invisible. That is exactly
+/// how the playlist footer lost three readouts — `drawStatusDot` left
+/// `Qt::NoPen` behind, and every `drawText` after it drew nothing — so the rule
+/// holds here whether or not a caller currently depends on it.
 const ChromeTokens& T() { return currentLook(); }
 
 void drawShell(QPainter& p, const QRectF& rect) {
@@ -51,6 +58,7 @@ void drawRivet(QPainter& p, QPointF center) {
   g.setColorAt(0, T().metalHi);
   g.setColorAt(0.6, T().shell);
   g.setColorAt(1, T().shellDeep);
+  p.save();
   p.setPen(Qt::NoPen);
   p.setBrush(withAlpha(T().coolSheen, 31));
   p.drawEllipse(center + QPointF(0, 0.5), r, r);
@@ -59,6 +67,7 @@ void drawRivet(QPainter& p, QPointF center) {
   p.setBrush(Qt::NoBrush);
   p.setPen(QPen(QColor(0, 0, 0, 204), 0.8));
   p.drawEllipse(center, r, r);
+  p.restore();
 }
 
 void drawTitleFace(QPainter& p, const QRectF& bar) {
@@ -94,6 +103,7 @@ void drawGrip(QPainter& p, const QRectF& slot) {
     return;
   }
   const QRectF rail(slot.left(), slot.top() + (slot.height() - 2) / 2, slot.width(), 2);
+  p.save();
   paintBlurred(p, rail.adjusted(0, -8, 0, 10), 3.5, [&](QPainter& bp) {
     QLinearGradient bloom(rail.topLeft(), rail.topRight());
     bloom.setColorAt(0, withAlpha(T().phos, 0));
@@ -125,6 +135,7 @@ void drawGrip(QPainter& p, const QRectF& slot) {
   magenta.setColorAt(1, Qt::transparent);
   p.setBrush(magenta);
   p.drawRect(under);
+  p.restore();
 }
 
 void drawGlyph(QPainter& p, const QRect& btn, TitleChromeLayout::Hit kind, const QColor& color) {
@@ -214,17 +225,20 @@ QFont roleFont() {
 }
 
 void drawRole(QPainter& p, const QRectF& box, const QString& name) {
+  p.save();
   p.setFont(roleFont());
   const QString text = name.toUpper();
   p.setPen(QColor(0, 0, 0, 179));
   p.drawText(box.translated(0, 1), Qt::AlignCenter, text);
   p.setPen(T().windowName);
   p.drawText(box, Qt::AlignCenter, text);
+  p.restore();
 }
 
 void drawTitleContents(QPainter& p, const TitleChromeLayout& title, const QImage* logo,
                        int zoomPercent, const ChromePhases& phases) {
   constexpr int padL = 10;
+  p.save();
   const QRect bar = title.titleBar;
   qreal x = padL;
   qreal brandRight = padL;
@@ -272,6 +286,7 @@ void drawTitleContents(QPainter& p, const TitleChromeLayout& title, const QImage
     drawWinBtn(p, title.minimize, false, Hit::collapse, phases.titleFace(Hit::collapse));
   }
   drawWinBtn(p, title.close, true, Hit::close, phases.titleFace(Hit::close));
+  p.restore();
 }
 
 }  // namespace
@@ -286,7 +301,13 @@ void paintMockupWindow(QPainter& painter,
                        const ChromePhases& phases) {
   LookPaintScope scope(view.look);
   if (pass == BodyPaint::live) {
+    // The chassis pass hands the body layer a painter it has already saved;
+    // the live pass has no such wrapper, and the panel painters set a pen and
+    // a font per readout without putting them back. This is the boundary, so
+    // it is where that stops.
+    painter.save();
     paintWindowBody(painter, id, logical, logo, view, pass, phases);
+    painter.restore();
     return;
   }
   const QRectF rect(0, 0, logical.width(), logical.height());

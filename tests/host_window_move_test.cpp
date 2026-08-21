@@ -19,10 +19,13 @@
 #include <QPen>
 #include <QSignalSpy>
 #include <QTest>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <functional>
+#include <memory>
+#include <vector>
 
 class PaintCountHost : public HostWindow {
  public:
@@ -45,7 +48,9 @@ class HostWindowMoveTest : public QObject {
   void movingAPanelDoesNotRerasteriseIt();
   void hitRegionsCoverWhatIsPainted();
   void hitRegionsDoNotOverlap();
-  void waitCursorRebuildsChassisBeforeRefreshReturns();
+  void waitCursorRepaintsEvenWhenTheRasterIsKept();
+  void onlyThePanelsThatPaintAChangeRerasteriseForIt();
+  void aKeptRasterIsNeverOneThatWentStale();
   void refreshButtonLightsWhilePlaylistRefreshing();
   void refreshLampLightsOnTheLiveEventLoop();
   void goldenDemoPaintsTheStateItIsHanded();
@@ -501,22 +506,104 @@ void HostWindowMoveTest::movingAPanelDoesNotRerasteriseIt() {
   QVERIFY2(pl.paintStats().chassisBuilds >= 1, "a resize must re-rasterise at the new size");
 }
 
-void HostWindowMoveTest::waitCursorRebuildsChassisBeforeRefreshReturns() {
+namespace {
+
+QString panelLabel(tramp::WindowId id) {
+  switch (id) {
+    case tramp::WindowId::main: return QStringLiteral("main");
+    case tramp::WindowId::equalizer: return QStringLiteral("eq");
+    case tramp::WindowId::playlist: return QStringLiteral("playlist");
+    case tramp::WindowId::settings: return QStringLiteral("settings");
+    case tramp::WindowId::about: return QStringLiteral("about");
+  }
+  return QStringLiteral("?");
+}
+
+QSize panelLogicalSize(tramp::WindowId id) {
+  for (const tramp::WindowSpec& spec : tramp::windowSpecs()) {
+    if (spec.id == id) return spec.logicalSize;
+  }
+  return {};
+}
+
+const std::array<tramp::WindowId, 5>& everyPanel() {
+  static const std::array<tramp::WindowId, 5> ids = {
+      tramp::WindowId::main, tramp::WindowId::equalizer, tramp::WindowId::playlist,
+      tramp::WindowId::settings, tramp::WindowId::about};
+  return ids;
+}
+
+}  // namespace
+
+// A wait cursor says a blocking load is about to start, and this is the chrome's
+// last chance to reach the screen before it does. The panel is handed a view it
+// already has, so the raster is kept — and the repaint still has to happen, or
+// the pre-load chrome never shows at all.
+void HostWindowMoveTest::waitCursorRepaintsEvenWhenTheRasterIsKept() {
   HostShell shell;
   PaintCountHost panel(tramp::windowSpecs()[0], &shell);
   shell.show();
   panel.show();
   QVERIFY(QTest::qWaitForWindowExposed(&panel));
-  const tramp::SessionView view = tramp::goldenDemoView();
+  tramp::SessionView view = tramp::goldenDemoView();
+  // The golden flag takes a panel off the cache altogether, and the cache is
+  // the thing under test.
+  view.goldenDemo = false;
   panel.setSessionView(view);
   QApplication::processEvents();
+  panel.resetPaintStats();
   {
     tramp::WaitCursorScope wait;
     const int beforeRefresh = panel.paints;
     panel.setSessionView(view);
     QVERIFY2(panel.paints > beforeRefresh,
-             "skin refresh must rebuild chrome before the wait cursor drops");
+             "the pre-load chrome must reach the screen before the wait cursor drops");
+    QCOMPARE(panel.paintStats().chassisBuilds, 0);
   }
+}
+
+// The two the ticket names: a playlist scroll rebuilds the playlist raster and
+// no other, and MONO rebuilds main's and no other. Asserted through the panels
+// rather than through the comparison, because it is the raster that costs.
+void HostWindowMoveTest::onlyThePanelsThatPaintAChangeRerasteriseForIt() {
+  HostShell shell;
+  std::vector<std::unique_ptr<HostWindow>> panels;
+  for (const tramp::WindowSpec& spec : tramp::windowSpecs()) {
+    panels.push_back(std::make_unique<HostWindow>(spec, &shell));
+  }
+  shell.show();
+  for (auto& panel : panels) panel->show();
+  QVERIFY(QTest::qWaitForWindowExposed(panels.front().get()));
+
+  tramp::SessionView base = tramp::goldenDemoView();
+  base.goldenDemo = false;
+  auto publish = [&](const tramp::SessionView& view) {
+    for (auto& panel : panels) panel->setSessionView(view);
+    for (auto& panel : panels) panel->grab();
+  };
+  auto rebuilt = [&]() {
+    QStringList names;
+    for (auto& panel : panels) {
+      if (panel->paintStats().chassisBuilds > 0) names << panelLabel(panel->id());
+    }
+    return names.join(QLatin1Char('+'));
+  };
+
+  publish(base);
+  for (auto& panel : panels) panel->resetPaintStats();
+  tramp::SessionView scrolled = base;
+  scrolled.trackScroll = 3;
+  publish(scrolled);
+  QCOMPARE(rebuilt(), QStringLiteral("playlist"));
+
+  publish(base);
+  for (auto& panel : panels) panel->resetPaintStats();
+  // MONO last: it is latched, so main cross-fades and keeps rebuilding for
+  // kBtnTransitionMs afterwards. Nothing is measured after this.
+  tramp::SessionView mono = base;
+  mono.forceMono = true;
+  publish(mono);
+  QCOMPARE(rebuilt(), QStringLiteral("main"));
 }
 
 namespace {
@@ -526,6 +613,21 @@ QImage paintPanel(tramp::WindowId id, QSize logical, const tramp::SessionView& v
   img.fill(Qt::black);
   QPainter p(&img);
   tramp::paintWindowBody(p, id, logical, nullptr, view);
+  return img;
+}
+
+/// What a panel actually keeps in its raster. Main and the equaliser cache only
+/// their static chrome and redraw the live layer every frame; the other three
+/// have no live layer, so the whole paint is what sits in the cache. Comparing
+/// the full paint for all five would hold main to pixels its cache never held.
+QImage paintCachedPass(tramp::WindowId id, QSize logical, const tramp::SessionView& view) {
+  const bool live =
+      id == tramp::WindowId::main || id == tramp::WindowId::equalizer;
+  QImage img(logical, QImage::Format_ARGB32_Premultiplied);
+  img.fill(Qt::black);
+  QPainter p(&img);
+  tramp::paintWindowBody(p, id, logical, nullptr, view,
+                         live ? tramp::BodyPaint::chassis : tramp::BodyPaint::full);
   return img;
 }
 
@@ -545,6 +647,119 @@ tramp::ChromeHit refreshHit(const tramp::SessionView& view) {
   return {};
 }
 
+struct FieldChange {
+  const char* what;
+  /// The panels that must re-rasterise for it, '+' joined in panel order. An
+  /// empty string is a field no painter reads.
+  const char* rebuilds;
+  std::function<void(tramp::SessionView&)> apply;
+};
+
+/// Every field on the snapshot, and who repaints for it. The roll call is the
+/// point: a field missing from the list below is a field nobody has decided
+/// about, and `paintsSame` will not compile until someone has.
+std::vector<FieldChange> everyFieldOfTheSnapshot() {
+  const char* all = "main+eq+playlist+settings+about";
+  return {
+      // The shell and the title bar, which all five wear.
+      {"goldenDemo", all, [](tramp::SessionView& v) { v.goldenDemo = true; }},
+      {"zoomPercent", all, [](tramp::SessionView& v) { v.zoomPercent = 100; }},
+      {"look", all,
+       [](tramp::SessionView& v) { v.look.palette.phos = QColor(1, 2, 3); }},
+
+      // Main: the display well, the meta row, the clusters under it.
+      {"eqOn", "main", [](tramp::SessionView& v) { v.eqOn = !v.eqOn; }},
+      {"plOn", "main", [](tramp::SessionView& v) { v.plOn = !v.plOn; }},
+      {"showElapsed", "main", [](tramp::SessionView& v) { v.showElapsed = !v.showElapsed; }},
+      {"positionMs", "main", [](tramp::SessionView& v) { v.positionMs += 4000; }},
+      {"durationMs", "main", [](tramp::SessionView& v) { v.durationMs += 4000; }},
+      {"title", "main", [](tramp::SessionView& v) { v.title = QStringLiteral("Other"); }},
+      {"subtitle", "main", [](tramp::SessionView& v) { v.subtitle = QStringLiteral("OTHER"); }},
+      {"bitrate", "main", [](tramp::SessionView& v) { v.bitrate = QStringLiteral("320 kbps"); }},
+      {"sampleRate", "main", [](tramp::SessionView& v) { v.sampleRate = QStringLiteral("48 kHz"); }},
+      {"channels", "main", [](tramp::SessionView& v) { v.channels = QStringLiteral("MONO"); }},
+      {"formatChip", "main", [](tramp::SessionView& v) { v.formatChip = QStringLiteral("FLAC"); }},
+      {"volume", "main", [](tramp::SessionView& v) { v.volume = 0.2; }},
+      {"muted", "main", [](tramp::SessionView& v) { v.muted = !v.muted; }},
+      {"forceMono", "main", [](tramp::SessionView& v) { v.forceMono = !v.forceMono; }},
+      {"paused", "main", [](tramp::SessionView& v) { v.paused = !v.paused; }},
+      {"shuffle", "main", [](tramp::SessionView& v) { v.shuffle = !v.shuffle; }},
+      {"repeat", "main", [](tramp::SessionView& v) { v.repeat = tramp::RepeatMode::one; }},
+      {"spectrum", "main", [](tramp::SessionView& v) { v.spectrum[4] = 0.11; }},
+      {"spectrumPeaks", "main", [](tramp::SessionView& v) { v.spectrumPeaks[4] = 0.99; }},
+
+      // The marquee clock free-runs, so charging main for every value of it
+      // would cost main its cache for as long as a track is loaded. It reaches
+      // the cache only when the hold at the start of the line ends: past that
+      // the line is painted on the live pass, and the frames are not main's
+      // raster to keep.
+      {"titleScrollMs while the line is already moving", "",
+       [](tramp::SessionView& v) { v.titleScrollMs += 1000; }},
+      {"titleScrollMs when the hold ends", "main",
+       [](tramp::SessionView& v) { v.titleScrollMs = 0; }},
+
+      // Playing lights a transport face on main and the deck button on the
+      // playlist, so it is the one field two panels latch.
+      {"playing", "main+playlist", [](tramp::SessionView& v) { v.playing = !v.playing; }},
+      // As the marquee it runs on main; as a switch it is painted on settings.
+      {"scrollTitle", "main+settings", [](tramp::SessionView& v) { v.scrollTitle = !v.scrollTitle; }},
+
+      {"eq", "eq", [](tramp::SessionView& v) { v.eq.gains[2] = 7.5; }},
+
+      // Playlist: the collection column, the list, the deck and the footer.
+      {"tracks", "playlist",
+       [](tramp::SessionView& v) { v.tracks[0].title = QStringLiteral("Renamed"); }},
+      {"playingIndex", "playlist", [](tramp::SessionView& v) { v.playingIndex = 5; }},
+      {"trackScroll", "playlist", [](tramp::SessionView& v) { v.trackScroll = 3; }},
+      {"collection", "playlist", [](tramp::SessionView& v) { v.collection[0].count = 99; }},
+      {"collectionWidth", "playlist", [](tramp::SessionView& v) { v.collectionWidth = 300; }},
+      {"collectionCollapsed", "playlist",
+       [](tramp::SessionView& v) { v.collectionCollapsed = true; }},
+      {"playlistName", "playlist",
+       [](tramp::SessionView& v) { v.playlistName = QStringLiteral("other.m3u"); }},
+      {"playlistAltered", "playlist",
+       [](tramp::SessionView& v) { v.playlistAltered = !v.playlistAltered; }},
+      {"playlistTotalMs", "playlist", [](tramp::SessionView& v) { v.playlistTotalMs += 61000; }},
+      {"playlistTrackCount", "playlist", [](tramp::SessionView& v) { v.playlistTrackCount += 1; }},
+      {"playlistRefreshEnabled", "playlist",
+       [](tramp::SessionView& v) { v.playlistRefreshEnabled = !v.playlistRefreshEnabled; }},
+      {"playlistRefreshing", "playlist",
+       [](tramp::SessionView& v) { v.playlistRefreshing = !v.playlistRefreshing; }},
+
+      // Settings: both tabs, because a change on the pane that is not showing
+      // still has to be there when the listener switches to it.
+      {"settingsTab", "settings", [](tramp::SessionView& v) { v.settingsTab = 1; }},
+      {"resumeLastSession", "settings",
+       [](tramp::SessionView& v) { v.resumeLastSession = !v.resumeLastSession; }},
+      {"confirmBeforeQuit", "settings",
+       [](tramp::SessionView& v) { v.confirmBeforeQuit = !v.confirmBeforeQuit; }},
+      {"minimizeHidesSecondaries", "settings",
+       [](tramp::SessionView& v) { v.minimizeHidesSecondaries = !v.minimizeHidesSecondaries; }},
+      {"dockSnap", "settings", [](tramp::SessionView& v) { v.dockSnap = 2; }},
+      {"skins", "settings",
+       [](tramp::SessionView& v) {
+         v.skins.push_back({QStringLiteral("dusk"), QStringLiteral("Dusk"), {}});
+       }},
+      {"activeSkinId", "settings",
+       [](tramp::SessionView& v) { v.activeSkinId = QStringLiteral("dusk"); }},
+      {"skinsError", "settings",
+       [](tramp::SessionView& v) { v.skinsError = QStringLiteral("no skin.json"); }},
+      {"skinsScroll", "settings", [](tramp::SessionView& v) { v.skinsScroll = 12; }},
+
+      // About: the four figures in the stats well.
+      {"aboutPlaylists", "about", [](tramp::SessionView& v) { v.aboutPlaylists += 1; }},
+      {"aboutTracks", "about", [](tramp::SessionView& v) { v.aboutTracks += 1; }},
+      {"aboutTimeMs", "about", [](tramp::SessionView& v) { v.aboutTimeMs += 60000; }},
+      {"aboutSpins", "about", [](tramp::SessionView& v) { v.aboutSpins += 1; }},
+
+      // Carried on the snapshot and painted by nobody.
+      {"selectedIndices", "", [](tramp::SessionView& v) { v.selectedIndices = {1, 4}; }},
+      {"collectionSelected", "",
+       [](tramp::SessionView& v) { v.collectionSelected = QStringLiteral("/x.m3u"); }},
+      {"aboutMeasured", "", [](tramp::SessionView& v) { v.aboutMeasured = !v.aboutMeasured; }},
+  };
+}
+
 int rgbDistance(QRgb a, const QColor& b) {
   const QColor c = QColor::fromRgba(a);
   return std::abs(c.red() - b.red()) + std::abs(c.green() - b.green()) +
@@ -552,6 +767,40 @@ int rgbDistance(QRgb a, const QColor& b) {
 }
 
 }  // namespace
+
+// One field at a time, against the painters themselves. Every panel that keeps
+// its raster for a change has to paint that change identically — otherwise the
+// listener is left looking at pixels that stopped being true, which is worse
+// than any number of redundant rebuilds. The other direction is checked too, so
+// a group cannot quietly narrow until a change stops reaching the panel that
+// shows it.
+void HostWindowMoveTest::aKeptRasterIsNeverOneThatWentStale() {
+  tramp::SessionView base = tramp::goldenDemoView();
+  base.goldenDemo = false;
+  // Past the hold, so the marquee cases below can move the clock in both
+  // directions across it.
+  base.titleScrollMs = 3000;
+
+  for (const FieldChange& change : everyFieldOfTheSnapshot()) {
+    tramp::SessionView changed = base;
+    change.apply(changed);
+    QStringList rebuilds;
+    for (tramp::WindowId id : everyPanel()) {
+      if (!tramp::paintsSame(id, base, changed)) {
+        rebuilds << panelLabel(id);
+        continue;
+      }
+      const QSize logical = panelLogicalSize(id);
+      QVERIFY2(paintCachedPass(id, logical, base) == paintCachedPass(id, logical, changed),
+               qPrintable(QStringLiteral("%1 keeps its raster for %2, which changes what it paints")
+                              .arg(panelLabel(id), QLatin1String(change.what))));
+    }
+    QVERIFY2(rebuilds.join(QLatin1Char('+')) == QLatin1String(change.rebuilds),
+             qPrintable(QStringLiteral("%1 re-rasterises [%2], expected [%3]")
+                            .arg(QLatin1String(change.what), rebuilds.join(QLatin1Char('+')),
+                                 QLatin1String(change.rebuilds))));
+  }
+}
 
 // The lamp used to have to flush with the wait cursor, because the work it
 // announced held the event loop: nothing reached the screen until that work had

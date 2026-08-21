@@ -49,8 +49,6 @@ void PlaylistCollection::sortEntries() {
   });
 }
 
-void PlaylistCollection::bumpFigures() { ++figuresRevision_; }
-
 void PlaylistCollection::refreshFigures(SavedPlaylist& e, const QVector<Track>& tracks) {
   e.trackCount = tracks.size();
   qint64 total = 0;
@@ -83,7 +81,6 @@ void PlaylistCollection::refreshFigures(SavedPlaylist& e, const QVector<Track>& 
   // figures, and it is what makes Refresh tell the truth.
   checkTrackFiles(paths);
   validationValid_ = false;
-  bumpFigures();
 }
 
 void PlaylistCollection::hydrateDurations(QVector<Track>& tracks) const {
@@ -120,7 +117,6 @@ void PlaylistCollection::mergeTrackDuration(const QString& trackPath, qint64 dur
     }
     if (hit) e.totalDurationMs = total;
   }
-  bumpFigures();
 }
 
 void PlaylistCollection::mergeTrackTags(const QString& trackPath, const QString& title,
@@ -197,7 +193,6 @@ void PlaylistCollection::remove(const QString& path) {
   // in `missingTracks_` until something asks about them, which costs nothing
   // and is corrected if the playlist comes back.
   validationValid_ = false;
-  bumpFigures();
 }
 
 void PlaylistCollection::select(const QString& path) {
