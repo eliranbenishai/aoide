@@ -52,13 +52,14 @@ bool paintsSame(WindowId id, const SessionView& a, const SessionView& b) {
   // five is the answer that cannot be wrong.
   const auto& [goldenDemo, eqOn, plOn, showElapsed, positionMs, durationMs, title, subtitle,
                bitrate, sampleRate, channels, formatChip, volume, muted, forceMono, playing,
-               paused, shuffle, repeat, zoomPercent, spectrum, spectrumPeaks, eq, tracks,
-               selectedIndices, playingIndex, trackScroll, collection, collectionSelected,
-               collectionWidth, collectionCollapsed, playlistName, playlistAltered,
-               playlistTotalMs, playlistTrackCount, playlistRefreshEnabled, playlistRefreshing,
-               settingsTab, resumeLastSession, confirmBeforeQuit, scrollTitle, titleScrollMs,
-               minimizeHidesSecondaries, dockSnap, aboutPlaylists, aboutTracks, aboutTimeMs,
-               aboutSpins, aboutMeasured, look, skins, activeSkinId, skinsError, skinsScroll] = a;
+               paused, shuffle, repeat, zoomPercent, zoomInEnabled, zoomOutEnabled, spectrum,
+               spectrumPeaks, eq, tracks, selectedIndices, playingIndex, trackScroll, collection,
+               collectionSelected, collectionWidth, collectionCollapsed, playlistName,
+               playlistAltered, playlistTotalMs, playlistTrackCount, playlistRefreshEnabled,
+               playlistRefreshing, settingsTab, resumeLastSession, confirmBeforeQuit, scrollTitle,
+               titleScrollMs, minimizeHidesSecondaries, dockSnap, aboutPlaylists, aboutTracks,
+               aboutTimeMs, aboutSpins, aboutMeasured, look, skins, activeSkinId, skinsError,
+               skinsScroll] = a;
 
   // No painter reads these three. The playlist rows carry their own `selected`
   // flag, so `selectedIndices` is the session's copy; `aboutMeasured` is read
@@ -83,8 +84,13 @@ bool paintsSame(WindowId id, const SessionView& a, const SessionView& b) {
 
   switch (id) {
     case WindowId::main:
-      // The display well, the meta row, and the volume and transport clusters.
-      return showElapsed == b.showElapsed && positionMs == b.positionMs &&
+      // The display well, the meta row, and the volume and transport clusters —
+      // and the zoom buttons, which are here rather than in the shared block
+      // above because main is the only panel whose title bar carries them:
+      // `TitleChromeLayout::forWindow` gives the other four minimize and close
+      // and nothing else, so a step going grey is invisible on them.
+      return zoomInEnabled == b.zoomInEnabled && zoomOutEnabled == b.zoomOutEnabled &&
+             showElapsed == b.showElapsed && positionMs == b.positionMs &&
              durationMs == b.durationMs && title == b.title && subtitle == b.subtitle &&
              bitrate == b.bitrate && sampleRate == b.sampleRate && channels == b.channels &&
              formatChip == b.formatChip && volume == b.volume && muted == b.muted &&

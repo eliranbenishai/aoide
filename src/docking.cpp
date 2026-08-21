@@ -3,6 +3,23 @@
 #include <cmath>
 
 namespace tramp {
+namespace {
+
+bool flush(double a, double b, double slack) { return std::abs(a - b) <= slack; }
+
+/// Whether two panels share a border: flush along one axis and overlapping
+/// along the other. Coincident coordinates alone are not a contact — two panels
+/// can share a left edge with a screen between them — and neither is a corner
+/// touch, which is why the overlap has to be wider than the slack.
+bool touching(const QRectF& a, const QRectF& b, double slack) {
+  const bool spansX = a.left() < b.right() - slack && a.right() > b.left() + slack;
+  const bool spansY = a.top() < b.bottom() - slack && a.bottom() > b.top() + slack;
+  const bool metX = flush(a.right(), b.left(), slack) || flush(a.left(), b.right(), slack);
+  const bool metY = flush(a.bottom(), b.top(), slack) || flush(a.top(), b.bottom(), slack);
+  return (metY && spansX) || (metX && spansY);
+}
+
+}  // namespace
 
 WindowFrame& DockLayout::frameOf(WindowId id) {
   switch (id) {
@@ -168,6 +185,22 @@ void DockingCoordinator::nudgeOffMainIfStacked(WindowId id) {
     frame.left = mainR.right();
     frame.top = mainR.top();
   }
+}
+
+bool DockingCoordinator::validateEdges() {
+  QVector<DockEdge> kept;
+  kept.reserve(layout_.dockEdges.size());
+  for (const DockEdge& e : layout_.dockEdges) {
+    if (!layout_.frameOf(e.a).visible || !layout_.frameOf(e.b).visible) continue;
+    // A two-axis snap leaves one contact edge and one alignment edge for the
+    // same pair, so the question is asked of the pair rather than of the side:
+    // the alignment only ever meant anything while the contact held.
+    if (!touching(rectFor(e.a), rectFor(e.b), kEdgeSlack)) continue;
+    kept.push_back(e);
+  }
+  if (kept.size() == layout_.dockEdges.size()) return false;
+  layout_.dockEdges = kept;
+  return true;
 }
 
 void DockingCoordinator::move(WindowId id, QPointF topLeft, bool shiftUndock, bool snap) {

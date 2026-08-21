@@ -16,6 +16,15 @@ class FakeDesktop : public tramp::PanelSurfaces {
   QRect hostRect() const override { return host_; }
   void setHostRect(QRect host) { host_ = host; }
 
+  /// Empty until a test says otherwise, which is "no work area known" — the
+  /// state every test that is not about zoom availability wants.
+  QRect workAreaFor(QRect clusterNative) const override {
+    clusterAsked = clusterNative;
+    return work_;
+  }
+  void setWorkArea(QRect work) { work_ = work; }
+  mutable QRect clusterAsked;
+
   void placePanels(const QVector<tramp::PanelPlacement>& panels) override {
     ++passes;
     last = panels;
@@ -33,6 +42,7 @@ class FakeDesktop : public tramp::PanelSurfaces {
 
  private:
   QRect host_;
+  QRect work_;
 };
 
 }  // namespace
@@ -50,8 +60,21 @@ class LayoutSyncTest : public QObject {
   void clampPullsAPanelBackOntoTheDesktop();
   void clampLeavesEverythingAloneWhenThereIsNoHostYet();
   void clampAcceptsAScreenLeftOfThePrimary();
+  void aClusterIsTranslatedWholeOntoAScreenLeftOfThePrimary();
+  void clampingOntoAScreenLeftOfThePrimaryDropsTheEdgesItBreaks();
   void unpluggingAMonitorTranslatesAClusterThatStillFits();
-  void aClusterTooWideForTheDesktopFallsBackToClampingEachPanel();
+  void aClusterTooWideForTheDesktopClampsEachPanelAndDropsTheEdgesThatBreaks();
+  void aCrawlTooSlowToPeelStillLosesTheEdgeItCrawledAwayFrom();
+  void aClusterThatOnlyMovedKeepsEveryEdgeItWasDockedBy();
+  void aZoomStepTheWorkAreaCannotHoldIsNotOffered();
+  void closingAPanelBringsTheStepsItCrowdedOutBack();
+  void theWorkAreaIsAskedForWhereTheClusterActuallyIs();
+  void anUnknownWorkAreaWithdrawsNoStep();
+  void theLadderRefusesAStepItDoesNotCarry();
+  void zoomingBackOutOfAStepTheDisplayOutgrewIsAlwaysOffered();
+  void aZoomStepThatOutgrowsTheDesktopDropsTheEdgesItBreaks();
+  void aRefusedZoomStepLeavesTheDockedClusterExactlyWhereItWas();
+  void thePanelsAreScaledToTheStepTheLayoutTookAndNotTheOneItWasOffered();
   void everyPanelReachesTheSurfacesIncludingTheHiddenOnes();
   void minimizingMainSuppressesThePanelsWithoutForgettingThem();
   void aShadedPanelKeepsTheCanvasItWillGoBackTo();
@@ -158,6 +181,60 @@ void LayoutSyncTest::clampAcceptsAScreenLeftOfThePrimary() {
 
   layout.clampToHost(WindowId::about);
   QCOMPARE(layout.nativeFrameRect(WindowId::about), QRect(-1920, -200, 480, 360));
+
+  // And the far edge is a distance from that origin rather than from zero, so a
+  // panel overshooting the right-hand monitor comes back to the same place it
+  // would on a desktop that started at zero.
+  layout.setNativeFrame(WindowId::about, QRect(5000, 5000, 480, 360));
+  layout.clampToHost(WindowId::about);
+  QCOMPARE(layout.nativeFrameRect(WindowId::about), QRect(1440, 720, 480, 360));
+}
+
+void LayoutSyncTest::aClusterIsTranslatedWholeOntoAScreenLeftOfThePrimary() {
+  // A monitor left of and above the primary puts the whole cluster in negative
+  // coordinates. Every unit test before this one used a desktop starting at
+  // zero, where a sign error and a correct answer look the same.
+  FakeDesktop desktop(QRect(-1920, -1080, 3840, 2160));
+  DockLayout dock;
+  dock.main = {true, false, -4000, -3000, {}, {}};
+  dock.equalizer = {true, false, -4000, -2652, {}, {}};
+  dock.playlist.visible = false;
+  dock.dockEdges = {{WindowId::equalizer, WindowId::main, tramp::DockSide::top}};
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  layout.fitClusterToHost();
+  layout.place();
+
+  QCOMPARE(layout.nativeFrameRect(WindowId::main), QRect(-1920, -1080, 825, 348));
+  // Translated whole, so the equalizer is still flush under main and its edge
+  // survives the trip: the cluster moved, the arrangement did not.
+  QCOMPARE(layout.nativeFrameRect(WindowId::equalizer), QRect(-1920, -732, 825, 348));
+  QCOMPARE(layout.layout().dockEdges.size(), 1);
+}
+
+void LayoutSyncTest::clampingOntoAScreenLeftOfThePrimaryDropsTheEdgesItBreaks() {
+  // The same fallback as a desktop starting at zero, on the monitor that is left
+  // of the primary: each panel pulled inside, and the edges clamping breaks
+  // dropped rather than left pointing at a contact on the monitor that has gone.
+  FakeDesktop desktop(QRect(-1920, -200, 900, 1080));
+  DockLayout dock;
+  dock.main = {true, false, -1920, -200, {}, {}};
+  dock.playlist = {true, false, -1095, -200, 1073.0, 696.0};
+  dock.equalizer.visible = false;
+  dock.dockEdges = {
+      {WindowId::playlist, WindowId::main, tramp::DockSide::left},
+      {WindowId::playlist, WindowId::main, tramp::DockSide::top},
+  };
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  layout.fitClusterToHost();
+  layout.place();
+
+  QCOMPARE(layout.nativeFrameRect(WindowId::main), QRect(-1920, -200, 825, 348));
+  QCOMPARE(layout.nativeFrameRect(WindowId::playlist), QRect(-1920, -200, 900, 696));
+  QVERIFY(layout.layout().dockEdges.isEmpty());
 }
 
 void LayoutSyncTest::unpluggingAMonitorTranslatesAClusterThatStillFits() {
@@ -184,22 +261,273 @@ void LayoutSyncTest::unpluggingAMonitorTranslatesAClusterThatStillFits() {
   QCOMPARE(layout.nativeFrameRect(WindowId::playlist).topLeft(), QPoint(1095, 796));
 }
 
-void LayoutSyncTest::aClusterTooWideForTheDesktopFallsBackToClampingEachPanel() {
-  // Today's answer when the union cannot fit at any origin: each visible panel
-  // is pulled back on its own, which stacks panels that were docked apart. What
-  // it should do instead is ticket 08's decision, not this seam's — this pins
-  // what the code does now so that change is visible when it is made.
+void LayoutSyncTest::aClusterTooWideForTheDesktopClampsEachPanelAndDropsTheEdgesThatBreaks() {
+  // A union that cannot fit at any origin is pulled back panel by panel, which
+  // is what a monitor going away is promised to do. Clamping moves panels that
+  // were docked, so the edges naming those contacts go with it: the alternative
+  // is a layout that still calls the pair flush while one sits on top of the
+  // other, and a panel whose own stale edge bars it from re-docking.
   FakeDesktop desktop(QRect(0, 0, 900, 1080));
   DockLayout dock;
   dock.main = {true, false, 0, 0, {}, {}};
   dock.playlist = {true, false, 825, 0, 1073.0, 696.0};
   dock.equalizer.visible = false;
+  dock.dockEdges = {
+      {WindowId::playlist, WindowId::main, tramp::DockSide::left},
+      {WindowId::playlist, WindowId::main, tramp::DockSide::top},
+  };
   LayoutSync layout(dock, 100);
   layout.setSurfaces(&desktop);
 
   layout.fitClusterToHost();
+  layout.place();
+
   QCOMPARE(layout.nativeFrameRect(WindowId::main), QRect(0, 0, 825, 348));
   QCOMPARE(layout.nativeFrameRect(WindowId::playlist), QRect(0, 0, 900, 696));
+  QVERIFY(layout.layout().dockEdges.isEmpty());
+}
+
+void LayoutSyncTest::aCrawlTooSlowToPeelStillLosesTheEdgeItCrawledAwayFrom() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  DockLayout dock;
+  dock.main = {true, false, 0, 0, {}, {}};
+  dock.equalizer = {true, false, 0, 348, {}, {}};
+  dock.playlist.visible = false;
+  dock.dockEdges = {{WindowId::equalizer, WindowId::main, tramp::DockSide::top}};
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  // Two logical pixels per move event is under the peel delta, so nothing in
+  // the drag itself ever breaks the edge, however far the crawl goes.
+  for (int step = 1; step <= 30; ++step) {
+    layout.docking().move(WindowId::equalizer, QPointF(0, 348 + 2 * step), false, false);
+    layout.place();
+  }
+  QCOMPARE(layout.layout().equalizer.top, 408.0);
+  QVERIFY(layout.layout().dockEdges.isEmpty());
+
+  // Losing the edge is what lets the panel back: while main was still in the
+  // dragged panel's group it was excluded as a snap target, so a drop this
+  // close to it did nothing at all.
+  layout.docking().move(WindowId::equalizer, QPointF(0, 352), false, true);
+  QCOMPARE(layout.layout().equalizer.top, 348.0);
+  QVERIFY(!layout.layout().dockEdges.isEmpty());
+}
+
+void LayoutSyncTest::aClusterThatOnlyMovedKeepsEveryEdgeItWasDockedBy() {
+  // The cluster goes through native pixels and back on every fit, and 825
+  // logical px is 618.75 native at the default step, so a snapped pair can come
+  // back a third of a pixel out of true. That is rounding, not an undock.
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  DockLayout dock;
+  dock.main = {true, false, 2000, 0, {}, {}};
+  dock.equalizer = {true, false, 2000, 348, {}, {}};
+  dock.playlist = {true, false, 2825, 0, 1073.0, 696.0};
+  dock.dockEdges = {
+      {WindowId::equalizer, WindowId::main, tramp::DockSide::top},
+      {WindowId::equalizer, WindowId::main, tramp::DockSide::left},
+      {WindowId::playlist, WindowId::main, tramp::DockSide::left},
+      {WindowId::playlist, WindowId::main, tramp::DockSide::top},
+  };
+  LayoutSync layout(dock, 75);
+  layout.setSurfaces(&desktop);
+
+  layout.fitClusterToHost();
+  layout.place();
+
+  QCOMPARE(layout.layout().dockEdges.size(), 4);
+  QVERIFY(layout.layout().playlist.left - layout.layout().main.left - 825.0 <=
+          tramp::DockingCoordinator::kEdgeSlack);
+}
+
+namespace {
+
+/// Main, EQ and playlist at their defaults: the vertical stack a first launch
+/// opens on, 1073 x 1392 logical.
+DockLayout defaultCluster() {
+  DockLayout dock;
+  dock.main = tramp::WindowFrame::mainDefault();
+  dock.equalizer = tramp::WindowFrame::equalizerDefault();
+  dock.playlist = tramp::WindowFrame::playlistDefault();
+  return dock;
+}
+
+/// A 1080p display less a desktop panel along the bottom.
+constexpr QRect kWorkArea1080p(0, 0, 1920, 1044);
+
+}  // namespace
+
+void LayoutSyncTest::aZoomStepTheWorkAreaCannotHoldIsNotOffered() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  desktop.setWorkArea(kWorkArea1080p);
+  LayoutSync layout(defaultCluster(), 75);
+  layout.setSurfaces(&desktop);
+
+  // The default stack is 1392 logical tall, which is 1044 native at 75% and
+  // 1392 at 100%. There is no room for the step up, so it is not offered and
+  // handing it over anyway changes nothing.
+  QCOMPARE(layout.clusterLogicalSize(), QSizeF(1073, 1392));
+  QVERIFY(!layout.zoomStepAvailable(100));
+  QVERIFY(!layout.zoomStepUp().has_value());
+  QVERIFY(!layout.setZoomPercent(100));
+  QCOMPARE(layout.zoomPercent(), 75);
+}
+
+void LayoutSyncTest::closingAPanelBringsTheStepsItCrowdedOutBack() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  desktop.setWorkArea(kWorkArea1080p);
+  DockLayout dock = defaultCluster();
+  dock.playlist.visible = false;
+  LayoutSync layout(dock, 75);
+  layout.setSurfaces(&desktop);
+
+  // Availability is a question about what is open, not about the ladder, so a
+  // step withdrawn while the playlist was up comes back when it is closed.
+  QCOMPARE(layout.clusterLogicalSize(), QSizeF(825, 696));
+  QCOMPARE(layout.zoomStepUp().value_or(0), 100);
+  QVERIFY(layout.zoomStepAvailable(150));
+}
+
+void LayoutSyncTest::theWorkAreaIsAskedForWhereTheClusterActuallyIs() {
+  FakeDesktop desktop(QRect(-1920, 0, 3840, 1080));
+  desktop.setWorkArea(kWorkArea1080p);
+  DockLayout dock = defaultCluster();
+  dock.playlist.visible = false;
+  dock.main.left = -1600;
+  dock.equalizer.left = -1600;
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  layout.zoomStepUp();
+  // Which display the ladder is measured against is a question about where the
+  // panels are, so the cluster's own rectangle is what gets asked — not the
+  // desktop, and not the primary screen.
+  QCOMPARE(desktop.clusterAsked, QRect(-1600, 0, 825, 696));
+}
+
+void LayoutSyncTest::anUnknownWorkAreaWithdrawsNoStep() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  LayoutSync layout(defaultCluster(), 75);
+  layout.setSurfaces(&desktop);
+
+  // No work area is not a display of no size: it is a question nobody could
+  // answer, and a step is only withdrawn on evidence.
+  for (int step : {100, 125, 150}) QVERIFY(layout.zoomStepAvailable(step));
+  QVERIFY(layout.setZoomPercent(150));
+  QCOMPARE(layout.zoomPercent(), 150);
+}
+
+void LayoutSyncTest::theLadderRefusesAStepItDoesNotCarry() {
+  LayoutSync layout(defaultCluster(), 75);
+  // Nothing off the ladder reaches here today, and every caller walks the steps
+  // — but a setter that took any number was one careless call from a zoom the
+  // chrome has no readout for.
+  QVERIFY(!layout.setZoomPercent(137));
+  QVERIFY(!layout.setZoomPercent(50));
+  QCOMPARE(layout.zoomPercent(), 75);
+  QVERIFY(layout.setZoomPercent(125));
+}
+
+void LayoutSyncTest::zoomingBackOutOfAStepTheDisplayOutgrewIsAlwaysOffered() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  desktop.setWorkArea(kWorkArea1080p);
+  LayoutSync layout(defaultCluster(), 150);
+  layout.setSurfaces(&desktop);
+
+  // A layout persisted on a bigger display restores at a step this one cannot
+  // hold — 150% of the default stack is 2088 native tall against 1044 of work
+  // area. Withdrawing the way out would strand the listener at it, so a step at
+  // or below the one in force is always carried.
+  QVERIFY(!tramp::zoomStepFits(layout.clusterLogicalSize(), kWorkArea1080p.size(), 150));
+  QCOMPARE(layout.zoomStepDown().value_or(0), 125);
+  QVERIFY(layout.setZoomPercent(125));
+  QCOMPARE(layout.zoomStepDown().value_or(0), 100);
+
+  LayoutSync floor(defaultCluster(), 75);
+  floor.setSurfaces(&desktop);
+  QVERIFY(!floor.zoomStepDown().has_value());
+}
+
+namespace {
+
+/// Main with the playlist docked flush against its right edge, and the two dock
+/// edges a two-axis snap leaves behind.
+DockLayout playlistDockedRightOfMain() {
+  DockLayout dock;
+  dock.main = {true, false, 0, 0, {}, {}};
+  dock.playlist = {true, false, 825, 0, 1073.0, 696.0};
+  dock.equalizer.visible = false;
+  dock.dockEdges = {
+      {WindowId::playlist, WindowId::main, tramp::DockSide::left},
+      {WindowId::playlist, WindowId::main, tramp::DockSide::top},
+  };
+  return dock;
+}
+
+}  // namespace
+
+void LayoutSyncTest::aZoomStepThatOutgrowsTheDesktopDropsTheEdgesItBreaks() {
+  // No work area to consult, so the step is taken — and a step that is taken
+  // has to leave the layout honest, whatever it costs the arrangement.
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  LayoutSync layout(playlistDockedRightOfMain(), 75);
+  layout.setSurfaces(&desktop);
+  layout.fitClusterToHost();
+  layout.place();
+  QCOMPARE(layout.layout().dockEdges.size(), 2);
+
+  QVERIFY(layout.setZoomPercent(125));
+  layout.fitClusterToHost();
+  layout.place();
+
+  // 1898 logical is 2372 native at 125%, wider than the desktop, so the pair
+  // cannot be translated and the playlist is pulled back over main. The edges
+  // went with it: a zoom step is one of the ways a contact stops holding.
+  QCOMPARE(layout.nativeFrameRect(WindowId::playlist).left(), 579);
+  QVERIFY(layout.layout().dockEdges.isEmpty());
+}
+
+void LayoutSyncTest::aRefusedZoomStepLeavesTheDockedClusterExactlyWhereItWas() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  desktop.setWorkArea(kWorkArea1080p);
+  LayoutSync layout(playlistDockedRightOfMain(), 75);
+  layout.setSurfaces(&desktop);
+  layout.fitClusterToHost();
+  layout.place();
+
+  // The same step, this time with a display to measure against: it is refused,
+  // and a refusal is not a quiet half-application. Nothing moves and nothing
+  // undocks, which is the whole point of withdrawing the step instead.
+  QVERIFY(!layout.setZoomPercent(125));
+  layout.place();
+  QCOMPARE(layout.zoomPercent(), 75);
+  QCOMPARE(layout.layout().playlist.left, 825.0);
+  QCOMPARE(layout.layout().dockEdges.size(), 2);
+}
+
+void LayoutSyncTest::thePanelsAreScaledToTheStepTheLayoutTookAndNotTheOneItWasOffered() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  desktop.setWorkArea(kWorkArea1080p);
+  LayoutSync layout(playlistDockedRightOfMain(), 75);
+  layout.setSurfaces(&desktop);
+  layout.fitClusterToHost();
+  layout.place();
+
+  const QRect mainFrame = desktop.placementOf(WindowId::main).screen;
+  const QRect playlistFrame = desktop.placementOf(WindowId::playlist).screen;
+
+  // A panel's frame comes from `place`, while the scale its chrome is painted at
+  // is pushed separately by whoever asked for the step. The two agree only if
+  // the pusher reads the step back instead of reusing the one it offered: a
+  // refusal that leaves the frames at 75% while the chrome is scaled to 125%
+  // paints every panel's contents outside the panel.
+  layout.setZoomPercent(125);
+  const int scaledTo = layout.zoomPercent();
+  QCOMPARE(scaledTo, 75);
+
+  const LayoutSync asPainted(layout.layout(), scaledTo);
+  QCOMPARE(asPainted.nativeFrameRect(WindowId::main), mainFrame);
+  QCOMPARE(asPainted.nativeFrameRect(WindowId::playlist), playlistFrame);
 }
 
 void LayoutSyncTest::everyPanelReachesTheSurfacesIncludingTheHiddenOnes() {

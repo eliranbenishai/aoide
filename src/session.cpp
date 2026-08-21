@@ -30,6 +30,7 @@
 #include <QMap>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QScreen>
 #include <QSet>
 #include <QUrl>
 #include <QWidget>
@@ -638,6 +639,17 @@ HostWindow* TrampSession::windowFor(WindowId id) const {
 
 QRect TrampSession::hostRect() const { return shell_ ? shell_->virtualDesktop() : QRect(); }
 
+QRect TrampSession::workAreaFor(QRect clusterNative) const {
+  // An L-shaped monitor arrangement leaves dead zones inside the virtual
+  // desktop that belong to no screen, so a cluster's centre can land on
+  // nothing. The primary screen is the honest answer then: it is the display a
+  // listener who has mislaid their layout will look at.
+  const QScreen* screen =
+      clusterNative.isNull() ? nullptr : QGuiApplication::screenAt(clusterNative.center());
+  if (!screen) screen = QGuiApplication::primaryScreen();
+  return screen ? screen->availableGeometry() : QRect();
+}
+
 SessionView TrampSession::view() const {
   SessionView v;
   v.eqOn = layout_.layout().equalizer.visible;
@@ -654,6 +666,8 @@ SessionView TrampSession::view() const {
   v.shuffle = playback_->shuffle();
   v.repeat = playback_->repeatMode();
   v.zoomPercent = layout_.zoomPercent();
+  v.zoomInEnabled = layout_.zoomStepUp().has_value();
+  v.zoomOutEnabled = layout_.zoomStepDown().has_value();
   v.spectrum = spectrumHold_.bars;
   v.spectrumPeaks = spectrumHold_.peaks;
   v.eq = settings_.equalizerCurve;
@@ -766,7 +780,11 @@ void TrampSession::refreshChrome() {
 }
 
 void TrampSession::setZoomPercent(int percent) {
-  layout_.setZoomPercent(percent);
+  // The zoom buttons walk the ladder, so an off-ladder value, or a step the
+  // display cannot hold, only arrives from a caller that did not ask first.
+  // Refusing it here is what makes a disabled step disabled, rather than
+  // applied and then clamped into a stack of overlapping panels.
+  if (!layout_.setZoomPercent(percent)) return;
   schedulePersist();
   emit zoomChanged(percent);
   layout_.fitClusterToHost();

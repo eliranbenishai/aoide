@@ -68,6 +68,15 @@ struct SessionView {
   bool shuffle = false;
   RepeatMode repeat = RepeatMode::off;
   int zoomPercent = 75;
+  /// Whether each zoom button has a step left to take. A step runs out at the
+  /// end of the ladder, and zooming in also runs out when the next step would
+  /// make the visible cluster taller or wider than the work area it sits on —
+  /// so these are the session's answer, not arithmetic a painter can redo.
+  ///
+  /// Default enabled: a synthesised view has no cluster and no display to
+  /// measure against, and the golden demo is one of those.
+  bool zoomInEnabled = true;
+  bool zoomOutEnabled = true;
   std::array<qreal, 20> spectrum{};
   std::array<qreal, 20> spectrumPeaks{};
   EqualizerSettings eq;
