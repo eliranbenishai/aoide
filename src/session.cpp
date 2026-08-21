@@ -666,6 +666,8 @@ SessionView TrampSession::view() const {
   v.shuffle = playback_->shuffle();
   v.repeat = playback_->repeatMode();
   v.zoomPercent = layout_.zoomPercent();
+  v.zoomInEnabled = layout_.zoomStepUp().has_value();
+  v.zoomOutEnabled = layout_.zoomStepDown().has_value();
   v.spectrum = spectrumHold_.bars;
   v.spectrumPeaks = spectrumHold_.peaks;
   v.eq = settings_.equalizerCurve;

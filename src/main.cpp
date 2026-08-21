@@ -33,6 +33,7 @@
 #include <clocale>
 #include <cstdio>
 #include <functional>
+#include <optional>
 #include <vector>
 
 namespace {
@@ -688,9 +689,15 @@ int main(int argc, char** argv) {
     return answer == QMessageBox::Yes;
   });
 
-  auto applyZoom = [&](int next) {
-    session.setZoomPercent(next);
-    for (HostWindow* window : windows) window->setZoomPercent(next);
+  // Sizes the panels from the step the session took, which is not always the
+  // step it was handed: the layout refuses one the display's work area cannot
+  // hold. Pushing the requested step here instead would scale every panel's
+  // chrome while the layout stayed at the size it kept, which reads as the
+  // panels having drifted out of their own frames.
+  auto applyZoom = [&](int requested) {
+    session.setZoomPercent(requested);
+    const int taken = session.zoomPercent();
+    for (HostWindow* window : windows) window->setZoomPercent(taken);
   };
 
   SnapshotMeter snapshots;
@@ -768,11 +775,16 @@ int main(int argc, char** argv) {
   });
 
   for (HostWindow* window : windows) {
+    // The session is asked for the step rather than told the next rung of the
+    // ladder: at either end, and at a step the work area cannot hold, there is
+    // no step to take and the press does nothing at all. Handing over a rung
+    // that will be refused would work too, but it makes the button's dead
+    // presses look like a bug in the setter rather than the absence of a step.
     QObject::connect(window, &HostWindow::zoomOutRequested, mainWindow, [&]() {
-      applyZoom(tramp::prevZoomPercent(session.zoomPercent()));
+      if (const std::optional<int> step = session.zoomStepDown()) applyZoom(*step);
     });
     QObject::connect(window, &HostWindow::zoomInRequested, mainWindow, [&]() {
-      applyZoom(tramp::nextZoomPercent(session.zoomPercent()));
+      if (const std::optional<int> step = session.zoomStepUp()) applyZoom(*step);
     });
     QObject::connect(window, &HostWindow::chromePressed, mainWindow,
                      [&, window](tramp::ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical) {

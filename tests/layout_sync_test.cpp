@@ -74,6 +74,7 @@ class LayoutSyncTest : public QObject {
   void zoomingBackOutOfAStepTheDisplayOutgrewIsAlwaysOffered();
   void aZoomStepThatOutgrowsTheDesktopDropsTheEdgesItBreaks();
   void aRefusedZoomStepLeavesTheDockedClusterExactlyWhereItWas();
+  void thePanelsAreScaledToTheStepTheLayoutTookAndNotTheOneItWasOffered();
   void everyPanelReachesTheSurfacesIncludingTheHiddenOnes();
   void minimizingMainSuppressesThePanelsWithoutForgettingThem();
   void aShadedPanelKeepsTheCanvasItWillGoBackTo();
@@ -502,6 +503,31 @@ void LayoutSyncTest::aRefusedZoomStepLeavesTheDockedClusterExactlyWhereItWas() {
   QCOMPARE(layout.zoomPercent(), 75);
   QCOMPARE(layout.layout().playlist.left, 825.0);
   QCOMPARE(layout.layout().dockEdges.size(), 2);
+}
+
+void LayoutSyncTest::thePanelsAreScaledToTheStepTheLayoutTookAndNotTheOneItWasOffered() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  desktop.setWorkArea(kWorkArea1080p);
+  LayoutSync layout(playlistDockedRightOfMain(), 75);
+  layout.setSurfaces(&desktop);
+  layout.fitClusterToHost();
+  layout.place();
+
+  const QRect mainFrame = desktop.placementOf(WindowId::main).screen;
+  const QRect playlistFrame = desktop.placementOf(WindowId::playlist).screen;
+
+  // A panel's frame comes from `place`, while the scale its chrome is painted at
+  // is pushed separately by whoever asked for the step. The two agree only if
+  // the pusher reads the step back instead of reusing the one it offered: a
+  // refusal that leaves the frames at 75% while the chrome is scaled to 125%
+  // paints every panel's contents outside the panel.
+  layout.setZoomPercent(125);
+  const int scaledTo = layout.zoomPercent();
+  QCOMPARE(scaledTo, 75);
+
+  const LayoutSync asPainted(layout.layout(), scaledTo);
+  QCOMPARE(asPainted.nativeFrameRect(WindowId::main), mainFrame);
+  QCOMPARE(asPainted.nativeFrameRect(WindowId::playlist), playlistFrame);
 }
 
 void LayoutSyncTest::everyPanelReachesTheSurfacesIncludingTheHiddenOnes() {
