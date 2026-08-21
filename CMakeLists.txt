@@ -154,6 +154,8 @@ set(TRAMP_SOURCES
   src/native_file_dialog_p.h
   src/playback.cpp
   src/docking.cpp
+  src/layout_sync.cpp
+  src/layout_sync.h
   src/look.cpp
   src/wav_reader.cpp
   src/stft.cpp
@@ -208,6 +210,18 @@ set_target_properties(window_spec_test PROPERTIES AUTOMOC ON)
 qt_add_executable(host_shell_test tests/host_shell_test.cpp)
 target_link_libraries(host_shell_test PRIVATE tramp_window_spec Qt6::Test)
 set_target_properties(host_shell_test PROPERTIES AUTOMOC ON)
+
+qt_add_executable(layout_sync_test
+  tests/layout_sync_test.cpp
+  src/layout_sync.cpp
+  src/layout_sync.h
+  src/docking.cpp
+  src/settings.cpp
+  src/equalizer.cpp
+)
+target_include_directories(layout_sync_test PRIVATE src)
+target_link_libraries(layout_sync_test PRIVATE tramp_window_spec Qt6::Test)
+set_target_properties(layout_sync_test PROPERTIES AUTOMOC ON)
 
 qt_add_executable(host_shell_window_test
   tests/host_shell_window_test.cpp
@@ -342,6 +356,7 @@ target_link_libraries(font_metrics_test PRIVATE Qt6::Gui)
 foreach(tramp_target IN ITEMS
     tramp_window_spec tramp
     window_spec_test host_shell_test host_shell_window_test host_window_move_test
+    layout_sync_test
     chrome_spec_test chrome_tooltip_test chrome_menu_test wait_cursor_test domain_test
     look_test font_metrics_test)
   target_link_libraries(${tramp_target} PRIVATE tramp_warnings)
@@ -365,6 +380,7 @@ add_test(NAME window_spec COMMAND window_spec_test)
 add_test(NAME host_shell COMMAND host_shell_test)
 add_test(NAME host_shell_window COMMAND host_shell_window_test)
 add_test(NAME host_window_move COMMAND host_window_move_test)
+add_test(NAME layout_sync COMMAND layout_sync_test)
 add_test(NAME chrome_spec COMMAND chrome_spec_test)
 add_test(NAME chrome_tooltip COMMAND chrome_tooltip_test)
 add_test(NAME chrome_menu COMMAND chrome_menu_test)

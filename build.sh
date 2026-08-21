@@ -107,6 +107,7 @@ SRCS=(
   "$ROOT/src/stft.cpp"
   "$ROOT/src/spectrum.cpp"
   "$ROOT/src/docking.cpp"
+  "$ROOT/src/layout_sync.cpp"
   "$ROOT/src/look.cpp"
   "$ROOT/src/session.cpp"
   "$ROOT/src/host_window.cpp"
@@ -180,6 +181,15 @@ QT_QPA_PLATFORM=offscreen "$BUILD/font_metrics_test"
   -L"$QT/lib" -lQt6Test -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
   -o "$BUILD/host_shell_test"
 "$BUILD/host_shell_test"
+
+"$MOC" "$ROOT/tests/layout_sync_test.cpp" -o "$BUILD/layout_sync_test.moc"
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_GUI_LIB -DQT_CORE_LIB \
+  "$ROOT/src/layout_sync.cpp" "$ROOT/src/docking.cpp" "$ROOT/src/settings.cpp" \
+  "$ROOT/src/equalizer.cpp" "$ROOT/src/host_shell.cpp" "$ROOT/src/window_spec.cpp" \
+  "$ROOT/tests/layout_sync_test.cpp" \
+  -L"$QT/lib" -lQt6Test -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
+  -o "$BUILD/layout_sync_test"
+"$BUILD/layout_sync_test"
 
 "$MOC" "$ROOT/src/host_shell_window.h" -o "$BUILD/moc_host_shell_window.cpp"
 "$MOC" "$ROOT/tests/host_shell_window_test.cpp" -o "$BUILD/host_shell_window_test.moc"

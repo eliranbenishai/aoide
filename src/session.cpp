@@ -94,9 +94,9 @@ TrampSession::TrampSession(QObject* parent)
   layout.settings = settings_.settings;
   layout.about = settings_.about;
   layout.dockEdges = settings_.dockEdges;
-  docking_ = DockingCoordinator(layout);
-  docking_.ensureMainVisible();
-  docking_.setSnapThreshold(snapPixels(settings_.dockSnapStrength));
+  layout_ = LayoutSync(layout, settings_.zoomPercent);
+  layout_.docking().ensureMainVisible();
+  layout_.docking().setSnapThreshold(snapPixels(settings_.dockSnapStrength));
 
   persistTimer_.setSingleShot(true);
   persistTimer_.setInterval(400);
@@ -339,8 +339,8 @@ void TrampSession::bootstrap(const QStringList& argvFiles) {
     pl_->setPlaylistLogicalSize(
         QSize(int(*settings_.playlist.width), int(*settings_.playlist.height)));
   }
-  docking_.nudgeOffMainIfStacked(WindowId::equalizer);
-  docking_.nudgeOffMainIfStacked(WindowId::playlist);
+  layout_.docking().nudgeOffMainIfStacked(WindowId::equalizer);
+  layout_.docking().nudgeOffMainIfStacked(WindowId::playlist);
   fitClusterToHost();
   applyFramesToWindows();
   if (settings_.about.visible) refreshAboutFigures();
@@ -361,7 +361,7 @@ void TrampSession::refreshEqChrome() {
 bool TrampSession::confirmQuit() const { return settings_.confirmBeforeQuit; }
 
 bool TrampSession::windowShouldShow(WindowId id) const {
-  return docking_.layout().frameOf(id).visible;
+  return layout_.layout().frameOf(id).visible;
 }
 
 void TrampSession::applyAlwaysOnTop() {
@@ -593,31 +593,31 @@ void TrampSession::persistNow() {
   if (!applyingDock_) syncLayoutFromWindows();
   auto capture = [&](HostWindow* w, WindowFrame& frame) {
     if (!w) return;
-    frame.visible = docking_.layout().frameOf(w->id()).visible;
+    frame.visible = layout_.layout().frameOf(w->id()).visible;
     frame.shaded = w->shaded();
     if (w->id() == WindowId::playlist) {
-      const qreal z = settings_.zoomPercent / 100.0;
+      const qreal z = layout_.zoomPercent() / 100.0;
       frame.width = w->width() / z;
       frame.height = w->height() / z;
     }
   };
-  settings_.main = docking_.layout().main;
-  settings_.equalizer = docking_.layout().equalizer;
-  settings_.playlist = docking_.layout().playlist;
-  settings_.settings = docking_.layout().settings;
-  settings_.about = docking_.layout().about;
+  settings_.main = layout_.layout().main;
+  settings_.equalizer = layout_.layout().equalizer;
+  settings_.playlist = layout_.layout().playlist;
+  settings_.settings = layout_.layout().settings;
+  settings_.about = layout_.layout().about;
   capture(main_, settings_.main);
   capture(eq_, settings_.equalizer);
   capture(pl_, settings_.playlist);
   capture(settingsWin_, settings_.settings);
   capture(about_, settings_.about);
-  docking_.layout().main = settings_.main;
-  docking_.layout().equalizer = settings_.equalizer;
-  docking_.layout().playlist = settings_.playlist;
-  docking_.layout().settings = settings_.settings;
-  docking_.layout().about = settings_.about;
-  settings_.dockEdges = docking_.layout().dockEdges;
-  settings_.equalizerCurve = settings_.equalizerCurve;
+  layout_.docking().layout().main = settings_.main;
+  layout_.docking().layout().equalizer = settings_.equalizer;
+  layout_.docking().layout().playlist = settings_.playlist;
+  layout_.docking().layout().settings = settings_.settings;
+  layout_.docking().layout().about = settings_.about;
+  settings_.dockEdges = layout_.layout().dockEdges;
+  settings_.zoomPercent = layout_.zoomPercent();
   settings_.main.visible = true;
   store_.writeSettings(settings_);
   if (!playlist_.sourcePath().isEmpty()) {
@@ -658,32 +658,22 @@ HostWindow* TrampSession::windowFor(WindowId id) const {
   return main_;
 }
 
-QPointF TrampSession::nativeToLogical(QPoint native) const {
-  const qreal z = settings_.zoomPercent / 100.0;
-  return QPointF(native.x() / z, native.y() / z);
-}
-
-QPoint TrampSession::logicalToNative(QPointF logical) const {
-  const qreal z = settings_.zoomPercent / 100.0;
-  return QPoint(int(std::lround(logical.x() * z)), int(std::lround(logical.y() * z)));
-}
-
 QRect TrampSession::nativeFrameRect(WindowId id) const {
-  const QSizeF logical = docking_.logicalSize(id);
-  const QSize zoomedSize =
-      tramp::zoomed(QSize(qRound(logical.width()), qRound(logical.height())), settings_.zoomPercent);
+  const QSizeF logical = layout_.docking().logicalSize(id);
+  const QSize zoomedSize = tramp::zoomed(QSize(qRound(logical.width()), qRound(logical.height())),
+                                         layout_.zoomPercent());
   const QSize nativeSize = tramp::panelNativeSize(zoomedSize, QSize());
-  const WindowFrame& f = docking_.layout().frameOf(id);
-  return QRect(logicalToNative(QPointF(f.left, f.top)), nativeSize);
+  const WindowFrame& f = layout_.layout().frameOf(id);
+  return QRect(layout_.logicalToNative(QPointF(f.left, f.top)), nativeSize);
 }
 
 void TrampSession::writeNativeFrame(WindowId id, QRect native) {
-  WindowFrame& f = docking_.layout().frameOf(id);
-  const QPointF logical = nativeToLogical(native.topLeft());
+  WindowFrame& f = layout_.docking().layout().frameOf(id);
+  const QPointF logical = layout_.nativeToLogical(native.topLeft());
   f.left = logical.x();
   f.top = logical.y();
   if (id == WindowId::playlist) {
-    const qreal z = settings_.zoomPercent / 100.0;
+    const qreal z = layout_.zoomPercent() / 100.0;
     const double w = native.width() / z;
     const double h = native.height() / z;
     f.width = w;
@@ -704,7 +694,7 @@ void TrampSession::fitClusterToHost() {
   if (!shell_) return;
   const QRect host = shell_->virtualDesktop();
   if (host.isEmpty()) return;
-  const QVector<WindowId> ids = visibleClusterMembers(docking_.layout());
+  const QVector<WindowId> ids = visibleClusterMembers(layout_.layout());
   QVector<QRect> rects;
   rects.reserve(ids.size());
   for (WindowId id : ids) rects.push_back(nativeFrameRect(id));
@@ -725,8 +715,8 @@ void TrampSession::fitClusterToHost() {
 
 SessionView TrampSession::view() const {
   SessionView v;
-  v.eqOn = docking_.layout().equalizer.visible;
-  v.plOn = docking_.layout().playlist.visible;
+  v.eqOn = layout_.layout().equalizer.visible;
+  v.plOn = layout_.layout().playlist.visible;
   v.showElapsed = settings_.showElapsed;
   v.titleScrollMs = titleScrollMs();
   v.positionMs = playback_->positionMs();
@@ -738,7 +728,7 @@ SessionView TrampSession::view() const {
   v.paused = playback_->paused();
   v.shuffle = playback_->shuffle();
   v.repeat = playback_->repeatMode();
-  v.zoomPercent = settings_.zoomPercent;
+  v.zoomPercent = layout_.zoomPercent();
   v.spectrum = spectrumHold_.bars;
   v.spectrumPeaks = spectrumHold_.peaks;
   v.eq = settings_.equalizerCurve;
@@ -851,7 +841,7 @@ void TrampSession::refreshChrome() {
 }
 
 void TrampSession::setZoomPercent(int percent) {
-  settings_.zoomPercent = percent;
+  layout_.setZoomPercent(percent);
   schedulePersist();
   emit zoomChanged(percent);
   fitClusterToHost();
@@ -859,9 +849,9 @@ void TrampSession::setZoomPercent(int percent) {
 }
 
 void TrampSession::setWindowVisible(WindowId id, bool visible) {
-  docking_.setVisible(id, visible);
+  layout_.docking().setVisible(id, visible);
   if (visible) {
-    docking_.nudgeOffMainIfStacked(id);
+    layout_.docking().nudgeOffMainIfStacked(id);
     emit requestShow(id);
     clampOneToHost(id);
     applyFramesToWindows();
@@ -877,13 +867,13 @@ void TrampSession::setWindowVisible(WindowId id, bool visible) {
 }
 
 void TrampSession::setShaded(WindowId id, bool shaded) {
-  docking_.setShaded(id, shaded);
+  layout_.docking().setShaded(id, shaded);
   schedulePersist();
   applyFramesToWindows();
 }
 
 void TrampSession::extraClosed(WindowId id) {
-  docking_.setVisible(id, false);
+  layout_.docking().setVisible(id, false);
   applyAlwaysOnTop();
   applyFramesToWindows();
   schedulePersist();
@@ -906,7 +896,7 @@ void TrampSession::mainMinimized(bool minimized) {
   } else {
     for (WindowId id : hiddenByMinimize_) {
       HostWindow* w = windowFor(id);
-      if (w && docking_.layout().frameOf(id).visible) w->show();
+      if (w && layout_.layout().frameOf(id).visible) w->show();
     }
     hiddenByMinimize_.clear();
     applyAlwaysOnTop();
@@ -938,8 +928,8 @@ void TrampSession::windowMoved(WindowId id, QPoint nativeTopLeft, bool finalize)
   // at the moment the panel moves, and again when it is dropped, since a
   // Shift-drop must not snap back onto the edge it was pulled off.
   const bool shiftUndock = QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier);
-  docking_.move(id, nativeToLogical(nativeTopLeft), shiftUndock,
-                finalize && id != WindowId::main);
+  layout_.docking().move(id, layout_.nativeToLogical(nativeTopLeft), shiftUndock,
+                         finalize && id != WindowId::main);
   if (id == WindowId::main) fitClusterToHost();
   else clampOneToHost(id);
   applyFramesToWindows();
@@ -971,8 +961,8 @@ void TrampSession::syncLayoutFromWindows(std::optional<WindowId> skip) {
     if (skip && id == *skip) continue;
     HostWindow* w = windowFor(id);
     if (!w || !w->isVisible()) continue;
-    const QPointF logical = nativeToLogical(w->nativeTopLeft());
-    WindowFrame& frame = docking_.layout().frameOf(id);
+    const QPointF logical = layout_.nativeToLogical(w->nativeTopLeft());
+    WindowFrame& frame = layout_.docking().layout().frameOf(id);
     frame.left = logical.x();
     frame.top = logical.y();
   }
@@ -985,7 +975,7 @@ void TrampSession::reapplyWindowFrames() {
 void TrampSession::applyDockToWindows(std::optional<WindowId> skip) {
   if (applyingDock_) return;
   applyingDock_ = true;
-  docking_.ensureMainVisible();
+  layout_.docking().ensureMainVisible();
 
   QVector<HostPanelPlacement> visible;
   for (WindowId id : {WindowId::main, WindowId::equalizer, WindowId::playlist, WindowId::settings,
@@ -993,7 +983,7 @@ void TrampSession::applyDockToWindows(std::optional<WindowId> skip) {
     if (skip && id == *skip) continue;
     HostWindow* w = windowFor(id);
     if (!w) continue;
-    const WindowFrame& f = docking_.layout().frameOf(id);
+    const WindowFrame& f = layout_.layout().frameOf(id);
     if (id != WindowId::main) w->setShaded(f.shaded);
     if (id == WindowId::playlist && f.width && f.height) {
       w->setPlaylistLogicalSize(QSize(int(*f.width), int(*f.height)));
@@ -1003,11 +993,11 @@ void TrampSession::applyDockToWindows(std::optional<WindowId> skip) {
       w->hide();
       continue;
     }
-    const QSizeF logical = docking_.logicalSize(id);
+    const QSizeF logical = layout_.docking().logicalSize(id);
     const QSize zoomedSize = tramp::zoomed(
-        QSize(qRound(logical.width()), qRound(logical.height())), settings_.zoomPercent);
+        QSize(qRound(logical.width()), qRound(logical.height())), layout_.zoomPercent());
     const QSize nativeSize = tramp::panelNativeSize(zoomedSize, w->size());
-    const QPoint native = logicalToNative(QPointF(f.left, f.top));
+    const QPoint native = layout_.logicalToNative(QPointF(f.left, f.top));
     QRect screen(native, nativeSize);
     if (shell_) {
       const QRect host = shell_->virtualDesktop();
@@ -1030,8 +1020,8 @@ void TrampSession::applyDockToWindows(std::optional<WindowId> skip) {
 
 void TrampSession::playlistResized(QSize native) {
   if (applyingDock_) return;
-  const qreal z = settings_.zoomPercent / 100.0;
-  docking_.resizePlaylist(QSizeF(native.width() / z, native.height() / z));
+  const qreal z = layout_.zoomPercent() / 100.0;
+  layout_.docking().resizePlaylist(QSizeF(native.width() / z, native.height() / z));
   settings_.playlist.width = native.width() / z;
   settings_.playlist.height = native.height() / z;
   clampOneToHost(WindowId::playlist);
@@ -1231,10 +1221,10 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       refreshChrome();
       break;
     case K::eqToggle:
-      setWindowVisible(WindowId::equalizer, !docking_.layout().equalizer.visible);
+      setWindowVisible(WindowId::equalizer, !layout_.layout().equalizer.visible);
       break;
     case K::plToggle:
-      setWindowVisible(WindowId::playlist, !docking_.layout().playlist.visible);
+      setWindowVisible(WindowId::playlist, !layout_.layout().playlist.visible);
       break;
     case K::prev:
     case K::plPrev:
@@ -1563,19 +1553,19 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       break;
     case K::settingsSnapOff:
       settings_.dockSnapStrength = DockSnapStrength::off;
-      docking_.setSnapThreshold(0);
+      layout_.docking().setSnapThreshold(0);
       schedulePersist();
       refreshChrome();
       break;
     case K::settingsSnapNormal:
       settings_.dockSnapStrength = DockSnapStrength::normal;
-      docking_.setSnapThreshold(20);
+      layout_.docking().setSnapThreshold(20);
       schedulePersist();
       refreshChrome();
       break;
     case K::settingsSnapStrong:
       settings_.dockSnapStrength = DockSnapStrength::strong;
-      docking_.setSnapThreshold(40);
+      layout_.docking().setSnapThreshold(40);
       schedulePersist();
       refreshChrome();
       break;
@@ -1583,7 +1573,7 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       settings_ = TrampSettings{};
       applyEq();
       engine_->setForceMono(false);
-      docking_.setSnapThreshold(20);
+      layout_.docking().setSnapThreshold(20);
       applyAlwaysOnTop();
       {
         WaitCursorScope wait;
@@ -1647,7 +1637,7 @@ int TrampSession::execAnchoredMenu(const QVector<ChromeMenuItem>& items, HostWin
   if (logicalHit.isEmpty()) logicalHit = QRect(0, 0, 1, 1);
   const QRect widget = host->widgetRectFromLogical(logicalHit);
   const QRect global(host->mapToGlobal(widget.topLeft()), widget.size());
-  return execChromeMenu(host, items, global, anchor, settings_.zoomPercent, skins_.tokens());
+  return execChromeMenu(host, items, global, anchor, layout_.zoomPercent(), skins_.tokens());
 }
 
 void TrampSession::showTrackInfo() {
