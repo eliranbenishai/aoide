@@ -14,6 +14,8 @@ class LayoutSyncTest : public QObject {
   void logicalToNativeRoundsRatherThanTruncates();
   void nativeFrameRectZoomsThePanelAndItsOrigin();
   void nativeFrameRectTakesTheStoredPlaylistSizeAndTheShadedHeight();
+  void setNativeFrameRoundTripsThroughTheFrame();
+  void onlyThePlaylistTakesASizeFromAScreenRectangle();
 };
 
 void LayoutSyncTest::nativeAndLogicalAreInversesAcrossTheZoomLadder() {
@@ -53,6 +55,28 @@ void LayoutSyncTest::nativeFrameRectTakesTheStoredPlaylistSizeAndTheShadedHeight
   dock.playlist.shaded = true;
   LayoutSync shaded(dock, 100);
   QCOMPARE(shaded.nativeFrameRect(WindowId::playlist), QRect(0, 0, 900, tramp::kTitleBar));
+}
+
+void LayoutSyncTest::setNativeFrameRoundTripsThroughTheFrame() {
+  DockLayout dock;
+  dock.playlist = {true, false, 0, 0, 1073.0, 696.0};
+  LayoutSync layout(dock, 75);
+
+  const QRect moved(300, 150, 900, 600);
+  layout.setNativeFrame(WindowId::playlist, moved);
+  QCOMPARE(layout.nativeFrameRect(WindowId::playlist), moved);
+  QCOMPARE(layout.layout().playlist.left, 400.0);
+  QCOMPARE(layout.layout().playlist.top, 200.0);
+}
+
+void LayoutSyncTest::onlyThePlaylistTakesASizeFromAScreenRectangle() {
+  DockLayout dock;
+  LayoutSync layout(dock, 100);
+  // Main and EQ never stretch, so a rectangle handed to them moves the origin
+  // and nothing else — a clamp that shrank one would otherwise stick.
+  layout.setNativeFrame(WindowId::main, QRect(40, 60, 200, 100));
+  QCOMPARE(layout.nativeFrameRect(WindowId::main), QRect(40, 60, 825, 348));
+  QVERIFY(!layout.layout().main.width.has_value());
 }
 
 QTEST_APPLESS_MAIN(LayoutSyncTest)

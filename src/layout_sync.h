@@ -30,6 +30,9 @@ class LayoutSync {
 
   /// Where [id] sits on the screen at the current zoom step.
   QRect nativeFrameRect(WindowId id) const;
+  /// Put [id] at a screen rectangle. The frame is the only place it is kept —
+  /// the widget and the settings file are both derived from it later.
+  void setNativeFrame(WindowId id, QRect native);
 
  private:
   DockingCoordinator docking_;

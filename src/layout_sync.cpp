@@ -28,4 +28,16 @@ QRect LayoutSync::nativeFrameRect(WindowId id) const {
   return QRect(logicalToNative(QPointF(f.left, f.top)), nativeSize);
 }
 
+void LayoutSync::setNativeFrame(WindowId id, QRect native) {
+  WindowFrame& f = docking_.layout().frameOf(id);
+  const QPointF logical = nativeToLogical(native.topLeft());
+  f.left = logical.x();
+  f.top = logical.y();
+  if (id == WindowId::playlist) {
+    const qreal z = zoomPercent_ / 100.0;
+    f.width = native.width() / z;
+    f.height = native.height() / z;
+  }
+}
+
 }  // namespace tramp

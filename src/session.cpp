@@ -335,9 +335,9 @@ void TrampSession::bootstrap(const QStringList& argvFiles) {
     }
   }
   schedulePathVerify();
-  if (pl_ && settings_.playlist.width && settings_.playlist.height) {
-    pl_->setPlaylistLogicalSize(
-        QSize(int(*settings_.playlist.width), int(*settings_.playlist.height)));
+  const WindowFrame& plFrame = layout_.layout().playlist;
+  if (pl_ && plFrame.width && plFrame.height) {
+    pl_->setPlaylistLogicalSize(QSize(int(*plFrame.width), int(*plFrame.height)));
   }
   layout_.docking().nudgeOffMainIfStacked(WindowId::equalizer);
   layout_.docking().nudgeOffMainIfStacked(WindowId::playlist);
@@ -658,27 +658,11 @@ HostWindow* TrampSession::windowFor(WindowId id) const {
   return main_;
 }
 
-void TrampSession::writeNativeFrame(WindowId id, QRect native) {
-  WindowFrame& f = layout_.docking().layout().frameOf(id);
-  const QPointF logical = layout_.nativeToLogical(native.topLeft());
-  f.left = logical.x();
-  f.top = logical.y();
-  if (id == WindowId::playlist) {
-    const qreal z = layout_.zoomPercent() / 100.0;
-    const double w = native.width() / z;
-    const double h = native.height() / z;
-    f.width = w;
-    f.height = h;
-    settings_.playlist.width = w;
-    settings_.playlist.height = h;
-  }
-}
-
 void TrampSession::clampOneToHost(WindowId id) {
   if (!shell_) return;
   const QRect host = shell_->virtualDesktop();
   if (host.isEmpty()) return;
-  writeNativeFrame(id, tramp::clampRectToHost(layout_.nativeFrameRect(id), host));
+  layout_.setNativeFrame(id, tramp::clampRectToHost(layout_.nativeFrameRect(id), host));
 }
 
 void TrampSession::fitClusterToHost() {
@@ -697,7 +681,7 @@ void TrampSession::fitClusterToHost() {
     // behind here would walk it out of the cluster one correction at a time.
     for (WindowId id : {WindowId::main, WindowId::equalizer, WindowId::playlist,
                         WindowId::settings, WindowId::about}) {
-      writeNativeFrame(id, layout_.nativeFrameRect(id).translated(*delta));
+      layout_.setNativeFrame(id, layout_.nativeFrameRect(id).translated(*delta));
     }
     return;
   }
@@ -725,7 +709,7 @@ SessionView TrampSession::view() const {
   v.eq = settings_.equalizerCurve;
   v.playingIndex = playback_->playingIndex();
   v.selectedIndices = playlist_.selectedIndices();
-  const qreal plH = settings_.playlist.height.value_or(kPlaylistDefault.height());
+  const qreal plH = layout_.layout().playlist.height.value_or(kPlaylistDefault.height());
   v.trackScroll = std::max(
       0, std::min(trackScroll_, playlistListMaxScroll(int(playlist_.tracks().size()),
                                                      playlistListWellHeight(plH))));
@@ -1013,8 +997,6 @@ void TrampSession::playlistResized(QSize native) {
   if (applyingDock_) return;
   const qreal z = layout_.zoomPercent() / 100.0;
   layout_.docking().resizePlaylist(QSizeF(native.width() / z, native.height() / z));
-  settings_.playlist.width = native.width() / z;
-  settings_.playlist.height = native.height() / z;
   clampOneToHost(WindowId::playlist);
   applyFramesToWindows();
   schedulePersist();
@@ -1129,7 +1111,7 @@ void TrampSession::handleWheel(WindowId id, int delta) {
   }
   if (id != WindowId::playlist) return;
   const int step = delta > 0 ? -1 : 1;
-  const qreal plH = settings_.playlist.height.value_or(kPlaylistDefault.height());
+  const qreal plH = layout_.layout().playlist.height.value_or(kPlaylistDefault.height());
   const int maxScroll =
       playlistListMaxScroll(int(playlist_.tracks().size()), playlistListWellHeight(plH));
   trackScroll_ = std::max(0, std::min(trackScroll_ + step, maxScroll));
