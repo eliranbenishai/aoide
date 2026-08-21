@@ -733,7 +733,7 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
   tab(body.top(), QStringLiteral("General"), K::settingsGeneral, tabIndex == 0);
   tab(body.top() + 42, QStringLiteral("Skins"), K::settingsSkins, tabIndex == 1);
 
-  const QRectF pane(body.left() + 108, body.top(), body.width() - 108, body.height() - 40);
+  const QRectF pane = settingsPane(body);
   if (tabIndex == 1) {
     const QVector<SkinCatalogEntry> skins = view.goldenDemo ? QVector<SkinCatalogEntry>{} : view.skins;
     const QString active = view.goldenDemo ? QStringLiteral("builtin") : view.activeSkinId;
@@ -772,7 +772,7 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
       p.drawText(QRectF(pane.left() + 12, pane.bottom() - 92, pane.width() - 24, 28),
                  Qt::AlignLeft | Qt::AlignVCenter | Qt::TextWordWrap, view.skinsError);
     }
-    const qreal btnY = pane.bottom() - 58;
+    const qreal btnY = pane.bottom() - kSkinsBtnStackH;
     drawBtn(p, QRectF(pane.left() + 12, btnY, 148, 26), faceOf(phases, K::settingsInstallZip, false),
             QStringLiteral("Install zip"));
     drawBtn(p, QRectF(pane.left() + 168, btnY, 160, 26),

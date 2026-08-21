@@ -314,10 +314,11 @@ inline QRectF panelBody(QSize logical) {
   return QRectF(0, kTitleBar, logical.width(), logical.height() - kTitleBar);
 }
 
-inline QRectF settingsPane(QSize logical) {
-  const QRectF body = panelBody(logical);
+inline QRectF settingsPane(const QRectF& body) {
   return QRectF(body.left() + 108, body.top(), body.width() - 108, body.height() - 40);
 }
+
+inline QRectF settingsPane(QSize logical) { return settingsPane(panelBody(logical)); }
 
 inline QRectF skinsListViewport(const QRectF& pane) {
   const qreal top = pane.top() + kSkinRowTop;
