@@ -79,19 +79,19 @@ ChromeHit hitMain(QSize logical, QPoint pos, const SessionView& view) {
 
 ChromeHit hitEq(QSize logical, QPoint pos) {
   const QRectF body = panelBody(logical);
-  const qreal onW = labelBtnWidth(QStringLiteral("ON"));
-  const qreal autoW = labelBtnWidth(QStringLiteral("AUTO"));
-  const qreal presetsW = labelBtnWidth(QStringLiteral("PRESETS"), 16, 22);
-  qreal hx = body.left() + 22;
-  const qreal hy = body.top() + 16;
-  const QRect on(int(hx), int(hy), int(onW), 38);
-  if (auto h = hitIf(on, pos, ChromeHit::Kind::eqOn); h.kind != ChromeHit::Kind::none) return h;
-  hx += onW + 8;
-  const QRect autoBtn(int(hx), int(hy), int(autoW), 38);
-  if (auto h = hitIf(autoBtn, pos, ChromeHit::Kind::eqAuto); h.kind != ChromeHit::Kind::none) return h;
-  hx += autoW + 8;
-  const QRect presets(int(hx), int(hy), int(presetsW), 38);
-  if (auto h = hitIf(presets, pos, ChromeHit::Kind::eqPresets); h.kind != ChromeHit::Kind::none) {
+  const EqHeaderRow header = layoutEqHeader(body, labelBtnWidth(QStringLiteral("ON")),
+                                            labelBtnWidth(QStringLiteral("AUTO")),
+                                            labelBtnWidth(QStringLiteral("PRESETS"), 16, 22));
+  if (auto h = hitIf(toHitRect(header.on), pos, ChromeHit::Kind::eqOn);
+      h.kind != ChromeHit::Kind::none) {
+    return h;
+  }
+  if (auto h = hitIf(toHitRect(header.autoBtn), pos, ChromeHit::Kind::eqAuto);
+      h.kind != ChromeHit::Kind::none) {
+    return h;
+  }
+  if (auto h = hitIf(toHitRect(header.presets), pos, ChromeHit::Kind::eqPresets);
+      h.kind != ChromeHit::Kind::none) {
     return h;
   }
 

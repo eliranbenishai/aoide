@@ -203,6 +203,40 @@ inline MainTransportRow layoutMainTransportRow(const QRectF& body, qreal shuffle
   return out;
 }
 
+inline constexpr qreal kEqHeaderTop = 16;
+inline constexpr qreal kEqHeaderBtnH = 38;
+inline constexpr qreal kEqHeaderGap = 8;
+inline constexpr qreal kEqCurveLabelGap = 14;
+inline constexpr qreal kEqCurveLabelW = 180;
+inline constexpr qreal kEqCurveWellW = 372;
+inline constexpr qreal kEqCurveWellH = 62;
+
+struct EqHeaderRow {
+  QRectF on;
+  QRectF autoBtn;
+  QRectF presets;
+  QRectF curveLabel;
+  QRectF curveWell;
+};
+
+/// ON / AUTO / PRESETS flow from the left, each sized to its own label, with
+/// the CURVE readout after them and the curve well on the right edge.
+inline EqHeaderRow layoutEqHeader(const QRectF& body, qreal onW, qreal autoW, qreal presetsW) {
+  EqHeaderRow out;
+  const qreal y = body.top() + kEqHeaderTop;
+  qreal x = body.left() + kBodySidePad;
+  out.on = QRectF(x, y, onW, kEqHeaderBtnH);
+  x += onW + kEqHeaderGap;
+  out.autoBtn = QRectF(x, y, autoW, kEqHeaderBtnH);
+  x += autoW + kEqHeaderGap;
+  out.presets = QRectF(x, y, presetsW, kEqHeaderBtnH);
+  x += presetsW + kEqCurveLabelGap;
+  out.curveLabel = QRectF(x, y, kEqCurveLabelW, kEqHeaderBtnH);
+  out.curveWell =
+      QRectF(body.right() - kBodySidePad - kEqCurveWellW, y, kEqCurveWellW, kEqCurveWellH);
+  return out;
+}
+
 /// The maker's-plate web pill is sized to its own text, so a fixed-width hit box
 /// drifts from it as soon as a skin changes the LCD face. Callers pass the
 /// measured text width; layout stays independent of the font machinery.

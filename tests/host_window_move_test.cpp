@@ -185,6 +185,17 @@ void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
   grabCoversPaint(tramp::WindowId::main, main, transport.repeat, tramp::ChromeHit::Kind::repeat,
                   "REPEAT");
 
+  const QSize eq = specs[1].logicalSize;
+  const tramp::EqHeaderRow header = tramp::layoutEqHeader(
+      tramp::panelBody(eq), tramp::labelBtnWidth(QStringLiteral("ON")),
+      tramp::labelBtnWidth(QStringLiteral("AUTO")),
+      tramp::labelBtnWidth(QStringLiteral("PRESETS"), 16, 22));
+  grabCoversPaint(tramp::WindowId::equalizer, eq, header.on, tramp::ChromeHit::Kind::eqOn, "EQ ON");
+  grabCoversPaint(tramp::WindowId::equalizer, eq, header.autoBtn, tramp::ChromeHit::Kind::eqAuto,
+                  "EQ AUTO");
+  grabCoversPaint(tramp::WindowId::equalizer, eq, header.presets,
+                  tramp::ChromeHit::Kind::eqPresets, "EQ PRESETS");
+
   tramp::ChromeHit volume;
   tramp::ChromeHit seek;
   for (int y = 0; y < main.height(); ++y) {

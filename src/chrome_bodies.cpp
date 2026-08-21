@@ -345,12 +345,10 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
   const bool live = pass != BodyPaint::chassis;
   const bool glow = pass == BodyPaint::full;
 
-  const qreal onW = labelBtnWidth(QStringLiteral("ON"));
-  const qreal autoW = labelBtnWidth(QStringLiteral("AUTO"));
-  const qreal presetsW = labelBtnWidth(QStringLiteral("PRESETS"), 16, 22);
-  qreal hx = body.left() + 22;
-  const qreal hy = body.top() + 16;
-  const QRectF curveWell(body.right() - 22 - 372, body.top() + 16, 372, 62);
+  const EqHeaderRow header = layoutEqHeader(body, labelBtnWidth(QStringLiteral("ON")),
+                                            labelBtnWidth(QStringLiteral("AUTO")),
+                                            labelBtnWidth(QStringLiteral("PRESETS"), 16, 22));
+  const QRectF& curveWell = header.curveWell;
   const QRectF bandRow(body.left() + 22, body.top() + 92, body.width() - 44, 196);
   const char* labels[] = {"PREAMP", "60", "170", "310", "600", "1k",
                           "3k",     "6k", "12k", "14k", "16k"};
@@ -358,18 +356,13 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
   for (int i = 0; i < 10; ++i) allGains[i + 1] = gains[i];
 
   if (chassis) {
-    drawBtn(p, QRectF(hx, hy, onW, 38), faceOf(phases, K::eqOn, on), QStringLiteral("ON"));
-    hx += onW + 8;
-    drawBtn(p, QRectF(hx, hy, autoW, 38), faceOf(phases, K::eqAuto, autoOn),
-            QStringLiteral("AUTO"));
-    hx += autoW + 8;
-    const QRectF presets(hx, hy, presetsW, 38);
-    drawBtn(p, presets, faceOf(phases, K::eqPresets, false), QStringLiteral("PRESETS"));
-    drawMenuCaret(p, presets);
-    hx += presetsW + 14;
+    drawBtn(p, header.on, faceOf(phases, K::eqOn, on), QStringLiteral("ON"));
+    drawBtn(p, header.autoBtn, faceOf(phases, K::eqAuto, autoOn), QStringLiteral("AUTO"));
+    drawBtn(p, header.presets, faceOf(phases, K::eqPresets, false), QStringLiteral("PRESETS"));
+    drawMenuCaret(p, header.presets);
     p.setFont(condensedFont(11, 0.2));
     p.setPen(T().inkFaint);
-    p.drawText(QRectF(hx, hy, 180, 38), Qt::AlignVCenter,
+    p.drawText(header.curveLabel, Qt::AlignVCenter,
                QStringLiteral("CURVE · %1").arg(curveName));
     drawScreenWell(p, curveWell);
     p.setFont(monoFont(11));
