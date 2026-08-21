@@ -11,13 +11,17 @@ void PlaylistCollection::load(const SupportStore& store) {
   entries_ = store.readCollectionIndex();
   trackSets_ = store.readTrackSets();
   sortEntries();
+  forgetPresence();
 }
 
 void PlaylistCollection::saveIndex(const SupportStore& store) const {
   store.writeCollectionIndex(entries_);
 }
 
-void PlaylistCollection::saveTrackSets(const SupportStore& store) const {
+void PlaylistCollection::saveTrackSets(const SupportStore& store) {
+  QSet<QString> live;
+  for (const SavedPlaylist& e : entries_) live.insert(e.path);
+  trackSets_ = pruneTrackSets(trackSets_, live);
   store.writeTrackSets(trackSets_);
 }
 
@@ -65,6 +69,7 @@ void PlaylistCollection::refreshFigures(SavedPlaylist& e, const QVector<Track>& 
   e.modifiedMs = QFileInfo(e.path).lastModified().toMSecsSinceEpoch();
   trackSets_.byEntry.insert(e.path, paths);
   trackSetsDirty_ = true;
+  forgetPresence();
   bumpFigures();
 }
 
@@ -171,7 +176,7 @@ void PlaylistCollection::remove(const QString& path) {
   entries_.removeAt(i);
   trackSets_.byEntry.remove(n);
   if (selectedPath_ == n) selectedPath_.clear();
-  disabledPaths_.remove(n);
+  forgetPresence();
   bumpFigures();
 }
 
@@ -197,10 +202,31 @@ bool PlaylistCollection::resolveForLoad(const QString& path, SavedPlaylist* out)
 }
 
 void PlaylistCollection::validateReferences() {
+  forgetPresence();
+  refreshPresence();
+}
+
+void PlaylistCollection::refreshPresence() const {
+  if (presenceValid_ && presenceAge_.isValid() && presenceAge_.elapsed() < presenceIntervalMs_) {
+    return;
+  }
   disabledPaths_.clear();
+  presentTracks_.clear();
+  QSet<QString> tracks;
   for (const SavedPlaylist& e : entries_) {
     if (!QFileInfo::exists(e.path)) disabledPaths_.insert(e.path);
+    for (const QString& track : trackSets_.byEntry.value(e.path)) tracks.insert(track);
   }
+  for (const QString& track : tracks) {
+    if (QFileInfo::exists(track)) presentTracks_.insert(track);
+  }
+  presenceValid_ = true;
+  presenceAge_.restart();
+}
+
+QSet<QString> PlaylistCollection::disabledPaths() const {
+  refreshPresence();
+  return disabledPaths_;
 }
 
 QVector<Track> PlaylistCollection::tracksFor(const QString& path) const {
@@ -221,6 +247,11 @@ QVector<Track> PlaylistCollection::tracksFor(const QString& path) const {
 }
 
 CollectionFigures PlaylistCollection::readFigures() const {
+  // The stats well is headed ON THIS MACHINE, so it counts the files that are
+  // on it. A track the collection remembers but the disk no longer has is not
+  // dropped from the cache — it comes back with its file — it just does not
+  // count while it is missing.
+  refreshPresence();
   CollectionFigures fig;
   fig.playlists = entries_.size();
   QSet<QString> unique;
@@ -228,7 +259,7 @@ CollectionFigures PlaylistCollection::readFigures() const {
   for (const SavedPlaylist& e : entries_) {
     const QStringList paths = trackSets_.byEntry.value(e.path);
     for (const QString& p : paths) {
-      if (unique.contains(p)) continue;
+      if (unique.contains(p) || !presentTracks_.contains(p)) continue;
       unique.insert(p);
       total += trackSets_.durationsMs.value(p, 0);
     }
@@ -236,6 +267,31 @@ CollectionFigures PlaylistCollection::readFigures() const {
   fig.tracks = unique.size();
   fig.totalDurationMs = total;
   return fig;
+}
+
+CollectionTrackSets pruneTrackSets(const CollectionTrackSets& sets,
+                                   const QSet<QString>& livePlaylists) {
+  QSet<QString> live;
+  for (const QString& p : livePlaylists) live.insert(normalizePlaylistPath(p));
+
+  CollectionTrackSets kept;
+  QSet<QString> referenced;
+  for (auto it = sets.byEntry.begin(); it != sets.byEntry.end(); ++it) {
+    if (!live.contains(normalizePlaylistPath(it.key()))) continue;
+    kept.byEntry.insert(it.key(), it.value());
+    for (const QString& track : it.value()) referenced.insert(normalizePlaylistPath(track));
+  }
+  for (auto it = sets.durationsMs.begin(); it != sets.durationsMs.end(); ++it) {
+    if (referenced.contains(normalizePlaylistPath(it.key()))) {
+      kept.durationsMs.insert(it.key(), it.value());
+    }
+  }
+  for (auto it = sets.meta.begin(); it != sets.meta.end(); ++it) {
+    if (referenced.contains(normalizePlaylistPath(it.key()))) {
+      kept.meta.insert(it.key(), it.value());
+    }
+  }
+  return kept;
 }
 
 QVector<Track> dropMissingTrackFiles(const QVector<Track>& tracks) {

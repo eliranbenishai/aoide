@@ -19,6 +19,10 @@ QJsonObject trackToJson(const Track& t) {
   if (!t.album.isEmpty()) o.insert(QStringLiteral("album"), t.album);
   if (t.year) o.insert(QStringLiteral("year"), *t.year);
   if (t.durationMs) o.insert(QStringLiteral("durationMs"), qint64(*t.durationMs));
+  // A disabled row paints faint and is left out of the footer figures. Dropping
+  // that on the way to disk made every restored row look playable until the
+  // background check caught up.
+  if (t.disabled) o.insert(QStringLiteral("disabled"), true);
   return o;
 }
 
@@ -32,7 +36,16 @@ Track trackFromJson(const QJsonObject& o) {
   if (o.contains(QStringLiteral("durationMs"))) {
     t.durationMs = qint64(o.value(QStringLiteral("durationMs")).toDouble());
   }
+  t.disabled = o.value(QStringLiteral("disabled")).toBool();
   return t;
+}
+
+/// Everything the state files hold is keyed by path, and a relative one is
+/// keyed on whatever directory Tramp was started from. Absolute on the way in
+/// and on the way out, so the same collection reads the same from anywhere.
+QString absoluteKey(const QString& path) {
+  if (path.isEmpty()) return path;
+  return normalizePlaylistPath(path);
 }
 
 }  // namespace
@@ -224,8 +237,9 @@ QVector<SavedPlaylist> SupportStore::readCollectionIndex() const {
 bool SupportStore::writeCollectionIndex(const QVector<SavedPlaylist>& entries) const {
   QJsonArray raw;
   for (const SavedPlaylist& e : entries) {
+    if (e.path.isEmpty()) continue;
     QJsonObject o;
-    o.insert(QStringLiteral("path"), e.path);
+    o.insert(QStringLiteral("path"), absoluteKey(e.path));
     if (!e.name.isEmpty()) o.insert(QStringLiteral("name"), e.name);
     o.insert(QStringLiteral("trackCount"), e.trackCount);
     o.insert(QStringLiteral("totalDurationMs"), e.totalDurationMs);
@@ -242,25 +256,30 @@ CollectionTrackSets SupportStore::readTrackSets() const {
   const QJsonObject o = readObject(QStringLiteral("playlist_tracks.json"));
   const QJsonObject trackSets = o.value(QStringLiteral("trackSets")).toObject();
   for (auto it = trackSets.begin(); it != trackSets.end(); ++it) {
+    if (it.key().isEmpty()) continue;
     QStringList paths;
     for (const QJsonValue& v : it.value().toArray()) {
-      paths.push_back(v.toString());
+      const QString path = v.toString();
+      if (path.isEmpty()) continue;
+      paths.push_back(absoluteKey(path));
     }
-    sets.byEntry.insert(it.key(), paths);
+    sets.byEntry.insert(absoluteKey(it.key()), paths);
   }
   const QJsonObject durations = o.value(QStringLiteral("durationsMs")).toObject();
   for (auto it = durations.begin(); it != durations.end(); ++it) {
-    sets.durationsMs.insert(it.key(), qint64(it.value().toDouble()));
+    if (it.key().isEmpty()) continue;
+    sets.durationsMs.insert(absoluteKey(it.key()), qint64(it.value().toDouble()));
   }
   const QJsonObject meta = o.value(QStringLiteral("meta")).toObject();
   for (auto it = meta.begin(); it != meta.end(); ++it) {
+    if (it.key().isEmpty()) continue;
     const QJsonObject m = it.value().toObject();
     CachedTrackMeta tags;
     tags.title = m.value(QStringLiteral("title")).toString();
     tags.artist = m.value(QStringLiteral("artist")).toString();
     tags.album = m.value(QStringLiteral("album")).toString();
     if (!tags.title.isEmpty() || !tags.artist.isEmpty() || !tags.album.isEmpty()) {
-      sets.meta.insert(it.key(), tags);
+      sets.meta.insert(absoluteKey(it.key()), tags);
     }
   }
   return sets;
@@ -269,23 +288,27 @@ CollectionTrackSets SupportStore::readTrackSets() const {
 bool SupportStore::writeTrackSets(const CollectionTrackSets& sets) const {
   QJsonObject trackSets;
   for (auto it = sets.byEntry.begin(); it != sets.byEntry.end(); ++it) {
+    if (it.key().isEmpty()) continue;
     QJsonArray arr;
     for (const QString& p : it.value()) {
-      arr.append(p);
+      if (p.isEmpty()) continue;
+      arr.append(absoluteKey(p));
     }
-    trackSets.insert(it.key(), arr);
+    trackSets.insert(absoluteKey(it.key()), arr);
   }
   QJsonObject durations;
   for (auto it = sets.durationsMs.begin(); it != sets.durationsMs.end(); ++it) {
-    durations.insert(it.key(), it.value());
+    if (it.key().isEmpty()) continue;
+    durations.insert(absoluteKey(it.key()), it.value());
   }
   QJsonObject meta;
   for (auto it = sets.meta.begin(); it != sets.meta.end(); ++it) {
+    if (it.key().isEmpty()) continue;
     QJsonObject m;
     if (!it.value().title.isEmpty()) m.insert(QStringLiteral("title"), it.value().title);
     if (!it.value().artist.isEmpty()) m.insert(QStringLiteral("artist"), it.value().artist);
     if (!it.value().album.isEmpty()) m.insert(QStringLiteral("album"), it.value().album);
-    if (!m.isEmpty()) meta.insert(it.key(), m);
+    if (!m.isEmpty()) meta.insert(absoluteKey(it.key()), m);
   }
   QJsonObject root;
   root.insert(QStringLiteral("trackSets"), trackSets);

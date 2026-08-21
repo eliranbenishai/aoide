@@ -45,7 +45,10 @@ inline QStringList pathsNeedingAudioProbe(const QVector<Track>& tracks) {
   return paths;
 }
 
-std::optional<qint64> probeWavDurationMs(const QByteArray& bytes);
+/// Duration of a WAV from its header, never longer than its bytes allow.
+/// [fileBytes] is the length of the whole file when [bytes] is only the head of
+/// it; leave it at -1 when [bytes] is everything there is.
+std::optional<qint64> probeWavDurationMs(const QByteArray& bytes, qint64 fileBytes = -1);
 std::optional<qint64> probeAudioDurationMs(const QString& path);
 
 /// Probe each path; [stillWanted] is checked between files so a newer load can cancel.
