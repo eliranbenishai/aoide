@@ -504,6 +504,67 @@ int main() {
   }
 
   {
+    // Two derivations of one spectrogram. analyzeMonoPcm — what the blocks above
+    // measure — folds the whole buffer in one pass; the app runs the cancellable
+    // load, which folds a couple of seconds of audio at a time so teardown does
+    // not have to wait out a track. They agree because a slice starts on a hop
+    // boundary and carries the analysis window's tail, and every frame is
+    // windowed and normalised on its own. Nothing but this pins that down.
+    constexpr int kFftSize = 4096;
+    constexpr int kFramesPerSecond = 30;
+    constexpr double kPi = 3.14159265358979323846;
+    const auto foldsTheSame = [](int sampleRateHz, int count) {
+      QVector<double> samples(count);
+      for (int i = 0; i < count; ++i) {
+        const double t = double(i) / double(sampleRateHz);
+        samples[i] = 0.4 * std::sin(2.0 * kPi * 440.0 * t) + 0.2 * std::sin(2.0 * kPi * 5300.0 * t);
+      }
+      const PcmBuffer pcm{samples, sampleRateHz};
+      const SpectrumAnalyzer sliced(SpectrumAnalyzer::CancellablePcmLoader(
+          [pcm](const QString&, const SpectrumAnalyzer::CancelFn&) { return pcm; }));
+      const Spectrogram whole = SpectrumAnalyzer().analyzeMonoPcm(samples, sampleRateHz);
+      const Spectrogram inSlices =
+          sliced.load(QStringLiteral("fixture://tone.wav"), []() { return true; });
+      REQUIRE_EQ(inSlices.framesPerSecond, whole.framesPerSecond);
+      REQUIRE_EQ(inSlices.sampleRateHz, whole.sampleRateHz);
+      REQUIRE_EQ(int(inSlices.frames.size()), int(whole.frames.size()));
+      if (inSlices.frames.size() != whole.frames.size()) return;
+      // Bit-identical, not near: the slices run the same FFT over the same
+      // windowed samples, so any drift at all is a cut in the wrong place.
+      int differing = 0;
+      for (int f = 0; f < whole.frames.size(); ++f) {
+        for (size_t band = 0; band < whole.frames[f].size(); ++band) {
+          if (inSlices.frames[f][band] != whole.frames[f][band]) ++differing;
+        }
+      }
+      REQUIRE_EQ(differing, 0);
+    };
+
+    const int hop = 44100 / kFramesPerSecond;
+    const int oneSlice = (kFramesPerSecond * 2 - 1) * hop + kFftSize;
+    foldsTheSame(44100, 0);                 // nothing to fold
+    foldsTheSame(44100, 100);               // shorter than the analysis window
+    foldsTheSame(44100, kFftSize - 1);
+    foldsTheSame(44100, kFftSize);          // exactly one frame
+    foldsTheSame(44100, oneSlice - 1);      // one frame short of a full slice
+    foldsTheSame(44100, oneSlice);          // exactly one slice
+    foldsTheSame(44100, oneSlice + hop);    // a second slice holding a single frame
+    foldsTheSame(48000, 3 * 48000);         // a rate that is not 44100
+  }
+
+  {
+    // Cancelling is not failing. The fold stops with no frames and load reports
+    // silence, which nobody reads: the worker that asked to stop drops it.
+    const SpectrumAnalyzer analyzer(SpectrumAnalyzer::CancellablePcmLoader(
+        [](const QString&, const SpectrumAnalyzer::CancelFn&) {
+          return PcmBuffer{QVector<double>(200000, 0.25), 44100};
+        }));
+    const Spectrogram spec = analyzer.load(QStringLiteral("tone.wav"), []() { return false; });
+    REQUIRE_EQ(int(spec.frames.size()), 1);
+    REQUIRE(!spec.levelsAt(0).synthetic);
+  }
+
+  {
     SpectrumHold hold;
     AudioLevels frame;
     frame.bands[0] = 1.0;

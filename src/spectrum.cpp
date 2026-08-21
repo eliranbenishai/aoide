@@ -33,6 +33,10 @@ QVector<std::array<double, AudioLevels::kBandCount>> foldInSlices(
   QVector<std::array<double, AudioLevels::kBandCount>> frames;
   frames.reserve(frameCount);
   for (int first = 0; first < frameCount; first += perSlice) {
+    // No frames means cancelled, which is not the same as silent and not a
+    // failure either: the caller asked us to stop and will drop the result
+    // unread. A decode that fails has to say so in its own way, because a broken
+    // analyser must not be readable as a quiet passage.
     if (!stillWanted()) return {};
     const int last = std::min(first + perSlice, frameCount);
     frames += stft.analyze(samples.mid(first * hop, (last - 1 - first) * hop + kFftSize),
@@ -107,7 +111,7 @@ Spectrogram SpectrumAnalyzer::load(const QString& path, const CancelFn& stillWan
     spec.framesPerSecond = kFramesPerSecond;
     spec.sampleRateHz = pcm.sampleRateHz;
     spec.frames = foldInSlices(pcm.samples, pcm.sampleRateHz, stillWanted);
-    if (spec.frames.isEmpty()) return Spectrogram::silent();
+    if (spec.frames.isEmpty()) return Spectrogram::silent();  // cancelled, and unread
     return spec;
   } catch (...) {
     return Spectrogram::silent();
