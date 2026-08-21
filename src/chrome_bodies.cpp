@@ -17,6 +17,15 @@
 namespace tramp {
 namespace {
 
+/// Every panel painter below leaves the painter as it found it, the contract
+/// `mockup_draw.h` states for the primitives they call. They set a pen and a
+/// font per readout and used to leave the last one behind, and the About plate
+/// left `QPainter::SmoothPixmapTransform` behind on top of that. Nothing was
+/// broken by it, because each readout sets what it draws with before it draws —
+/// which was equally true of the playlist footer right up until a dot went in
+/// between two of them and the ones after it lost their pen. So each painter
+/// holds its own state, and [paintWindowBody] holds it again at the boundary:
+/// the net is not the fix, and neither is a reason to skip the other.
 const ChromeTokens& T() { return currentLook(); }
 
 /// A control's face. Panels paint from the phase store so a state change
@@ -129,6 +138,7 @@ void drawWrappedElided(QPainter& p, const QRectF& box, int flags, const QString&
 
 void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPaint pass,
                const ChromePhases& phases) {
+  const PainterStateScope hold(p);
   using K = ChromeHit::Kind;
   const QString time = formatClock(view.showElapsed
                                        ? view.positionMs
@@ -336,6 +346,7 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
 
 void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionView& view,
             BodyPaint pass, const ChromePhases& phases) {
+  const PainterStateScope hold(p);
   using K = ChromeHit::Kind;
   const bool on = view.eq.enabled;
   const bool autoOn = view.eq.auto_;
@@ -446,6 +457,7 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
 
 void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const SessionView& view,
                    const ChromePhases& phases) {
+  const PainterStateScope hold(p);
   using K = ChromeHit::Kind;
   const QVector<CollectionRowView>& lists = view.collection;
   const QVector<TrackRowView>& rows = view.tracks;
@@ -696,6 +708,7 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
 
 void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
                    const ChromePhases& phases) {
+  const PainterStateScope hold(p);
   using K = ChromeHit::Kind;
   const int tabIndex = view.settingsTab;
   const bool resume = view.resumeLastSession;
@@ -802,6 +815,7 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
     // its ends, which is the whole reason this switch is worth animating.
     fillRound(p, sw, 10,
               scaled(mix(T().btnIdle48, T().phosDeep, face.on), 1 + 0.28 * face.hover));
+    const PainterStateScope thumb(p);
     p.setBrush(mix(T().inkDim, T().phos, face.on));
     p.setPen(Qt::NoPen);
     const qreal travel = sw.width() - 20;
@@ -827,6 +841,7 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
 }
 
 void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const SessionView& view) {
+  const PainterStateScope hold(p);
   const QRectF inner = body.adjusted(16, 14, -16, -14);
   const QRectF badge(inner.left(), inner.top(), 58, 58);
   drawDiscLogo(p, badge, logo, false);
@@ -953,6 +968,9 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
   if (!proxima.isNull()) {
     const qreal aspect = qreal(proxima.width()) / qMax(1, proxima.height());
     mark.setWidth(27 * aspect);
+    // The mark is the one thing on the plate that is a scaled bitmap, so the
+    // hint belongs to it and to nothing drawn after it.
+    const PainterStateScope smooth(p);
     p.setRenderHint(QPainter::SmoothPixmapTransform);
     p.drawImage(mark, proxima);
   }
@@ -986,6 +1004,10 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
 
 void paintWindowBody(QPainter& painter, WindowId id, QSize logical, const QImage* logo,
                      const SessionView& view, BodyPaint pass, const ChromePhases& phases) {
+  // Each painter below already puts back what it sets. This is the net under
+  // them, so a panel that grows a readout tomorrow cannot reach the caller
+  // through this door whatever it forgets.
+  const PainterStateScope hold(painter);
   const QRectF body = panelBody(logical);
   switch (id) {
     case WindowId::main:

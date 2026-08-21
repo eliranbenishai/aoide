@@ -1,16 +1,118 @@
 #pragma once
 
+#include <QBrush>
 #include <QColor>
 #include <QFont>
 #include <QImage>
 #include <QPainter>
+#include <QPainterPath>
+#include <QPen>
 #include <QPointF>
 #include <QRectF>
 #include <QString>
+#include <QStringList>
+#include <QTransform>
 #include <QVector>
 #include <functional>
 
 namespace tramp {
+
+/// Holds everything a painter carries for a scope and puts it back. Pairing
+/// [QPainter::save] with [QPainter::restore] by hand is a footgun in any
+/// painter with more than one exit — the settings pane returns early out of the
+/// Skins tab — and this cannot be got wrong that way.
+class PainterStateScope {
+ public:
+  explicit PainterStateScope(QPainter& painter) : painter_(painter) { painter_.save(); }
+  ~PainterStateScope() { painter_.restore(); }
+  PainterStateScope(const PainterStateScope&) = delete;
+  PainterStateScope& operator=(const PainterStateScope&) = delete;
+
+ private:
+  QPainter& painter_;
+};
+
+/// A reading of everything a painter hands to whatever draws next, so the
+/// contract below can be checked rather than reviewed.
+///
+/// The reading is everything [QPainter]'s state stack holds, and not the three
+/// fields the bug of the day happened to use. `drawStatusDot` left a
+/// `Qt::NoPen` behind and cost the playlist footer three readouts, so pen,
+/// brush and font went under a test — and the About plate's stray
+/// `SmoothPixmapTransform` sailed straight through it, because a render hint is
+/// not any of those three. A narrow check reports all-clear on the leak it was
+/// not written for, so this one is not narrowed to what the chrome happens to
+/// set today.
+struct PainterState {
+  QPen pen;
+  QBrush brush;
+  QPointF brushOrigin;
+  /// [QFont::toString] rather than the font, because two faces that paint the
+  /// same are unequal if they were resolved through different masks.
+  QString font;
+  QBrush background;
+  Qt::BGMode backgroundMode = Qt::TransparentMode;
+  QPainter::CompositionMode composition = QPainter::CompositionMode_SourceOver;
+  qreal opacity = 1;
+  bool clipping = false;
+  QPainterPath clip;
+  QTransform transform;
+  bool worldMatrix = true;
+  bool viewTransform = false;
+  QRect viewport;
+  QRect window;
+  QPainter::RenderHints hints;
+  Qt::LayoutDirection direction = Qt::LeftToRight;
+
+  static PainterState of(const QPainter& painter);
+  /// Names every kind of state that moved, so a failure says what leaked.
+  QStringList differencesFrom(const PainterState& earlier) const;
+};
+
+inline PainterState PainterState::of(const QPainter& painter) {
+  PainterState state;
+  state.pen = painter.pen();
+  state.brush = painter.brush();
+  state.brushOrigin = painter.brushOrigin();
+  state.font = painter.font().toString();
+  state.background = painter.background();
+  state.backgroundMode = painter.backgroundMode();
+  state.composition = painter.compositionMode();
+  state.opacity = painter.opacity();
+  state.clipping = painter.hasClipping();
+  state.clip = painter.clipPath();
+  state.transform = painter.transform();
+  state.worldMatrix = painter.worldMatrixEnabled();
+  state.viewTransform = painter.viewTransformEnabled();
+  state.viewport = painter.viewport();
+  state.window = painter.window();
+  state.hints = painter.renderHints();
+  state.direction = painter.layoutDirection();
+  return state;
+}
+
+inline QStringList PainterState::differencesFrom(const PainterState& earlier) const {
+  QStringList moved;
+  const auto note = [&](bool changed, const char* what) {
+    if (changed) moved << QLatin1String(what);
+  };
+  note(pen != earlier.pen, "pen");
+  note(brush != earlier.brush, "brush");
+  note(brushOrigin != earlier.brushOrigin, "brush origin");
+  note(font != earlier.font, "font");
+  note(background != earlier.background, "background");
+  note(backgroundMode != earlier.backgroundMode, "background mode");
+  note(composition != earlier.composition, "composition mode");
+  note(!qFuzzyCompare(opacity + 1, earlier.opacity + 1), "opacity");
+  note(clipping != earlier.clipping || clip != earlier.clip, "clip");
+  note(transform != earlier.transform || worldMatrix != earlier.worldMatrix, "transform");
+  note(viewTransform != earlier.viewTransform || viewport != earlier.viewport ||
+           window != earlier.window,
+       "view transform");
+  note(hints != earlier.hints, "render hints");
+  note(direction != earlier.direction, "layout direction");
+  return moved;
+}
 
 enum class MockupIcon {
   previous,
@@ -37,11 +139,12 @@ struct TextShadow {
   qreal blurRadius = 0;
 };
 
-/// Every painter below leaves the pen, brush and font as it found them. A
-/// helper that did not cost the playlist footer three of its four readouts:
-/// `drawStatusDot` left `Qt::NoPen` behind, and the strip draws a dot between
-/// each pair of labels, so everything after the first dot was drawn with no
-/// pen and never appeared. Callers set state once and call these freely.
+/// Every painter below leaves the painter as it found it — pen, brush, font,
+/// render hints, clip, transform and the rest of [PainterState]. A helper that
+/// did not cost the playlist footer three of its four readouts: `drawStatusDot`
+/// left `Qt::NoPen` behind, and the strip draws a dot between each pair of
+/// labels, so everything after the first dot was drawn with no pen and never
+/// appeared. Callers set state once and call these freely.
 QFont condensedFont(int px, qreal trackingEm = 0);
 QFont monoFont(int px, qreal trackingEm = 0);
 qreal textWidth(const QFont& font, const QString& text);

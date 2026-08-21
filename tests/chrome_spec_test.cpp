@@ -1,5 +1,6 @@
 #include "chrome_anim.h"
 #include "chrome_layout.h"
+#include "mockup_draw.h"
 #include "mockup_tokens.h"
 #include "title_chrome.h"
 #include "tramp_metrics.h"
@@ -34,6 +35,7 @@ class ChromeSpecTest : public QObject {
   void inertPhaseStoreLeavesPaintersOnPlainSessionState();
   void pointerFeedbackSkipsSlidersAndListRows();
   void settledPhasesDoNotAccumulate();
+  void thePainterReadingNamesEveryKindOfLeak();
 };
 
 void ChromeSpecTest::tokensMatchMockupCssRoot() {
@@ -426,6 +428,68 @@ void ChromeSpecTest::settledPhasesDoNotAccumulate() {
   phases.advance(tramp::kBtnTransitionMs);
   QVERIFY(!phases.moving());
   QCOMPARE(phases.face(K::prev).hover, 0.0);
+}
+
+// A pin on the painters is only ever as broad as the reading behind it. The
+// leak that cost the playlist footer its track count, its playing state and its
+// drop hint was a stray `Qt::NoPen`, so the reading became pen, brush and font
+// — and the About plate's stray `QPainter::SmoothPixmapTransform` then walked
+// through that check reporting all-clear, because a render hint is none of the
+// three. The painters themselves are held to this in `host_window_move_test`,
+// which is the binary that links them and builds an application to paint with;
+// what belongs here is the reading, which is the part that decides whether that
+// pin can see the next leak or only the last one.
+void ChromeSpecTest::thePainterReadingNamesEveryKindOfLeak() {
+  const tramp::PainterState found;
+  const auto leftBehind = [&](auto change) {
+    tramp::PainterState after = found;
+    change(after);
+    return after.differencesFrom(found);
+  };
+
+  QCOMPARE(found.differencesFrom(found), QStringList());
+  QCOMPARE(leftBehind([](tramp::PainterState& s) { s.pen = QPen(Qt::red, 3); }),
+           QStringList{QStringLiteral("pen")});
+  QCOMPARE(leftBehind([](tramp::PainterState& s) { s.brush = QBrush(Qt::green); }),
+           QStringList{QStringLiteral("brush")});
+  QCOMPARE(leftBehind([](tramp::PainterState& s) { s.brushOrigin = QPointF(3, 4); }),
+           QStringList{QStringLiteral("brush origin")});
+  QCOMPARE(leftBehind([](tramp::PainterState& s) { s.font = QStringLiteral("Barlow,11"); }),
+           QStringList{QStringLiteral("font")});
+  QCOMPARE(leftBehind([](tramp::PainterState& s) { s.background = QBrush(Qt::blue); }),
+           QStringList{QStringLiteral("background")});
+  QCOMPARE(leftBehind([](tramp::PainterState& s) { s.backgroundMode = Qt::OpaqueMode; }),
+           QStringList{QStringLiteral("background mode")});
+  QCOMPARE(leftBehind([](tramp::PainterState& s) {
+             s.composition = QPainter::CompositionMode_DestinationIn;
+           }),
+           QStringList{QStringLiteral("composition mode")});
+  QCOMPARE(leftBehind([](tramp::PainterState& s) { s.opacity = 0.5; }),
+           QStringList{QStringLiteral("opacity")});
+  QCOMPARE(leftBehind([](tramp::PainterState& s) { s.clipping = true; }),
+           QStringList{QStringLiteral("clip")});
+  QCOMPARE(leftBehind([](tramp::PainterState& s) { s.clip.addRect(QRectF(0, 0, 8, 8)); }),
+           QStringList{QStringLiteral("clip")});
+  QCOMPARE(leftBehind([](tramp::PainterState& s) { s.transform.translate(2, 0); }),
+           QStringList{QStringLiteral("transform")});
+  QCOMPARE(leftBehind([](tramp::PainterState& s) { s.worldMatrix = false; }),
+           QStringList{QStringLiteral("transform")});
+  QCOMPARE(leftBehind([](tramp::PainterState& s) { s.viewport = QRect(0, 0, 4, 4); }),
+           QStringList{QStringLiteral("view transform")});
+  QCOMPARE(leftBehind([](tramp::PainterState& s) {
+             s.hints |= QPainter::SmoothPixmapTransform;
+           }),
+           QStringList{QStringLiteral("render hints")});
+  QCOMPARE(leftBehind([](tramp::PainterState& s) { s.direction = Qt::RightToLeft; }),
+           QStringList{QStringLiteral("layout direction")});
+
+  // A helper that leaves two things behind has to say both, or a fix for the
+  // named one reads as green while the other is still there.
+  QCOMPARE(leftBehind([](tramp::PainterState& s) {
+             s.pen = QPen(Qt::red, 3);
+             s.hints |= QPainter::SmoothPixmapTransform;
+           }),
+           QStringList({QStringLiteral("pen"), QStringLiteral("render hints")}));
 }
 
 QTEST_APPLESS_MAIN(ChromeSpecTest)

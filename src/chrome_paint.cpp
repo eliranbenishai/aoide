@@ -15,13 +15,15 @@
 namespace tramp {
 namespace {
 
-/// Every painter below leaves the pen, brush and font as it found them, the
-/// same contract `mockup_draw.h` states for the primitives they call. Nothing
-/// here was broken by the ones that did not: `drawTitleContents` happens to set
-/// what it needs before each call, so the leaks were invisible. That is exactly
-/// how the playlist footer lost three readouts — `drawStatusDot` left
-/// `Qt::NoPen` behind, and every `drawText` after it drew nothing — so the rule
-/// holds here whether or not a caller currently depends on it.
+/// Every painter below leaves the painter as it found it, the same contract
+/// `mockup_draw.h` states for the primitives they call — and it is the whole of
+/// [PainterState], not the pen, brush and font a check happened to be written
+/// for. Nothing here was broken by the ones that did not: `drawTitleContents`
+/// happens to set what it needs before each call, so the leaks were invisible.
+/// That is exactly how the playlist footer lost three readouts —
+/// `drawStatusDot` left `Qt::NoPen` behind, and every `drawText` after it drew
+/// nothing — so the rule holds here whether or not a caller currently depends
+/// on it.
 const ChromeTokens& T() { return currentLook(); }
 
 void drawShell(QPainter& p, const QRectF& rect) {
@@ -301,13 +303,12 @@ void paintMockupWindow(QPainter& painter,
                        const ChromePhases& phases) {
   LookPaintScope scope(view.look);
   if (pass == BodyPaint::live) {
-    // The chassis pass hands the body layer a painter it has already saved;
-    // the live pass has no such wrapper, and the panel painters set a pen and
-    // a font per readout without putting them back. This is the boundary, so
-    // it is where that stops.
-    painter.save();
+    // The chassis pass paints inside the clip below, which is saved either way.
+    // The live pass has no such wrapper, and this is the module's front door:
+    // whatever the body layer does behind it, a caller's painter comes back
+    // untouched.
+    const PainterStateScope hold(painter);
     paintWindowBody(painter, id, logical, logo, view, pass, phases);
-    painter.restore();
     return;
   }
   const QRectF rect(0, 0, logical.width(), logical.height());
