@@ -6,6 +6,7 @@
 
 #include <QPoint>
 #include <QPointF>
+#include <QRect>
 
 namespace tramp {
 
@@ -26,6 +27,9 @@ class LayoutSync {
 
   QPointF nativeToLogical(QPoint native) const;
   QPoint logicalToNative(QPointF logical) const;
+
+  /// Where [id] sits on the screen at the current zoom step.
+  QRect nativeFrameRect(WindowId id) const;
 
  private:
   DockingCoordinator docking_;

@@ -658,15 +658,6 @@ HostWindow* TrampSession::windowFor(WindowId id) const {
   return main_;
 }
 
-QRect TrampSession::nativeFrameRect(WindowId id) const {
-  const QSizeF logical = layout_.docking().logicalSize(id);
-  const QSize zoomedSize = tramp::zoomed(QSize(qRound(logical.width()), qRound(logical.height())),
-                                         layout_.zoomPercent());
-  const QSize nativeSize = tramp::panelNativeSize(zoomedSize, QSize());
-  const WindowFrame& f = layout_.layout().frameOf(id);
-  return QRect(layout_.logicalToNative(QPointF(f.left, f.top)), nativeSize);
-}
-
 void TrampSession::writeNativeFrame(WindowId id, QRect native) {
   WindowFrame& f = layout_.docking().layout().frameOf(id);
   const QPointF logical = layout_.nativeToLogical(native.topLeft());
@@ -687,7 +678,7 @@ void TrampSession::clampOneToHost(WindowId id) {
   if (!shell_) return;
   const QRect host = shell_->virtualDesktop();
   if (host.isEmpty()) return;
-  writeNativeFrame(id, tramp::clampRectToHost(nativeFrameRect(id), host));
+  writeNativeFrame(id, tramp::clampRectToHost(layout_.nativeFrameRect(id), host));
 }
 
 void TrampSession::fitClusterToHost() {
@@ -697,7 +688,7 @@ void TrampSession::fitClusterToHost() {
   const QVector<WindowId> ids = visibleClusterMembers(layout_.layout());
   QVector<QRect> rects;
   rects.reserve(ids.size());
-  for (WindowId id : ids) rects.push_back(nativeFrameRect(id));
+  for (WindowId id : ids) rects.push_back(layout_.nativeFrameRect(id));
   const auto delta = tramp::clusterDeltaToFit(rects, host);
   if (delta) {
     if (delta->isNull()) return;
@@ -706,7 +697,7 @@ void TrampSession::fitClusterToHost() {
     // behind here would walk it out of the cluster one correction at a time.
     for (WindowId id : {WindowId::main, WindowId::equalizer, WindowId::playlist,
                         WindowId::settings, WindowId::about}) {
-      writeNativeFrame(id, nativeFrameRect(id).translated(*delta));
+      writeNativeFrame(id, layout_.nativeFrameRect(id).translated(*delta));
     }
     return;
   }

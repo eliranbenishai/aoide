@@ -122,7 +122,6 @@ class TrampSession : public QObject {
   void loadCollectionRow(int index);
   void applyDockToWindows(std::optional<WindowId> skip = {});
   void syncLayoutFromWindows(std::optional<WindowId> skip = {});
-  QRect nativeFrameRect(WindowId id) const;
   void writeNativeFrame(WindowId id, QRect native);
   void clampOneToHost(WindowId id);
   void fitClusterToHost();
