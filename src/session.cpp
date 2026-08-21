@@ -95,6 +95,7 @@ TrampSession::TrampSession(QObject* parent)
   layout.about = settings_.about;
   layout.dockEdges = settings_.dockEdges;
   layout_ = LayoutSync(layout, settings_.zoomPercent);
+  layout_.setSurfaces(this);
   layout_.docking().ensureMainVisible();
   layout_.docking().setSnapThreshold(snapPixels(settings_.dockSnapStrength));
 
@@ -658,16 +659,10 @@ HostWindow* TrampSession::windowFor(WindowId id) const {
   return main_;
 }
 
-void TrampSession::clampOneToHost(WindowId id) {
-  if (!shell_) return;
-  const QRect host = shell_->virtualDesktop();
-  if (host.isEmpty()) return;
-  layout_.setNativeFrame(id, tramp::clampRectToHost(layout_.nativeFrameRect(id), host));
-}
+QRect TrampSession::hostRect() const { return shell_ ? shell_->virtualDesktop() : QRect(); }
 
 void TrampSession::fitClusterToHost() {
-  if (!shell_) return;
-  const QRect host = shell_->virtualDesktop();
+  const QRect host = hostRect();
   if (host.isEmpty()) return;
   const QVector<WindowId> ids = visibleClusterMembers(layout_.layout());
   QVector<QRect> rects;
@@ -685,7 +680,7 @@ void TrampSession::fitClusterToHost() {
     }
     return;
   }
-  for (WindowId id : ids) clampOneToHost(id);
+  for (WindowId id : ids) layout_.clampToHost(id);
 }
 
 SessionView TrampSession::view() const {
@@ -828,7 +823,7 @@ void TrampSession::setWindowVisible(WindowId id, bool visible) {
   if (visible) {
     layout_.docking().nudgeOffMainIfStacked(id);
     emit requestShow(id);
-    clampOneToHost(id);
+    layout_.clampToHost(id);
     applyFramesToWindows();
     if (id == WindowId::settings) emit requestRaise(WindowId::settings);
     if (id == WindowId::about) refreshAboutFigures();
@@ -906,7 +901,7 @@ void TrampSession::windowMoved(WindowId id, QPoint nativeTopLeft, bool finalize)
   layout_.docking().move(id, layout_.nativeToLogical(nativeTopLeft), shiftUndock,
                          finalize && id != WindowId::main);
   if (id == WindowId::main) fitClusterToHost();
-  else clampOneToHost(id);
+  else layout_.clampToHost(id);
   applyFramesToWindows();
   schedulePersist();
 }
@@ -997,7 +992,7 @@ void TrampSession::playlistResized(QSize native) {
   if (applyingDock_) return;
   const qreal z = layout_.zoomPercent() / 100.0;
   layout_.docking().resizePlaylist(QSizeF(native.width() / z, native.height() / z));
-  clampOneToHost(WindowId::playlist);
+  layout_.clampToHost(WindowId::playlist);
   applyFramesToWindows();
   schedulePersist();
 }

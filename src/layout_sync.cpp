@@ -40,4 +40,12 @@ void LayoutSync::setNativeFrame(WindowId id, QRect native) {
   }
 }
 
+QRect LayoutSync::hostRect() const { return surfaces_ ? surfaces_->hostRect() : QRect(); }
+
+void LayoutSync::clampToHost(WindowId id) {
+  const QRect host = hostRect();
+  if (host.isEmpty()) return;
+  setNativeFrame(id, clampRectToHost(nativeFrameRect(id), host));
+}
+
 }  // namespace tramp

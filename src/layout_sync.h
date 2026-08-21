@@ -10,6 +10,17 @@
 
 namespace tramp {
 
+/// The surfaces a layout is pushed onto. In the app the host shell and its five
+/// panels satisfy this; the geometry tests satisfy it with a recorder, which is
+/// the point — placement can be checked without a compositor.
+class PanelSurfaces {
+ public:
+  virtual ~PanelSurfaces() = default;
+  /// The virtual desktop every panel has to stay inside. Empty before there is
+  /// a host, and nothing is clamped against an empty rectangle.
+  virtual QRect hostRect() const = 0;
+};
+
 /// Owns the layout: where each panel sits in logical space, and what rectangle
 /// that becomes on the screen at the current zoom step. It knows nothing about
 /// playback, skins or persistence, and it never touches a widget — which is what
@@ -17,6 +28,8 @@ namespace tramp {
 class LayoutSync {
  public:
   explicit LayoutSync(DockLayout layout = {}, int zoomPercent = kDefaultZoomPercent);
+
+  void setSurfaces(PanelSurfaces* surfaces) { surfaces_ = surfaces; }
 
   DockingCoordinator& docking() { return docking_; }
   const DockingCoordinator& docking() const { return docking_; }
@@ -34,8 +47,14 @@ class LayoutSync {
   /// the widget and the settings file are both derived from it later.
   void setNativeFrame(WindowId id, QRect native);
 
+  /// Pull [id] back onto the virtual desktop, shrinking it if it is larger.
+  void clampToHost(WindowId id);
+
  private:
+  QRect hostRect() const;
+
   DockingCoordinator docking_;
+  PanelSurfaces* surfaces_ = nullptr;
   int zoomPercent_ = kDefaultZoomPercent;
 };
 

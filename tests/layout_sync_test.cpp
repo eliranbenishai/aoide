@@ -6,6 +6,22 @@ using tramp::DockLayout;
 using tramp::LayoutSync;
 using tramp::WindowId;
 
+namespace {
+
+/// A desktop with no compositor behind it. Everything LayoutSync needs from the
+/// outside world is one rectangle, so a monitor going away is a field write.
+class FakeDesktop : public tramp::PanelSurfaces {
+ public:
+  explicit FakeDesktop(QRect host = {}) : host_(host) {}
+  QRect hostRect() const override { return host_; }
+  void setHostRect(QRect host) { host_ = host; }
+
+ private:
+  QRect host_;
+};
+
+}  // namespace
+
 class LayoutSyncTest : public QObject {
   Q_OBJECT
 
@@ -16,6 +32,9 @@ class LayoutSyncTest : public QObject {
   void nativeFrameRectTakesTheStoredPlaylistSizeAndTheShadedHeight();
   void setNativeFrameRoundTripsThroughTheFrame();
   void onlyThePlaylistTakesASizeFromAScreenRectangle();
+  void clampPullsAPanelBackOntoTheDesktop();
+  void clampLeavesEverythingAloneWhenThereIsNoHostYet();
+  void clampAcceptsAScreenLeftOfThePrimary();
 };
 
 void LayoutSyncTest::nativeAndLogicalAreInversesAcrossTheZoomLadder() {
@@ -77,6 +96,46 @@ void LayoutSyncTest::onlyThePlaylistTakesASizeFromAScreenRectangle() {
   layout.setNativeFrame(WindowId::main, QRect(40, 60, 200, 100));
   QCOMPARE(layout.nativeFrameRect(WindowId::main), QRect(40, 60, 825, 348));
   QVERIFY(!layout.layout().main.width.has_value());
+}
+
+void LayoutSyncTest::clampPullsAPanelBackOntoTheDesktop() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  DockLayout dock;
+  dock.about = {true, false, 1900, 1000, {}, {}};
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  layout.clampToHost(WindowId::about);
+  QCOMPARE(layout.nativeFrameRect(WindowId::about), QRect(1440, 720, 480, 360));
+}
+
+void LayoutSyncTest::clampLeavesEverythingAloneWhenThereIsNoHostYet() {
+  DockLayout dock;
+  dock.about = {true, false, -4000, -4000, {}, {}};
+  LayoutSync layout(dock, 100);
+
+  layout.clampToHost(WindowId::about);
+  QCOMPARE(layout.layout().about.left, -4000.0);
+
+  // An empty rectangle is not a desktop of zero size; it is not knowing yet.
+  FakeDesktop none(QRect(0, 0, 0, 0));
+  layout.setSurfaces(&none);
+  layout.clampToHost(WindowId::about);
+  QCOMPARE(layout.layout().about.left, -4000.0);
+}
+
+void LayoutSyncTest::clampAcceptsAScreenLeftOfThePrimary() {
+  // A monitor placed left of or above the primary gives the virtual desktop a
+  // negative origin, and the clamp has to hold the panel inside that rather
+  // than against zero.
+  FakeDesktop desktop(QRect(-1920, -200, 3840, 1280));
+  DockLayout dock;
+  dock.about = {true, false, -3000, -900, {}, {}};
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  layout.clampToHost(WindowId::about);
+  QCOMPARE(layout.nativeFrameRect(WindowId::about), QRect(-1920, -200, 480, 360));
 }
 
 QTEST_APPLESS_MAIN(LayoutSyncTest)

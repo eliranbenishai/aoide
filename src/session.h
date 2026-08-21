@@ -30,7 +30,7 @@ class HostShell;
 
 namespace tramp {
 
-class TrampSession : public QObject {
+class TrampSession : public QObject, public PanelSurfaces {
   Q_OBJECT
 
  public:
@@ -122,7 +122,7 @@ class TrampSession : public QObject {
   void loadCollectionRow(int index);
   void applyDockToWindows(std::optional<WindowId> skip = {});
   void syncLayoutFromWindows(std::optional<WindowId> skip = {});
-  void clampOneToHost(WindowId id);
+  QRect hostRect() const override;
   void fitClusterToHost();
   void showOptionsMenu(QRect logicalHit);
   int execAnchoredMenu(const QVector<ChromeMenuItem>& items, HostWindow* host, QRect logicalHit,
