@@ -38,5 +38,9 @@ modules:
           cp -a share/icons/. /app/share/icons/
         fi
     sources:
+      # Staged by packaging/linux/make_flatpak.sh with stage_bundle.sh --no-qt,
+      # so this tree carries libmpv and the app but no Qt — the runtime above is
+      # the Qt. Deliberately not build/linux/bundle: that is the tarball and
+      # AppImage staging and it has a full Qt in it.
       - type: dir
-        path: ../../build/linux/bundle
+        path: ../../build/linux/flatpak-bundle

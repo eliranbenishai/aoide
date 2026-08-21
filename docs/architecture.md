@@ -43,7 +43,9 @@ CI-built. Workflows and secrets: [`distribution.md`](distribution.md). macOS DMG
 
 One Qt for everything that ships — `QT_VERSION` in the workflows, pinned to the line the Flatpak runtime forces. `build.sh` is unpinned on purpose and prints the Qt it used. Nothing reaches an artifact upload without being **run**: staged binary, AppImage and extracted tarball each take `--bench-chrome` and a `TRAMP_AUTO_QUIT=1` start, with the runner's Qt stripped from the environment so an artifact can only use what it carries.
 
-**Every download carries its own Qt.** Windows stages it with `windeployqt`; Linux has no equivalent, so `packaging/linux/stage_bundle.sh` is it — one staging path (`build/linux/bundle`) that the tarball, the AppImage and the Flatpak all read, so they cannot drift. It deploys the Qt the binary was *linked against* (asked of the build-tree binary, before CMake rewrites its RPATH), takes the `platforms`, `platformthemes`, `imageformats`, `xcbglintegrations`, `platforminputcontexts` and `wayland-*` plugin groups whole, walks `DT_NEEDED` to a closure, and rewrites every runpath to `$ORIGIN` with `patchelf`. The host keeps only the loader, the C/C++ runtimes and the GL stack — those track the kernel and the GPU. A plugin that wants Quick, Qml, Pdf, Svg, GTK or KDE Frameworks is declined: tramp paints its own chrome, and taking one drags the whole stack in behind it.
+**Every download carries its own Qt except the Flatpak.** Windows stages it with `windeployqt`; Linux has no equivalent, so `packaging/linux/stage_bundle.sh` is it — the tarball and the AppImage read one staging path (`build/linux/bundle`) produced by one flagless run, so those two cannot drift. It deploys the Qt the binary was *linked against* (asked of the build-tree binary, before CMake rewrites its RPATH), takes the `platforms`, `platformthemes`, `imageformats`, `xcbglintegrations`, `platforminputcontexts` and `wayland-*` plugin groups whole, walks `DT_NEEDED` to a closure, and rewrites every runpath to `$ORIGIN` with `patchelf`. The host keeps only the loader, the C/C++ runtimes and the GL stack — those track the kernel and the GPU. A plugin that wants Quick, Qml, Pdf, Svg, GTK or KDE Frameworks is declined: tramp paints its own chrome, and taking one drags the whole stack in behind it.
+
+The Flatpak is the exception, and it is the same script with `--no-qt` into its own staging path: it runs on `org.kde.Platform`, whose job is to provide Qt, so a bundled Qt would be dead weight that can shadow the runtime's. The switch lives in `stage_bundle.sh` because that script is the only thing in the repo that knows what the Qt deployment consists of — a second list somewhere else is how the two start disagreeing. libmpv and its closure still travel, because full libmpv is not something a runtime supplies.
 
 ## System
 
@@ -159,7 +161,7 @@ Playlist bytes are decoded by `decodeM3uBytes`: UTF-8 or UTF-16 by byte-order ma
 
 - Mockup fidelity / `--dump-chrome` vs `player-mockup-2.html` still hardening
 - Full libmpv packaging on macOS
-- The Linux bundle carries Qt, so the Flatpak now ships one too rather than using the `org.kde.Platform` runtime's. Fat but self-consistent; a real Flathub submission would want the runtime Qt instead
+- The Flatpak takes Qt from its runtime but still bundles libmpv's whole closure, so it carries copies of libraries `org.kde.Platform` also ships and could shadow them. Removing Qt was the shadowing risk worth closing first; trimming the rest needs a list of what the runtime provides
 - Linux MPRIS; second-instance “Open with”
 - Qt macOS host (and therefore the notarized DMG)
 - Spectrum: second `ao=pcm` pass per open; long tracks analyse in the background

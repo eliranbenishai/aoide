@@ -206,21 +206,34 @@ jobs:
 
   flatpak:
     name: Linux Flatpak bundle
-    needs: linux
+    needs: test
     runs-on: ubuntu-24.04
     continue-on-error: true
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
-        with:
-          name: linux
-          path: artifacts
-      - name: Unpack Linux bundle
+      # Built here rather than unpacked from the linux job's tarball. That
+      # tarball carries Qt, because a tarball has to; this runs on
+      # org.kde.Platform, which is a Qt runtime, and taking the tarball is what
+      # used to put a second Qt inside the sandbox. Same staging script as the
+      # tarball and the AppImage, with --no-qt — see make_flatpak.sh.
+      - name: Linux build deps
         run: |
-          tarball="$(find artifacts -name 'Tramp-*-linux-x86_64.tar.gz' | head -n 1)"
-          test -n "$tarball"
-          mkdir -p build/linux
-          tar -C build/linux -xzf "$tarball"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ pkg-config \
+            libgl1-mesa-dev libx11-dev libmpv-dev libmpv2 patchelf
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          cache: true
+          archives: qtbase
+          modules: qtwayland
+      - name: Configure and build
+        run: |
+          chmod +x tool/*.sh packaging/linux/*.sh
+          ./tool/stage_linux_libmpv.sh
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
       - name: Install flatpak-builder
         run: |
           sudo apt-get update
@@ -229,9 +242,29 @@ jobs:
           sudo flatpak install -y flathub \
             "org.kde.Platform//${QT_RUNTIME}" "org.kde.Sdk//${QT_RUNTIME}"
       - name: Build .flatpak
+        run: ./packaging/linux/make_flatpak.sh
+      # A second Qt inside a Qt runtime is invisible in a bundle that otherwise
+      # works, so assert it rather than trusting the flag stayed wired up.
+      - name: Flatpak staging carries no Qt
         run: |
-          chmod +x packaging/linux/make_flatpak.sh tool/version.sh
-          ./packaging/linux/make_flatpak.sh
+          set -euo pipefail
+          stage=build/linux/flatpak-bundle
+          if find "$stage" -name 'libQt6*' | grep .; then
+            echo "^ Qt in the Flatpak staging: stage_bundle.sh --no-qt regressed" >&2
+            exit 1
+          fi
+          test ! -e "$stage/plugins"
+          test ! -e "$stage/qt.conf"
+          find "$stage/lib" -name 'libmpv.so*' | grep .
+      - name: Smoke-test the .flatpak
+        run: |
+          set -euo pipefail
+          sudo flatpak install -y --noninteractive \
+            "$(ls build/linux/Tramp-*-linux-x86_64.flatpak)"
+          sudo flatpak run --env=QT_QPA_PLATFORM=offscreen \
+            com.proximamagnifica.tramp --bench-chrome
+          sudo flatpak run --env=QT_QPA_PLATFORM=offscreen --env=TRAMP_AUTO_QUIT=1 \
+            com.proximamagnifica.tramp
       - uses: actions/upload-artifact@v6
         with:
           name: linux-flatpak

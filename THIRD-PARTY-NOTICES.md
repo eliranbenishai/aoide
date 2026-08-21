@@ -10,7 +10,7 @@ Tramp is **GPL-3.0-or-later**. This file lists other works shipped in the source
 
 The UI is built with [Qt](https://www.qt.io/) 6 (LGPL-3.0 / GPL-3.0 / commercial, Copyright The Qt Company and Qt contributors). Tramp links Qt Widgets / Gui / Core / DBus.
 
-**Every download bundles Qt.** Windows installers stage it next to `tramp.exe` via `windeployqt`; the Linux AppImage and tarball stage it into `lib/` and `plugins/` via [`packaging/linux/stage_bundle.sh`](packaging/linux/stage_bundle.sh).
+**Every download bundles Qt except the Flatpak.** Windows installers stage it next to `tramp.exe` via `windeployqt`; the Linux AppImage and tarball stage it into `lib/` and `plugins/` via [`packaging/linux/stage_bundle.sh`](packaging/linux/stage_bundle.sh). The Flatpak carries no Qt at all — it uses the `org.kde.Platform` runtime's, which the user can replace independently of Tramp.
 
 Tramp uses Qt under the **LGPL-3.0**, and the bundles are built to keep that workable:
 
