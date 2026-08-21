@@ -12,6 +12,7 @@
 #include "session_view.h"
 #include "settings.h"
 #include "spectrum.h"
+#include "worker_crew.h"
 
 #include <QElapsedTimer>
 #include <QObject>
@@ -131,6 +132,9 @@ class TrampSession : public QObject {
   TrampSettings settings_;
   PlaylistController playlist_;
   PlaylistCollection collection_;
+  // The engine is declared first so it is destroyed last: MpvEngine's callbacks
+  // capture the controller, and an engine draining events after the controller
+  // had gone would be calling into a corpse.
   std::unique_ptr<PlayerEngine> engine_;
   std::unique_ptr<PlaybackController> playback_;
   SpectrumAnalyzer analyzer_;
@@ -138,7 +142,9 @@ class TrampSession : public QObject {
   SpectrumHold spectrumHold_;
   QTimer spectrumTimer_;
   QString spectrumPath_;
-  int spectrumGen_ = 0;
+  // Workers read the generation they were started with against the live one on
+  // every loop iteration, so all three have to be atomic.
+  std::atomic<int> spectrumGen_{0};
   bool spectrumReady_ = false;
   DockingCoordinator docking_;
   SkinController skins_;
@@ -171,6 +177,9 @@ class TrampSession : public QObject {
   bool titleDragging_ = false;
   int skinsScroll_ = 0;
   bool playlistRefreshing_ = false;
+  /// Last, so that even a teardown path that forgets to stop the workers joins
+  /// them before any member they touch is destroyed.
+  WorkerCrew workers_;
 };
 
 }  // namespace tramp
