@@ -70,6 +70,8 @@ class LayoutSyncTest : public QObject {
   void anUnknownWorkAreaWithdrawsNoStep();
   void theLadderRefusesAStepItDoesNotCarry();
   void zoomingBackOutOfAStepTheDisplayOutgrewIsAlwaysOffered();
+  void aZoomStepThatOutgrowsTheDesktopDropsTheEdgesItBreaks();
+  void aRefusedZoomStepLeavesTheDockedClusterExactlyWhereItWas();
   void everyPanelReachesTheSurfacesIncludingTheHiddenOnes();
   void minimizingMainSuppressesThePanelsWithoutForgettingThem();
   void aShadedPanelKeepsTheCanvasItWillGoBackTo();
@@ -387,6 +389,63 @@ void LayoutSyncTest::zoomingBackOutOfAStepTheDisplayOutgrewIsAlwaysOffered() {
   LayoutSync floor(defaultCluster(), 75);
   floor.setSurfaces(&desktop);
   QVERIFY(!floor.zoomStepDown().has_value());
+}
+
+namespace {
+
+/// Main with the playlist docked flush against its right edge, and the two dock
+/// edges a two-axis snap leaves behind.
+DockLayout playlistDockedRightOfMain() {
+  DockLayout dock;
+  dock.main = {true, false, 0, 0, {}, {}};
+  dock.playlist = {true, false, 825, 0, 1073.0, 696.0};
+  dock.equalizer.visible = false;
+  dock.dockEdges = {
+      {WindowId::playlist, WindowId::main, tramp::DockSide::left},
+      {WindowId::playlist, WindowId::main, tramp::DockSide::top},
+  };
+  return dock;
+}
+
+}  // namespace
+
+void LayoutSyncTest::aZoomStepThatOutgrowsTheDesktopDropsTheEdgesItBreaks() {
+  // No work area to consult, so the step is taken — and a step that is taken
+  // has to leave the layout honest, whatever it costs the arrangement.
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  LayoutSync layout(playlistDockedRightOfMain(), 75);
+  layout.setSurfaces(&desktop);
+  layout.fitClusterToHost();
+  layout.place();
+  QCOMPARE(layout.layout().dockEdges.size(), 2);
+
+  QVERIFY(layout.setZoomPercent(125));
+  layout.fitClusterToHost();
+  layout.place();
+
+  // 1898 logical is 2372 native at 125%, wider than the desktop, so the pair
+  // cannot be translated and the playlist is pulled back over main. The edges
+  // went with it: a zoom step is one of the ways a contact stops holding.
+  QCOMPARE(layout.nativeFrameRect(WindowId::playlist).left(), 579);
+  QVERIFY(layout.layout().dockEdges.isEmpty());
+}
+
+void LayoutSyncTest::aRefusedZoomStepLeavesTheDockedClusterExactlyWhereItWas() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  desktop.setWorkArea(kWorkArea1080p);
+  LayoutSync layout(playlistDockedRightOfMain(), 75);
+  layout.setSurfaces(&desktop);
+  layout.fitClusterToHost();
+  layout.place();
+
+  // The same step, this time with a display to measure against: it is refused,
+  // and a refusal is not a quiet half-application. Nothing moves and nothing
+  // undocks, which is the whole point of withdrawing the step instead.
+  QVERIFY(!layout.setZoomPercent(125));
+  layout.place();
+  QCOMPARE(layout.zoomPercent(), 75);
+  QCOMPARE(layout.layout().playlist.left, 825.0);
+  QCOMPARE(layout.layout().dockEdges.size(), 2);
 }
 
 void LayoutSyncTest::everyPanelReachesTheSurfacesIncludingTheHiddenOnes() {
