@@ -70,12 +70,19 @@ Create the `.p12` from a **Developer ID Application** certificate (not Apple Dev
 Same scripts the workflows call, after a Release Qt build on that OS:
 
 ```bash
-# Linux
+# Linux — needs patchelf as well as the Qt and libmpv development packages
 ./tool/stage_linux_libmpv.sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ./packaging/linux/stage_bundle.sh
 ./packaging/linux/make_appimage.sh
 ```
+
+`stage_bundle.sh` deploys Qt into the bundle and rewrites every runpath to
+`$ORIGIN`, so the tarball and the AppImage carry their own Qt and run on a
+machine that has never installed one. It deploys the Qt the binary was **linked
+against**, so build and package on the same machine, and on the oldest glibc you
+intend to support — the host still supplies the loader, the C/C++ runtimes and
+the GL driver.
 
 Windows (on a Windows host): `tool/fetch_full_libmpv.ps1`, CMake Release build, then `packaging/windows/stage.ps1`, Inno (`packaging/windows/tramp.iss`) and `packaging/windows/make_msix.ps1`. The EXE installer runs `vc_redist.x64.exe` when `MSVCP140.dll` / `VCRUNTIME140.dll` are missing. The MSIX declares `Microsoft.VCLibs.140.00.UWPDesktop` so the Store supplies that runtime.

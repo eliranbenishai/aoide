@@ -179,12 +179,21 @@ if(TRAMP_HAVE_MPV)
   target_compile_definitions(tramp PRIVATE TRAMP_HAVE_MPV)
   target_link_libraries(tramp PRIVATE ${TRAMP_MPV_LIBS})
   if(UNIX AND NOT APPLE AND EXISTS "${BUNDLED_MPV_SO}" AND NOT TARGET PkgConfig::MPV)
-    target_link_options(tramp PRIVATE
-      "-Wl,--allow-shlib-undefined"
-      "-Wl,-rpath,${TRAMP_MPV_ROOT}/linux/x86_64"
-      "-Wl,-rpath,${CMAKE_CURRENT_BINARY_DIR}/mpv-stubs"
-    )
+    target_link_options(tramp PRIVATE "-Wl,--allow-shlib-undefined")
+    # BUILD_RPATH, not -Wl,-rpath: CMake strips what it set when it installs, so
+    # the shipped binary does not carry this machine's source paths and cannot
+    # quietly satisfy itself from the build tree.
+    set_property(TARGET tramp APPEND PROPERTY BUILD_RPATH
+      "${TRAMP_MPV_ROOT}/linux/x86_64"
+      "${CMAKE_CURRENT_BINARY_DIR}/mpv-stubs")
   endif()
+endif()
+if(UNIX AND NOT APPLE)
+  # The bundle keeps every shipped library in lib/ beside the binary, and the
+  # tarball is extracted and run in place with nothing to set LD_LIBRARY_PATH.
+  # packaging/linux/stage_bundle.sh gives the libraries and plugins the matching
+  # $ORIGIN runpaths.
+  set_target_properties(tramp PROPERTIES INSTALL_RPATH "$ORIGIN/lib;$ORIGIN")
 endif()
 target_link_libraries(tramp PRIVATE tramp_window_spec Qt6::Widgets)
 if(TARGET Qt6::DBus)
