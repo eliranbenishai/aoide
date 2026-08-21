@@ -48,6 +48,8 @@ target_link_libraries(tramp_window_spec PUBLIC Qt6::Widgets)
 set(TRAMP_HAVE_MPV OFF)
 set(TRAMP_MPV_LIBS "")
 set(BUNDLED_MPV_SO "${TRAMP_MPV_ROOT}/linux/x86_64/libmpv.so")
+set(BUNDLED_MPV_IMPLIB "${TRAMP_MPV_ROOT}/windows/x86_64/libmpv.dll.a")
+set(TRAMP_WIN_MPV_DLL "${TRAMP_MPV_ROOT}/windows/x86_64/libmpv-2.dll")
 
 if(PkgConfig_FOUND)
   pkg_check_modules(MPV IMPORTED_TARGET mpv)
@@ -83,6 +85,19 @@ elseif(UNIX AND NOT APPLE AND EXISTS "${BUNDLED_MPV_SO}")
     stub_libvapoursynth-script.so.0
     stub_libXpresent.so.1
   )
+elseif(WIN32 AND EXISTS "${BUNDLED_MPV_IMPLIB}" AND EXISTS "${TRAMP_WIN_MPV_DLL}")
+  # The pinned shinchiro archive names its import library GNU-style, but the
+  # file is a Microsoft short-import library — the format lib.exe emits. link.exe
+  # identifies archives by content rather than extension, so the copy to a
+  # conventional name is only to keep the toolchain unsurprised.
+  #
+  # Both files are required: the import library is what links, the DLL is what
+  # ships, and a build that can link but not ship is the silent-Windows defect
+  # this branch exists to close.
+  set(TRAMP_HAVE_MPV ON)
+  set(TRAMP_MPV_IMPLIB "${CMAKE_CURRENT_BINARY_DIR}/mpv.lib")
+  configure_file("${BUNDLED_MPV_IMPLIB}" "${TRAMP_MPV_IMPLIB}" COPYONLY)
+  list(APPEND TRAMP_MPV_LIBS "${TRAMP_MPV_IMPLIB}")
 endif()
 
 # A music player that cannot play music must not be packageable by accident.
@@ -96,7 +111,8 @@ if(NOT TRAMP_HAVE_MPV AND NOT TRAMP_ALLOW_NO_AUDIO)
     "No audio engine: libmpv was not found, so this build could not play anything.\n"
     "  Linux/macOS: install libmpv development files (pkg-config must find 'mpv'),\n"
     "               or place the bundle at third_party/libmpv/linux/x86_64/libmpv.so.\n"
-    "  Windows:     linking libmpv is not implemented yet (no import library).\n"
+    "  Windows:     run tool/fetch_full_libmpv.ps1, which installs libmpv-2.dll and\n"
+    "               its import library into third_party/libmpv/windows/x86_64.\n"
     "Configure with -DTRAMP_ALLOW_NO_AUDIO=ON to build a deliberately silent binary.")
 endif()
 
@@ -322,6 +338,19 @@ foreach(tramp_target IN ITEMS
   target_link_libraries(${tramp_target} PRIVATE tramp_warnings)
 endforeach()
 
+# Both binaries carry a static import of libmpv-2.dll, so the Windows loader
+# resolves it at process start — before main, before any assertion. Without the
+# DLL in the build tree ctest dies with STATUS_DLL_NOT_FOUND (0xC0000135) and
+# reports nothing useful. The install rule below covers the package, not this.
+if(WIN32 AND TRAMP_HAVE_MPV)
+  foreach(win_mpv_target IN ITEMS tramp domain_test)
+    add_custom_command(TARGET ${win_mpv_target} POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${TRAMP_WIN_MPV_DLL}" "$<TARGET_FILE_DIR:${win_mpv_target}>"
+      VERBATIM)
+  endforeach()
+endif()
+
 enable_testing()
 add_test(NAME window_spec COMMAND window_spec_test)
 add_test(NAME host_shell COMMAND host_shell_test)
@@ -348,9 +377,6 @@ if(UNIX AND NOT APPLE)
     install(FILES ${TRAMP_LINUX_MPV} DESTINATION lib)
   endif()
 endif()
-if(WIN32)
-  set(TRAMP_WIN_MPV_DLL "${TRAMP_MPV_ROOT}/windows/x86_64/libmpv-2.dll")
-  if(EXISTS "${TRAMP_WIN_MPV_DLL}")
-    install(FILES "${TRAMP_WIN_MPV_DLL}" DESTINATION .)
-  endif()
+if(WIN32 AND EXISTS "${TRAMP_WIN_MPV_DLL}")
+  install(FILES "${TRAMP_WIN_MPV_DLL}" DESTINATION .)
 endif()

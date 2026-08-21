@@ -91,7 +91,7 @@ flowchart TB
 
 | Area | Owns |
 |------|------|
-| Audio backend | `TRAMP_HAVE_MPV` only turns on via `pkg-config mpv` or the bundled Linux `.so`, so Windows has no path yet. Configuring without an engine is a **hard error** unless `-DTRAMP_ALLOW_NO_AUDIO=ON`; PR CI passes it for Windows, and the release workflow deliberately does not, so a silent build cannot be packaged. |
+| Audio backend | `TRAMP_HAVE_MPV` turns on via `pkg-config mpv`, the bundled Linux `.so`, or the Windows import library plus DLL that `tool/fetch_full_libmpv.ps1` stages under `third_party/libmpv/windows/x86_64`. Windows needs **both** files: the import library is what links, the DLL is what ships — and what the loader resolves at process start, so CMake copies it beside `tramp.exe` and `domain_test.exe` in the build tree as well as into the package. Configuring without an engine is a **hard error** unless `-DTRAMP_ALLOW_NO_AUDIO=ON`; no workflow passes that, so a silent build cannot be packaged. |
 | Host | `HostShell` (`host_shell_window.*`) + five `HostWindow` panels — one frameless host window titled Tramp, sized to the virtual desktop; taskbar/dock/pager icon from `assets/branding/app_icon.png` (`app_icon.*`); punched input from child panel rects (never an empty mask while mapped); main close persists then quits; extra panels hide |
 | Session | `session.*`, `session_view.*` — shared controllers, commands, `--dump-chrome` golden. OS wait cursor (`wait_cursor.*`) during sync UI-thread loads (skin change/install, playlist file ingest, collection add, Refresh, bootstrap JSON load). Playlist Refresh also keeps the Refresh button’s on-face for that same span (`SessionView::playlistRefreshing`), published before `WaitCursorScope` so the cursor’s `processEvents` flush shows both together. Not during spectrum, background path-verify, background probe of dropped audio files, or playback. |
 | Docking | `docking.*` — peel 8 logical px; EQ and playlist any side and both axes (two neighbors); settings/about never snap. Title-bar drags are app-owned. Child drags move one panel in host-local space; main drag translates the cluster. `placePanels` uses `mapToGlobal` origin and does not resize the host unless the virtual desktop changed. Panels stay fully on the virtual desktop — but only the ones you can see decide where the edge is: `visibleClusterMembers` keeps a hidden panel out of the union `fitClusterToHost` measures, because a hidden panel keeps the position it will reappear at and would otherwise reserve ghost space (a closed About parked left of main stopped main reaching the left of the screen). Hidden panels still ride the correction so they do not walk out of the cluster. |
@@ -152,8 +152,6 @@ Playlist bytes are decoded by `decodeM3uBytes`: UTF-8 or UTF-16 by byte-order ma
 | `usage.json` | Lifetime **spins** |
 
 ## Known v1 gaps
-
-- **Windows cannot link libmpv**, so Windows builds have no audio engine. `tool/fetch_full_libmpv.ps1` installs only `libmpv-2.dll` with no import library, and `CMakeLists.txt` has no Windows detection branch. Until that exists, Windows is `-DTRAMP_ALLOW_NO_AUDIO=ON` for CI only and is not releasable.
 
 - Mockup fidelity / `--dump-chrome` vs `player-mockup-2.html` still hardening
 - Full libmpv packaging on macOS; Linux AppImage Qt/lib bundling still hardening

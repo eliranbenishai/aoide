@@ -46,17 +46,12 @@ jobs:
         run: powershell -ExecutionPolicy Bypass -File tool/fetch_full_libmpv.ps1
         shell: pwsh
 
-      # Windows cannot link libmpv yet (no import library is produced), so PR CI
-      # builds the host without an engine on purpose. The release workflow does
-      # NOT pass this, so a silent build cannot be packaged.
       - name: Configure and build
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release $EXTRA_CMAKE
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --config Release
           ctest --test-dir build -C Release --output-on-failure
         shell: bash
-        env:
-          EXTRA_CMAKE: ${{ runner.os == 'Windows' && '-DTRAMP_ALLOW_NO_AUDIO=ON' || '' }}
 
       - name: Paint budget (Linux)
         if: runner.os == 'Linux'
