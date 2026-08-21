@@ -3,6 +3,7 @@
 #include "equalizer.h"
 #include "look.h"
 #include "track.h"
+#include "window_spec.h"
 
 #include <QSet>
 #include <QString>
@@ -20,6 +21,14 @@ struct CollectionRowView {
   bool disabled = false;
 };
 
+inline bool operator==(const CollectionRowView& a, const CollectionRowView& b) {
+  return a.name == b.name && a.count == b.count && a.selected == b.selected &&
+         a.disabled == b.disabled;
+}
+inline bool operator!=(const CollectionRowView& a, const CollectionRowView& b) {
+  return !(a == b);
+}
+
 struct TrackRowView {
   QString artist;
   QString title;
@@ -28,6 +37,12 @@ struct TrackRowView {
   bool playing = false;
   bool disabled = false;
 };
+
+inline bool operator==(const TrackRowView& a, const TrackRowView& b) {
+  return a.artist == b.artist && a.title == b.title && a.time == b.time &&
+         a.selected == b.selected && a.playing == b.playing && a.disabled == b.disabled;
+}
+inline bool operator!=(const TrackRowView& a, const TrackRowView& b) { return !(a == b); }
 
 struct SessionView {
   /// Marks a paint as the fidelity reference: animation is held still and the
@@ -92,6 +107,28 @@ struct SessionView {
   QString skinsError;
   int skinsScroll = 0;
 };
+
+/// Whether the display well's marquee is moving rather than held at the start.
+///
+/// The one thing the title's scroll clock decides that outlives a frame: an
+/// overflowing line is painted on the live pass once it is moving and on the
+/// cached chassis while it is still held, so the cache turns over when the hold
+/// ends and on none of the frames either side of it.
+bool titleMarqueeRunning(const SessionView& view);
+
+/// Whether [a] and [b] would put the same pixels on [id].
+///
+/// Deliberately not one comparison over the whole snapshot: the point of asking
+/// is that scrolling the playlist must not re-rasterise Settings, and a
+/// struct-wide equality says every panel changed whenever any field did. Each
+/// panel answers for the fields its own painter reads, and for the shell and
+/// title bar it shares with the other four.
+///
+/// Answering "no" when the truth is "yes" costs a redundant rebuild. Answering
+/// "yes" when the truth is "no" leaves the listener looking at pixels that have
+/// stopped being true, so the groups below are widened, never narrowed, when in
+/// doubt.
+bool paintsSame(WindowId id, const SessionView& a, const SessionView& b);
 
 /// The demo state every golden dump and paint benchmark is measured in.
 ///
