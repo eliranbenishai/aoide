@@ -713,10 +713,11 @@ void drawListWell(QPainter& p, const QRectF& well) {
     p.fillRect(QRectF(well.left(), y, well.width(), row), withAlpha(T().listSheen, 4));
     p.fillRect(QRectF(well.left(), y + row, well.width(), row), QColor(0, 0, 0, 31));
   }
-  p.restore();
+  p.setClipping(false);
   p.setPen(QPen(withAlpha(T().phos, 20), 1));
   p.setBrush(Qt::NoBrush);
   p.drawRoundedRect(well.adjusted(0.5, 0.5, -0.5, -0.5), kWellRadius - 0.5, kWellRadius - 0.5);
+  p.restore();
 }
 
 void drawBtn(QPainter& p, const QRectF& r, BtnFace face, const QString& label) {
@@ -784,9 +785,11 @@ void drawBtn(QPainter& p, const QRectF& r, BtnFace face, const QString& label) {
     bp.drawRoundedRect(r.translated(0, 1), 4, 4);
   });
   if (!label.isEmpty()) {
+    p.save();
     p.setFont(condensedFont(13, 0.18));
     p.setPen(mix(T().btnLabelIdle, T().btnOnInk, on));
     p.drawText(r, Qt::AlignCenter, label.toUpper());
+    p.restore();
   }
 }
 
@@ -853,6 +856,7 @@ void drawGlyphBtn(QPainter& p, const QRectF& r, MockupIcon icon, BtnFace face, q
 
 void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle, bool glow) {
   t = qBound(0.0, t, 1.0);
+  p.save();
   QPainterPath trough;
   trough.addRoundedRect(track, track.height() / 2, track.height() / 2);
   QLinearGradient tg(track.topLeft(), track.bottomLeft());
@@ -932,6 +936,7 @@ void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle, bool 
   for (qreal y = grip.top(); y < grip.bottom(); y += 2.2) {
     p.drawLine(QPointF(grip.left(), y), QPointF(grip.right(), y));
   }
+  p.restore();
 }
 
 namespace {
@@ -950,6 +955,7 @@ QRectF bandThumbRect(const QRectF& well, qreal gainDb) {
 }
 
 void drawVBand(QPainter& p, const QRectF& column, qreal gainDb) {
+  p.save();
   constexpr qreal trackW = 12;
   const QRectF track(column.center().x() - trackW / 2, column.top(), trackW,
                      column.height());
@@ -988,6 +994,7 @@ void drawVBand(QPainter& p, const QRectF& column, qreal gainDb) {
   lg.setColorAt(0, T().spectrumStops.value(0, T().phosHot));
   lg.setColorAt(1, T().phos);
   fillRound(p, line, 1, lg);
+  p.restore();
 }
 
 void drawLed(QPainter& p, QPointF c, qreal on, qreal size) {
@@ -1014,9 +1021,11 @@ void drawLed(QPainter& p, QPointF c, qreal on, qreal size) {
   g.setColorAt(0, mix(T().idleLedHi, T().accentHot, on));
   g.setColorAt(0.45, mix(mix(T().idleLedHi, T().idleLedLo, 0.45), T().accent, on));
   g.setColorAt(1, mix(T().idleLedLo, T().accentDim, on));
+  p.save();
   p.setBrush(g);
   p.setPen(QPen(mix(QColor(0, 0, 0, 204), withAlpha(T().litLedRim, 153), on), 1));
   p.drawEllipse(c, r, r);
+  p.restore();
 }
 
 void drawMenuCaret(QPainter& p, const QRectF& btn) {
@@ -1075,6 +1084,7 @@ void drawNoiseOverlay(QPainter& p, const QRectF& rect, qreal radius) {
 void drawStyledText(QPainter& p, const QRectF& box, const QString& text,
                     const QFont& font, const QColor& fill, int flags,
                     const QVector<TextShadow>& shadows) {
+  p.save();
   for (const TextShadow& shadow : shadows) {
     const QRectF dest = box.translated(shadow.offset);
     if (shadow.blurRadius > 0.2) {
@@ -1100,6 +1110,7 @@ void drawStyledText(QPainter& p, const QRectF& box, const QString& text,
   p.setFont(font);
   p.setPen(fill);
   p.drawText(box, flags, text);
+  p.restore();
 }
 
 void drawGlowText(QPainter& p, const QRectF& box, const QString& text, const QFont& font,
@@ -1114,13 +1125,16 @@ qreal toggleBtnWidth(const QString& label) {
 void drawToggleBtn(QPainter& p, const QRectF& r, const QString& label, BtnFace face) {
   drawBtn(p, r, BtnFace(0, face.hover, face.press), {});
   drawLed(p, QPointF(r.left() + 15 + 4, r.center().y()), face.on);
+  p.save();
   p.setFont(condensedFont(13, 0.16));
   p.setPen(T().btnLabelIdle);
   p.drawText(r.adjusted(15 + 8 + 9, 0, -15, 0), Qt::AlignVCenter | Qt::AlignLeft,
              label.toUpper());
+  p.restore();
 }
 
 void drawChevron(QPainter& p, const QRectF& box, bool pointsLeft, const QColor& color) {
+  p.save();
   QPen pen(color, 1.6, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
   p.setPen(pen);
   p.setBrush(Qt::NoBrush);
@@ -1131,9 +1145,11 @@ void drawChevron(QPainter& p, const QRectF& box, bool pointsLeft, const QColor& 
   path.lineTo(tipX, box.center().y());
   path.lineTo(backX, box.bottom() - 1);
   p.drawPath(path);
+  p.restore();
 }
 
 void drawCreateMark(QPainter& p, const QRectF& box, const QColor& color) {
+  p.save();
   QPen pen(color, 1.4, Qt::SolidLine, Qt::RoundCap);
   p.setPen(pen);
   const qreal w = box.width();
@@ -1148,9 +1164,11 @@ void drawCreateMark(QPainter& p, const QRectF& box, const QColor& color) {
   const qreal reach = w * 0.2;
   p.drawLine(QPointF(cx - reach, cy), QPointF(cx + reach, cy));
   p.drawLine(QPointF(cx, cy - reach), QPointF(cx, cy + reach));
+  p.restore();
 }
 
 void drawRenameMark(QPainter& p, const QRectF& box, const QColor& color) {
+  p.save();
   QPen pen(color, 1.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
   p.setPen(pen);
   const qreal w = box.width();
@@ -1161,6 +1179,7 @@ void drawRenameMark(QPainter& p, const QRectF& box, const QColor& color) {
   p.drawLine(QPointF(l + w * 0.2, t + h * 0.68), QPointF(l + w * 0.36, t + h * 0.8));
   p.drawLine(QPointF(l + w * 0.36, t + h * 0.8), QPointF(l + w * 0.86, t + h * 0.28));
   p.drawLine(QPointF(l + w * 0.06, t + h * 0.96), QPointF(l + w * 0.94, t + h * 0.96));
+  p.restore();
 }
 
 void drawFooterSep(QPainter& p, const QRectF& r) {
@@ -1172,12 +1191,15 @@ void drawFooterSep(QPainter& p, const QRectF& r) {
 }
 
 void drawStatusDot(QPainter& p, QPointF c) {
+  p.save();
   p.setPen(Qt::NoPen);
   p.setBrush(QColor(T().inkFaint.red(), T().inkFaint.green(), T().inkFaint.blue(), 160));
   p.drawEllipse(c, 1.5, 1.5);
+  p.restore();
 }
 
 void drawScrollbar(QPainter& p, const QRectF& track, qreal thumbTop, qreal thumbH) {
+  p.save();
   QPainterPath trough;
   trough.addRoundedRect(track, track.width() / 2, track.width() / 2);
   QLinearGradient tg(track.topLeft(), track.topRight());
@@ -1201,7 +1223,6 @@ void drawScrollbar(QPainter& p, const QRectF& track, qreal thumbTop, qreal thumb
   QLinearGradient gloss(thumb.topLeft(), thumb.bottomLeft());
   gloss.setColorAt(0, withAlpha(T().hoverLift, 128));
   gloss.setColorAt(0.35, withAlpha(T().hoverLift, 0));
-  p.save();
   QPainterPath clip;
   clip.addRoundedRect(thumb, thumb.width() / 2, thumb.width() / 2);
   p.setClipPath(clip);
@@ -1215,6 +1236,7 @@ void drawScrollbar(QPainter& p, const QRectF& track, qreal thumbTop, qreal thumb
 }
 
 void drawDiscLogo(QPainter& p, const QRectF& disc, const QImage* logo, bool insets) {
+  p.save();
   // Title bar: BoxShadow blurRadius 12 alpha 0x47. About badge: size*0.42 @ 0.3.
   const qreal bloomRadius = disc.width() <= 32 ? 12.0 : disc.width() * 0.42;
   const qreal bloomSigma = bloomRadius * 0.57735;
@@ -1250,29 +1272,27 @@ void drawDiscLogo(QPainter& p, const QRectF& disc, const QImage* logo, bool inse
   p.setBrush(Qt::NoBrush);
   p.setPen(QPen(QColor(0, 0, 0, 166), 1));
   p.drawEllipse(disc);
-  if (!insets) {
-    return;
+  if (insets) {
+    QPainterPath clip;
+    clip.addEllipse(disc);
+    p.setClipPath(clip);
+    QLinearGradient sheen(disc.topLeft(), QPointF(disc.left(), disc.top() + disc.height() * 0.55));
+    sheen.setColorAt(0, QColor(255, 255, 255, 128));
+    sheen.setColorAt(1, QColor(255, 255, 255, 0));
+    p.fillRect(QRectF(disc.left(), disc.top(), disc.width(), disc.height() * 0.55), sheen);
+    QLinearGradient shade(QPointF(disc.left(), disc.top() + disc.height() * 0.45),
+                          disc.bottomLeft());
+    shade.setColorAt(0, withAlpha(T().phosDeep, 0));
+    shade.setColorAt(1, withAlpha(T().phosDeep, 89));
+    p.fillRect(QRectF(disc.left(), disc.top() + disc.height() * 0.45, disc.width(),
+                      disc.height() * 0.55),
+               shade);
+    QLinearGradient gloss(disc.topLeft() + QPointF(disc.width() * 0.2, 0),
+                          disc.bottomRight() - QPointF(disc.width() * 0.1, disc.height() * 0.2));
+    gloss.setColorAt(0, QColor(255, 255, 255, 115));
+    gloss.setColorAt(0.46, QColor(255, 255, 255, 0));
+    p.fillRect(disc, gloss);
   }
-  p.save();
-  QPainterPath clip;
-  clip.addEllipse(disc);
-  p.setClipPath(clip);
-  QLinearGradient sheen(disc.topLeft(), QPointF(disc.left(), disc.top() + disc.height() * 0.55));
-  sheen.setColorAt(0, QColor(255, 255, 255, 128));
-  sheen.setColorAt(1, QColor(255, 255, 255, 0));
-  p.fillRect(QRectF(disc.left(), disc.top(), disc.width(), disc.height() * 0.55), sheen);
-  QLinearGradient shade(QPointF(disc.left(), disc.top() + disc.height() * 0.45),
-                        disc.bottomLeft());
-  shade.setColorAt(0, withAlpha(T().phosDeep, 0));
-  shade.setColorAt(1, withAlpha(T().phosDeep, 89));
-  p.fillRect(QRectF(disc.left(), disc.top() + disc.height() * 0.45, disc.width(),
-                    disc.height() * 0.55),
-             shade);
-  QLinearGradient gloss(disc.topLeft() + QPointF(disc.width() * 0.2, 0),
-                        disc.bottomRight() - QPointF(disc.width() * 0.1, disc.height() * 0.2));
-  gloss.setColorAt(0, QColor(255, 255, 255, 115));
-  gloss.setColorAt(0.46, QColor(255, 255, 255, 0));
-  p.fillRect(disc, gloss);
   p.restore();
 }
 

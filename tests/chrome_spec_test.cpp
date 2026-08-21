@@ -24,6 +24,7 @@ class ChromeSpecTest : public QObject {
   void chromePaintBufferMatchesWidgetTimesDpr();
   void stereoPlaylistGapHoldsForWideGlyphs();
   void skinsListScrollsLastRowIntoView();
+  void skinsErrorStripClearsTheListAndTheScrollbar();
   void playlistHidesScrollbarWhenRowsFit();
   void collapsedCollectionKeepsTheColumnItsReopenTabPaintsIn();
   void playlistStripKeepsGapBeforeLengthWell();
@@ -213,8 +214,8 @@ void ChromeSpecTest::stereoPlaylistGapHoldsForWideGlyphs() {
 void ChromeSpecTest::skinsListScrollsLastRowIntoView() {
   const auto pane = tramp::settingsPane(tramp::kSettings);
   const auto viewport = tramp::skinsListViewport(pane);
-  QCOMPARE(int(viewport.height()), 262);
-  QCOMPARE(tramp::skinsListMaxScroll(8, viewport.height()), 26);
+  QCOMPARE(int(viewport.height()), 228);
+  QCOMPARE(tramp::skinsListMaxScroll(8, viewport.height()), 60);
 
   const auto lastHidden = tramp::skinsListRow(viewport, 7, 0);
   QVERIFY(lastHidden.bottom() > viewport.bottom());
@@ -223,6 +224,37 @@ void ChromeSpecTest::skinsListScrollsLastRowIntoView() {
   const auto lastShown = tramp::skinsListRow(viewport, 7, scroll);
   QVERIFY(lastShown.top() >= viewport.top());
   QVERIFY(lastShown.bottom() <= viewport.bottom());
+}
+
+// The install error used to be placed off the pane's bottom edge rather than
+// off the list, so it landed on the last rows of any catalogue long enough to
+// scroll and ran past the viewport into the scrollbar track. It now has a strip
+// of its own, and nothing the pane paints may be under it.
+void ChromeSpecTest::skinsErrorStripClearsTheListAndTheScrollbar() {
+  const auto pane = tramp::settingsPane(tramp::kSettings);
+  const auto viewport = tramp::skinsListViewport(pane);
+  const auto strip = tramp::skinsErrorStrip(viewport);
+  const auto track = tramp::skinsListScrollTrack(viewport);
+
+  QVERIFY(!strip.intersects(viewport));
+  QVERIFY(!strip.intersects(track));
+  QVERIFY(strip.right() <= track.left());
+  QVERIFY(strip.top() >= viewport.bottom());
+
+  // The button stack starts where the strip ends, so the strip cannot reach it
+  // and the pane's bottom edge is still the buttons'.
+  const qreal btnTop = pane.bottom() - tramp::kSkinsBtnStackH;
+  QVERIFY(strip.bottom() <= btnTop);
+  QVERIFY(strip.height() > 0);
+
+  // Every row the list can scroll to stays clear of the strip, however long the
+  // catalogue is: the scroll domain is measured off the same shortened viewport.
+  for (const int count : {1, 7, 8, 40}) {
+    const int scroll = tramp::skinsListMaxScroll(count, viewport.height());
+    const auto last = tramp::skinsListRow(viewport, count - 1, scroll);
+    QVERIFY(last.bottom() <= viewport.bottom());
+    QVERIFY(!last.intersects(strip));
+  }
 }
 
 void ChromeSpecTest::playlistHidesScrollbarWhenRowsFit() {
