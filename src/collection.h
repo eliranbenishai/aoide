@@ -47,7 +47,6 @@ class PlaylistCollection {
   /// Brings the validation pass up to date if it has gone stale — one question
   /// per entry, never per track.
   QSet<QString> disabledPaths() const;
-  int figuresRevision() const { return figuresRevision_; }
 
   QVector<Track> add(const QString& path);
   void addWritten(const QString& path, const QVector<Track>& tracks);
@@ -73,7 +72,6 @@ class PlaylistCollection {
   int indexOf(const QString& path) const;
   void sortEntries();
   void refreshFigures(SavedPlaylist& e, const QVector<Track>& tracks);
-  void bumpFigures();
   bool onDisk(const QString& path) const;
   /// The validation pass: playlist files only, skipped while the last one is
   /// still fresh.
@@ -89,7 +87,6 @@ class PlaylistCollection {
   QString selectedPath_;
   CollectionTrackSets trackSets_;
   Exists exists_;
-  int figuresRevision_ = 0;
   bool trackSetsDirty_ = false;
   int validationIntervalMs_ = kValidationIntervalMs;
   /// Tracks the last pass found nothing for. A path nobody has asked about yet
