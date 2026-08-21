@@ -51,7 +51,7 @@ class LayoutSyncTest : public QObject {
   void clampLeavesEverythingAloneWhenThereIsNoHostYet();
   void clampAcceptsAScreenLeftOfThePrimary();
   void unpluggingAMonitorTranslatesAClusterThatStillFits();
-  void aClusterTooWideForTheDesktopFallsBackToClampingEachPanel();
+  void aClusterTooWideForTheDesktopClampsEachPanelAndDropsTheEdgesThatBreaks();
   void aCrawlTooSlowToPeelStillLosesTheEdgeItCrawledAwayFrom();
   void aClusterThatOnlyMovedKeepsEveryEdgeItWasDockedBy();
   void everyPanelReachesTheSurfacesIncludingTheHiddenOnes();
@@ -186,22 +186,30 @@ void LayoutSyncTest::unpluggingAMonitorTranslatesAClusterThatStillFits() {
   QCOMPARE(layout.nativeFrameRect(WindowId::playlist).topLeft(), QPoint(1095, 796));
 }
 
-void LayoutSyncTest::aClusterTooWideForTheDesktopFallsBackToClampingEachPanel() {
-  // Today's answer when the union cannot fit at any origin: each visible panel
-  // is pulled back on its own, which stacks panels that were docked apart. What
-  // it should do instead is ticket 08's decision, not this seam's — this pins
-  // what the code does now so that change is visible when it is made.
+void LayoutSyncTest::aClusterTooWideForTheDesktopClampsEachPanelAndDropsTheEdgesThatBreaks() {
+  // A union that cannot fit at any origin is pulled back panel by panel, which
+  // is what a monitor going away is promised to do. Clamping moves panels that
+  // were docked, so the edges naming those contacts go with it: the alternative
+  // is a layout that still calls the pair flush while one sits on top of the
+  // other, and a panel whose own stale edge bars it from re-docking.
   FakeDesktop desktop(QRect(0, 0, 900, 1080));
   DockLayout dock;
   dock.main = {true, false, 0, 0, {}, {}};
   dock.playlist = {true, false, 825, 0, 1073.0, 696.0};
   dock.equalizer.visible = false;
+  dock.dockEdges = {
+      {WindowId::playlist, WindowId::main, tramp::DockSide::left},
+      {WindowId::playlist, WindowId::main, tramp::DockSide::top},
+  };
   LayoutSync layout(dock, 100);
   layout.setSurfaces(&desktop);
 
   layout.fitClusterToHost();
+  layout.place();
+
   QCOMPARE(layout.nativeFrameRect(WindowId::main), QRect(0, 0, 825, 348));
   QCOMPARE(layout.nativeFrameRect(WindowId::playlist), QRect(0, 0, 900, 696));
+  QVERIFY(layout.layout().dockEdges.isEmpty());
 }
 
 void LayoutSyncTest::aCrawlTooSlowToPeelStillLosesTheEdgeItCrawledAwayFrom() {
