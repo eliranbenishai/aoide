@@ -11,7 +11,15 @@ void PlaylistCollection::load(const SupportStore& store) {
   entries_ = store.readCollectionIndex();
   trackSets_ = store.readTrackSets();
   sortEntries();
-  forgetPresence();
+  // Reading the state files says nothing about what is still on the disk, and
+  // this is not the place to go and ask — `validateReferences` is, right after
+  // this, where the session has already decided to wait.
+  validationValid_ = false;
+  missingTracks_.clear();
+}
+
+bool PlaylistCollection::onDisk(const QString& path) const {
+  return exists_ ? exists_(path) : QFileInfo::exists(path);
 }
 
 void PlaylistCollection::saveIndex(const SupportStore& store) const {
@@ -69,7 +77,12 @@ void PlaylistCollection::refreshFigures(SavedPlaylist& e, const QVector<Track>& 
   e.modifiedMs = QFileInfo(e.path).lastModified().toMSecsSinceEpoch();
   trackSets_.byEntry.insert(e.path, paths);
   trackSetsDirty_ = true;
-  forgetPresence();
+  // This list was just read off the disk — on add, on Refresh, on Save — so
+  // asking about its own tracks is bounded by the playlist the caller already
+  // paid to read. It is also the only way a mid-session deletion reaches the
+  // figures, and it is what makes Refresh tell the truth.
+  checkTrackFiles(paths);
+  validationValid_ = false;
   bumpFigures();
 }
 
@@ -176,7 +189,11 @@ void PlaylistCollection::remove(const QString& path) {
   entries_.removeAt(i);
   trackSets_.byEntry.remove(n);
   if (selectedPath_ == n) selectedPath_.clear();
-  forgetPresence();
+  // Nothing to ask the disk: the figures walk the lists that are left, so the
+  // paths of a playlist that has gone are simply never visited again. They stay
+  // in `missingTracks_` until something asks about them, which costs nothing
+  // and is corrected if the playlist comes back.
+  validationValid_ = false;
   bumpFigures();
 }
 
@@ -202,30 +219,44 @@ bool PlaylistCollection::resolveForLoad(const QString& path, SavedPlaylist* out)
 }
 
 void PlaylistCollection::validateReferences() {
-  forgetPresence();
-  refreshPresence();
+  validationValid_ = false;
+  validatePlaylistFiles();
+  checkAllTrackFiles();
 }
 
-void PlaylistCollection::refreshPresence() const {
-  if (presenceValid_ && presenceAge_.isValid() && presenceAge_.elapsed() < presenceIntervalMs_) {
+void PlaylistCollection::validatePlaylistFiles() const {
+  if (validationValid_ && validationAge_.isValid() &&
+      validationAge_.elapsed() < validationIntervalMs_) {
     return;
   }
   disabledPaths_.clear();
-  presentTracks_.clear();
-  QSet<QString> tracks;
   for (const SavedPlaylist& e : entries_) {
-    if (!QFileInfo::exists(e.path)) disabledPaths_.insert(e.path);
-    for (const QString& track : trackSets_.byEntry.value(e.path)) tracks.insert(track);
+    if (!onDisk(e.path)) disabledPaths_.insert(e.path);
   }
-  for (const QString& track : tracks) {
-    if (QFileInfo::exists(track)) presentTracks_.insert(track);
+  validationValid_ = true;
+  validationAge_.restart();
+}
+
+void PlaylistCollection::checkAllTrackFiles() {
+  QSet<QString> reachable;
+  for (const SavedPlaylist& e : entries_) {
+    for (const QString& track : trackSets_.byEntry.value(e.path)) reachable.insert(track);
   }
-  presenceValid_ = true;
-  presenceAge_.restart();
+  missingTracks_.clear();
+  for (const QString& track : reachable) {
+    if (!onDisk(track)) missingTracks_.insert(track);
+  }
+}
+
+void PlaylistCollection::checkTrackFiles(const QStringList& paths) {
+  for (const QString& track : paths) {
+    if (onDisk(track)) missingTracks_.remove(track);
+    else missingTracks_.insert(track);
+  }
 }
 
 QSet<QString> PlaylistCollection::disabledPaths() const {
-  refreshPresence();
+  validatePlaylistFiles();
   return disabledPaths_;
 }
 
@@ -250,8 +281,8 @@ CollectionFigures PlaylistCollection::readFigures() const {
   // The stats well is headed ON THIS MACHINE, so it counts the files that are
   // on it. A track the collection remembers but the disk no longer has is not
   // dropped from the cache — it comes back with its file — it just does not
-  // count while it is missing.
-  refreshPresence();
+  // count while it is missing. What the last track pass found is read here and
+  // nothing more: this runs once per probed duration during an ingest.
   CollectionFigures fig;
   fig.playlists = entries_.size();
   QSet<QString> unique;
@@ -259,7 +290,7 @@ CollectionFigures PlaylistCollection::readFigures() const {
   for (const SavedPlaylist& e : entries_) {
     const QStringList paths = trackSets_.byEntry.value(e.path);
     for (const QString& p : paths) {
-      if (unique.contains(p) || !presentTracks_.contains(p)) continue;
+      if (unique.contains(p) || missingTracks_.contains(p)) continue;
       unique.insert(p);
       total += trackSets_.durationsMs.value(p, 0);
     }

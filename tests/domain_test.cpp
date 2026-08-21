@@ -1547,7 +1547,7 @@ int main() {
     writeList();
 
     tramp::PlaylistCollection col;
-    col.setPresenceIntervalMs(0);
+    col.setValidationIntervalMs(0);
     col.add(pl);
     const QString key = tramp::normalizePlaylistPath(pl);
     REQUIRE(!col.disabledPaths().contains(key));
@@ -1598,14 +1598,99 @@ int main() {
     // that is gone, so it comes back with the file.
     REQUIRE_EQ(col.tracksFor(pl).size(), 2);
 
+    // Refresh is the mid-session route to the same answer, and the one that
+    // runs while the app is open: re-reading a list re-asks about that list's
+    // tracks, so a file that came back is counted again without a restart.
+    QFile back(gone);
+    REQUIRE(back.open(QIODevice::WriteOnly));
+    back.write("x");
+    back.close();
+    col.addWritten(pl, {a, b});
+    REQUIRE_EQ(col.readFigures().tracks, 2);
+    REQUIRE(QFile::remove(gone));
+    col.addWritten(pl, {a, b});
+    REQUIRE_EQ(col.readFigures().tracks, 1);
+
     tramp::SupportStore store(tmp.path());
     col.saveIndex(store);
     col.saveTrackSets(store);
     tramp::PlaylistCollection reloaded;
     reloaded.load(store);
+    reloaded.validateReferences();  // what bootstrap does, and the only sweep
     REQUIRE_EQ(reloaded.readFigures().playlists, 1);
     REQUIRE_EQ(reloaded.readFigures().tracks, 1);
     REQUIRE_EQ(reloaded.readFigures().totalDurationMs, 1000);
+  }
+
+  {
+    // Presence used to be worked out lazily, by any read that found the last
+    // look two seconds old. Two of those reads are hot: readFigures runs once
+    // per probed duration through an ingest, and the collection view asks
+    // disabledPaths once per row. So a stat for every track in the collection
+    // could land inside a repaint — tens of milliseconds on an SSD, and a stall
+    // on a share that has dropped. The reads are pure now; this keeps them so.
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    tramp::PlaylistCollection col;
+    int listAsks = 0;
+    int trackAsks = 0;
+    col.setExists([&](const QString& path) {
+      if (path.endsWith(QStringLiteral(".m3u"))) ++listAsks;
+      else ++trackAsks;
+      return true;
+    });
+    for (int i = 0; i < 3; ++i) {
+      QVector<Track> tracks;
+      for (int t = 0; t < 20; ++t) {
+        Track track;
+        track.path = QDir(tmp.path()).filePath(QStringLiteral("t-%1-%2.mp3").arg(i).arg(t));
+        track.durationMs = 1000;
+        tracks.push_back(track);
+      }
+      col.addWritten(QDir(tmp.path()).filePath(QStringLiteral("set-%1.m3u").arg(i)), tracks);
+    }
+    const int rows = col.entries().size();
+    REQUIRE_EQ(rows, 3);
+
+    // Bootstrap is where the whole collection may be asked about, once.
+    listAsks = 0;
+    trackAsks = 0;
+    col.validateReferences();
+    REQUIRE_EQ(trackAsks, 60);
+    REQUIRE_EQ(listAsks, rows);
+
+    // A chrome snapshot: entries, the disabled set once per row, the About
+    // figures. Not one question about a track.
+    listAsks = 0;
+    trackAsks = 0;
+    for (int i = 0; i < rows; ++i) {
+      (void)col.entries();
+      (void)col.disabledPaths();
+    }
+    REQUIRE_EQ(col.readFigures().tracks, 60);
+    REQUIRE_EQ(trackAsks, 0);
+    REQUIRE_EQ(listAsks, 0);
+
+    // Once the validation pass goes stale a read brings it up to date, which is
+    // what notices a playlist file coming and going. That costs one question
+    // per row — never one per track, however much music the collection holds.
+    col.setValidationIntervalMs(0);
+    listAsks = 0;
+    trackAsks = 0;
+    (void)col.disabledPaths();
+    REQUIRE_EQ(listAsks, rows);
+    REQUIRE_EQ(trackAsks, 0);
+
+    // And the figures still stay off the disk when they are read hot, the way
+    // an ingest reads them.
+    listAsks = 0;
+    trackAsks = 0;
+    for (int i = 0; i < 100; ++i) {
+      col.mergeTrackDuration(QDir(tmp.path()).filePath(QStringLiteral("t-0-0.mp3")), 2000 + i);
+      (void)col.readFigures();
+    }
+    REQUIRE_EQ(trackAsks, 0);
+    REQUIRE_EQ(listAsks, 0);
   }
 
   {
