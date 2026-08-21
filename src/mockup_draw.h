@@ -86,4 +86,14 @@ void paintBlurred(QPainter& p, const QRectF& bounds, qreal sigma,
 QImage loadTrampLogo();
 QImage loadProximaMark();
 
+/// Gaussian-blur accounting for the paint benches. `TRAMP_BENCH_NO_BLUR`
+/// short-circuits every blur so a run measures the rest of the chrome.
+struct BlurCost {
+  qint64 calls = 0;
+  qint64 nanos = 0;
+  qint64 pixels = 0;
+};
+BlurCost blurCost();
+void resetBlurCost();
+
 }  // namespace tramp

@@ -2,6 +2,8 @@
 
 Read this before changing title-bar drag, playlist resize motion, `placePanels`, `applyPunch`, or `grabMouse`. The cheap path already shipped, felt wrong on KWin, and was undone. The constraints and measurements below are the starting map.
 
+> **Corrected 2026-08.** This page used to say the jank was "compositor `setMask` + full panel paint". Measurement says the `setMask` half is free: dragging main with only main visible runs at **0.55 ms/move (~740 fps)** on KWin/Wayland with punch applied on every move. The whole cost was **CPU paint**, and almost all of that was one function — see [Paint cost is the drag cost](#paint-cost-is-the-drag-cost). Do not spend another week on punch deferral.
+
 Domain words: **host window**, **panel**, **punch** — [`CONTEXT.md`](../../CONTEXT.md). Geometry law: [`.cursor/rules/compositor-geometry.mdc`](../../.cursor/rules/compositor-geometry.mdc).
 
 ## What “good” looks like
@@ -31,18 +33,41 @@ On each title-bar mouse-move:
 
 Relevant code: `src/host_shell_window.cpp` (`placePanels`, `applyPunch`), `src/host_window.cpp` (title drag, chassis/live paint), `src/session.cpp` (`windowMoved`, `applyDockToWindows`).
 
-## Cost (why this feels heavy)
+## Paint cost is the drag cost
 
-Host resize during drag is already gone. The remaining tax is **per-move punch + per-move live paint**, not “moving a rectangle.”
+Measure with `--bench-drag` (below) before theorising. What the numbers say:
 
-| Observation | Number / note |
-|---|---|
-| Live paint with glow-blurred titles on every analyser tick | ~**104 ms/frame** vs ~**33 ms** with empty titles. Spectrum interval is 33 ms, so the analyser crawled. Fixed in `7ca6b62`. |
-| Same live pass after titles left the chassis | ~**0.2 ms** with a long title. **Keep this.** |
-| `placePanels` CPU, 20 sibling moves, offscreen | ~**193 µs** with punch every call; ~**73–76 µs** when punch was deferred. The human-visible jank is compositor `setMask` + full panel paint, not this timer. |
-| Move test bound | `HostWindowMoveTest::siblingDragDoesNotPayFullClusterPaint` allows 10 ms for those 20 calls and prints `drag-path CPU placePanels`. |
+- **Punch is not the problem.** Main-only drag, punch applied on every move: **0.55 ms/move**. `QWaylandWindow::setMask` is a `QRegion` compare plus a handful of `wl_surface.set_input_region` requests, and on a toplevel it triggers no repaint at all.
+- **Paint is the problem**, and two things made it enormous:
+  1. **The build had no optimisation.** `build.sh` passed no `-O` flag and `CMakeLists.txt` set no default `CMAKE_BUILD_TYPE`, so the binary anyone dragged was `-O0`. That alone was ~12× on every paint. Both now default to optimised, and `--bench-chrome` fails the gate when `__OPTIMIZE__` is absent.
+  2. **`gaussianBlur` dominated everything else.** A naive `double` separable convolution, `constScanLine()` per tap, radius `3σ` (73 taps at σ=12), two allocations per call. It was **99% of all paint cost**: ablating it took a full main paint from 282 ms to 2.6 ms.
+- **Panels without a chassis/live split pay that cost on every move.** Main and EQ cache a chassis and run zero blurs per paint. Playlist, settings and about call `paintMockupWindow` with the default `BodyPaint::full`, which also sets `glow = true`.
 
-Spectrum ticks and title-bar moves share the live paint path on main. A drag that also rebuilds punch every event is fighting the same frame budget.
+Per-repaint cost, KWin/Wayland, zoom 75%:
+
+| Panel | Before (`-O0`, naive blur) | After (`-O2`, fast blur) |
+|---|---|---|
+| main | 0.5 ms (0 blurs) | 0.3 ms |
+| equalizer | 1.4 ms (0 blurs) | 1.3 ms |
+| settings | 27.6 ms (8 blurs, 92% blur) | 2.6 ms |
+| playlist | 49.1 ms (18 blurs, 84% blur) | 8.7 ms |
+| about | 200.3 ms (18 blurs, 98% blur) | 6.3 ms |
+
+Per-move drag cost, same conditions:
+
+| Gesture | Before | After |
+|---|---|---|
+| main, main only | 0.55 ms (740 fps) | 0.7 ms |
+| main, all five open | 281 ms (**3.5 fps**) | 27 ms (36 fps) |
+| playlist | 49.7 ms (20 fps) | 10.8 ms (92 fps) |
+| about | 200 ms (5 fps) | 10.1 ms (99 fps) |
+| playlist resize | 157 ms (8.4 fps) | 20 ms (58 fps) |
+
+A main-panel drag translates the cluster, so **every visible panel repaints on every move** — the 5-panel figure is the sum of the column above it. That is the remaining work: give playlist/settings/about the chassis/live split main and EQ already have. Resize cannot use a chassis (size change invalidates it), so resize stays bounded by raw paint cost.
+
+Also still true: `placePanels` CPU for 20 sibling moves is ~**193 µs**, and `HostWindowMoveTest::siblingDragDoesNotPayFullClusterPaint` bounds it at 10 ms. That test measures `placePanels` only — it does **not** exercise `paintEvent`, so it never saw any of the above.
+
+Spectrum ticks (33 ms) and title-bar moves share main's live paint path, which is why `max` in a drag run is ~33 ms even when the median is under 1 ms.
 
 ## Failed experiment (do not re-land as-is)
 
@@ -71,20 +96,38 @@ Tried in `5b7d0aa` / `f1b166b`, undone in `d9cdc81` after the user saw trails on
 
 ## Seams worth trying next
 
-These were not isolated on KWin after the undo. Prefer one seam per trial; restart `./build/tramp` each time (an already-running binary will not pick up `./build.sh`).
+Ranked by measured headroom. Prefer one seam per trial; restart `./build/tramp` each time (an already-running binary will not pick up `./build.sh`).
 
-1. **Punch every move; skip only live chrome while `draggingTitle_`.** Trails were blamed on stale punch. Chassis-only during drag may still be a win if punch stays current. Playlist/settings/about still have no chassis.
-2. **Punch `old ∪ new` during the drag, snap to `new` on mouse-up.** Keeps the hole large enough to include both rects so the compositor can show the clear + the move. Input in the sliver between is the trade.
-3. **Thin `windowMoved` during drag.** Today every move re-runs shade, playlist size, zoom, visibility, then `placePanels` for the whole set. A move-only `setGeometry` on the dragged panel (cluster translate for main) plus punch of the current union may be enough until mouse-up.
-4. **Honor `QPaintEvent` / host dirty.** Main/EQ live-paint the full widget; the host already tracks old∪new. Clipping live paint to the well during drag is a smaller change than skipping punch.
+1. **Chassis/live split for playlist, settings and about.** The only remaining large win for dragging. Each is a full procedural repaint today; main and EQ prove the pattern costs ~0.3–1.3 ms instead. Playlist needs care: the chassis must be keyed on widget size, and free resize invalidates it every move.
+2. **Skip work that a pure move cannot change.** `applyHitCursor` (with a full `hitTest`) runs on every drag move; `placePanels` calls `show()` on all five panels and re-pushes the mask with no equality check; `fitClusterToHost` walks all five ids. Small next to paint, but free to remove.
+3. **Cache what is re-derived per paint.** `loadProximaMark()` decodes a PNG from disk on every about repaint; `QPixmap::fromImage(noiseTile())` allocates per shell paint; fonts and gradients are rebuilt per call site.
+4. **Quiet the analyser during drag.** Spectrum/marquee ticks repaint main mid-gesture.
 
-`startSystemMove` on this host is not a seam: it would slide a virtual-desktop-sized toplevel. Extra OS windows per panel are a retired host shape.
+Not seams: **punch deferral** (measured free, and it caused the trails below); `startSystemMove` on this host (it would slide a virtual-desktop-sized toplevel); extra OS windows per panel (retired host shape, and Wayland has no `xdg_toplevel` set_position anyway).
 
 ## How to time a retry
 
-- Offscreen: `HostWindowMoveTest` `placePanels` fprintf; `main.cpp` already has chassis/live paint loops for dump/bench.
-- Device: drag main and a child on KWin with playlist + settings open; watch for trails in the vacated hole and in the gap between panels; confirm desktop clicks still pass through gaps at rest.
-- Build with `./build.sh` (Homebrew Qt on this machine). System `cmake` on PATH is not the project build.
+Everything here is agent-runnable and writes to an isolated support dir, so it never touches the listener's settings.
+
+```bash
+# Per-move drag cost, per-panel repaint count/cost/blur share.
+./build/tramp --bench-drag playlist --bench-moves 40 --bench-visible playlist
+./build/tramp --bench-drag main --bench-moves 40 --bench-visible eq,playlist,settings,about
+./build/tramp --bench-resize --bench-moves 40 --bench-visible playlist
+
+tool/bench-drag-matrix.sh          # the whole matrix
+TRAMP_BENCH_NO_BLUR=1 …            # ablate blur to see what is left
+TRAMP_BLUR=exact …                 # exact kernel instead of the box approximation
+
+QT_QPA_PLATFORM=offscreen ./build/tramp --bench-chrome   # paint budget + -O guard
+tool/fidelity-diff.sh --baseline   # capture goldens before a chrome change
+tool/fidelity-diff.sh              # RMSE / peak vs those goldens
+tool/build-app.sh                  # app only, no test gate — fast measure loop
+```
+
+Offscreen runs give deterministic client-side cost; a run on the live session adds surface commit back-pressure. Neither replaces looking at it: drag main and a child on KWin with playlist + settings open, watch for trails in the vacated hole and in the gap between panels, and confirm desktop clicks still pass through the gaps at rest.
+
+Build with `./build.sh` (Homebrew Qt on this machine). System `cmake` on PATH is not the project build.
 
 ## History
 
@@ -94,5 +137,7 @@ These were not isolated on KWin after the undo. Prefer one seam per trial; resta
 | `5b7d0aa` | Deferred punch + skip live during title drag; `TRAMP_LEGACY_DRAG`. |
 | `f1b166b` | Skip `grabMouse` on Wayland; defer punch from drag flags (grabber was a no-op). |
 | `d9cdc81` | Undo punch deferral and live-skip. Wayland grab skip kept. |
+| `feat/png-compilation` | Precompiled skin chrome to 3× PNG faces. Abandoned: it cached main's chassis, which was already cached and already 0.3 ms, while leaving the blur cost in playlist/settings/about. Marginal by construction. |
+| — | Optimised build defaults, fast `gaussianBlur`, `--bench-drag` / `--bench-resize`, fidelity gate. Drag 281 → 27 ms worst case. |
 
 Session that produced the experiment: [title-bar drag cheap path](f946af79-c7ed-4e6b-b4ab-ff3cd6c6f626).

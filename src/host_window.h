@@ -23,6 +23,8 @@
 #include <QWidget>
 #include <functional>
 
+class QPainter;
+
 class HostWindow : public QWidget {
   Q_OBJECT
 
@@ -41,6 +43,19 @@ class HostWindow : public QWidget {
   bool shaded() const { return shaded_; }
   QPoint nativeTopLeft() const;
   QRect widgetRectFromLogical(const QRect& logical) const;
+
+  /// Repaint accounting for `--bench-drag`. `chassisBuilds` counts the
+  /// expensive static rebuilds, which must not happen while a drag runs.
+  struct PaintStats {
+    int paints = 0;
+    int chassisBuilds = 0;
+    qint64 nanos = 0;
+    qint64 blurCalls = 0;
+    qint64 blurNanos = 0;
+    qint64 blurPixels = 0;
+  };
+  PaintStats paintStats() const { return paintStats_; }
+  void resetPaintStats() { paintStats_ = {}; }
 
  signals:
   void zoomOutRequested();
@@ -81,6 +96,7 @@ class HostWindow : public QWidget {
 
  private:
   QSize paintLogical() const;
+  void paintChrome(QPainter& painter);
   void applyNativeSize();
   QPoint logicalFrom(const QPointF& widgetPos) const;
   void applyHitCursor(const QPointF& widgetPos);
@@ -112,5 +128,6 @@ class HostWindow : public QWidget {
   QPoint tooltipGlobal_;
   tramp::TitleChromeLayout::Hit tooltipTitle_ = tramp::TitleChromeLayout::Hit::none;
   tramp::ChromeHit tooltipChrome_;
+  PaintStats paintStats_;
   std::function<bool()> quitConfirmer_;
 };

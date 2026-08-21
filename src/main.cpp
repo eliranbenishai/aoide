@@ -17,11 +17,17 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QElapsedTimer>
+#include <QEventLoop>
+#include <QGuiApplication>
 #include <QImage>
 #include <QMessageBox>
+#include <QMouseEvent>
 #include <QPainter>
+#include <QSet>
 #include <QShortcut>
 #include <QTimer>
+#include <QVector>
+#include <algorithm>
 #include <clocale>
 #include <cstdio>
 #include <vector>
@@ -72,6 +78,11 @@ int dumpChrome(const QString& dirPath) {
 }
 
 int benchChrome() {
+#ifdef __OPTIMIZE__
+  constexpr bool optimized = true;
+#else
+  constexpr bool optimized = false;
+#endif
   tramp::loadTrampFonts();
   QImage logo = tramp::loadTrampLogo();
   tramp::SessionView view = tramp::SessionView::golden();
@@ -157,6 +168,21 @@ int benchChrome() {
                "chrome bench: eq %.2f ms/frame, eq-live %.2f ms/frame, all-five %.2f ms/frame\n",
                eqMs, eqLiveMs, allMs);
 
+  // The chrome is CPU-rasterised every frame, so an unoptimised build does not
+  // merely benchmark badly — it drags at a few frames per second. Catch that
+  // here rather than in a listener's hands.
+  if (!optimized) {
+    std::fprintf(stderr,
+                 "FAIL built without optimisation; chrome paint is ~25x slower. "
+                 "Build with -O2 (build.sh) or a CMake Release/RelWithDebInfo type.\n");
+    return 1;
+  }
+  constexpr double kFullBudgetMs = 120.0;
+  if (fullMs > kFullBudgetMs) {
+    std::fprintf(stderr, "FAIL full paint %.2f ms/frame exceeds %.0f ms budget\n", fullMs,
+                 kFullBudgetMs);
+    return 1;
+  }
   if (liveMs > 8.0) {
     std::fprintf(stderr, "FAIL live paint %.2f ms/frame exceeds 8 ms budget\n", liveMs);
     return 1;
@@ -173,6 +199,8 @@ int benchChrome() {
   return 0;
 }
 
+const char* kValueFlags[] = {"--dump-chrome", "--bench-drag", "--bench-moves", "--bench-visible"};
+
 QStringList launchFiles(const QStringList& args) {
   QStringList files;
   bool skipNext = false;
@@ -182,15 +210,205 @@ QStringList launchFiles(const QStringList& args) {
       continue;
     }
     const QString& a = args.at(i);
-    if (a == QLatin1String("--dump-chrome")) {
+    bool takesValue = false;
+    for (const char* flag : kValueFlags) {
+      if (a == QLatin1String(flag)) takesValue = true;
+    }
+    if (takesValue) {
       skipNext = true;
       continue;
     }
-    if (a == QLatin1String("--bench-chrome")) continue;
     if (a.startsWith(QLatin1Char('-'))) continue;
     files << a;
   }
   return files;
+}
+
+// ---------------------------------------------------------------------------
+// --bench-drag: synthetic title-bar drag through the real event path.
+//
+// Posts press / N moves / release at the dragged panel's title bar and flushes
+// the event loop after each move, so every repaint the drag causes is paid
+// inside the measured interval. Reports wall time per move plus which panels
+// repainted. Runs offscreen (client cost only) or on a live compositor
+// (client cost plus surface commit back-pressure).
+// ---------------------------------------------------------------------------
+
+struct DragBenchOptions {
+  bool on = false;
+  bool resize = false;
+  tramp::WindowId panel = tramp::WindowId::main;
+  int moves = 60;
+  bool setVisible = false;
+  QSet<tramp::WindowId> visible;
+};
+
+bool panelFromName(const QString& name, tramp::WindowId* out) {
+  const QString key = name.toLower();
+  if (key == QLatin1String("main")) *out = tramp::WindowId::main;
+  else if (key == QLatin1String("eq") || key == QLatin1String("equalizer"))
+    *out = tramp::WindowId::equalizer;
+  else if (key == QLatin1String("pl") || key == QLatin1String("playlist"))
+    *out = tramp::WindowId::playlist;
+  else if (key == QLatin1String("settings")) *out = tramp::WindowId::settings;
+  else if (key == QLatin1String("about")) *out = tramp::WindowId::about;
+  else return false;
+  return true;
+}
+
+QString panelName(tramp::WindowId id) {
+  switch (id) {
+    case tramp::WindowId::main: return QStringLiteral("main");
+    case tramp::WindowId::equalizer: return QStringLiteral("eq");
+    case tramp::WindowId::playlist: return QStringLiteral("playlist");
+    case tramp::WindowId::settings: return QStringLiteral("settings");
+    case tramp::WindowId::about: return QStringLiteral("about");
+  }
+  return QStringLiteral("?");
+}
+
+DragBenchOptions parseDragBench(const QStringList& args) {
+  DragBenchOptions opts;
+  if (args.contains(QStringLiteral("--bench-resize"))) {
+    opts.on = true;
+    opts.resize = true;
+    opts.panel = tramp::WindowId::playlist;
+  }
+  const int at = args.indexOf(QStringLiteral("--bench-drag"));
+  if (at < 0 && !opts.on) return opts;
+  opts.on = true;
+  if (at >= 0 && at + 1 < args.size()) panelFromName(args.at(at + 1), &opts.panel);
+  const int movesAt = args.indexOf(QStringLiteral("--bench-moves"));
+  if (movesAt >= 0 && movesAt + 1 < args.size()) {
+    const int n = args.at(movesAt + 1).toInt();
+    if (n > 0) opts.moves = n;
+  }
+  const int visAt = args.indexOf(QStringLiteral("--bench-visible"));
+  if (visAt >= 0 && visAt + 1 < args.size()) {
+    opts.setVisible = true;
+    for (const QString& part : args.at(visAt + 1).split(QLatin1Char(','), Qt::SkipEmptyParts)) {
+      tramp::WindowId id = tramp::WindowId::main;
+      if (panelFromName(part.trimmed(), &id)) opts.visible.insert(id);
+    }
+  }
+  return opts;
+}
+
+void pumpFor(int ms) {
+  QElapsedTimer clock;
+  clock.start();
+  do {
+    QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
+  } while (clock.elapsed() < ms);
+}
+
+int runDragBench(const DragBenchOptions& opts, tramp::TrampSession& session, HostShell& shell,
+                 const std::vector<HostWindow*>& windows) {
+  pumpFor(700);  // let the host map and the first full paints settle
+
+  if (opts.setVisible) {
+    for (HostWindow* w : windows) {
+      if (w->id() == tramp::WindowId::main) continue;
+      session.setWindowVisible(w->id(), opts.visible.contains(w->id()));
+    }
+    pumpFor(400);
+  }
+
+  HostWindow* target = nullptr;
+  for (HostWindow* w : windows) {
+    if (w->id() == opts.panel) target = w;
+  }
+  if (!target || !target->isVisible()) {
+    std::fprintf(stderr, "bench-drag: panel %s is not visible\n", qPrintable(panelName(opts.panel)));
+    return 1;
+  }
+
+  QStringList shown;
+  for (HostWindow* w : windows) {
+    if (w->isVisible()) shown << panelName(w->id());
+  }
+  const char* tag = opts.resize ? "resize" : "drag";
+  std::fprintf(stdout,
+               "%s bench: platform=%s panel=%s visible=%s moves=%d zoom=%d%% host=%dx%d dpr=%.2f\n",
+               tag, qPrintable(QGuiApplication::platformName()),
+               qPrintable(panelName(opts.panel)), qPrintable(shown.join(QLatin1Char('+'))),
+               opts.moves, session.zoomPercent(), shell.width(), shell.height(),
+               shell.devicePixelRatioF());
+
+  // Title-bar drag zone is left of the button cluster, inside kTitleBar; the
+  // playlist resize grip is the bottom-right 18 logical px.
+  const QPointF grab = opts.resize
+                           ? QPointF(target->width() - 5, target->height() - 5)
+                           : QPointF(target->width() * 0.35, target->height() * 0.02 + 4);
+  auto sendMouse = [&](QEvent::Type type, QPointF local, Qt::MouseButton button,
+                       Qt::MouseButtons buttons) {
+    QMouseEvent ev(type, local, target->mapToGlobal(local.toPoint()), button, buttons,
+                   Qt::NoModifier);
+    QCoreApplication::sendEvent(target, &ev);
+  };
+
+  sendMouse(QEvent::MouseButtonPress, grab, Qt::LeftButton, Qt::LeftButton);
+  pumpFor(50);
+
+  // Warm-up moves: first paints build the chassis, which must not recur below.
+  for (int i = 0; i < 3; ++i) {
+    sendMouse(QEvent::MouseMove, grab + QPointF(i + 1, 0), Qt::NoButton, Qt::LeftButton);
+    QCoreApplication::processEvents(QEventLoop::AllEvents);
+  }
+  for (HostWindow* w : windows) w->resetPaintStats();
+
+  QVector<qint64> perMove;
+  perMove.reserve(opts.moves);
+  QElapsedTimer total;
+  total.start();
+  for (int i = 0; i < opts.moves; ++i) {
+    // Serpentine path so both axes move and the panel stays on the desktop.
+    const int leg = i % 40;
+    const qreal dx = 4 + (leg < 20 ? leg * 3 : (40 - leg) * 3);
+    const qreal dy = (i % 20) - 10;
+    QElapsedTimer move;
+    move.start();
+    sendMouse(QEvent::MouseMove, grab + QPointF(dx, dy), Qt::NoButton, Qt::LeftButton);
+    QCoreApplication::processEvents(QEventLoop::AllEvents);
+    perMove.push_back(move.nsecsElapsed());
+  }
+  const qint64 totalNs = total.nsecsElapsed();
+  sendMouse(QEvent::MouseButtonRelease, grab, Qt::LeftButton, Qt::NoButton);
+
+  QVector<qint64> sorted = perMove;
+  std::sort(sorted.begin(), sorted.end());
+  auto at = [&](double q) {
+    if (sorted.isEmpty()) return qint64(0);
+    const int idx = qBound(0, int(q * (sorted.size() - 1)), sorted.size() - 1);
+    return sorted.at(idx);
+  };
+  const double meanMs = (totalNs / 1e6) / qMax(1, opts.moves);
+  std::fprintf(stdout,
+               "%s bench: per-move mean %.2f ms  median %.2f  p95 %.2f  max %.2f  → %.1f fps\n",
+               tag, meanMs, at(0.5) / 1e6, at(0.95) / 1e6,
+               sorted.isEmpty() ? 0.0 : sorted.last() / 1e6, meanMs > 0 ? 1000.0 / meanMs : 0.0);
+
+  QStringList paints;
+  QStringList costs;
+  int chassisBuilds = 0;
+  for (HostWindow* w : windows) {
+    const auto stats = w->paintStats();
+    if (stats.paints == 0) continue;
+    chassisBuilds += stats.chassisBuilds;
+    paints << QStringLiteral("%1=%2").arg(panelName(w->id())).arg(stats.paints);
+    costs << QStringLiteral("%1=%2/paint (blur %3 in %4 calls, %5 kpx, %6 Mpx/s)")
+                 .arg(panelName(w->id()))
+                 .arg(stats.nanos / 1e6 / stats.paints, 0, 'f', 1)
+                 .arg(stats.blurNanos / 1e6 / stats.paints, 0, 'f', 1)
+                 .arg(stats.blurCalls / stats.paints)
+                 .arg(stats.blurPixels / 1000.0 / stats.paints, 0, 'f', 0)
+                 .arg(stats.blurNanos > 0 ? stats.blurPixels * 1000.0 / stats.blurNanos : 0.0, 0,
+                      'f', 0);
+  }
+  std::fprintf(stdout, "%s bench: paints %s  chassis-rebuilds=%d\n", tag,
+               qPrintable(paints.join(QLatin1Char(' '))), chassisBuilds);
+  std::fprintf(stdout, "%s bench: paint ms %s\n", tag, qPrintable(costs.join(QLatin1Char(' '))));
+  return 0;
 }
 
 }  // namespace
@@ -216,6 +434,9 @@ int main(int argc, char** argv) {
   if (args.contains(QStringLiteral("--bench-chrome"))) {
     return benchChrome();
   }
+  const DragBenchOptions dragBench = parseDragBench(args);
+  // A bench run must never write the listener's settings.
+  if (dragBench.on) qputenv("TRAMP_AUTO_QUIT", "1");
 
   tramp::loadTrampFonts();
   tramp::TrampSession session;
@@ -419,6 +640,10 @@ int main(int argc, char** argv) {
 
   hostShell.show();
   session.reapplyWindowFrames();
+
+  if (dragBench.on) {
+    return runDragBench(dragBench, session, hostShell, windows);
+  }
 
   if (qEnvironmentVariable("TRAMP_AUTO_QUIT") == QLatin1String("1")) {
     session.persistNow();

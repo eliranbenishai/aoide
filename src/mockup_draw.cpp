@@ -3,6 +3,7 @@
 #include "look.h"
 #include "tramp_fonts.h"
 
+#include <QElapsedTimer>
 #include <QFontMetrics>
 #include <QLinearGradient>
 #include <QPainterPath>
@@ -19,56 +20,257 @@ const ChromeTokens& T() { return currentLook(); }
 
 QImage g_noise;
 
+BlurCost g_blurCost;
+// Ablation switch for the drag benches: proves how much of a repaint is blur.
+const bool g_blurOff = qEnvironmentVariableIsSet("TRAMP_BENCH_NO_BLUR");
+// Escape hatch to the exact separable kernel, for fidelity comparison.
+const bool g_blurExact = qEnvironmentVariable("TRAMP_BLUR") == QLatin1String("exact");
+// Sigma at or above which the box approximation takes over. Overridable so the
+// fidelity/cost trade-off can be re-measured rather than argued about.
+const qreal kBoxBlurSigma =
+    qEnvironmentVariableIsSet("TRAMP_BLUR_BOX_SIGMA")
+        ? qEnvironmentVariable("TRAMP_BLUR_BOX_SIGMA").toDouble()
+        : 4.0;
+
 // Separable Gaussian. `sigma` is Skia/Flutter MaskFilter sigma.
-QImage gaussianBlur(QImage src, qreal sigma) {
-  if (src.isNull() || sigma < 0.12) {
-    return src;
-  }
-  src = src.convertToFormat(QImage::Format_ARGB32_Premultiplied);
-  const int radius = qMax(1, int(std::ceil(sigma * 3.0)));
-  const int kSize = radius * 2 + 1;
-  std::vector<qreal> kernel(static_cast<size_t>(kSize));
-  qreal sum = 0;
-  const qreal s2 = 2 * sigma * sigma;
+//
+// Weights are fixed-point so the inner loop stays in int32: a tap accumulator
+// peaks at 255 * kWeightUnit, and the kernel is forced to sum to kWeightUnit
+// exactly so flat regions do not drift. Row pointers are resolved per output
+// row rather than per tap, and interior pixels skip edge clamping — the naive
+// form spent most of its time on `constScanLine` calls and `qBound` per tap.
+constexpr int kWeightShift = 12;
+constexpr int kWeightUnit = 1 << kWeightShift;
+
+std::vector<int> gaussianKernel(qreal sigma, int radius) {
+  const int size = radius * 2 + 1;
+  std::vector<double> weights(static_cast<size_t>(size));
+  double sum = 0;
+  const double s2 = 2.0 * double(sigma) * double(sigma);
   for (int i = -radius; i <= radius; ++i) {
-    const qreal w = std::exp(-(qreal(i) * qreal(i)) / s2);
-    kernel[static_cast<size_t>(i + radius)] = w;
+    const double w = std::exp(-(double(i) * double(i)) / s2);
+    weights[static_cast<size_t>(i + radius)] = w;
     sum += w;
   }
-  for (qreal& w : kernel) {
-    w /= sum;
+  std::vector<int> kernel(static_cast<size_t>(size));
+  int total = 0;
+  for (int i = 0; i < size; ++i) {
+    kernel[static_cast<size_t>(i)] =
+        int(std::lround(weights[static_cast<size_t>(i)] / sum * kWeightUnit));
+    total += kernel[static_cast<size_t>(i)];
+  }
+  kernel[static_cast<size_t>(radius)] += kWeightUnit - total;
+  return kernel;
+}
+
+// Box-blur widths whose n-fold convolution matches a Gaussian of `sigma`
+// (Kovesi's approximation). Three passes are within a couple of 255ths of the
+// true kernel, and each pass is O(1) per pixel instead of O(radius).
+std::vector<int> boxWidthsForGauss(double sigma, int passes) {
+  const double ideal = std::sqrt((12.0 * sigma * sigma / passes) + 1.0);
+  int lower = int(std::floor(ideal));
+  if (lower % 2 == 0) lower -= 1;
+  lower = qMax(1, lower);
+  const int upper = lower + 2;
+  const double mIdeal = (12.0 * sigma * sigma - double(passes) * lower * lower -
+                         4.0 * passes * lower - 3.0 * passes) /
+                        (-4.0 * lower - 4.0);
+  const int m = qBound(0, int(std::lround(mIdeal)), passes);
+  std::vector<int> widths(static_cast<size_t>(passes));
+  for (int i = 0; i < passes; ++i) {
+    widths[static_cast<size_t>(i)] = i < m ? lower : upper;
+  }
+  return widths;
+}
+
+// Fixed-point reciprocal: a per-pixel divide would dominate a box pass.
+constexpr int kDivShift = 22;
+
+inline uint boxMean(int sum, qint64 recip) {
+  return uint((qint64(sum) * recip + (qint64(1) << (kDivShift - 1))) >> kDivShift);
+}
+
+/// Clamp-extended horizontal box pass over every row.
+void boxRows(const QRgb* in, int inStride, QRgb* out, int outStride, int w, int h, int radius) {
+  const qint64 recip = (qint64(1) << kDivShift) / (radius * 2 + 1);
+  for (int y = 0; y < h; ++y) {
+    const QRgb* line = in + qsizetype(y) * inStride;
+    QRgb* dst = out + qsizetype(y) * outStride;
+    const auto tap = [&](int x) { return line[qBound(0, x, w - 1)]; };
+    int b = 0, g = 0, r = 0, a = 0;
+    for (int k = -radius; k <= radius; ++k) {
+      const QRgb v = tap(k);
+      b += int(v & 0xffu);
+      g += int((v >> 8) & 0xffu);
+      r += int((v >> 16) & 0xffu);
+      a += int((v >> 24) & 0xffu);
+    }
+    for (int x = 0; x < w; ++x) {
+      dst[x] = QRgb((boxMean(a, recip) << 24) | (boxMean(r, recip) << 16) |
+                    (boxMean(g, recip) << 8) | boxMean(b, recip));
+      const QRgb drop = tap(x - radius);
+      const QRgb gain = tap(x + radius + 1);
+      b += int(gain & 0xffu) - int(drop & 0xffu);
+      g += int((gain >> 8) & 0xffu) - int((drop >> 8) & 0xffu);
+      r += int((gain >> 16) & 0xffu) - int((drop >> 16) & 0xffu);
+      a += int((gain >> 24) & 0xffu) - int((drop >> 24) & 0xffu);
+    }
+  }
+}
+
+/// Clamp-extended vertical box pass. Carries one running sum per column so
+/// every read and write walks memory forwards — a per-column inner loop with a
+/// row stride costs a cache miss per pixel instead.
+void boxColumns(const QRgb* in, int inStride, QRgb* out, int outStride, int w, int h, int radius,
+                std::vector<int>& scratch) {
+  const qint64 recip = (qint64(1) << kDivShift) / (radius * 2 + 1);
+  scratch.assign(static_cast<size_t>(w) * 4, 0);
+  int* sb = scratch.data();
+  int* sg = sb + w;
+  int* sr = sg + w;
+  int* sa = sr + w;
+  const auto row = [&](int y) { return in + qsizetype(qBound(0, y, h - 1)) * inStride; };
+  for (int k = -radius; k <= radius; ++k) {
+    const QRgb* line = row(k);
+    for (int x = 0; x < w; ++x) {
+      const QRgb v = line[x];
+      sb[x] += int(v & 0xffu);
+      sg[x] += int((v >> 8) & 0xffu);
+      sr[x] += int((v >> 16) & 0xffu);
+      sa[x] += int((v >> 24) & 0xffu);
+    }
+  }
+  for (int y = 0; y < h; ++y) {
+    QRgb* dst = out + qsizetype(y) * outStride;
+    for (int x = 0; x < w; ++x) {
+      dst[x] = QRgb((boxMean(sa[x], recip) << 24) | (boxMean(sr[x], recip) << 16) |
+                    (boxMean(sg[x], recip) << 8) | boxMean(sb[x], recip));
+    }
+    const QRgb* drop = row(y - radius);
+    const QRgb* gain = row(y + radius + 1);
+    for (int x = 0; x < w; ++x) {
+      const QRgb d = drop[x];
+      const QRgb a2 = gain[x];
+      sb[x] += int(a2 & 0xffu) - int(d & 0xffu);
+      sg[x] += int((a2 >> 8) & 0xffu) - int((d >> 8) & 0xffu);
+      sr[x] += int((a2 >> 16) & 0xffu) - int((d >> 16) & 0xffu);
+      sa[x] += int((a2 >> 24) & 0xffu) - int((d >> 24) & 0xffu);
+    }
+  }
+}
+
+QImage boxBlur(const QImage& src, qreal sigma, int passes) {
+  const int w = src.width();
+  const int h = src.height();
+  QImage front = src.copy();
+  QImage back(w, h, QImage::Format_ARGB32_Premultiplied);
+  const int frontStride = int(front.bytesPerLine() / qsizetype(sizeof(QRgb)));
+  const int backStride = int(back.bytesPerLine() / qsizetype(sizeof(QRgb)));
+  QRgb* frontBits = reinterpret_cast<QRgb*>(front.bits());
+  QRgb* backBits = reinterpret_cast<QRgb*>(back.bits());
+  std::vector<int> scratch;
+
+  for (int width : boxWidthsForGauss(double(sigma), passes)) {
+    const int radius = (width - 1) / 2;
+    if (radius < 1) continue;  // a one-pixel box is the identity; forcing r=1 over-blurs
+    boxRows(frontBits, frontStride, backBits, backStride, w, h, radius);
+    boxColumns(backBits, backStride, frontBits, frontStride, w, h, radius, scratch);
+  }
+  return front;
+}
+
+QImage gaussianBlur(QImage src, qreal sigma) {
+  if (src.isNull() || sigma < 0.12 || g_blurOff) {
+    return src;
+  }
+  QElapsedTimer blurClock;
+  blurClock.start();
+  g_blurCost.calls += 1;
+  g_blurCost.pixels += qint64(src.width()) * src.height();
+  const struct Account {
+    QElapsedTimer* clock;
+    ~Account() { g_blurCost.nanos += clock->nsecsElapsed(); }
+  } account{&blurClock};
+
+  src = src.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+  // Tight glows are where the eye can actually see kernel shape, and there the
+  // exact kernel is only a handful of taps wide — so approximate only the wide
+  // blooms, where three box passes are indistinguishable and radius-independent.
+  if (!g_blurExact && sigma >= kBoxBlurSigma) {
+    return boxBlur(src, sigma, 3);
+  }
+  const int radius = qMax(1, int(std::ceil(sigma * 3.0)));
+  const int kSize = radius * 2 + 1;
+  const std::vector<int> kernel = gaussianKernel(sigma, radius);
+  const int* kw = kernel.data();
+
+  const int w = src.width();
+  const int h = src.height();
+  QImage mid(w, h, QImage::Format_ARGB32_Premultiplied);
+  QImage out(w, h, QImage::Format_ARGB32_Premultiplied);
+
+  auto blend = [](int b, int g, int r, int a) {
+    constexpr int half = kWeightUnit >> 1;
+    return QRgb((uint((a + half) >> kWeightShift) << 24) |
+                (uint((r + half) >> kWeightShift) << 16) |
+                (uint((g + half) >> kWeightShift) << 8) | uint((b + half) >> kWeightShift));
+  };
+
+  for (int y = 0; y < h; ++y) {
+    const QRgb* in = reinterpret_cast<const QRgb*>(src.constScanLine(y));
+    QRgb* dst = reinterpret_cast<QRgb*>(mid.scanLine(y));
+    for (int x = 0; x < w; ++x) {
+      int b = 0, g = 0, r = 0, a = 0;
+      const int first = x - radius;
+      if (first >= 0 && x + radius < w) {
+        const QRgb* tap = in + first;
+        for (int k = 0; k < kSize; ++k) {
+          const QRgb v = tap[k];
+          const int weight = kw[k];
+          b += int(v & 0xffu) * weight;
+          g += int((v >> 8) & 0xffu) * weight;
+          r += int((v >> 16) & 0xffu) * weight;
+          a += int((v >> 24) & 0xffu) * weight;
+        }
+      } else {
+        for (int k = 0; k < kSize; ++k) {
+          const QRgb v = in[qBound(0, first + k, w - 1)];
+          const int weight = kw[k];
+          b += int(v & 0xffu) * weight;
+          g += int((v >> 8) & 0xffu) * weight;
+          r += int((v >> 16) & 0xffu) * weight;
+          a += int((v >> 24) & 0xffu) * weight;
+        }
+      }
+      dst[x] = blend(b, g, r, a);
+    }
   }
 
-  auto pass = [&](bool horiz) {
-    QImage out(src.size(), src.format());
-    out.fill(Qt::transparent);
-    const int w = src.width();
-    const int h = src.height();
-    for (int y = 0; y < h; ++y) {
-      const QRgb* inLine = horiz ? reinterpret_cast<const QRgb*>(src.constScanLine(y))
-                                 : nullptr;
-      QRgb* outLine = reinterpret_cast<QRgb*>(out.scanLine(y));
-      for (int x = 0; x < w; ++x) {
-        qreal r = 0, g = 0, b = 0, a = 0;
-        for (int k = -radius; k <= radius; ++k) {
-          const int xx = horiz ? qBound(0, x + k, w - 1) : x;
-          const int yy = horiz ? y : qBound(0, y + k, h - 1);
-          const QRgb p = horiz ? inLine[xx]
-                               : reinterpret_cast<const QRgb*>(src.constScanLine(yy))[xx];
-          const qreal wk = kernel[static_cast<size_t>(k + radius)];
-          r += qRed(p) * wk;
-          g += qGreen(p) * wk;
-          b += qBlue(p) * wk;
-          a += qAlpha(p) * wk;
-        }
-        outLine[x] = qRgba(int(r + 0.5), int(g + 0.5), int(b + 0.5), int(a + 0.5));
-      }
+  std::vector<const QRgb*> rows(static_cast<size_t>(h));
+  for (int y = 0; y < h; ++y) {
+    rows[static_cast<size_t>(y)] = reinterpret_cast<const QRgb*>(mid.constScanLine(y));
+  }
+  std::vector<const QRgb*> taps(static_cast<size_t>(kSize));
+  for (int y = 0; y < h; ++y) {
+    for (int k = 0; k < kSize; ++k) {
+      taps[static_cast<size_t>(k)] = rows[static_cast<size_t>(qBound(0, y - radius + k, h - 1))];
     }
-    src = out;
-  };
-  pass(true);
-  pass(false);
-  return src;
+    const QRgb* const* tap = taps.data();
+    QRgb* dst = reinterpret_cast<QRgb*>(out.scanLine(y));
+    for (int x = 0; x < w; ++x) {
+      int b = 0, g = 0, r = 0, a = 0;
+      for (int k = 0; k < kSize; ++k) {
+        const QRgb v = tap[k][x];
+        const int weight = kw[k];
+        b += int(v & 0xffu) * weight;
+        g += int((v >> 8) & 0xffu) * weight;
+        r += int((v >> 16) & 0xffu) * weight;
+        a += int((v >> 24) & 0xffu) * weight;
+      }
+      dst[x] = blend(b, g, r, a);
+    }
+  }
+  return out;
 }
 
 QImage noiseTile() {
@@ -1052,5 +1254,9 @@ QImage loadTrampLogo() {
 QImage loadProximaMark() {
   return QImage(assetPath("branding/proxima_mark.png"));
 }
+
+BlurCost blurCost() { return g_blurCost; }
+
+void resetBlurCost() { g_blurCost = {}; }
 
 }  // namespace tramp

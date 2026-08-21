@@ -31,6 +31,11 @@ ctest --test-dir build --output-on-failure
 ./build/tramp
 ```
 
+The chrome is rasterised on the CPU every frame, so an unoptimised build does not
+just benchmark badly — panels drag at a few frames per second. `build.sh`
+compiles `-O2` and CMake defaults to `RelWithDebInfo`; `--bench-chrome` fails the
+gate if optimisation is off. See [`docs/architecture.md`](docs/architecture.md#paint-budget).
+
 CMake prefers `pkg-config mpv`. If that is missing and
 `third_party/libmpv/linux/x86_64/libmpv.so` exists, it links the bundle plus
 SONAME stubs under `src/mpv_stubs/`. Without either, the binary still runs with

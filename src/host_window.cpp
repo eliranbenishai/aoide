@@ -9,6 +9,7 @@
 #include "wait_cursor.h"
 
 #include <QCoreApplication>
+#include <QElapsedTimer>
 #include <QGuiApplication>
 #include <QMimeData>
 #include <QMoveEvent>
@@ -289,8 +290,7 @@ void HostWindow::applyHitCursor(const QPointF& widgetPos) {
   applyChromeTooltip(widgetPos);
 }
 
-void HostWindow::paintEvent(QPaintEvent*) {
-  QPainter p(this);
+void HostWindow::paintChrome(QPainter& p) {
   p.setRenderHint(QPainter::Antialiasing);
   p.setRenderHint(QPainter::TextAntialiasing);
   p.setRenderHint(QPainter::SmoothPixmapTransform);
@@ -299,7 +299,10 @@ void HostWindow::paintEvent(QPaintEvent*) {
   const qreal sy = qreal(height()) / qMax(1, logical.height());
   if ((spec_.id == tramp::WindowId::main || spec_.id == tramp::WindowId::equalizer) &&
       !view_.goldenDemo && !shaded_) {
-    if (!chassisValid_) rebuildChassis();
+    if (!chassisValid_) {
+      rebuildChassis();
+      paintStats_.chassisBuilds += 1;
+    }
     p.drawImage(QPointF(0, 0), chassis_);
     p.scale(sx, sy);
     tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_,
@@ -308,6 +311,22 @@ void HostWindow::paintEvent(QPaintEvent*) {
   }
   p.scale(sx, sy);
   tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_);
+}
+
+void HostWindow::paintEvent(QPaintEvent*) {
+  const tramp::BlurCost blurBefore = tramp::blurCost();
+  QElapsedTimer timer;
+  timer.start();
+  {
+    QPainter p(this);
+    paintChrome(p);
+  }
+  const tramp::BlurCost blurAfter = tramp::blurCost();
+  paintStats_.paints += 1;
+  paintStats_.nanos += timer.nsecsElapsed();
+  paintStats_.blurCalls += blurAfter.calls - blurBefore.calls;
+  paintStats_.blurNanos += blurAfter.nanos - blurBefore.nanos;
+  paintStats_.blurPixels += blurAfter.pixels - blurBefore.pixels;
 }
 
 void HostWindow::showEvent(QShowEvent* event) {

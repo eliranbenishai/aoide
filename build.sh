@@ -44,7 +44,9 @@ LIBS=(
   -Wl,--allow-shlib-undefined
   -Wl,-rpath,"$QT/lib" -Wl,-rpath,"$BREW/lib" -Wl,-rpath,"$MPV_LIB" -Wl,-rpath,"$STUB"
 )
-CXXFLAGS=(-std=c++17 -fPIC -Wall -Wextra -Wno-unused-parameter)
+# -O2 is not optional: the chrome is CPU-rasterised per frame, and an -O0 build
+# drags at a few frames per second.
+CXXFLAGS=(-std=c++17 -O2 -fPIC -Wall -Wextra -Wno-unused-parameter)
 
 "$MOC" "$ROOT/src/host_window.h" -o "$BUILD/moc_host_window.cpp"
 "$MOC" "$ROOT/src/host_shell_window.h" -o "$BUILD/moc_host_shell_window.cpp"
@@ -97,6 +99,10 @@ SRCS=(
 
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" "${DEFS[@]}" "${SRCS[@]}" "${LIBS[@]}" -o "$BUILD/tramp.next"
 mv -f "$BUILD/tramp.next" "$BUILD/tramp"
+
+# Paint budget + optimisation guard. Drag smoothness is a paint-cost property,
+# so it belongs in the gate next to the tests.
+QT_QPA_PLATFORM=offscreen "$BUILD/tramp" --bench-chrome
 
 # Domain tests (playlist / playback / docking / collection)
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DTRAMP_HAVE_MPV \

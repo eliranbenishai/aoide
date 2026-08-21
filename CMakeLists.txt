@@ -6,6 +6,13 @@ project(tramp VERSION ${TRAMP_VERSION} LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Chrome is rasterised on the CPU every frame, so an unoptimised build does not
+# just run slower — it drags at a few frames per second. Default to Release so
+# a plain `cmake -S . -B build` never produces a build that feels broken.
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type" FORCE)
+endif()
+
 find_package(Qt6 REQUIRED COMPONENTS Widgets Test)
 find_package(Qt6 QUIET COMPONENTS DBus)
 find_package(PkgConfig QUIET)
