@@ -17,7 +17,7 @@ Tramp is a multi-platform desktop music player — a spiritual successor to Wina
 - **Official download** is `https://tramp.music`. Windows lists on the **Microsoft Store** as **tramp.music** (MSIX) **and** offers an unsigned website EXE. Linux lists on **Flathub** **and** offers an AppImage. macOS is a notarized DMG from the site. Mac App Store and Snap are **not** v1.
 - License: **GPL-3.0-or-later**.
 - Release artifacts are built on **GitHub Actions**. v1 CPUs: Windows x64, Linux x86_64, macOS universal.
-- In-app new-version prompt follows **install channel** (Store → Store, Flathub → Flathub, otherwise tramp.music). The app does not replace itself.
+- **In-app new-version prompt — intended, not built.** The design is to follow the **install channel** (Store → Store, Flathub → Flathub, otherwise tramp.music) and send the listener there rather than replace the app in place. Nothing in `src/` detects the channel, checks for a new version, or prompts.
 
 ## Stack
 

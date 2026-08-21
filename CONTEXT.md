@@ -34,8 +34,8 @@ _Premise_ (2026-08-21, constraint evidenced, consequence unevidenced): the bare 
 _Avoid_: renaming the product, using this as the wordmark, assuming the website EXE listing is named tramp.music
 
 **Install channel**:
-How this copy of Tramp was packaged — Microsoft Store, website EXE, Flathub, AppImage, or macOS DMG. The in-app new-version prompt follows that channel.
-_Avoid_: flavor (compiler jargon), edition, SKU
+How this copy of Tramp was packaged — Microsoft Store, website EXE, Flathub, AppImage, or macOS DMG. The in-app new-version prompt is meant to follow that channel; nothing in the app detects the channel or prompts yet.
+_Avoid_: flavor (compiler jargon), edition, SKU, treating the new-version prompt as shipped behaviour
 
 **Classic skin**:
 A Winamp-compatible skin that replaces the built-in chrome with the skin's own layout and art (WSZ). Out of v1 product path for mockup chrome.
@@ -167,7 +167,7 @@ The readouts in the About panel's stats well, under the heading ON THIS MACHINE.
 _Avoid_: library figures (there is no **Library**), live counts / real-time figures (they are neither), treating a figure that has not caught up with a deletion as a bug
 
 **Spin**:
-One track played through to the end — the unit the About stats well counts. Earned when the track ends *and* at least 90% of its running time actually played, so dragging the seek bar past unheard audio does not buy one. The 10% slack is the fade and the applause, not a shortcut.
+One track played through to the end — the unit the About stats well counts. Earned when the track ends *and* at least 90% of its running time actually played, so dragging the seek bar past unheard audio does not buy one. The 10% slack is the fade and the applause, not a shortcut. A track that never reported a running time is taken at the end of its file — no length to measure against is not a reason to never count one.
 _Avoid_: play (ambiguous with the transport verb), listen, stream
 
 **Maker's plate**:
