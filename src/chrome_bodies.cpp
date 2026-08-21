@@ -996,8 +996,7 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
              QStringLiteral("© 2026 Free Forever"));
   const QString web = QStringLiteral("tramp.music");
   const QFont webFont = monoFont(10);
-  const qreal webW = 9 + textWidth(webFont, web) + 9;
-  const QRectF webBox(plate.right() - 13 - webW, plate.center().y() - 12, webW, 24);
+  const QRectF webBox = aboutWebPill(plate, textWidth(webFont, web));
   fillRound(p, webBox, 3, QColor(T().well.red(), T().well.green(), T().well.blue(), 217));
   p.setPen(QPen(withAlpha(T().phos, 71), 1));
   p.setBrush(Qt::NoBrush);

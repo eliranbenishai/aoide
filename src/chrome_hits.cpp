@@ -41,7 +41,9 @@ ChromeHit hitMain(QSize logical, QPoint pos, const SessionView& view) {
   const qreal monoLeft = eqLeft - 14 - 86;
   const qreal sliderLeft = volLabelLeft + 34 + 10;
   const qreal sliderRight = monoLeft - 14;
-  const QRect volume(int(sliderLeft), int(volRow.center().y() - 7), int(sliderRight - sliderLeft), 14);
+  const QRect volume =
+      sliderHitRect(QRectF(sliderLeft, volRow.center().y() - 7, sliderRight - sliderLeft, 14),
+                    kVolumeThumbH);
   if (auto h = hitIf(volume, pos, ChromeHit::Kind::volume); h.kind != ChromeHit::Kind::none) return h;
   const QRect mono(int(monoLeft), int(volRow.top() + 1), 86, 38);
   if (auto h = hitIf(mono, pos, ChromeHit::Kind::mono); h.kind != ChromeHit::Kind::none) return h;
@@ -58,8 +60,9 @@ ChromeHit hitMain(QSize logical, QPoint pos, const SessionView& view) {
   const QString durText = formatClock(view.durationMs);
   const qreal posW = sm.horizontalAdvance(view.goldenDemo ? QStringLiteral("2:41") : posText);
   const qreal durW = sm.horizontalAdvance(view.goldenDemo ? QStringLiteral("5:47") : durText);
-  const QRect seek(int(seekRow.left() + posW + 14), int(seekRow.center().y() - 8),
-                   int(seekRow.width() - posW - durW - 28), 16);
+  const QRect seek = sliderHitRect(QRectF(seekRow.left() + posW + 14, seekRow.center().y() - 8,
+                                          seekRow.width() - posW - durW - 28, 16),
+                                   kSeekThumbH);
   if (auto h = hitIf(seek, pos, ChromeHit::Kind::seek); h.kind != ChromeHit::Kind::none) return h;
 
   const QRectF playRow(body.left() + 22, body.top() + 246, body.width() - 44, 50);
@@ -289,7 +292,8 @@ ChromeHit hitAbout(QSize logical, QPoint pos) {
   const QRectF body = bodyRect(logical);
   const QRectF inner = body.adjusted(16, 14, -16, -14);
   const QRectF plate(inner.left(), inner.bottom() - 48, inner.width(), 48);
-  const QRect web(int(plate.right() - 13 - 110), int(plate.center().y() - 12), 110, 24);
+  const QRect web =
+      aboutWebPill(plate, textWidth(monoFont(10), QStringLiteral("tramp.music"))).toRect();
   if (auto h = hitIf(web, pos, ChromeHit::Kind::aboutWeb); h.kind != ChromeHit::Kind::none) return h;
   return {};
 }

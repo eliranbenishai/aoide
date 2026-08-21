@@ -14,6 +14,12 @@ namespace tramp {
 
 enum class PlaylistSortKey { title, artist, duration, path };
 
+/// Writes `tracks` to `path` as M3U through a temporary that is renamed on
+/// commit, so a failed or interrupted write leaves the listener's existing file
+/// untouched. Returns false when nothing was written.
+bool writeM3uFile(const QString& path, const QVector<Track>& tracks,
+                  const M3uCodec& codec = M3uCodec());
+
 class PlaylistController {
  public:
   using Changed = std::function<void()>;

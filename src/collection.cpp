@@ -130,7 +130,7 @@ QVector<Track> PlaylistCollection::add(const QString& path) {
   QVector<Track> tracks;
   QFile f(n);
   if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
-    tracks = M3uCodec().parse(QString::fromUtf8(f.readAll()), n);
+    tracks = M3uCodec().parse(decodeM3uBytes(f.readAll()), n);
     hydrateDurations(tracks);
   }
   const int existing = indexOf(n);

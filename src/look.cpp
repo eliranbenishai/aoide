@@ -890,7 +890,29 @@ bool SkinController::installDirectory(const QString& path, ConflictFn onConflict
       if (onConflict && onConflict(conflict) == SkinConflictChoice::cancel) {
         return false;
       }
-      QDir(target).removeRecursively();
+      // Copy the replacement in beside the old pack first. Deleting up front
+      // meant a failed copy left the listener with neither.
+      const QString staged = target + QStringLiteral(".incoming");
+      QDir(staged).removeRecursively();
+      QDir().mkpath(skinsDir_);
+      if (!copyDir(path, staged)) {
+        QDir(staged).removeRecursively();
+        lastError_ = QStringLiteral("failed to copy skin pack");
+        return false;
+      }
+      if (!QDir(target).removeRecursively()) {
+        QDir(staged).removeRecursively();
+        lastError_ = QStringLiteral("failed to replace the installed skin");
+        return false;
+      }
+      if (!QDir().rename(staged, target)) {
+        QDir(staged).removeRecursively();
+        lastError_ = QStringLiteral("failed to replace the installed skin");
+        return false;
+      }
+      lastError_.clear();
+      rescan();
+      return true;
     }
     QDir().mkpath(skinsDir_);
     if (!copyDir(path, target)) {
@@ -916,8 +938,18 @@ bool SkinController::installZip(const QString& path, ConflictFn onConflict) {
   unzip.setProgram(QStringLiteral("unzip"));
   unzip.setArguments({QStringLiteral("-oq"), path, QStringLiteral("-d"), temp.path()});
   unzip.start();
-  if (!unzip.waitForFinished(30000) || unzip.exitCode() != 0) {
+  const bool finished = unzip.waitForFinished(30000);
+  if (!finished || unzip.error() == QProcess::FailedToStart) {
     lastError_ = QStringLiteral("unzip is required to install zip skins");
+    return false;
+  }
+  // Exit 1 is a warning, not a failure: unzip returns it after sanitising an
+  // entry, for instance stripping an absolute path. Treating it as fatal
+  // rejected perfectly good packs with a misleading message. Anything above 1 is
+  // a real error, and a pack with no manifest is caught below regardless.
+  if (unzip.exitCode() > 1) {
+    lastError_ = QStringLiteral("could not extract the zip (unzip reported %1)")
+                     .arg(unzip.exitCode());
     return false;
   }
   QString root = temp.path();

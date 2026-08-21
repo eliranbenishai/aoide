@@ -611,17 +611,16 @@ int main(int argc, char** argv) {
     sc->setContext(Qt::ApplicationShortcut);
     QObject::connect(sc, &QShortcut::activated, &hostShell, fn);
   };
-  addAppShortcut(QKeySequence(Qt::Key_Space), [&]() {
-    session.handleHit(tramp::WindowId::main, {tramp::ChromeHit::Kind::play, -1, {}},
-                      Qt::NoModifier, {});
-  });
+  // Space and the play media key toggle. The chrome has separate Play and Pause
+  // faces, so routing these at Kind::play only ever started playback.
+  addAppShortcut(QKeySequence(Qt::Key_Space), [&]() { session.togglePlayPause(); });
   addAppShortcut(QKeySequence::SelectAll, [&]() { session.selectAllTracks(); });
   addAppShortcut(QKeySequence::Delete, [&]() { session.removeSelectedTracks(); });
   addAppShortcut(QKeySequence(Qt::Key_Backspace), [&]() { session.removeSelectedTracks(); });
-  addAppShortcut(QKeySequence(Qt::Key_MediaPlay), [&]() {
-    session.handleHit(tramp::WindowId::main, {tramp::ChromeHit::Kind::play, -1, {}},
-                      Qt::NoModifier, {});
-  });
+  addAppShortcut(QKeySequence(Qt::Key_MediaPlay), [&]() { session.togglePlayPause(); });
+  addAppShortcut(QKeySequence(Qt::Key_MediaTogglePlayPause),
+                 [&]() { session.togglePlayPause(); });
+  addAppShortcut(QKeySequence(Qt::Key_MediaPause), [&]() { session.togglePlayPause(); });
   addAppShortcut(QKeySequence(Qt::Key_MediaStop), [&]() {
     session.handleHit(tramp::WindowId::main, {tramp::ChromeHit::Kind::stop, -1, {}},
                       Qt::NoModifier, {});

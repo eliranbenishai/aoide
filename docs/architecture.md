@@ -91,12 +91,13 @@ flowchart TB
 
 | Area | Owns |
 |------|------|
+| Audio backend | `TRAMP_HAVE_MPV` only turns on via `pkg-config mpv` or the bundled Linux `.so`, so Windows has no path yet. Configuring without an engine is a **hard error** unless `-DTRAMP_ALLOW_NO_AUDIO=ON`; PR CI passes it for Windows, and the release workflow deliberately does not, so a silent build cannot be packaged. |
 | Host | `HostShell` (`host_shell_window.*`) + five `HostWindow` panels — one frameless host window titled Tramp, sized to the virtual desktop; taskbar/dock/pager icon from `assets/branding/app_icon.png` (`app_icon.*`); punched input from child panel rects (never an empty mask while mapped); main close persists then quits; extra panels hide |
 | Session | `session.*`, `session_view.*` — shared controllers, commands, `--dump-chrome` golden. OS wait cursor (`wait_cursor.*`) during sync UI-thread loads (skin change/install, playlist file ingest, collection add, Refresh, bootstrap JSON load). Playlist Refresh also keeps the Refresh button’s on-face for that same span (`SessionView::playlistRefreshing`), published before `WaitCursorScope` so the cursor’s `processEvents` flush shows both together. Not during spectrum, background path-verify, background probe of dropped audio files, or playback. |
 | Docking | `docking.*` — peel 8 logical px; EQ and playlist any side and both axes (two neighbors); settings/about never snap. Title-bar drags are app-owned. Child drags move one panel in host-local space; main drag translates the cluster. `placePanels` uses `mapToGlobal` origin and does not resize the host unless the virtual desktop changed. Panels stay fully on the virtual desktop. |
 | Chrome | `chrome_paint.cpp`, `chrome_bodies.cpp`, `chrome_hits.cpp`, `chrome_tooltip.*`, `chrome_layout.h`, `title_chrome.*`, `mockup_draw.cpp`, `mockup_tokens.h`, `tramp_metrics.h`, `tramp_fonts.*` — mockup `.win` / `.tbar` / `.wbtn` at discrete zoom (default 75%). Everything is CPU-rasterised per frame, so **paint cost is drag cost** — see [Paint budget](#paint-budget). Main title-bar: zoom cluster, then minimize flush to close. Display-well STEREO/PLAYLIST keep a fixed gap; overflowing track/album lines marquee on the live pass when Scroll title is on (static titles stay on the chassis); close buttons take hue from the more saturated of skin ink vs accent. EQ response curve (fill, glow, stroke) is clipped to the curve well. Hover labels name glyph and abbreviated buttons (`chromeTooltip` + 450 ms wait); they stay off the title-drag / punch path and stay silent on sliders, list rows, and while the wait cursor is up. |
 | Skins | `look.*` — `skin.json` / legacy `look.json`; embedded **Tramp** (id `builtin`) plus bundled homage packs under `skins/` (Arc, Shield, Thunder, Gamma, Widow, Marksman, Mind); catalog `<support>/skins`. Settings Skins tab is a clipped scrolling list. Playlist track-list CRT wash (`listWash*`) is the mockup `.list` radial, hue-walked through the skin phosphor so builtin stays cyan and homage skins keep the same bloom; CRT `screenWash*` stays a separate display-well token. |
-| Playback | `playback.*`, `player_engine.h`, `mpv_engine.*`, `transport.*` — libmpv `vo=null`; playing **path** not index; stop unloads media. Next/Prev/shuffle skip **disabled tracks**; Play / double-click do not open them. |
+| Playback | `playback.*`, `player_engine.h`, `mpv_engine.*`, `transport.*` — libmpv `vo=null`; playing **path** not index; stop unloads media. Next/Prev/shuffle skip **disabled tracks**; Play / double-click do not open them. mpv reports a `loadfile` failure inline from `open()`, so `playIndex` bails instead of reading as playing. With no usable backend the session installs `MissingAudioEngine`, which refuses the open with a reason — `NullEngine` is the inert test stub and reports playback, which is why it must not be the product fallback. |
 | EQ / mono | `equalizer.*` — lavfi `af`; On / Auto / Presets; ±12 dB; force-mono via `audio-channels` |
 | Spectrum | `spectrum.*`, `stft.*`, `pcm_decoder.*`, `wav_reader.*` — 20 log bands (40 Hz–Nyquist, 4096-point STFT, unique FFT bins per bar) from a throwaway `ao=pcm` pass; honest silence until ready |
 | Playlist | `playlist.*`, `m3u.*` — M3U/M3U8; multi-select; reorder; sort; resolve track lines as hints on **add** and **Refresh** only. Clicking a saved playlist paints from `playlist_tracks.json` (no wait cursor). Refresh icon sits to the right of TOTAL. Track-list scrollbar paints only when rows overflow the well. |
@@ -116,7 +117,7 @@ There is no GPU path and no PNG face cache: every panel is rasterised with `QPai
 
 Three things hold that budget:
 
-- **Optimised builds are mandatory.** `build.sh` compiles `-O2`; `CMakeLists.txt` defaults `CMAKE_BUILD_TYPE` to `RelWithDebInfo`. An `-O0` build drags at a few frames per second. `--bench-chrome` fails when `__OPTIMIZE__` is absent, and `build.sh` runs it as part of the gate.
+- **Optimised builds are mandatory.** `build.sh` compiles `-O2`; `CMakeLists.txt` defaults `CMAKE_BUILD_TYPE` to `RelWithDebInfo`. An `-O0` build drags at a few frames per second. `--bench-chrome` fails when `__OPTIMIZE__` is absent, and both `build.sh` and CI run it as part of the gate. CMake also carries the same warning set as `build.sh`.
 - **Blur is the expensive primitive.** `gaussianBlur` (`mockup_draw.cpp`) backs every glow, drop shadow and bloom, 8–18 times per full panel paint. It uses a fixed-point separable kernel, and for σ ≥ 4 a three-pass box approximation whose cost is independent of radius. `TRAMP_BLUR=exact` and `TRAMP_BENCH_NO_BLUR=1` exist for measurement.
 - **Rasterised chrome is cached per panel.** Every panel keeps a `chassis_` image at widget × DPR size. Main and EQ cache `BodyPaint::chassis` and paint `BodyPaint::live` (clock, spectrum, seek, EQ curve) on top each frame; playlist, settings and about have no per-frame content, so their whole `BodyPaint::full` paint is the cache. A move therefore costs one `drawImage`. The cache is keyed on buffer size as well as the invalidation flag, so a resize cannot show stale pixels even if a call site forgets to invalidate. `SessionView::goldenDemo` bypasses the cache — that path is the fidelity reference.
 
@@ -128,6 +129,10 @@ Measurement lives in `--bench-drag` / `--bench-resize` (synthetic gesture throug
 
 Support dir: `$XDG_DATA_HOME/com.proximamagnifica.tramp` (adopts legacy `…/tramp` when that is where the data already is). Reset Settings rewrites `settings.json` only.
 
+**Writes never truncate.** `SupportStore` writes through `QSaveFile` (temporary beside the target, renamed on commit) and every write returns whether it landed, so an interrupted or refused write leaves the previous file intact. A file that exists but does not parse is moved aside as `<name>.corrupt` rather than read as defaults — returning defaults let the next debounced persist overwrite the survivors. The listener's own M3U goes through the same route (`writeM3uFile`), and a save that fails keeps the playlist marked altered and says so.
+
+Playlist bytes are decoded by `decodeM3uBytes`: UTF-8 or UTF-16 by byte-order mark, else UTF-8, else Latin-1 — playlists written on Windows are routinely CP1252.
+
 | File | What |
 |------|------|
 | `settings.json` | Zoom, window frames, EQ, skins, prefs (including elapsed/remain and scroll title) |
@@ -137,6 +142,8 @@ Support dir: `$XDG_DATA_HOME/com.proximamagnifica.tramp` (adopts legacy `…/tra
 | `usage.json` | Lifetime **spins** |
 
 ## Known v1 gaps
+
+- **Windows cannot link libmpv**, so Windows builds have no audio engine. `tool/fetch_full_libmpv.ps1` installs only `libmpv-2.dll` with no import library, and `CMakeLists.txt` has no Windows detection branch. Until that exists, Windows is `-DTRAMP_ALLOW_NO_AUDIO=ON` for CI only and is not releasable.
 
 - Mockup fidelity / `--dump-chrome` vs `player-mockup-2.html` still hardening
 - Full libmpv packaging on macOS; Linux AppImage Qt/lib bundling still hardening

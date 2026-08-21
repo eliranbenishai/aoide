@@ -734,6 +734,25 @@ int main() {
   }
 
   {
+    // Playlists written on Windows are routinely CP1252, and UTF-8 ones often
+    // carry a byte-order mark. Decoding everything as UTF-8 turned those titles
+    // into replacement characters and left their paths unresolvable.
+    const QByteArray withBom =
+        QByteArray("\xEF\xBB\xBF#EXTM3U\n#EXTINF:1,Bj\xC3\xB6rk\n/m/a.mp3\n");
+    const QString bomText = tramp::decodeM3uBytes(withBom);
+    REQUIRE(!bomText.startsWith(QChar(0xFEFF)));
+    REQUIRE(bomText.contains(QString::fromUtf8("Björk")));
+    REQUIRE(bomText.startsWith(QStringLiteral("#EXTM3U")));
+
+    QByteArray latin1("#EXTM3U\n#EXTINF:1,Caf");
+    latin1.append(char(0xE9));
+    latin1.append("\n/m/b.mp3\n");
+    const QString latinText = tramp::decodeM3uBytes(latin1);
+    REQUIRE(latinText.contains(QString::fromUtf8("Café")));
+    REQUIRE(!latinText.contains(QChar(QChar::ReplacementCharacter)));
+  }
+
+  {
     // A data chunk size past INT_MAX used to become a negative int, slip through
     // the bounds check, and walk `offset` backwards into a read before the
     // buffer. mpv renders a whole track to PCM for the spectrum, so any track

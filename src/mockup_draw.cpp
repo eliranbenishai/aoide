@@ -1,5 +1,6 @@
 #include "mockup_draw.h"
 
+#include "chrome_layout.h"
 #include "look.h"
 #include "tramp_fonts.h"
 
@@ -878,7 +879,8 @@ void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle, bool 
     p.drawPath(fillPath);
   }
 
-  const QSizeF thumb = seekStyle ? QSizeF(22, 32) : QSizeF(20, 30);
+  const QSizeF thumb = seekStyle ? QSizeF(kSeekThumbW, kSeekThumbH)
+                                 : QSizeF(kVolumeThumbW, kVolumeThumbH);
   const qreal x = qBound(track.left() + thumb.width() / 2,
                          track.left() + track.width() * t,
                          track.right() - thumb.width() / 2);

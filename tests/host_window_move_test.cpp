@@ -1,5 +1,7 @@
 #include "chrome_bodies.h"
 #include "chrome_hits.h"
+#include "chrome_layout.h"
+#include "mockup_draw.h"
 #include "host_shell_window.h"
 #include "host_window.h"
 #include "look.h"
@@ -36,6 +38,7 @@ class HostWindowMoveTest : public QObject {
   void parentedPanelMoveDoesNotEmitNativeMoved();
   void siblingDragDoesNotPayFullClusterPaint();
   void movingAPanelDoesNotRerasteriseIt();
+  void hitRegionsCoverWhatIsPainted();
   void waitCursorRebuildsChassisBeforeRefreshReturns();
   void refreshButtonLightsWhilePlaylistRefreshing();
   void waitCursorFlushShowsRefreshOn();
@@ -76,6 +79,46 @@ void HostWindowMoveTest::siblingDragDoesNotPayFullClusterPaint() {
   QCOMPARE(pl.mapToGlobal(QPoint(0, 0)), plR.topLeft());
   QVERIFY2(ns < 10'000'000,
            "moving a sibling must not pay a full cluster paint (10ms for 20 moves)");
+}
+
+// Hit geometry and paint geometry are derived separately, so they can and did
+// drift apart. These pin the two cases that had actually diverged: slider thumbs
+// are painted taller than their groove, and the About web pill is sized to its
+// own text rather than a fixed width.
+void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
+  const auto specs = tramp::windowSpecs();
+  const tramp::SessionView view;
+
+  const QSize main = specs[0].logicalSize;
+  tramp::ChromeHit volume;
+  tramp::ChromeHit seek;
+  for (int y = 0; y < main.height(); ++y) {
+    const auto hit =
+        tramp::hitTest(tramp::WindowId::main, main, QPoint(main.width() / 2, y), view);
+    if (hit.kind == tramp::ChromeHit::Kind::volume && volume.rect.isNull()) volume = hit;
+    if (hit.kind == tramp::ChromeHit::Kind::seek && seek.rect.isNull()) seek = hit;
+  }
+  QCOMPARE(volume.kind, tramp::ChromeHit::Kind::volume);
+  QCOMPARE(seek.kind, tramp::ChromeHit::Kind::seek);
+  QVERIFY2(volume.rect.height() >= int(tramp::kVolumeThumbH),
+           "the volume hit region must cover the painted thumb, not just the groove");
+  QVERIFY2(seek.rect.height() >= int(tramp::kSeekThumbH),
+           "the seek hit region must cover the painted thumb, not just the groove");
+
+  const QSize about = specs[4].logicalSize;
+  const qreal textW =
+      tramp::textWidth(tramp::monoFont(10), QStringLiteral("tramp.music"));
+  tramp::ChromeHit web;
+  for (int x = about.width() - 1; x >= 0; --x) {
+    const auto hit = tramp::hitTest(tramp::WindowId::about, about,
+                                    QPoint(x, about.height() - 38), view);
+    if (hit.kind == tramp::ChromeHit::Kind::aboutWeb) {
+      web = hit;
+      break;
+    }
+  }
+  QCOMPARE(web.kind, tramp::ChromeHit::Kind::aboutWeb);
+  QCOMPARE(web.rect.width(), int(tramp::kAboutWebPadX * 2 + textW));
 }
 
 // Dragging a panel used to re-run its whole procedural paint on every mouse

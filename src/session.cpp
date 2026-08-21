@@ -423,7 +423,7 @@ void TrampSession::refreshCurrentPlaylist() {
   QFile file(path);
   if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
     QVector<Track> parsed =
-        M3uCodec().parse(QString::fromUtf8(file.readAll()), path);
+        M3uCodec().parse(decodeM3uBytes(file.readAll()), path);
     QVector<Track> tracks = dropMissingTrackFiles(parsed);
     const bool dropped = tracks.size() != parsed.size();
     probeTracksBlocking(tracks, true);
@@ -806,6 +806,10 @@ void TrampSession::playTrackAt(int index) {
   if (index < 0 || index >= tracks.size() || tracks[index].disabled) return;
   playback_->playIndex(index);
 }
+/// Space and the play media key are a single toggle, unlike the separate Play and
+/// Pause faces on the chrome. Routing them at K::play only ever started playback.
+void TrampSession::togglePlayPause() { playback_->playPause(); }
+
 void TrampSession::selectAllTracks() { playlist_.selectAll(); }
 void TrampSession::removeSelectedTracks() { playlist_.removeSelected(); }
 
@@ -916,15 +920,24 @@ void TrampSession::applyDroppedPaths(const QStringList& paths, bool replace) {
 }
 
 void TrampSession::openPaths(const QStringList& paths, bool enqueue) {
+  QStringList playlists;
+  QStringList others;
+  for (const QString& p : paths) {
+    if (isPlaylistPath(p)) playlists.push_back(p);
+    else others.push_back(p);
+  }
+  // Opening a playlist, or opening audio without enqueueing, replaces the
+  // current list and therefore discards unsaved edits. Ask first — and ask
+  // before the wait cursor and the duration probe, not after paying for them.
+  const bool replaces = !playlists.isEmpty() || (!enqueue && !others.isEmpty());
+  if (replaces &&
+      !confirmReplaceAltered(QStringLiteral("Opening these files replaces it."))) {
+    return;
+  }
+
   bool playFirst = false;
   {
     WaitCursorScope wait;
-    QStringList playlists;
-    QStringList others;
-    for (const QString& p : paths) {
-      if (isPlaylistPath(p)) playlists.push_back(p);
-      else others.push_back(p);
-    }
     if (!playlists.isEmpty()) {
       const QVector<Track> tracks = ingestPlaylistFile(playlists.first());
       playlist_.setTracks(tracks, playlists.first());
@@ -1198,11 +1211,12 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
         const QString path = pickPlaylist(true);
         if (!path.isEmpty()) {
           WaitCursorScope wait;
-          playlist_.savePlaylistFile(path);
-          QVector<Track> tracks = playlist_.tracks();
-          probeTracksBlocking(tracks, false);
-          collection_.addWritten(path, tracks);
-          persistCollectionCache();
+          if (reportPlaylistWriteFailure(playlist_.savePlaylistFile(path), path)) {
+            QVector<Track> tracks = playlist_.tracks();
+            probeTracksBlocking(tracks, false);
+            collection_.addWritten(path, tracks);
+            persistCollectionCache();
+          }
         }
       } else if (chosen == fromSel) {
         const QString path = pickPlaylist(true);
@@ -1213,12 +1227,10 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
           std::sort(idx.begin(), idx.end());
           for (int i : idx) selected.push_back(playlist_.tracks()[i]);
           probeTracksBlocking(selected, false);
-          QFile f(path);
-          if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-            f.write(M3uCodec().encode(selected).toUtf8());
+          if (reportPlaylistWriteFailure(writeM3uFile(path, selected), path)) {
+            collection_.addWritten(path, selected);
+            persistCollectionCache();
           }
-          collection_.addWritten(path, selected);
-          persistCollectionCache();
         }
       }
       refreshChrome();
@@ -1283,8 +1295,8 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       menu.addAction(QStringLiteral("Invert selection"), this, [this]() { playlist_.invertSelection(); });
       menu.addAction(QStringLiteral("Save playlist…"), this, [this]() {
         const QString path = pickPlaylist(true);
-        if (!path.isEmpty()) {
-          playlist_.savePlaylistFile(path);
+        if (!path.isEmpty() &&
+            reportPlaylistWriteFailure(playlist_.savePlaylistFile(path), path)) {
           if (collection_.contains(path)) {
             collection_.addWritten(path, playlist_.tracks());
             persistCollectionCache();
@@ -1486,6 +1498,16 @@ void TrampSession::showTrackInfo() {
   QMessageBox::information(main_, QStringLiteral("Track info"), message);
 }
 
+bool TrampSession::reportPlaylistWriteFailure(bool wrote, const QString& path) {
+  if (wrote) return true;
+  QMessageBox::warning(
+      main_, QStringLiteral("Playlist not saved"),
+      QStringLiteral("Tramp could not write %1.\n\nThe playlist still has its "
+                     "unsaved changes, and the file on disk is unchanged.")
+          .arg(QDir::toNativeSeparators(path)));
+  return false;
+}
+
 bool TrampSession::confirmReplaceAltered(const QString& consequence) {
   if (!playlist_.altered()) return true;
   QMessageBox box(main_);
@@ -1506,7 +1528,8 @@ bool TrampSession::confirmReplaceAltered(const QString& consequence) {
     QString path = playlist_.sourcePath();
     if (path.isEmpty()) path = pickPlaylist(true);
     if (path.isEmpty()) return false;
-    playlist_.savePlaylistFile(path);
+    // If the save did not land, keep the list rather than discarding it.
+    if (!reportPlaylistWriteFailure(playlist_.savePlaylistFile(path), path)) return false;
     if (collection_.contains(path)) {
       collection_.addWritten(path, playlist_.tracks());
       persistCollectionCache();

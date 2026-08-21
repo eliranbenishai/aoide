@@ -1,10 +1,32 @@
 #include "m3u.h"
 
+#include <QStringDecoder>
 #include <QDir>
 #include <QFileInfo>
 #include <QRegularExpression>
 
 namespace tramp {
+
+QString decodeM3uBytes(const QByteArray& bytes) {
+  if (bytes.startsWith("\xEF\xBB\xBF")) {
+    return QString::fromUtf8(bytes.mid(3));
+  }
+  if (bytes.size() >= 2) {
+    const uchar b0 = uchar(bytes[0]);
+    const uchar b1 = uchar(bytes[1]);
+    if ((b0 == 0xFF && b1 == 0xFE) || (b0 == 0xFE && b1 == 0xFF)) {
+      QStringDecoder utf16(QStringConverter::Utf16);
+      QString out = utf16(bytes);
+      if (!utf16.hasError()) return out;
+    }
+  }
+  QStringDecoder utf8(QStringConverter::Utf8);
+  QString out = utf8(bytes);
+  if (!utf8.hasError()) return out;
+  // Not UTF-8. Latin-1 never fails and keeps every byte distinguishable, which
+  // is the best available guess for a legacy playlist.
+  return QString::fromLatin1(bytes);
+}
 namespace {
 
 bool fileExists(const QString& path) {

@@ -420,25 +420,28 @@ bool PlaylistController::openPlaylistFile(const QString& path, const M3uCodec& c
   if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
     return false;
   }
-  const QString contents = QString::fromUtf8(file.readAll());
+  const QString contents = decodeM3uBytes(file.readAll());
   setTracks(codec.parse(contents, path), path);
   return true;
 }
 
-bool PlaylistController::savePlaylistFile(const QString& path, const M3uCodec& codec) {
+bool writeM3uFile(const QString& path, const QVector<Track>& tracks, const M3uCodec& codec) {
   // This is the listener's own file. Truncating it before writing meant a failed
-  // or interrupted save destroyed the playlist it was meant to record, so write
-  // through a temporary and rename on commit.
+  // or interrupted save destroyed the playlist it was meant to record.
   QSaveFile file(path);
   if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
     return false;
   }
-  const QByteArray payload = codec.encode(tracks_).toUtf8();
+  const QByteArray payload = codec.encode(tracks).toUtf8();
   if (file.write(payload) != payload.size()) {
     file.cancelWriting();
     return false;
   }
-  if (!file.commit()) {
+  return file.commit();
+}
+
+bool PlaylistController::savePlaylistFile(const QString& path, const M3uCodec& codec) {
+  if (!writeM3uFile(path, tracks_, codec)) {
     return false;
   }
   sourcePath_ = path;

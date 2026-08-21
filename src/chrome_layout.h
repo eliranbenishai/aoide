@@ -66,6 +66,33 @@ inline constexpr qreal kDisplayTitleClipW = 705 - 32 - 288;
 /// Moving lines paint on the live pass; static lines stay on the chassis.
 inline bool displayTitleOnLivePass(qreal offset) { return offset > 0; }
 
+/// Slider thumbs are painted taller and wider than their groove and centred on
+/// it, so a hit region the size of the groove leaves half of the visible grab
+/// target dead. Paint and hit-test both derive from these.
+inline constexpr qreal kSeekThumbW = 22;
+inline constexpr qreal kSeekThumbH = 32;
+inline constexpr qreal kVolumeThumbW = 20;
+inline constexpr qreal kVolumeThumbH = 30;
+
+inline QRect sliderHitRect(const QRectF& track, qreal thumbH) {
+  const qreal h = std::max(track.height(), thumbH);
+  return QRect(int(track.left()), int(std::round(track.center().y() - h / 2)),
+               int(track.width()), int(h));
+}
+
+/// The maker's-plate web pill is sized to its own text, so a fixed-width hit box
+/// drifts from it as soon as a skin changes the LCD face. Callers pass the
+/// measured text width; layout stays independent of the font machinery.
+inline constexpr qreal kAboutWebPadX = 9;
+inline constexpr qreal kAboutWebRightInset = 13;
+inline constexpr qreal kAboutWebH = 24;
+
+inline QRectF aboutWebPill(const QRectF& plate, qreal textW) {
+  const qreal w = kAboutWebPadX * 2 + textW;
+  return QRectF(plate.right() - kAboutWebRightInset - w, plate.center().y() - kAboutWebH / 2, w,
+                kAboutWebH);
+}
+
 inline constexpr int kSkinRowStride = 36;
 inline constexpr int kSkinRowH = 32;
 inline constexpr int kSkinRowTop = 10;

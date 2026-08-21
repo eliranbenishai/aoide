@@ -53,6 +53,7 @@ class TrampSession : public QObject {
   void mainMinimized(bool minimized);
   void mainActivated();
   void playTrackAt(int index);
+  void togglePlayPause();
   void selectAllTracks();
   void removeSelectedTracks();
 
@@ -116,6 +117,7 @@ class TrampSession : public QObject {
   void showOptionsMenu(QRect logicalHit);
   QAction* execAnchoredMenu(QMenu& menu, HostWindow* host, QRect logicalHit, bool above);
   void showTrackInfo();
+  bool reportPlaylistWriteFailure(bool wrote, const QString& path);
   bool confirmReplaceAltered(const QString& consequence = {});
   void quitFromMenu();
   void syncSpectrum();
