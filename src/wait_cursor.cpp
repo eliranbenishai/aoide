@@ -3,7 +3,6 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QCursor>
-#include <QEventLoop>
 #include <QGuiApplication>
 #include <QPointer>
 #include <QTimer>
@@ -20,6 +19,18 @@ struct SavedCursor {
 
 QVector<SavedCursor> gSavedCursors;
 
+/// No event loop is pumped here, deliberately.
+///
+/// A scope is entered part-way through a session method, so pumping ran timers
+/// and queued slots against state that was half changed — a persist of a
+/// playlist that was about to be replaced, a probe answer landing in a list the
+/// caller still held a copy of. It was only ever there to get the cursor onto
+/// the screen before a long blocking call, and the operation that made those
+/// calls long — the duration probe on a playlist ingest — is on a worker now.
+/// What is left under a wait cursor is skin work and the bootstrap read.
+///
+/// Chrome published inside a scope still reaches the screen: `HostWindow`
+/// repaints synchronously while [showing] is true.
 void defaultApply() {
   if (!QGuiApplication::instance()) return;
   QGuiApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
@@ -32,7 +43,6 @@ void defaultApply() {
       w->setCursor(Qt::WaitCursor);
     }
   }
-  QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
 }
 
 void defaultRestore() {

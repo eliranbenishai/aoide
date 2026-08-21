@@ -3,6 +3,7 @@
 #include <QApplication>
 #include <QGuiApplication>
 #include <QTest>
+#include <QTimer>
 #include <QWidget>
 
 class WaitCursorTest : public QObject {
@@ -12,6 +13,7 @@ class WaitCursorTest : public QObject {
   void scopeSetsTheWidgetCursor();
   void restoreClearsTheWidgetCursor();
   void queuedWorkHoldsTheCursorUntilTheNextTick();
+  void scopeDoesNotRunQueuedWork();
 };
 
 void WaitCursorTest::scopeSetsTheWidgetCursor() {
@@ -58,6 +60,25 @@ void WaitCursorTest::queuedWorkHoldsTheCursorUntilTheNextTick() {
   QCOMPARE(w.cursor().shape(), Qt::PointingHandCursor);
   QTRY_VERIFY(ran);
   QCOMPARE(w.cursor().shape(), Qt::PointingHandCursor);
+}
+
+// A scope is entered part-way through a session method. While it pumped the
+// event loop, a timer or a queued slot could run against state that method was
+// only half way through changing — a persist of a playlist about to be
+// replaced, a probe answer landing in a list the caller still held a copy of.
+void WaitCursorTest::scopeDoesNotRunQueuedWork() {
+  QWidget w;
+  w.resize(40, 40);
+  w.show();
+  QVERIFY(QTest::qWaitForWindowExposed(&w));
+  bool queued = false;
+  QTimer::singleShot(0, &w, [&]() { queued = true; });
+  {
+    tramp::WaitCursorScope wait;
+    QVERIFY2(!queued, "entering the wait cursor must not run queued work");
+  }
+  QVERIFY2(!queued, "leaving the wait cursor must not run queued work either");
+  QTRY_VERIFY(queued);
 }
 
 QTEST_MAIN(WaitCursorTest)
