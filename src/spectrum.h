@@ -25,15 +25,24 @@ AudioLevels spectrumFrame(const Spectrogram& spec, bool playing, qint64 position
 class SpectrumAnalyzer {
  public:
   using PcmLoader = std::function<PcmBuffer(const QString& path)>;
+  /// Answers "does anyone still want this?". False means drop the work.
+  using CancelFn = std::function<bool()>;
+  using CancellablePcmLoader =
+      std::function<PcmBuffer(const QString& path, const CancelFn& stillWanted)>;
 
   explicit SpectrumAnalyzer(PcmLoader loader = {});
+  explicit SpectrumAnalyzer(CancellablePcmLoader loader);
 
   Spectrogram analyzeMonoPcm(const QVector<double>& samples, int sampleRateHz) const;
   Spectrogram load(const QString& path) const;
+  /// Decoding a track takes seconds, and a session being torn down waits for it.
+  /// [stillWanted] reaches the decoder's own wait loop, so the wait is a tick
+  /// rather than the rest of the track.
+  Spectrogram load(const QString& path, const CancelFn& stillWanted) const;
   static double bandCenterHz(int index, int sampleRateHz);
 
  private:
-  PcmLoader loader_;
+  CancellablePcmLoader loader_;
 };
 
 struct SpectrumHold {

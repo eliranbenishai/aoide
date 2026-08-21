@@ -23,7 +23,8 @@ void check(int rc, const char* what) {
   }
 }
 
-void renderToWav(const QString& inputPath, const QString& outputPath) {
+void renderToWav(const QString& inputPath, const QString& outputPath,
+                 const MpvPcmDecoder::CancelFn& stillWanted) {
   mpv_handle* mpv = mpv_create();
   if (!mpv) throw std::runtime_error("mpv_create failed");
 
@@ -47,9 +48,14 @@ void renderToWav(const QString& inputPath, const QString& outputPath) {
     const char* cmd[] = {"loadfile", path.constData(), "replace", nullptr};
     check(mpv_command(mpv, cmd), "loadfile");
 
-    const int deadlineTicks = 120 * 4;
+    // A short tick against the same 120 s deadline: the tick is how often a
+    // caller that has moved on gets to say so, and 250 ms of that is felt on
+    // quit.
+    constexpr double kTickSeconds = 0.05;
+    const int deadlineTicks = int(120 / kTickSeconds);
     for (int i = 0; i < deadlineTicks; ++i) {
-      mpv_event* ev = mpv_wait_event(mpv, 0.25);
+      if (stillWanted && !stillWanted()) throw std::runtime_error("PCM decode dropped");
+      mpv_event* ev = mpv_wait_event(mpv, kTickSeconds);
       if (!ev) continue;
       if (ev->event_id == MPV_EVENT_END_FILE || ev->event_id == MPV_EVENT_SHUTDOWN) {
         mpv_terminate_destroy(mpv);
@@ -65,11 +71,11 @@ void renderToWav(const QString& inputPath, const QString& outputPath) {
 
 }  // namespace
 
-PcmBuffer MpvPcmDecoder::decode(const QString& path) const {
+PcmBuffer MpvPcmDecoder::decode(const QString& path, const CancelFn& stillWanted) const {
   QTemporaryDir work(QDir::temp().filePath(QStringLiteral("tramp_pcm_XXXXXX")));
   if (!work.isValid()) throw std::runtime_error("PCM temp dir failed");
   const QString outPath = work.filePath(QStringLiteral("out.wav"));
-  renderToWav(path, outPath);
+  renderToWav(path, outPath, stillWanted);
   QFile file(outPath);
   if (!file.open(QIODevice::ReadOnly)) {
     throw std::runtime_error("PCM wav missing");

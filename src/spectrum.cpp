@@ -6,6 +6,46 @@
 #include <cmath>
 
 namespace tramp {
+namespace {
+
+/// The analysis window. `stft.h` takes both as arguments; the choice is ours, and
+/// the slicing below has to know it to cut on a frame boundary.
+constexpr int kFftSize = 4096;
+constexpr int kFramesPerSecond = 30;
+
+/// The same frames one pass over the whole buffer gives, produced a couple of
+/// seconds of audio at a time so [stillWanted] gets a say. Every frame is
+/// windowed and normalised on its own, so a slice that starts on a hop boundary
+/// and carries the window's tail cannot tell it was cut.
+///
+/// Worth the arithmetic because a five-minute track is the better part of a
+/// second of band folding, and a session being torn down waits for it.
+QVector<std::array<double, AudioLevels::kBandCount>> foldInSlices(
+    const QVector<double>& samples, int sampleRateHz,
+    const SpectrumAnalyzer::CancelFn& stillWanted) {
+  const StftBandFolder stft(kFftSize, kFramesPerSecond);
+  const int hop = std::max(1, sampleRateHz / kFramesPerSecond);
+  if (sampleRateHz <= 0 || samples.size() < kFftSize) {
+    return stft.analyze(samples, sampleRateHz);
+  }
+  const int frameCount = (int(samples.size()) - kFftSize) / hop + 1;
+  const int perSlice = kFramesPerSecond * 2;
+  QVector<std::array<double, AudioLevels::kBandCount>> frames;
+  frames.reserve(frameCount);
+  for (int first = 0; first < frameCount; first += perSlice) {
+    // No frames means cancelled, which is not the same as silent and not a
+    // failure either: the caller asked us to stop and will drop the result
+    // unread. A decode that fails has to say so in its own way, because a broken
+    // analyser must not be readable as a quiet passage.
+    if (!stillWanted()) return {};
+    const int last = std::min(first + perSlice, frameCount);
+    frames += stft.analyze(samples.mid(first * hop, (last - 1 - first) * hop + kFftSize),
+                           sampleRateHz);
+  }
+  return frames;
+}
+
+}  // namespace
 
 Spectrogram Spectrogram::silent() {
   Spectrogram spec;
@@ -39,11 +79,18 @@ AudioLevels spectrumFrame(const Spectrogram& spec, bool playing, qint64 position
   return spec.levelsAt(positionMs);
 }
 
-SpectrumAnalyzer::SpectrumAnalyzer(PcmLoader loader) : loader_(std::move(loader)) {}
+SpectrumAnalyzer::SpectrumAnalyzer(PcmLoader loader) {
+  if (!loader) return;
+  loader_ = [loader = std::move(loader)](const QString& path, const CancelFn&) {
+    return loader(path);
+  };
+}
+
+SpectrumAnalyzer::SpectrumAnalyzer(CancellablePcmLoader loader) : loader_(std::move(loader)) {}
 
 Spectrogram SpectrumAnalyzer::analyzeMonoPcm(const QVector<double>& samples,
                                              int sampleRateHz) const {
-  StftBandFolder stft;
+  StftBandFolder stft(kFftSize, kFramesPerSecond);
   Spectrogram spec;
   spec.frames = stft.analyze(samples, sampleRateHz);
   spec.framesPerSecond = stft.framesPerSecond();
@@ -51,11 +98,21 @@ Spectrogram SpectrumAnalyzer::analyzeMonoPcm(const QVector<double>& samples,
   return spec;
 }
 
-Spectrogram SpectrumAnalyzer::load(const QString& path) const {
-  if (!loader_) return Spectrogram::silent();
+Spectrogram SpectrumAnalyzer::load(const QString& path) const { return load(path, {}); }
+
+Spectrogram SpectrumAnalyzer::load(const QString& path, const CancelFn& stillWanted) const {
+  const auto wanted = [&stillWanted]() { return !stillWanted || stillWanted(); };
+  if (!loader_ || !wanted()) return Spectrogram::silent();
   try {
-    const PcmBuffer pcm = loader_(path);
-    return analyzeMonoPcm(pcm.samples, pcm.sampleRateHz);
+    const PcmBuffer pcm = loader_(path, stillWanted);
+    if (!wanted()) return Spectrogram::silent();
+    if (!stillWanted) return analyzeMonoPcm(pcm.samples, pcm.sampleRateHz);
+    Spectrogram spec;
+    spec.framesPerSecond = kFramesPerSecond;
+    spec.sampleRateHz = pcm.sampleRateHz;
+    spec.frames = foldInSlices(pcm.samples, pcm.sampleRateHz, stillWanted);
+    if (spec.frames.isEmpty()) return Spectrogram::silent();  // cancelled, and unread
+    return spec;
   } catch (...) {
     return Spectrogram::silent();
   }

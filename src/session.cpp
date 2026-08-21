@@ -29,7 +29,6 @@
 #include <QLineEdit>
 #include <QMap>
 #include <QMessageBox>
-#include <QPointer>
 #include <QPushButton>
 #include <QSet>
 #include <QUrl>
@@ -39,7 +38,6 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
-#include <thread>
 #ifdef Q_OS_UNIX
 #include <unistd.h>
 #endif
@@ -66,7 +64,10 @@ TrampSession::TrampSession(QObject* parent)
   playback_ = std::make_unique<PlaybackController>(&playlist_, engine_.get());
   playback_->setSpins(store_.readUsage().spins);
 #ifdef TRAMP_HAVE_MPV
-  analyzer_ = SpectrumAnalyzer([](const QString& path) { return MpvPcmDecoder().decode(path); });
+  analyzer_ = SpectrumAnalyzer(SpectrumAnalyzer::CancellablePcmLoader(
+      [](const QString& path, const SpectrumAnalyzer::CancelFn& stillWanted) {
+        return MpvPcmDecoder().decode(path, stillWanted);
+      }));
 #endif
   spectrumTimer_.setInterval(33);
   spectrumTimer_.setTimerType(Qt::CoarseTimer);
@@ -138,9 +139,15 @@ TrampSession::TrampSession(QObject* parent)
 }
 
 TrampSession::~TrampSession() {
+  // Cancel, then wait. Bumping the generations first means a worker already past
+  // its alive check still bails at its next iteration; the join is what makes the
+  // raw `this` in a worker body safe, because the destructor cannot get to the
+  // members until every worker has returned. Nothing here can deadlock: workers
+  // only ever post queued calls, they never block on the GUI thread.
   ++spectrumGen_;
   ++durationGen_;
   ++verifyGen_;
+  workers_.stopAndJoin();
   spectrumTimer_.stop();
   marqueeTimer_.stop();
   persistNow();
@@ -244,24 +251,28 @@ qint64 TrampSession::titleScrollMs() const {
 
 void TrampSession::startSpectrumDecode(const QString& path, int gen) {
   const SpectrumAnalyzer analyzer = analyzer_;
-  const QPointer<TrampSession> session(this);
-  std::thread([path, gen, analyzer, session]() {
+  const auto alive = workers_.alive();
+  workers_.start([this, path, gen, analyzer, alive]() {
 #ifdef Q_OS_UNIX
     nice(19);
 #endif
-    const Spectrogram spec = analyzer.load(path);
-    TrampSession* host = session.data();
-    if (!host) return;
+    // Both reads are atomic, which is what makes them legal from here — a
+    // QPointer is not, and `this` outliving the read is the crew's job.
+    const auto stillWanted = [this, gen, alive]() {
+      return alive->load() && gen == spectrumGen_.load();
+    };
+    const Spectrogram spec = analyzer.load(path, stillWanted);
+    if (!stillWanted()) return;
     QMetaObject::invokeMethod(
-        host,
-        [session, spec, gen]() {
-          if (!session || gen != session->spectrumGen_) return;
-          session->spectrogram_ = spec;
-          session->spectrumReady_ = true;
-          session->tickSpectrum();
+        this,
+        [this, spec, gen]() {
+          if (gen != spectrumGen_.load()) return;
+          spectrogram_ = spec;
+          spectrumReady_ = true;
+          tickSpectrum();
         },
         Qt::QueuedConnection);
-  }).detach();
+  });
 }
 
 void TrampSession::setWindows(HostWindow* main, HostWindow* eq, HostWindow* pl,
@@ -400,23 +411,26 @@ void TrampSession::schedulePathVerify() {
   const QVector<Track> tracks = playlist_.tracks();
   ++verifyGen_;
   if (tracks.isEmpty()) return;
-  const int gen = verifyGen_;
-  const QPointer<TrampSession> session(this);
-  std::thread([tracks, gen, session]() {
+  const int gen = verifyGen_.load();
+  const auto alive = workers_.alive();
+  workers_.start([this, tracks, gen, alive]() {
     QSet<QString> missing;
     for (const Track& t : tracks) {
+      // Per track, not per playlist: a long list is most of what teardown would
+      // otherwise have to sit through.
+      if (!alive->load() || gen != verifyGen_.load()) return;
       if (!QFileInfo::exists(t.path)) missing.insert(normalizePlaylistPath(t.path));
     }
-    if (!session) return;
+    if (!alive->load() || gen != verifyGen_.load()) return;
     QMetaObject::invokeMethod(
-        session.data(),
-        [session, missing, gen]() {
-          if (!session || gen != session->verifyGen_) return;
-          session->playlist_.markMissingPaths(missing);
-          session->refreshChrome();
+        this,
+        [this, missing, gen]() {
+          if (gen != verifyGen_.load()) return;
+          playlist_.markMissingPaths(missing);
+          refreshChrome();
         },
         Qt::QueuedConnection);
-  }).detach();
+  });
 }
 
 void TrampSession::refreshCurrentPlaylist() {
@@ -453,26 +467,31 @@ void TrampSession::startDurationProbe(const QVector<Track>& tracks) {
   const QStringList missing = pathsNeedingAudioProbe(tracks);
   ++durationGen_;
   if (missing.isEmpty()) return;
-  const int gen = durationGen_;
-  const QPointer<TrampSession> session(this);
-  std::thread([missing, gen, session]() {
+  const int gen = durationGen_.load();
+  const auto alive = workers_.alive();
+  workers_.start([this, missing, gen, alive]() {
+    // probeAudioDurations already asks between files; that is the per-iteration
+    // check, and it is why the probe loop itself needs no changes.
+    const auto stillWanted = [this, gen, alive]() {
+      return alive->load() && gen == durationGen_.load();
+    };
     probeAudioDurations(
-        missing, [session]() { return bool(session); },
-        [session, gen](const QString& path, const ProbedAudio& probed) {
-          if (!session) return;
+        missing, stillWanted,
+        [this, gen, &stillWanted](const QString& path, const ProbedAudio& probed) {
+          if (!stillWanted()) return;
           const QString title = probed.title;
           const QString artist = probed.artist;
           const QString album = probed.album;
           const qint64 ms = probed.durationMs.value_or(0);
           QMetaObject::invokeMethod(
-              session.data(),
-              [session, path, title, artist, album, ms, gen]() {
-                if (!session || gen != session->durationGen_) return;
-                session->onProbedAudio(path, title, artist, album, ms);
+              this,
+              [this, path, title, artist, album, ms, gen]() {
+                if (gen != durationGen_.load()) return;
+                onProbedAudio(path, title, artist, album, ms);
               },
               Qt::QueuedConnection);
         });
-  }).detach();
+  });
 }
 
 void TrampSession::onProbedAudio(const QString& path, const QString& title, const QString& artist,
