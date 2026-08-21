@@ -294,18 +294,15 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
   }
 
   if (live) {
-    const QRectF seekRow(body.left() + 22, body.top() + 206, body.width() - 44, 32);
     const QFont stamp = monoFont(14);
     const QFontMetricsF sm(stamp);
-    const qreal posW = sm.horizontalAdvance(pos);
-    const qreal durW = sm.horizontalAdvance(dur);
+    const MainSeekRow row =
+        layoutMainSeekRow(body, sm.horizontalAdvance(pos), sm.horizontalAdvance(dur));
     p.setFont(stamp);
     p.setPen(T().inkDim);
-    p.drawText(QRectF(seekRow.left(), seekRow.top(), posW, 32), Qt::AlignVCenter, pos);
-    p.drawText(QRectF(seekRow.right() - durW, seekRow.top(), durW, 32), Qt::AlignVCenter, dur);
-    drawSlider(p, QRectF(seekRow.left() + posW + 14, seekRow.center().y() - 8,
-                         seekRow.width() - posW - durW - 28, 16),
-               seek, true, glow);
+    p.drawText(row.elapsed, Qt::AlignVCenter, pos);
+    p.drawText(row.duration, Qt::AlignVCenter, dur);
+    drawSlider(p, row.track, seek, true, glow);
   }
 
   if (chassis) {

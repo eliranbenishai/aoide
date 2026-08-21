@@ -128,6 +128,34 @@ inline MainVolumeRow layoutMainVolumeRow(const QRectF& body) {
   return out;
 }
 
+inline constexpr qreal kSeekRowTop = 206;
+inline constexpr qreal kSeekRowH = 32;
+inline constexpr qreal kSeekStampGap = 14;
+inline constexpr qreal kSeekTrackH = 16;
+
+struct MainSeekRow {
+  QRectF row;
+  QRectF elapsed;
+  QRectF duration;
+  QRectF track;
+};
+
+/// The seek well sits between the two clock stamps, so its left edge moves with
+/// the rendered width of the elapsed time: `10:01` pushes it a digit further
+/// right than `9:59`, and a skin's LCD face moves it again. Callers pass the
+/// measured widths; layout stays independent of the font machinery.
+inline MainSeekRow layoutMainSeekRow(const QRectF& body, qreal posW, qreal durW) {
+  MainSeekRow out;
+  out.row = QRectF(body.left() + kBodySidePad, body.top() + kSeekRowTop,
+                   body.width() - 2 * kBodySidePad, kSeekRowH);
+  const QRectF& row = out.row;
+  out.elapsed = QRectF(row.left(), row.top(), posW, kSeekRowH);
+  out.duration = QRectF(row.right() - durW, row.top(), durW, kSeekRowH);
+  out.track = QRectF(row.left() + posW + kSeekStampGap, row.center().y() - kSeekTrackH / 2,
+                     row.width() - posW - durW - 2 * kSeekStampGap, kSeekTrackH);
+  return out;
+}
+
 /// The maker's-plate web pill is sized to its own text, so a fixed-width hit box
 /// drifts from it as soon as a skin changes the LCD face. Callers pass the
 /// measured text width; layout stays independent of the font machinery.
