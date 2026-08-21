@@ -13,6 +13,7 @@ binaries under this tree (or a distro full libmpv) instead.
 third_party/libmpv/
   pins.json                 # pinned URLs + hashes (committed)
   windows/x86_64/libmpv-2.dll   # fetched, not committed by default
+  windows/x86_64/libmpv.dll.a   # import library, same fetch
   linux/x86_64/libmpv.so*       # optional bundle override
   macos/universal/              # full xcframework contents (fetched)
   .cache/                       # download/extract scratch (gitignored)
@@ -27,7 +28,13 @@ powershell -ExecutionPolicy Bypass -File tool/fetch_full_libmpv.ps1
 ```
 
 This downloads the pinned shinchiro `mpv-dev` archive, verifies SHA-256, extracts
-`libmpv-2.dll` into `windows/x86_64/`, and checks the DLL hash.
+`libmpv-2.dll` **and its import library `libmpv.dll.a`** into `windows/x86_64/`,
+and checks the DLL hash.
+
+Both files are needed and neither is optional: the import library is what the
+Windows build links against, and the DLL is what the loader resolves at run time
+and what ships. `CMakeLists.txt` only turns `TRAMP_HAVE_MPV` on for Windows when
+it finds both.
 
 Requires Visual Studio’s CMake (`cmake -E tar`) on PATH, or the VS 2022
 Community CMake path used by the script.
@@ -48,7 +55,7 @@ Community CMake path used by the script.
 
 | Platform | Hook |
 |----------|------|
-| Windows | `packaging/windows/stage.ps1` copies `libmpv-2.dll` next to `tramp.exe` when present. |
+| Windows | Root `CMakeLists.txt` links `libmpv.dll.a` and copies `libmpv-2.dll` beside the binaries it builds and into the install prefix; `packaging/windows/stage.ps1` copies it next to `tramp.exe` when present. |
 | Linux | Root `CMakeLists.txt` install stages `third_party/libmpv/linux/x86_64/libmpv.so*` into the bundle `lib/` when present (else system libmpv). |
 | macOS | After `fetch_full_libmpv.sh`, the Qt Mac host will load the staged frameworks. Do not ship slim `audio-default`. |
 
