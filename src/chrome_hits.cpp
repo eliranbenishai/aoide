@@ -98,7 +98,7 @@ ChromeHit hitEq(QSize logical, QPoint pos) {
   const QRectF bandRow = eqBandRow(body);
   for (int i = 0; i < kEqBandCount; ++i) {
     const EqBandColumn column = eqBandColumn(bandRow, i);
-    if (toHitRect(column.grab).contains(pos)) {
+    if (bandHitRect(column, kEqBandThumbH).contains(pos)) {
       return {i == 0 ? ChromeHit::Kind::eqPreamp : ChromeHit::Kind::eqBand, i == 0 ? -1 : i - 1,
               toHitRect(column.well)};
     }

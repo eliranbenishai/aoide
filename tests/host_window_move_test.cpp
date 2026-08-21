@@ -266,6 +266,15 @@ void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
         (i == 0 ? QStringLiteral("the preamp") : QStringLiteral("band %1").arg(i - 1)).toLatin1();
     grabCoversPaint(tramp::WindowId::equalizer, eq, column.gain, kind, what.constData(), index);
     grabCoversPaint(tramp::WindowId::equalizer, eq, column.well, kind, what.constData(), index);
+    // The thumb is centred on the value point, so at the ends of the range half
+    // of it stands outside the well it slides in.
+    for (qreal gainDb : {12.0, 0.0, -12.0}) {
+      grabCoversPaint(tramp::WindowId::equalizer, eq, tramp::bandThumbRect(column.well, gainDb),
+                      kind, QStringLiteral("%1's thumb at %2 dB")
+                                .arg(QString::fromLatin1(what))
+                                .arg(gainDb),
+                      index);
+    }
     const tramp::ChromeHit hit = tramp::hitTest(tramp::WindowId::equalizer, eq,
                                                 column.well.center().toPoint(), view);
     QCOMPARE(hit.rect, column.well.toAlignedRect());

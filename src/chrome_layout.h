@@ -99,6 +99,10 @@ inline constexpr qreal kSeekThumbW = 22;
 inline constexpr qreal kSeekThumbH = 32;
 inline constexpr qreal kVolumeThumbW = 20;
 inline constexpr qreal kVolumeThumbH = 30;
+/// The equaliser bands run the same way vertically: the thumb is centred on the
+/// value point, so at ±12 dB half of it hangs past the end of the well.
+inline constexpr qreal kEqBandThumbW = 34;
+inline constexpr qreal kEqBandThumbH = 18;
 
 /// Rounds outwards: a well whose edges fall between logical pixels — the seek
 /// well starts at the measured width of the elapsed stamp — would otherwise
@@ -290,9 +294,6 @@ struct EqBandColumn {
   QRectF gain;
   QRectF well;
   QRectF label;
-  /// What the pointer may grab. The readout is part of the control the eye
-  /// sees, so it drags the band; the well alone stays the value's domain.
-  QRectF grab;
 };
 
 /// Column 0 is the preamp: wider than the ten bands and set off from them.
@@ -306,8 +307,17 @@ inline EqBandColumn eqBandColumn(const QRectF& bandRow, int index) {
   out.gain = QRectF(x, bandRow.top(), w, kEqGainH);
   out.well = QRectF(x, bandRow.top() + kEqGainH, w, kEqWellH);
   out.label = QRectF(x, bandRow.top() + kEqBandLabelTop, w, kEqBandLabelH);
-  out.grab = QRectF(x, out.gain.top(), w, out.well.bottom() - out.gain.top());
   return out;
+}
+
+/// What the pointer may grab on a band. The readout above the well is part of
+/// the control the eye sees, so it drags the band, and the thumb hangs half its
+/// height below the well at −12 dB — but the rect the hit carries stays the
+/// well alone, so the drag still reads the full ±12 dB off the value's domain.
+inline QRect bandHitRect(const EqBandColumn& column, qreal thumbH) {
+  return QRectF(column.well.left(), column.gain.top(), column.well.width(),
+                column.well.bottom() + thumbH / 2 - column.gain.top())
+      .toAlignedRect();
 }
 
 /// The maker's-plate web pill is sized to its own text, so a fixed-width hit box
