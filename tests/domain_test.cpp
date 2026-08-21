@@ -1694,6 +1694,35 @@ int main() {
   }
 
   {
+    // Every existence check goes through the probe, including the ones on write
+    // paths. A check that asks the real disk behind an injected double turns
+    // into a silent no-op for whoever writes the next test.
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    const QString pl = QDir(tmp.path()).filePath(QStringLiteral("set.m3u"));
+    QFile list(pl);
+    REQUIRE(list.open(QIODevice::WriteOnly | QIODevice::Text));
+    list.write("#EXTM3U\n#EXTINF:120,Wire Garden - One\none.mp3\n");
+    list.close();
+
+    tramp::PlaylistCollection col;
+    col.add(pl);
+    REQUIRE_EQ(col.entries().front().trackCount, 1);
+
+    // Re-adding a playlist whose file has gone keeps the figures it had.
+    REQUIRE(QFile::remove(pl));
+    col.setExists([](const QString&) { return false; });
+    col.add(pl);
+    REQUIRE_EQ(col.entries().front().trackCount, 1);
+
+    // Say it is there and the figures are rebuilt from what could be read,
+    // which is nothing — the probe decides, not QFileInfo behind its back.
+    col.setExists([](const QString&) { return true; });
+    col.add(pl);
+    REQUIRE_EQ(col.entries().front().trackCount, 0);
+  }
+
+  {
     // A disabled playlist is still in the collection, and the cache is the only
     // thing left to paint its rows from — pruning must not touch it.
     QTemporaryDir tmp;

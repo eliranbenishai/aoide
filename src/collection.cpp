@@ -153,7 +153,10 @@ QVector<Track> PlaylistCollection::add(const QString& path) {
   }
   const int existing = indexOf(n);
   if (existing >= 0) {
-    if (QFileInfo::exists(n)) refreshFigures(entries_[existing], tracks);
+    // A re-add of a playlist whose file has gone keeps the figures it had: an
+    // unreadable list would otherwise zero them. Asked through the same probe
+    // as every other existence check, so a test double is believed here too.
+    if (onDisk(n)) refreshFigures(entries_[existing], tracks);
     selectedPath_ = entries_[existing].path;
     return tracks;
   }
