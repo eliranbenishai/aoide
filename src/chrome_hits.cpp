@@ -123,7 +123,7 @@ ChromeHit hitPlaylist(QSize logical, QPoint pos, const SessionView& view) {
     }
     const QRectF colWell(colInner.left(), colInner.top() + 30, colInner.width(),
                          colInner.height() - 30 - 8 - 24);
-    const int n = view.goldenDemo ? 3 : view.collection.size();
+    const int n = int(view.collection.size());
     for (int i = 0; i < n; ++i) {
       const QRect row(int(colWell.left()), int(colWell.top() + 4 + i * 26), int(colWell.width()), 26);
       if (auto h = hitIf(row, pos, ChromeHit::Kind::plCollectionRow, i);
@@ -149,7 +149,7 @@ ChromeHit hitPlaylist(QSize logical, QPoint pos, const SessionView& view) {
   const QRectF tracks = playlistTracksPane(body, collectionW);
   const QRectF trackInner = playlistTrackInner(tracks);
   const QRectF listRow = playlistListRowRect(trackInner);
-  const int rows = view.goldenDemo ? 13 : view.tracks.size();
+  const int rows = int(view.tracks.size());
   const QRectF listWell = playlistListWell(listRow, rows);
   const int first = view.trackScroll;
   const int visible = playlistVisibleRows(listWell.height()) + 1;
@@ -167,8 +167,7 @@ ChromeHit hitPlaylist(QSize logical, QPoint pos, const SessionView& view) {
                       kPlaylistFooterH);
   const QRectF deckInner =
       QRectF(footer.left(), footer.top(), footer.width(), 74).adjusted(12, 10, -12, -10);
-  const QString totalText =
-      view.goldenDemo ? QStringLiteral("55:34") : formatClock(view.playlistTotalMs);
+  const QString totalText = formatClock(view.playlistTotalMs);
   const qreal totalW = playlistStripTotalWidth(
       textWidth(condensedFont(11, 0.2), QStringLiteral("TOTAL")),
       textWidth(monoFont(18), totalText));
@@ -287,9 +286,6 @@ ChromeHit hitAbout(QSize logical, QPoint pos) {
 }  // namespace
 
 SeekStamps mainSeekStamps(const SessionView& view) {
-  if (view.goldenDemo) {
-    return {QStringLiteral("2:41"), QStringLiteral("5:47")};
-  }
   return {formatClock(view.positionMs), formatClock(view.durationMs)};
 }
 
