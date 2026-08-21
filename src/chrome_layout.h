@@ -60,8 +60,34 @@ inline qreal marqueeOffset(qreal textWidth, qreal clipWidth, qint64 elapsedMs, b
   return std::fmod(scrolled, loop);
 }
 
+/// Main and EQ bodies inset their rows by the same pad.
+inline constexpr qreal kBodySidePad = 22;
+
+inline constexpr qreal kMainOptionsTop = 18;
+inline constexpr qreal kMainOptionsSize = 26;
+inline constexpr qreal kDisplayWellLeft = 96;
+inline constexpr qreal kDisplayWellTop = 14;
+inline constexpr qreal kDisplayWellW = 705;
+inline constexpr qreal kDisplayWellH = 132;
+
+struct MainDisplayRow {
+  QRectF options;
+  QRectF well;
+};
+
+/// The options cog sits in the gutter left of the display well, which takes
+/// the rest of the row. The whole well toggles elapsed against remaining.
+inline MainDisplayRow layoutMainDisplay(const QRectF& body) {
+  MainDisplayRow out;
+  out.options = QRectF(body.left() + kBodySidePad, body.top() + kMainOptionsTop, kMainOptionsSize,
+                       kMainOptionsSize);
+  out.well = QRectF(body.left() + kDisplayWellLeft, body.top() + kDisplayWellTop, kDisplayWellW,
+                    kDisplayWellH);
+  return out;
+}
+
 /// Well 705, inner pad 16 per side, title meta inset 288.
-inline constexpr qreal kDisplayTitleClipW = 705 - 32 - 288;
+inline constexpr qreal kDisplayTitleClipW = kDisplayWellW - 32 - 288;
 
 /// Moving lines paint on the live pass; static lines stay on the chassis.
 inline bool displayTitleOnLivePass(qreal offset) { return offset > 0; }
@@ -81,9 +107,6 @@ inline QRect sliderHitRect(const QRectF& track, qreal thumbH) {
   const qreal h = std::max(track.height(), thumbH);
   return QRectF(track.left(), track.center().y() - h / 2, track.width(), h).toAlignedRect();
 }
-
-/// Main and EQ bodies inset their rows by the same pad.
-inline constexpr qreal kBodySidePad = 22;
 
 inline constexpr qreal kVolRowTop = 156;
 inline constexpr qreal kVolRowH = 40;

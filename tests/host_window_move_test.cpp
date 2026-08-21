@@ -146,6 +146,12 @@ void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
     }
   };
 
+  const tramp::MainDisplayRow display = tramp::layoutMainDisplay(tramp::panelBody(main));
+  grabCoversPaint(tramp::WindowId::main, main, display.options, tramp::ChromeHit::Kind::options,
+                  "the options cog");
+  grabCoversPaint(tramp::WindowId::main, main, display.well, tramp::ChromeHit::Kind::timeToggle,
+                  "the display well");
+
   const tramp::MainVolumeRow vol = tramp::layoutMainVolumeRow(tramp::panelBody(main));
   grabCoversPaint(tramp::WindowId::main, main, vol.mute, tramp::ChromeHit::Kind::mute, "Mute");
   grabCoversPaint(tramp::WindowId::main, main,

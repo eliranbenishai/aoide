@@ -24,13 +24,14 @@ QRect toHitRect(const QRectF& r) { return r.toAlignedRect(); }
 
 ChromeHit hitMain(QSize logical, QPoint pos, const SessionView& view) {
   const QRectF body = panelBody(logical);
-  const QRect options(int(body.left() + 22), int(body.top() + 18), 26, 26);
-  if (auto h = hitIf(options, pos, ChromeHit::Kind::options); h.kind != ChromeHit::Kind::none) {
+  const MainDisplayRow display = layoutMainDisplay(body);
+  if (auto h = hitIf(toHitRect(display.options), pos, ChromeHit::Kind::options);
+      h.kind != ChromeHit::Kind::none) {
     return h;
   }
-  const QRectF well(body.left() + 96, body.top() + 14, 705, 132);
-  if (QRect(well.toRect()).contains(pos)) {
-    return {ChromeHit::Kind::timeToggle, -1, well.toRect()};
+  if (auto h = hitIf(toHitRect(display.well), pos, ChromeHit::Kind::timeToggle);
+      h.kind != ChromeHit::Kind::none) {
+    return h;
   }
 
   const MainVolumeRow vol = layoutMainVolumeRow(body);
@@ -303,8 +304,7 @@ ChromeHit hitTest(WindowId id, QSize logical, QPoint pos, const SessionView& vie
 }
 
 QRect mainOptionsHit(QSize logical) {
-  Q_UNUSED(logical);
-  return QRect(22, kTitleBar + 18, 26, 26);
+  return toHitRect(layoutMainDisplay(panelBody(logical)).options);
 }
 
 QRect mainEqHit(QSize logical) { return toHitRect(layoutMainVolumeRow(panelBody(logical)).eq); }

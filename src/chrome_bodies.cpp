@@ -144,13 +144,13 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
   const bool live = pass != BodyPaint::chassis;
   const bool glow = pass == BodyPaint::full;
 
-  const QRectF well(body.left() + 96, body.top() + 14, 705, 132);
+  const MainDisplayRow display = layoutMainDisplay(body);
+  const QRectF& well = display.well;
   const QRectF inner = well.adjusted(16, 12, -16, -12);
 
   if (chassis) {
     drawScreenWell(p, well);
-    drawGlyphBtn(p, QRectF(body.left() + 22, body.top() + 18, 26, 26), MockupIcon::options,
-                 faceOf(phases, K::options, false), 16);
+    drawGlyphBtn(p, display.options, MockupIcon::options, faceOf(phases, K::options, false), 16);
   }
 
   if (live) {
