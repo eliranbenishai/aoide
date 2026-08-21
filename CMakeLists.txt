@@ -373,6 +373,22 @@ add_test(NAME domain COMMAND domain_test)
 add_test(NAME look COMMAND look_test)
 add_test(NAME font_metrics COMMAND font_metrics_test)
 
+# A test needs a QPA platform iff it constructs something that loads one:
+# QTEST_MAIN builds a QApplication, and font_metrics_test builds a
+# QGuiApplication by hand. The other six do not — QTEST_APPLESS_MAIN builds no
+# application object, QTEST_GUILESS_MAIN builds a QCoreApplication, and
+# domain_test / look_test have plain mains — so they need nothing set and are
+# left alone. This is the same split build.sh makes, for the same reason.
+#
+# Offscreen rather than the default because ctest has to be right in both
+# directions. On a headless runner the default is xcb with no display to connect
+# to, and the test aborts instead of running; on a developer's desktop the
+# default is a real compositor that ignores the geometry these tests assert, and
+# host_window_move fails for reasons that have nothing to do with the code. Set
+# here rather than in the workflow so `ctest` is the same check everywhere.
+set_tests_properties(host_shell_window host_window_move chrome_tooltip wait_cursor font_metrics
+  PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 install(TARGETS tramp RUNTIME DESTINATION .)
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/assets" DESTINATION .)
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/skins" DESTINATION .)
