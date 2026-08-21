@@ -36,9 +36,10 @@ class PanelSurfaces {
   /// The virtual desktop every panel has to stay inside. Empty before there is
   /// a host, and nothing is clamped against an empty rectangle.
   virtual QRect hostRect() const = 0;
-  /// All five panels arrive every pass, hidden ones included. The punch is the
-  /// union of whichever are visible, and a panel left out of the list would
-  /// leave its vacated rectangle in that union.
+  /// All five panels arrive every pass, hidden ones included, because hiding is
+  /// something this call has to do rather than something it can skip. A panel
+  /// missing from the list would keep its pixels on the canvas while dropping
+  /// out of the punch the shell builds from the visible ones.
   virtual void placePanels(const QVector<PanelPlacement>& panels) = 0;
 };
 
