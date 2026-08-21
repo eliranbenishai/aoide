@@ -37,6 +37,11 @@ struct TextShadow {
   qreal blurRadius = 0;
 };
 
+/// Every painter below leaves the pen, brush and font as it found them. A
+/// helper that did not cost the playlist footer three of its four readouts:
+/// `drawStatusDot` left `Qt::NoPen` behind, and the strip draws a dot between
+/// each pair of labels, so everything after the first dot was drawn with no
+/// pen and never appeared. Callers set state once and call these freely.
 QFont condensedFont(int px, qreal trackingEm = 0);
 QFont monoFont(int px, qreal trackingEm = 0);
 qreal textWidth(const QFont& font, const QString& text);

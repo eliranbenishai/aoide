@@ -644,10 +644,17 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   drawStatusDot(p, QPointF(sx + 18 + 2.5, status.center().y()));
   sx += 18 + 5 + 18;
   statusBit(playingN > 0 ? QStringLiteral("PLAYING %1").arg(playingN) : QStringLiteral("STOPPED"));
-  drawStatusDot(p, QPointF(sx + 18 + 2.5, status.center().y()));
+  // The readouts flow from the left and the hint is pinned to the right, so a
+  // narrow panel runs them together. The hint is the one part of the strip that
+  // says nothing about this playlist, so it is what gives way — with the same
+  // gap-dot-gap the readouts keep between them, or it is not there at all.
   const QString drop = QStringLiteral("DROP FILES HERE TO ENQUEUE");
-  const qreal dropW = textWidth(statusFont, drop);
-  p.drawText(QRectF(status.right() - dropW, status.top(), dropW, 26), Qt::AlignVCenter, drop);
+  const qreal dropLeft = status.right() - textWidth(statusFont, drop);
+  if (dropLeft >= sx + 18 + 5 + 18) {
+    drawStatusDot(p, QPointF(sx + 18 + 2.5, status.center().y()));
+    p.drawText(QRectF(dropLeft, status.top(), status.right() - dropLeft, 26), Qt::AlignVCenter,
+               drop);
+  }
 }
 
 void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,

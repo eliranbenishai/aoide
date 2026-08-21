@@ -11,15 +11,18 @@
 #include "window_spec.h"
 
 #include <QApplication>
+#include <QBrush>
 #include <QElapsedTimer>
 #include <QFontMetricsF>
 #include <QImage>
 #include <QPainter>
+#include <QPen>
 #include <QSignalSpy>
 #include <QTest>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <functional>
 
 class PaintCountHost : public HostWindow {
  public:
@@ -46,6 +49,7 @@ class HostWindowMoveTest : public QObject {
   void refreshButtonLightsWhilePlaylistRefreshing();
   void refreshLampLightsOnTheLiveEventLoop();
   void goldenDemoPaintsTheStateItIsHanded();
+  void mockupHelpersLeaveThePainterAsTheyFoundIt();
 };
 
 void HostWindowMoveTest::parentedPanelMoveDoesNotEmitNativeMoved() {
@@ -623,6 +627,100 @@ void HostWindowMoveTest::goldenDemoPaintsTheStateItIsHanded() {
           tramp::kPlaylistCollectionMinWidth)));
   QVERIFY2(tramp::playlistListMaxScroll(int(golden.tracks.size()), clampedList.height()) > 0,
            "the clamped playlist must overflow, or the scrollbar loses its only picture");
+}
+
+// A helper that leaves a pen or a brush behind is invisible until a caller
+// sets its state once and then draws several things through it. The playlist
+// footer does exactly that, and `drawStatusDot`'s stray `Qt::NoPen` cost the
+// strip its track count, its playing state and its drop hint for as long as
+// the strip had existed. Every painter mockup_draw exports is checked, so the
+// next one to grow a `setPen` fails here rather than in a screenshot nobody
+// takes.
+void HostWindowMoveTest::mockupHelpersLeaveThePainterAsTheyFoundIt() {
+  QImage canvas(260, 200, QImage::Format_ARGB32_Premultiplied);
+  canvas.fill(Qt::black);
+  QPainter p(&canvas);
+  QImage logo(8, 8, QImage::Format_ARGB32_Premultiplied);
+  logo.fill(Qt::white);
+
+  const QRectF box(30, 30, 110, 46);
+  const QRectF slim(30, 30, 110, 16);
+  const QRectF glyph(30, 30, 24, 24);
+  const QPointF dot(60, 60);
+  const QString label = QStringLiteral("Label");
+  const QFont face = tramp::condensedFont(13, 0.1);
+
+  const QVector<QPair<QString, std::function<void(QPainter&)>>> helpers = {
+      {QStringLiteral("fillRound"), [&](QPainter& g) { tramp::fillRound(g, box, 4, Qt::red); }},
+      {QStringLiteral("drawScreenWell"), [&](QPainter& g) { tramp::drawScreenWell(g, box); }},
+      {QStringLiteral("drawScreenOverlay"), [&](QPainter& g) { tramp::drawScreenOverlay(g, box); }},
+      {QStringLiteral("drawScreen"), [&](QPainter& g) { tramp::drawScreen(g, box); }},
+      {QStringLiteral("drawListWell"), [&](QPainter& g) { tramp::drawListWell(g, box); }},
+      {QStringLiteral("drawBtn"), [&](QPainter& g) { tramp::drawBtn(g, box, true); }},
+      {QStringLiteral("drawBtn labelled"),
+       [&](QPainter& g) { tramp::drawBtn(g, box, tramp::BtnFace(0.4, 0.5, 0.6), label); }},
+      {QStringLiteral("drawIcon"),
+       [&](QPainter& g) { tramp::drawIcon(g, glyph, tramp::MockupIcon::play, Qt::white); }},
+      {QStringLiteral("drawIcon mute"),
+       [&](QPainter& g) { tramp::drawIcon(g, glyph, tramp::MockupIcon::mute, Qt::white); }},
+      {QStringLiteral("drawIcon options"),
+       [&](QPainter& g) { tramp::drawIcon(g, glyph, tramp::MockupIcon::options, Qt::white); }},
+      {QStringLiteral("drawGlyphBtn"),
+       [&](QPainter& g) { tramp::drawGlyphBtn(g, box, tramp::MockupIcon::next, true); }},
+      {QStringLiteral("drawSlider"), [&](QPainter& g) { tramp::drawSlider(g, slim, 0.4); }},
+      {QStringLiteral("drawSlider seek"),
+       [&](QPainter& g) { tramp::drawSlider(g, slim, 0.4, true); }},
+      {QStringLiteral("drawVBand"), [&](QPainter& g) { tramp::drawVBand(g, box, 4.5); }},
+      {QStringLiteral("drawLed"), [&](QPainter& g) { tramp::drawLed(g, dot, 0.7); }},
+      {QStringLiteral("drawLed dark"), [&](QPainter& g) { tramp::drawLed(g, dot, 0); }},
+      {QStringLiteral("drawToggleBtn"),
+       [&](QPainter& g) { tramp::drawToggleBtn(g, box, label, true); }},
+      {QStringLiteral("drawMenuCaret"), [&](QPainter& g) { tramp::drawMenuCaret(g, box); }},
+      {QStringLiteral("drawReload"), [&](QPainter& g) { tramp::drawReload(g, glyph, Qt::white); }},
+      {QStringLiteral("drawChevron"),
+       [&](QPainter& g) { tramp::drawChevron(g, glyph, true, Qt::white); }},
+      {QStringLiteral("drawCreateMark"),
+       [&](QPainter& g) { tramp::drawCreateMark(g, glyph, Qt::white); }},
+      {QStringLiteral("drawRenameMark"),
+       [&](QPainter& g) { tramp::drawRenameMark(g, glyph, Qt::white); }},
+      {QStringLiteral("drawFooterSep"), [&](QPainter& g) { tramp::drawFooterSep(g, slim); }},
+      {QStringLiteral("drawStatusDot"), [&](QPainter& g) { tramp::drawStatusDot(g, dot); }},
+      {QStringLiteral("drawScrollbar"),
+       [&](QPainter& g) { tramp::drawScrollbar(g, QRectF(200, 30, 14, 120), 10, 40); }},
+      {QStringLiteral("drawDiscLogo"),
+       [&](QPainter& g) { tramp::drawDiscLogo(g, QRectF(30, 30, 30, 30), &logo); }},
+      {QStringLiteral("drawDiscLogo flat"),
+       [&](QPainter& g) { tramp::drawDiscLogo(g, QRectF(30, 30, 58, 58), &logo, false); }},
+      {QStringLiteral("drawNoiseOverlay"),
+       [&](QPainter& g) { tramp::drawNoiseOverlay(g, box, 6); }},
+      {QStringLiteral("drawStyledText"),
+       [&](QPainter& g) {
+         tramp::drawStyledText(g, box, label, face, Qt::white, Qt::AlignCenter,
+                               {{Qt::black, QPointF(0, 1), 0}});
+       }},
+      {QStringLiteral("drawGlowText"),
+       [&](QPainter& g) {
+         tramp::drawGlowText(g, box, label, face, Qt::white, Qt::cyan, 5, Qt::AlignCenter);
+       }},
+      {QStringLiteral("paintBlurred"),
+       [&](QPainter& g) {
+         tramp::paintBlurred(g, box, 0, [&](QPainter& bp) { bp.setPen(Qt::NoPen); });
+       }},
+  };
+
+  const QPen pen(QColor(11, 22, 33), 3);
+  const QBrush brush(QColor(44, 55, 66));
+  const QFont font = tramp::monoFont(17, 0.25);
+  for (const auto& helper : helpers) {
+    p.setPen(pen);
+    p.setBrush(brush);
+    p.setFont(font);
+    helper.second(p);
+    QVERIFY2(p.pen() == pen, qPrintable(helper.first + QStringLiteral(" left a pen behind")));
+    QVERIFY2(p.brush() == brush, qPrintable(helper.first + QStringLiteral(" left a brush behind")));
+    QVERIFY2(p.font().toString() == font.toString(),
+             qPrintable(helper.first + QStringLiteral(" left a font behind")));
+  }
 }
 
 QTEST_MAIN(HostWindowMoveTest)
