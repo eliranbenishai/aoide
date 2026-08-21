@@ -18,6 +18,7 @@ class ChromeSpecTest : public QObject {
   void mainTitleDragExcludesWindowButtons();
   void extrasOmitBrandAndZoomAndUseCollapse();
   void zoomStepsMoveAcrossTheDiscreteLadder();
+  void retiredZoomStepsSnapToTheNearestSurvivor();
   void mainTitleShowsZoomReadoutBetweenZoomButtons();
   void overflowingTitleMarqueeHoldsThenLoops();
   void chromePaintBufferMatchesWidgetTimesDpr();
@@ -118,11 +119,40 @@ void ChromeSpecTest::extrasOmitBrandAndZoomAndUseCollapse() {
 }
 
 void ChromeSpecTest::zoomStepsMoveAcrossTheDiscreteLadder() {
+  // Four steps — 75, 100, 125, 150 — with 75% the default.
+  QCOMPARE(tramp::kDefaultZoomPercent, 75);
   QCOMPARE(tramp::nextZoomPercent(75), 100);
-  QCOMPARE(tramp::prevZoomPercent(75), 50);
-  QCOMPARE(tramp::nextZoomPercent(300), 300);
-  QCOMPARE(tramp::prevZoomPercent(50), 50);
+  QCOMPARE(tramp::nextZoomPercent(100), 125);
+  QCOMPARE(tramp::nextZoomPercent(125), 150);
+  QCOMPARE(tramp::prevZoomPercent(150), 125);
+  QCOMPARE(tramp::prevZoomPercent(125), 100);
+  QCOMPARE(tramp::prevZoomPercent(100), 75);
+
+  // Both ends clamp. Stepping off either one must hold, not wrap round to the
+  // far end and not run past the ladder onto a percent nothing else knows.
+  QCOMPARE(tramp::nextZoomPercent(150), 150);
+  QCOMPARE(tramp::prevZoomPercent(75), 75);
+
   QCOMPARE(tramp::zoomed(tramp::kMainPlayer, 75), QSize(619, 261));
+}
+
+void ChromeSpecTest::retiredZoomStepsSnapToTheNearestSurvivor() {
+  // A listener who ran the eight-step build has 50% or 200% saved.
+  QCOMPARE(tramp::snapZoomPercent(50), 75);
+  QCOMPARE(tramp::snapZoomPercent(200), 150);
+  QCOMPARE(tramp::snapZoomPercent(250), 150);
+  QCOMPARE(tramp::snapZoomPercent(300), 150);
+
+  // Surviving steps pass through untouched; nonsense still lands on a step.
+  for (int step : tramp::kZoomSteps) {
+    QCOMPARE(tramp::snapZoomPercent(step), step);
+  }
+  QCOMPARE(tramp::snapZoomPercent(0), 75);
+  QCOMPARE(tramp::snapZoomPercent(-40), 75);
+
+  // Nearest wins on either side of the gap between two steps.
+  QCOMPARE(tramp::snapZoomPercent(87), 75);
+  QCOMPARE(tramp::snapZoomPercent(88), 100);
 }
 
 void ChromeSpecTest::mainTitleShowsZoomReadoutBetweenZoomButtons() {

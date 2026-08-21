@@ -6,7 +6,7 @@
 namespace tramp {
 
 inline constexpr int kDefaultZoomPercent = 75;
-inline constexpr int kZoomSteps[] = {50, 75, 100, 125, 150, 200, 250, 300};
+inline constexpr int kZoomSteps[] = {75, 100, 125, 150};
 
 inline int nextZoomPercent(int current) {
   for (int step : kZoomSteps) {
@@ -25,6 +25,19 @@ inline int prevZoomPercent(int current) {
     }
   }
   return found;
+}
+
+/// A zoom percent restored from an older build may name a step the ladder no
+/// longer carries. Snap it onto the nearest surviving step; a tie keeps the
+/// smaller one, which is the step more likely to fit the display.
+inline int snapZoomPercent(int percent) {
+  int nearest = kZoomSteps[0];
+  for (int step : kZoomSteps) {
+    if (qAbs(step - percent) < qAbs(nearest - percent)) {
+      nearest = step;
+    }
+  }
+  return nearest;
 }
 
 inline constexpr int kTitleBar = 42;

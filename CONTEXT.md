@@ -113,8 +113,8 @@ A persisted, browsable catalog of known tracks on disk, built by indexing design
 _Avoid_: collection, media database (in v1 discussions); using "library" for the playlist collection
 
 **Zoom step**:
-One of the discrete scale factors (50%, 75%, 100%, 125%, 150%, 200%, 250%, 300%; default **75%**) applied globally to the main, equalizer, and playlist panels’ logical canvases. Persisted; steps that would not fit the display’s work area are disabled. Changes via main title-bar zoom-in / zoom-out (and matching menu or shortcut). Scales main/EQ canvases and the playlist’s stored logical size; does not replace playlist free resize.
-_Avoid_: DPI scale (OS setting), continuous zoom, maximize (as a window-size control), per-panel zoom (product model is global), stretching main/EQ via panel drag
+One of the discrete scale factors (75%, 100%, 125%, 150%; default **75%**) applied globally to the main, equalizer, and playlist panels’ logical canvases. Persisted — a saved factor that is no longer a step snaps to the nearest surviving one; steps that would not fit the display’s work area are disabled. Changes via main title-bar zoom-in / zoom-out (and matching menu or shortcut). Scales main/EQ canvases and the playlist’s stored logical size; does not replace playlist free resize.
+_Avoid_: DPI scale (OS setting), continuous zoom, maximize (as a window-size control), per-panel zoom (product model is global), stretching main/EQ via panel drag, 50% / 200% / 250% / 300% (retired steps)
 
 **Clutterbar**:
 The vertical letter strip on the main player. Product letters: **O** (options), **A** (always-on-top for the visible docked group), **I** (track info). No D, no V.

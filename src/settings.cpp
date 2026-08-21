@@ -196,12 +196,10 @@ QJsonObject TrampSettings::toJson() const {
 
 TrampSettings TrampSettings::fromJson(const QJsonObject& json) {
   TrampSettings s;
-  const int zoom = json.value(QStringLiteral("zoomPercent")).toInt(s.zoomPercent);
-  bool zoomOk = false;
-  for (int step : kZoomSteps) {
-    if (step == zoom) zoomOk = true;
-  }
-  if (zoomOk) s.zoomPercent = zoom;
+  // A listener who ran an earlier build has a retired step saved here. Dropping
+  // it to the default threw their choice away; snap to the nearest step the
+  // ladder still carries instead.
+  s.zoomPercent = snapZoomPercent(json.value(QStringLiteral("zoomPercent")).toInt(s.zoomPercent));
   if (json.value(QStringLiteral("alwaysOnTop")).isBool()) {
     s.alwaysOnTop = json.value(QStringLiteral("alwaysOnTop")).toBool();
   }

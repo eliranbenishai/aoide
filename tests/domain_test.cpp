@@ -906,6 +906,29 @@ int main() {
   }
 
   {
+    // A listener who ran the eight-step ladder has 200% or 50% saved. Restoring
+    // a percent the ladder no longer carries would leave the readout on a number
+    // the zoom buttons cannot get back to, so it snaps to the nearest surviving
+    // step rather than being thrown away for the default.
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    tramp::SupportStore store(tmp.path());
+    const QString path = QDir(tmp.path()).filePath(QStringLiteral("settings.json"));
+    const auto restoredZoom = [&](int saved) {
+      QFile file(path);
+      REQUIRE(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+      file.write(QByteArray("{\"zoomPercent\": ") + QByteArray::number(saved) +
+                 QByteArray("}"));
+      file.close();
+      return store.readSettings().zoomPercent;
+    };
+    REQUIRE_EQ(restoredZoom(200), 150);
+    REQUIRE_EQ(restoredZoom(300), 150);
+    REQUIRE_EQ(restoredZoom(50), 75);
+    REQUIRE_EQ(restoredZoom(125), 125);
+  }
+
+  {
     // A corrupt state file must not vanish into defaults. Keep the bytes aside so
     // the listener's collection can be recovered rather than overwritten.
     QTemporaryDir tmp;
