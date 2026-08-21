@@ -35,12 +35,14 @@ class PainterStateScope {
 /// A reading of everything a painter hands to whatever draws next, so the
 /// contract below can be checked rather than reviewed.
 ///
-/// The reading is the whole of [QPainter]'s state and not the three fields the
-/// bug of the day happened to use. `drawStatusDot` left a `Qt::NoPen` behind
-/// and cost the playlist footer three readouts, so pen, brush and font went
-/// under a test — and the About plate's stray `SmoothPixmapTransform` sailed
-/// straight through it, because a render hint is not any of those three. A
-/// narrow check reports all-clear on the leak it was not written for.
+/// The reading is everything [QPainter]'s state stack holds, and not the three
+/// fields the bug of the day happened to use. `drawStatusDot` left a
+/// `Qt::NoPen` behind and cost the playlist footer three readouts, so pen,
+/// brush and font went under a test — and the About plate's stray
+/// `SmoothPixmapTransform` sailed straight through it, because a render hint is
+/// not any of those three. A narrow check reports all-clear on the leak it was
+/// not written for, so this one is not narrowed to what the chrome happens to
+/// set today.
 struct PainterState {
   QPen pen;
   QBrush brush;
@@ -55,6 +57,10 @@ struct PainterState {
   bool clipping = false;
   QPainterPath clip;
   QTransform transform;
+  bool worldMatrix = true;
+  bool viewTransform = false;
+  QRect viewport;
+  QRect window;
   QPainter::RenderHints hints;
   Qt::LayoutDirection direction = Qt::LeftToRight;
 
@@ -76,6 +82,10 @@ inline PainterState PainterState::of(const QPainter& painter) {
   state.clipping = painter.hasClipping();
   state.clip = painter.clipPath();
   state.transform = painter.transform();
+  state.worldMatrix = painter.worldMatrixEnabled();
+  state.viewTransform = painter.viewTransformEnabled();
+  state.viewport = painter.viewport();
+  state.window = painter.window();
   state.hints = painter.renderHints();
   state.direction = painter.layoutDirection();
   return state;
@@ -95,7 +105,10 @@ inline QStringList PainterState::differencesFrom(const PainterState& earlier) co
   note(composition != earlier.composition, "composition mode");
   note(!qFuzzyCompare(opacity + 1, earlier.opacity + 1), "opacity");
   note(clipping != earlier.clipping || clip != earlier.clip, "clip");
-  note(transform != earlier.transform, "transform");
+  note(transform != earlier.transform || worldMatrix != earlier.worldMatrix, "transform");
+  note(viewTransform != earlier.viewTransform || viewport != earlier.viewport ||
+           window != earlier.window,
+       "view transform");
   note(hints != earlier.hints, "render hints");
   note(direction != earlier.direction, "layout direction");
   return moved;

@@ -472,6 +472,10 @@ void ChromeSpecTest::thePainterReadingNamesEveryKindOfLeak() {
            QStringList{QStringLiteral("clip")});
   QCOMPARE(leftBehind([](tramp::PainterState& s) { s.transform.translate(2, 0); }),
            QStringList{QStringLiteral("transform")});
+  QCOMPARE(leftBehind([](tramp::PainterState& s) { s.worldMatrix = false; }),
+           QStringList{QStringLiteral("transform")});
+  QCOMPARE(leftBehind([](tramp::PainterState& s) { s.viewport = QRect(0, 0, 4, 4); }),
+           QStringList{QStringLiteral("view transform")});
   QCOMPARE(leftBehind([](tramp::PainterState& s) {
              s.hints |= QPainter::SmoothPixmapTransform;
            }),
