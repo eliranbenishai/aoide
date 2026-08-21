@@ -39,7 +39,21 @@ fi
 dump "$NEW"
 mkdir -p "$DIFF"
 status=0
+# Walk the current dump first. A state the build has started producing but the
+# baseline has never seen is invisible to the comparison below, which only knows
+# the names the baseline already holds — so adding a panel to --dump-chrome
+# would otherwise slip under the gate and stay unwatched until someone happened
+# to reseed. Report it, and fail.
+for new in "$NEW"/*.png; do
+  [[ -e "$new" ]] || continue
+  name="$(basename "$new")"
+  if [[ ! -f "$REF/$name" ]]; then
+    echo "UNSEEDED $name (no baseline entry; reseed with: tool/fidelity-diff.sh --baseline)"
+    status=1
+  fi
+done
 for ref in "$REF"/*.png; do
+  [[ -e "$ref" ]] || continue
   name="$(basename "$ref")"
   new="$NEW/$name"
   if [[ ! -f "$new" ]]; then

@@ -97,44 +97,25 @@ void drawLogoMark(QPainter& p, const QRectF& box, const QImage* logo, qreal opac
 void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPaint pass,
                const ChromePhases& phases) {
   using K = ChromeHit::Kind;
-  QString time = formatClock(view.showElapsed
-                                 ? view.positionMs
-                                 : qMax<qint64>(0, view.durationMs - view.positionMs));
-  QString timeLabel = view.showElapsed ? QStringLiteral("ELAPSED") : QStringLiteral("REMAIN");
-  QString title = view.title;
-  QString subtitle = view.subtitle.toUpper();
-  QString bitrate = view.bitrate;
-  QString rate = view.sampleRate;
-  QString channels = view.channels;
-  QString fmtLabel = view.formatChip;
-  qreal volume = view.muted ? 0 : view.volume;
-  qreal seek = view.durationMs > 0 ? qreal(view.positionMs) / qreal(view.durationMs) : 0;
-  bool playOn = view.playing;
-  bool pauseOn = view.paused;
-  bool shuffleOn = view.shuffle;
-  bool repeatOn = view.repeat != RepeatMode::off;
-  std::array<qreal, 20> bars = view.spectrum;
-  std::array<qreal, 20> peaks = view.spectrumPeaks;
-  if (view.goldenDemo) {
-    time = QStringLiteral("2:41");
-    timeLabel = QStringLiteral("ELAPSED");
-    title = QStringLiteral("3. Velvet Static — Neon Boulevard (Extended Mix)");
-    subtitle = QStringLiteral("COPPER RAIN EP · TRACK 3 OF 12");
-    bitrate = QStringLiteral("192 kbps");
-    rate = QStringLiteral("44.1 kHz");
-    channels = QStringLiteral("STEREO");
-    fmtLabel = QStringLiteral("MP3");
-    volume = 0.66;
-    seek = 161.0 / 347.0;
-    playOn = true;
-    pauseOn = false;
-    shuffleOn = true;
-    repeatOn = true;
-    bars = {0.26, 0.52, 0.71, 0.88, 0.64, 0.47, 0.58, 0.39, 0.31, 0.44,
-            0.35, 0.24, 0.29, 0.19, 0.22, 0.14, 0.17, 0.10, 0.12, 0.07};
-    peaks = {0.44, 0.70, 0.88, 0.96, 0.80, 0.66, 0.74, 0.57, 0.52, 0.61,
-             0.55, 0.42, 0.47, 0.36, 0.40, 0.30, 0.33, 0.24, 0.27, 0.19};
-  }
+  const QString time = formatClock(view.showElapsed
+                                       ? view.positionMs
+                                       : qMax<qint64>(0, view.durationMs - view.positionMs));
+  const QString timeLabel =
+      view.showElapsed ? QStringLiteral("ELAPSED") : QStringLiteral("REMAIN");
+  const QString& title = view.title;
+  const QString subtitle = view.subtitle.toUpper();
+  const QString& bitrate = view.bitrate;
+  const QString& rate = view.sampleRate;
+  const QString& channels = view.channels;
+  const QString& fmtLabel = view.formatChip;
+  const qreal volume = view.muted ? 0 : view.volume;
+  const qreal seek = view.durationMs > 0 ? qreal(view.positionMs) / qreal(view.durationMs) : 0;
+  const bool playOn = view.playing;
+  const bool pauseOn = view.paused;
+  const bool shuffleOn = view.shuffle;
+  const bool repeatOn = view.repeat != RepeatMode::off;
+  const std::array<qreal, 20>& bars = view.spectrum;
+  const std::array<qreal, 20>& peaks = view.spectrumPeaks;
 
   const bool chassis = pass != BodyPaint::live;
   const bool live = pass != BodyPaint::chassis;
@@ -323,20 +304,12 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
 void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionView& view,
             BodyPaint pass, const ChromePhases& phases) {
   using K = ChromeHit::Kind;
-  bool on = view.eq.enabled;
-  bool autoOn = view.eq.auto_;
-  QString curveName = view.eq.presetName.isEmpty() ? QStringLiteral("CUSTOM") : view.eq.presetName.toUpper();
-  qreal preamp = view.eq.preamp;
-  qreal gains[10];
-  for (int i = 0; i < 10; ++i) gains[i] = view.eq.gains[size_t(i)];
-  if (view.goldenDemo) {
-    on = true;
-    autoOn = false;
-    curveName = QStringLiteral("LATE NIGHT");
-    preamp = 3.8;
-    const qreal demo[] = {6.2, 4.6, 1.0, -1.9, -0.5, 2.2, 3.4, 1.4, 0.0, 5.0};
-    for (int i = 0; i < 10; ++i) gains[i] = demo[i];
-  }
+  const bool on = view.eq.enabled;
+  const bool autoOn = view.eq.auto_;
+  const QString curveName =
+      view.eq.presetName.isEmpty() ? QStringLiteral("CUSTOM") : view.eq.presetName.toUpper();
+  const qreal preamp = view.eq.preamp;
+  const std::array<double, EqualizerSettings::kBandCount>& gains = view.eq.gains;
 
   const bool chassis = pass != BodyPaint::live;
   const bool live = pass != BodyPaint::chassis;
@@ -441,40 +414,14 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
 void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const SessionView& view,
                    const ChromePhases& phases) {
   using K = ChromeHit::Kind;
-  QVector<CollectionRowView> lists = view.collection;
-  QVector<TrackRowView> rows = view.tracks;
-  QString totalText = formatClock(view.playlistTotalMs);
+  const QVector<CollectionRowView>& lists = view.collection;
+  const QVector<TrackRowView>& rows = view.tracks;
+  const QString totalText = formatClock(view.playlistTotalMs);
   QString statusName = view.playlistName.toUpper();
   if (statusName.isEmpty()) statusName = QStringLiteral("UNTITLED");
   if (view.playlistAltered) statusName += QStringLiteral(" *");
-  int playingN = view.playingIndex ? *view.playingIndex + 1 : 0;
-  qreal collectionW = view.collectionCollapsed ? 0 : view.collectionWidth;
-  if (view.goldenDemo) {
-    collectionW = view.collectionCollapsed ? 0 : 240;
-    lists = {
-        {QStringLiteral("ANALOGUE GHOSTS"), 24, false, false},
-        {QStringLiteral("COPPER RAIN EP"), 13, true, false},
-        {QStringLiteral("NIGHTBUS CHOIR — LIVE"), 8, false, false},
-    };
-    rows = {
-        {QStringLiteral("Cassette Mirage"), QStringLiteral("Low Orbit Lullaby"), QStringLiteral("4:12"), false, false},
-        {QStringLiteral("The Brass Cassini"), QStringLiteral("Slow Dial"), QStringLiteral("3:38"), false, false},
-        {QStringLiteral("Velvet Static"), QStringLiteral("Neon Boulevard (Extended Mix)"), QStringLiteral("5:47"), true, true},
-        {QStringLiteral("Halogen Youth"), QStringLiteral("Parking Garage Sunset"), QStringLiteral("4:03"), false, false},
-        {QStringLiteral("Moth & Marrow"), QStringLiteral("Analogue Ghosts"), QStringLiteral("6:21"), false, false},
-        {QStringLiteral("Ruby Transit"), QStringLiteral("Bakelite Heart"), QStringLiteral("3:55"), false, false},
-        {QStringLiteral("Slow Signal"), QStringLiteral("Copper Rain"), QStringLiteral("4:44"), false, false},
-        {QStringLiteral("Aurora Kiosk"), QStringLiteral("Departure Lounge B"), QStringLiteral("5:09"), false, false},
-        {QStringLiteral("Pale Antenna"), QStringLiteral("Tramp Theme (Demo)"), QStringLiteral("2:58"), false, false},
-        {QStringLiteral("Nightbus Choir"), QStringLiteral("Fluorescent Hymn"), QStringLiteral("6:02"), false, false},
-        {QStringLiteral("Second Cassette"), QStringLiteral("Static Blonde"), QStringLiteral("3:27"), false, false},
-        {QStringLiteral("Velvet Static"), QStringLiteral("Neon Boulevard (Reprise)"), QStringLiteral("2:02"), false, false},
-        {QStringLiteral("Long Wave Motel"), QStringLiteral("Untitled Sketch"), QStringLiteral("13:16"), false, false},
-    };
-    totalText = QStringLiteral("65:34");
-    statusName = QStringLiteral("COPPER RAIN — NIGHT SET.M3U8");
-    playingN = 3;
-  }
+  const int playingN = view.playingIndex ? *view.playingIndex + 1 : 0;
+  const qreal collectionW = view.collectionCollapsed ? 0 : view.collectionWidth;
 
   const QRectF collection(body.left(), body.top(), collectionW, body.height());
   const QRectF divider(collection.right(), collection.top(),
@@ -564,7 +511,7 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   QPainterPath clip;
   clip.addRoundedRect(listWell, kWellRadius, kWellRadius);
   p.setClipPath(clip);
-  const int scrollRows = view.goldenDemo ? 0 : view.trackScroll;
+  const int scrollRows = view.trackScroll;
   const int visible = playlistVisibleRows(listWell.height()) + 1;
   const QFont lcd = monoFont(15);
   const QFont lcdTrack = monoFont(15, 0.15 / 15.0);
@@ -668,7 +615,7 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   drawGlowText(p, strip.total.adjusted(0, 0, -18, 0), totalText, totalValue, T().phos,
                withAlpha(T().phos, 115), 4, Qt::AlignVCenter | Qt::AlignRight);
   drawScreenOverlay(p, strip.total);
-  const bool refreshEnabled = view.goldenDemo ? true : view.playlistRefreshEnabled;
+  const bool refreshEnabled = view.playlistRefreshEnabled;
   const bool refreshLit = view.playlistRefreshing;
   drawBtn(p, strip.refresh, faceOf(phases, K::plRefresh, refreshLit));
   {
@@ -693,7 +640,7 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   statusBit(statusName);
   drawStatusDot(p, QPointF(sx + 18 + 2.5, status.center().y()));
   sx += 18 + 5 + 18;
-  statusBit(QStringLiteral("%1 TRACKS").arg(view.goldenDemo ? rows.size() : view.playlistTrackCount));
+  statusBit(QStringLiteral("%1 TRACKS").arg(view.playlistTrackCount));
   drawStatusDot(p, QPointF(sx + 18 + 2.5, status.center().y()));
   sx += 18 + 5 + 18;
   statusBit(playingN > 0 ? QStringLiteral("PLAYING %1").arg(playingN) : QStringLiteral("STOPPED"));
@@ -706,12 +653,12 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
 void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
                    const ChromePhases& phases) {
   using K = ChromeHit::Kind;
-  const int tabIndex = view.goldenDemo ? 0 : view.settingsTab;
-  const bool resume = view.goldenDemo ? true : view.resumeLastSession;
-  const bool confirm = view.goldenDemo ? true : view.confirmBeforeQuit;
-  const bool scroll = view.goldenDemo ? true : view.scrollTitle;
-  const bool minimize = view.goldenDemo ? false : view.minimizeHidesSecondaries;
-  const int snap = view.goldenDemo ? 1 : view.dockSnap;
+  const int tabIndex = view.settingsTab;
+  const bool resume = view.resumeLastSession;
+  const bool confirm = view.confirmBeforeQuit;
+  const bool scroll = view.scrollTitle;
+  const bool minimize = view.minimizeHidesSecondaries;
+  const int snap = view.dockSnap;
 
   p.fillRect(QRectF(body.left(), body.top(), 108, body.height()), T().shellDeep);
   auto tab = [&](qreal y, const QString& label, ChromeHit::Kind kind, bool on) {
@@ -732,10 +679,10 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
 
   const QRectF pane = settingsPane(body);
   if (tabIndex == 1) {
-    const QVector<SkinCatalogEntry> skins = view.goldenDemo ? QVector<SkinCatalogEntry>{} : view.skins;
-    const QString active = view.goldenDemo ? QStringLiteral("builtin") : view.activeSkinId;
+    const QVector<SkinCatalogEntry>& skins = view.skins;
+    const QString& active = view.activeSkinId;
     const QRectF viewport = skinsListViewport(pane);
-    const int scroll = view.goldenDemo ? 0 : view.skinsScroll;
+    const int scroll = view.skinsScroll;
     p.save();
     p.setClipRect(viewport);
     for (int i = 0; i < skins.size(); ++i) {
@@ -763,7 +710,7 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
       const QRectF thumb = skinsListThumb(track, skins.size(), scroll);
       drawScrollbar(p, track, thumb.top() - track.top(), thumb.height());
     }
-    if (!view.skinsError.isEmpty() && !view.goldenDemo) {
+    if (!view.skinsError.isEmpty()) {
       p.setFont(monoFont(10));
       p.setPen(T().accent);
       p.drawText(QRectF(pane.left() + 12, pane.bottom() - 92, pane.width() - 24, 28),
@@ -906,16 +853,10 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
     const char* label;
     QString value;
   };
-  QString playlists = groupedInt(view.aboutPlaylists);
-  QString tracks = groupedInt(view.aboutTracks);
-  QString totalTime = formatTotalTime(view.aboutTimeMs);
-  QString spins = groupedInt(view.aboutSpins);
-  if (view.goldenDemo) {
-    playlists = QStringLiteral("12");
-    tracks = QStringLiteral("1,284");
-    totalTime = QStringLiteral("3 d 22 h");
-    spins = QStringLiteral("4,096");
-  }
+  const QString playlists = groupedInt(view.aboutPlaylists);
+  const QString tracks = groupedInt(view.aboutTracks);
+  const QString totalTime = formatTotalTime(view.aboutTimeMs);
+  const QString spins = groupedInt(view.aboutSpins);
   const Stat stats[] = {
       {"PLAYLISTS", playlists},
       {"TRACKS", tracks},
@@ -994,6 +935,70 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
 }
 
 }  // namespace
+
+SessionView goldenDemoView() {
+  SessionView v = SessionView::golden();
+
+  v.positionMs = 161000;
+  v.durationMs = 347000;
+  v.title = QStringLiteral("3. Velvet Static — Neon Boulevard (Extended Mix)");
+  v.subtitle = QStringLiteral("COPPER RAIN EP · TRACK 3 OF 12");
+  v.bitrate = QStringLiteral("192 kbps");
+  v.sampleRate = QStringLiteral("44.1 kHz");
+  v.channels = QStringLiteral("STEREO");
+  v.formatChip = QStringLiteral("MP3");
+  v.volume = 0.66;
+  v.playing = true;
+  v.shuffle = true;
+  v.repeat = RepeatMode::all;
+  v.spectrum = {0.26, 0.52, 0.71, 0.88, 0.64, 0.47, 0.58, 0.39, 0.31, 0.44,
+                0.35, 0.24, 0.29, 0.19, 0.22, 0.14, 0.17, 0.10, 0.12, 0.07};
+  v.spectrumPeaks = {0.44, 0.70, 0.88, 0.96, 0.80, 0.66, 0.74, 0.57, 0.52, 0.61,
+                     0.55, 0.42, 0.47, 0.36, 0.40, 0.30, 0.33, 0.24, 0.27, 0.19};
+
+  v.eq.enabled = true;
+  v.eq.auto_ = false;
+  v.eq.presetName = QStringLiteral("Late night");
+  v.eq.preamp = 3.8;
+  v.eq.gains = {6.2, 4.6, 1.0, -1.9, -0.5, 2.2, 3.4, 1.4, 0.0, 5.0};
+
+  v.collectionWidth = 240;
+  v.collection = {
+      {QStringLiteral("ANALOGUE GHOSTS"), 24, false, false},
+      {QStringLiteral("COPPER RAIN EP"), 13, true, false},
+      {QStringLiteral("NIGHTBUS CHOIR — LIVE"), 8, false, false},
+  };
+  // Thirteen rows totalling 65:34, which the default panel shows exactly.
+  v.tracks = {
+      {QStringLiteral("Cassette Mirage"), QStringLiteral("Low Orbit Lullaby"), QStringLiteral("4:12"), false, false},
+      {QStringLiteral("The Brass Cassini"), QStringLiteral("Slow Dial"), QStringLiteral("3:38"), false, false},
+      {QStringLiteral("Velvet Static"), QStringLiteral("Neon Boulevard (Extended Mix)"), QStringLiteral("5:47"), true, true},
+      {QStringLiteral("Halogen Youth"), QStringLiteral("Parking Garage Sunset"), QStringLiteral("4:03"), false, false},
+      {QStringLiteral("Moth & Marrow"), QStringLiteral("Analogue Ghosts"), QStringLiteral("6:21"), false, false},
+      {QStringLiteral("Ruby Transit"), QStringLiteral("Bakelite Heart"), QStringLiteral("3:55"), false, false},
+      {QStringLiteral("Slow Signal"), QStringLiteral("Copper Rain"), QStringLiteral("4:44"), false, false},
+      {QStringLiteral("Aurora Kiosk"), QStringLiteral("Departure Lounge B"), QStringLiteral("5:09"), false, false},
+      {QStringLiteral("Pale Antenna"), QStringLiteral("Tramp Theme (Demo)"), QStringLiteral("2:58"), false, false},
+      {QStringLiteral("Nightbus Choir"), QStringLiteral("Fluorescent Hymn"), QStringLiteral("6:02"), false, false},
+      {QStringLiteral("Second Cassette"), QStringLiteral("Static Blonde"), QStringLiteral("3:27"), false, false},
+      {QStringLiteral("Velvet Static"), QStringLiteral("Neon Boulevard (Reprise)"), QStringLiteral("2:02"), false, false},
+      {QStringLiteral("Long Wave Motel"), QStringLiteral("Untitled Sketch"), QStringLiteral("13:16"), false, false},
+  };
+  v.playingIndex = 2;
+  v.playlistName = QStringLiteral("Copper Rain — Night Set.m3u8");
+  v.playlistTotalMs = 3934000;
+  v.playlistTrackCount = v.tracks.size();
+  v.playlistRefreshEnabled = true;
+
+  v.confirmBeforeQuit = true;
+  v.minimizeHidesSecondaries = false;
+
+  v.aboutPlaylists = 12;
+  v.aboutTracks = 1284;
+  v.aboutTimeMs = 338400000;
+  v.aboutSpins = 4096;
+  return v;
+}
 
 void paintWindowBody(QPainter& painter, WindowId id, QSize logical, const QImage* logo,
                      const SessionView& view, BodyPaint pass, const ChromePhases& phases) {

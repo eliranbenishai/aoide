@@ -45,6 +45,7 @@ class HostWindowMoveTest : public QObject {
   void waitCursorRebuildsChassisBeforeRefreshReturns();
   void refreshButtonLightsWhilePlaylistRefreshing();
   void refreshLampLightsOnTheLiveEventLoop();
+  void goldenDemoPaintsTheStateItIsHanded();
 };
 
 void HostWindowMoveTest::parentedPanelMoveDoesNotEmitNativeMoved() {
@@ -518,13 +519,16 @@ void HostWindowMoveTest::waitCursorRebuildsChassisBeforeRefreshReturns() {
 
 namespace {
 
-QImage paintPlaylistPanel(const tramp::SessionView& view) {
-  const QSize logical = tramp::kPlaylistDefault;
+QImage paintPanel(tramp::WindowId id, QSize logical, const tramp::SessionView& view) {
   QImage img(logical, QImage::Format_ARGB32_Premultiplied);
   img.fill(Qt::black);
   QPainter p(&img);
-  tramp::paintWindowBody(p, tramp::WindowId::playlist, logical, nullptr, view);
+  tramp::paintWindowBody(p, id, logical, nullptr, view);
   return img;
+}
+
+QImage paintPlaylistPanel(const tramp::SessionView& view) {
+  return paintPanel(tramp::WindowId::playlist, tramp::kPlaylistDefault, view);
 }
 
 tramp::ChromeHit refreshHit(const tramp::SessionView& view) {
@@ -593,6 +597,32 @@ void HostWindowMoveTest::refreshButtonLightsWhilePlaylistRefreshing() {
   const int busyToOn = rgbDistance(busyImg.pixel(sample), tokens.btnOn0);
   QVERIFY2(busyToOn < idleToOn,
            "Refresh must use the on face while playlistRefreshing is set");
+}
+
+// A painter that overrides the golden view instead of honouring it makes the
+// state it overrides unreachable, and an unreachable state is one no dump can
+// photograph and no fidelity gate can watch. That is how the settings Skins
+// pane went unseen, so the states the dump relies on are asserted here.
+void HostWindowMoveTest::goldenDemoPaintsTheStateItIsHanded() {
+  const tramp::SessionView golden = tramp::goldenDemoView();
+  QVERIFY2(golden.goldenDemo, "the demo state is still the fidelity reference");
+
+  tramp::SessionView skins = golden;
+  skins.settingsTab = 1;
+  skins.skins = {{QStringLiteral("builtin"), QStringLiteral("Built-in"), {}},
+                 {QStringLiteral("dusk"), QStringLiteral("Dusk"), {}}};
+  QVERIFY2(paintPanel(tramp::WindowId::settings, tramp::kSettings, skins) !=
+               paintPanel(tramp::WindowId::settings, tramp::kSettings, golden),
+           "the golden demo must be able to open the Skins tab");
+
+  // The demo list fits the default well exactly, so the clamped panel is the
+  // only picture the track scrollbar appears in.
+  const QRectF clampedList = tramp::playlistListRowRect(
+      tramp::playlistTrackInner(tramp::playlistTracksPane(
+          tramp::panelBody(tramp::kPlaylistMinWithCollection),
+          tramp::kPlaylistCollectionMinWidth)));
+  QVERIFY2(tramp::playlistListMaxScroll(int(golden.tracks.size()), clampedList.height()) > 0,
+           "the clamped playlist must overflow, or the scrollbar loses its only picture");
 }
 
 QTEST_MAIN(HostWindowMoveTest)
