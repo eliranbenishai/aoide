@@ -74,10 +74,12 @@ inline constexpr qreal kSeekThumbH = 32;
 inline constexpr qreal kVolumeThumbW = 20;
 inline constexpr qreal kVolumeThumbH = 30;
 
+/// Rounds outwards: a well whose edges fall between logical pixels — the seek
+/// well starts at the measured width of the elapsed stamp — would otherwise
+/// leave the pixels it paints on either end dead.
 inline QRect sliderHitRect(const QRectF& track, qreal thumbH) {
   const qreal h = std::max(track.height(), thumbH);
-  return QRect(int(track.left()), int(std::round(track.center().y() - h / 2)),
-               int(track.width()), int(h));
+  return QRectF(track.left(), track.center().y() - h / 2, track.width(), h).toAlignedRect();
 }
 
 /// Main and EQ bodies inset their rows by the same pad.

@@ -12,6 +12,7 @@
 
 #include <QApplication>
 #include <QElapsedTimer>
+#include <QFontMetricsF>
 #include <QImage>
 #include <QPainter>
 #include <QSignalSpy>
@@ -154,6 +155,15 @@ void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
   grabCoversPaint(tramp::WindowId::main, main, vol.mono, tramp::ChromeHit::Kind::mono, "MONO");
   grabCoversPaint(tramp::WindowId::main, main, vol.eq, tramp::ChromeHit::Kind::eqToggle, "EQ");
   grabCoversPaint(tramp::WindowId::main, main, vol.pl, tramp::ChromeHit::Kind::plToggle, "PL");
+
+  const QFontMetricsF stamp{tramp::monoFont(14)};
+  const tramp::MainSeekRow seekRow = tramp::layoutMainSeekRow(
+      tramp::panelBody(main), stamp.horizontalAdvance(tramp::formatClock(view.positionMs)),
+      stamp.horizontalAdvance(tramp::formatClock(view.durationMs)));
+  grabCoversPaint(tramp::WindowId::main, main,
+                  QRectF(seekRow.track.left(), seekRow.track.center().y() - tramp::kSeekThumbH / 2,
+                         seekRow.track.width(), tramp::kSeekThumbH),
+                  tramp::ChromeHit::Kind::seek, "the seek well and its thumb");
 
   tramp::ChromeHit volume;
   tramp::ChromeHit seek;
