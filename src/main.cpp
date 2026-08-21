@@ -1,4 +1,5 @@
 #include "app_icon.h"
+#include "chrome_bodies.h"
 #include "chrome_paint.h"
 #include "host_shell_window.h"
 #include "host_window.h"
@@ -54,7 +55,7 @@ int dumpChrome(const QString& dirPath) {
   QDir().mkpath(dirPath);
   tramp::loadTrampFonts();
   QImage logo = tramp::loadTrampLogo();
-  const tramp::SessionView golden = tramp::SessionView::golden();
+  const tramp::SessionView golden = tramp::goldenDemoView();
 
   auto shoot = [&](const tramp::WindowSpec& spec, const tramp::SessionView& view,
                    const QString& name) {
@@ -85,6 +86,57 @@ int dumpChrome(const QString& dirPath) {
       tramp::SessionView collapsed = golden;
       collapsed.collectionCollapsed = true;
       if (!shoot(spec, collapsed, dumpName(spec.id) + QStringLiteral("_collapsed"))) return 1;
+
+      // The demo list is thirteen rows against a default well that shows
+      // thirteen, so nothing in the pictures above can overflow. At the size
+      // the panel clamps to it does, which is what puts the track scrollbar,
+      // its thumb, and the row the well's bottom edge clips under the gate.
+      // A disabled row of each kind rides along: both paint faint, and neither
+      // had a picture either.
+      tramp::WindowSpec smallest = spec;
+      smallest.logicalSize = tramp::kPlaylistMinWithCollection;
+      tramp::SessionView clamped = golden;
+      clamped.collectionWidth = tramp::kPlaylistCollectionMinWidth;
+      clamped.trackScroll = 2;
+      clamped.tracks[3].disabled = true;
+      clamped.collection[2].disabled = true;
+      // A disabled track is left out of both footer readouts.
+      clamped.playlistTrackCount = golden.playlistTrackCount - 1;
+      clamped.playlistTotalMs = golden.playlistTotalMs - 243000;
+      if (!shoot(smallest, clamped, dumpName(spec.id) + QStringLiteral("_clamped"))) return 1;
+    }
+    // The Skins tab shares no pixel with General: its list, scrollbar, four
+    // buttons and error line are a pane of their own, so it needs a picture of
+    // its own. The list is longer than the viewport on purpose — a catalogue
+    // that fits would leave the scrollbar unphotographed a second time.
+    if (spec.id == tramp::WindowId::settings) {
+      tramp::SessionView skins = golden;
+      skins.settingsTab = 1;
+      skins.skins = {
+          {QStringLiteral("builtin"), QStringLiteral("Built-in"),
+           QStringLiteral("Proxima Magnifica")},
+          {QStringLiteral("copper-rain"), QStringLiteral("Copper Rain"),
+           QStringLiteral("Velvet Static")},
+          {QStringLiteral("dusk-arcade"), QStringLiteral("Dusk Arcade"),
+           QStringLiteral("Halogen Youth")},
+          {QStringLiteral("fluorescent-hymn"), QStringLiteral("Fluorescent Hymn"),
+           QStringLiteral("Nightbus Choir")},
+          {QStringLiteral("green-screen"), QStringLiteral("Green Screen"), {}},
+          {QStringLiteral("long-wave"), QStringLiteral("Long Wave"),
+           QStringLiteral("Motel Tapes")},
+          {QStringLiteral("night-bus"), QStringLiteral("Night Bus"),
+           QStringLiteral("Moth & Marrow")},
+          {QStringLiteral("parking-garage"), QStringLiteral("Parking Garage"),
+           QStringLiteral("Aurora Kiosk")},
+          {QStringLiteral("slow-dial"), QStringLiteral("Slow Dial"),
+           QStringLiteral("The Brass Cassini")},
+      };
+      skins.activeSkinId = QStringLiteral("dusk-arcade");
+      skins.skinsScroll = 24;
+      skins.skinsError =
+          QStringLiteral("nightbus-choir.zip: no skin.json at the archive root, so nothing "
+                         "was installed.");
+      if (!shoot(spec, skins, dumpName(spec.id) + QStringLiteral("_skins"))) return 1;
     }
   }
   return 0;
@@ -98,7 +150,7 @@ int benchChrome() {
 #endif
   tramp::loadTrampFonts();
   QImage logo = tramp::loadTrampLogo();
-  tramp::SessionView view = tramp::SessionView::golden();
+  tramp::SessionView view = tramp::goldenDemoView();
   const tramp::WindowSpec spec = tramp::windowSpecs().front();
   const auto title = tramp::TitleChromeLayout::forWindow(spec.id, spec.logicalSize);
 
