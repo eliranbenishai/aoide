@@ -587,33 +587,19 @@ void TrampSession::setIngesting(bool ingesting) {
 void TrampSession::persistNow() {
   if (qEnvironmentVariable("TRAMP_AUTO_QUIT") == QLatin1String("1")) return;
   if (!main_) return;
-  auto capture = [&](HostWindow* w, WindowFrame& frame) {
-    if (!w) return;
-    frame.visible = layout_.layout().frameOf(w->id()).visible;
-    frame.shaded = w->shaded();
-    if (w->id() == WindowId::playlist) {
-      const qreal z = layout_.zoomPercent() / 100.0;
-      frame.width = w->width() / z;
-      frame.height = w->height() / z;
-    }
-  };
-  settings_.main = layout_.layout().main;
-  settings_.equalizer = layout_.layout().equalizer;
-  settings_.playlist = layout_.layout().playlist;
-  settings_.settings = layout_.layout().settings;
-  settings_.about = layout_.layout().about;
-  capture(main_, settings_.main);
-  capture(eq_, settings_.equalizer);
-  capture(pl_, settings_.playlist);
-  capture(settingsWin_, settings_.settings);
-  capture(about_, settings_.about);
-  layout_.docking().layout().main = settings_.main;
-  layout_.docking().layout().equalizer = settings_.equalizer;
-  layout_.docking().layout().playlist = settings_.playlist;
-  layout_.docking().layout().settings = settings_.settings;
-  layout_.docking().layout().about = settings_.about;
-  settings_.dockEdges = layout_.layout().dockEdges;
+  // The settings are a view of the layout taken at the moment of writing, not a
+  // second copy kept level with it. Nothing reads a frame back out of a widget:
+  // where a panel is, how big it is and whether it is shaded are all decided in
+  // the layout and pushed from there.
+  const DockLayout& live = layout_.layout();
+  settings_.main = live.main;
+  settings_.equalizer = live.equalizer;
+  settings_.playlist = live.playlist;
+  settings_.settings = live.settings;
+  settings_.about = live.about;
+  settings_.dockEdges = live.dockEdges;
   settings_.zoomPercent = layout_.zoomPercent();
+  // Main cannot be hidden, and a file saying otherwise launches with no player.
   settings_.main.visible = true;
   store_.writeSettings(settings_);
   if (!playlist_.sourcePath().isEmpty()) {

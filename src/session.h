@@ -23,7 +23,6 @@
 #include <QVector>
 #include <atomic>
 #include <memory>
-#include <optional>
 
 class HostWindow;
 class HostShell;
@@ -182,7 +181,6 @@ class TrampSession : public QObject, public PanelSurfaces {
   /// than staying at --:-- until the list is opened again.
   QSet<QString> probeOutstanding_;
   bool figuresLoaded_ = false;
-  bool applyingDock_ = false;
   bool titleDragging_ = false;
   int skinsScroll_ = 0;
   /// A playlist is still taking on track data — what the Refresh lamp reports.
