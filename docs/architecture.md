@@ -41,6 +41,8 @@ flowchart LR
 
 CI-built. Workflows and secrets: [`distribution.md`](distribution.md). macOS DMG waits on the Qt Mac host. In-app update follows **install channel**.
 
+One Qt for everything that ships — `QT_VERSION` in the workflows, pinned to the line the Flatpak runtime forces. `build.sh` is unpinned on purpose and prints the Qt it used. Nothing reaches an artifact upload without being **run**: staged binary, AppImage and extracted tarball each take `--bench-chrome` and a `TRAMP_AUTO_QUIT=1` start, with the runner's Qt stripped from the environment so an artifact can only use what it carries.
+
 **Every download carries its own Qt.** Windows stages it with `windeployqt`; Linux has no equivalent, so `packaging/linux/stage_bundle.sh` is it — one staging path (`build/linux/bundle`) that the tarball, the AppImage and the Flatpak all read, so they cannot drift. It deploys the Qt the binary was *linked against* (asked of the build-tree binary, before CMake rewrites its RPATH), takes the `platforms`, `platformthemes`, `imageformats`, `xcbglintegrations`, `platforminputcontexts` and `wayland-*` plugin groups whole, walks `DT_NEEDED` to a closure, and rewrites every runpath to `$ORIGIN` with `patchelf`. The host keeps only the loader, the C/C++ runtimes and the GL stack — those track the kernel and the GPU. A plugin that wants Quick, Qml, Pdf, Svg, GTK or KDE Frameworks is declined: tramp paints its own chrome, and taking one drags the whole stack in behind it.
 
 ## System

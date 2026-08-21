@@ -13,6 +13,11 @@ permissions:
   contents: write
   pull-requests: write
 
+env:
+  # Matches QT_VERSION in release.yml, which carries the reasoning. PR CI has to
+  # build against the Qt the release builds against, or it is not a gate.
+  QT_VERSION: "6.8.3"
+
 jobs:
   test:
     name: Qt (${{ matrix.os }})
@@ -24,20 +29,31 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Qt (Linux)
+      - name: Build deps (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             cmake ninja-build g++ pkg-config \
-            qt6-base-dev qt6-wayland libgl1-mesa-dev libx11-dev \
-            libmpv-dev
+            libgl1-mesa-dev libx11-dev libmpv-dev \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xkb1 \
+            libxkbcommon-x11-0 libwayland-client0 libwayland-cursor0 libwayland-egl1
+
+      - name: Qt (Linux)
+        if: runner.os == 'Linux'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          cache: true
+          archives: qtbase
+          modules: qtwayland
 
       - name: Qt (Windows)
         if: runner.os == 'Windows'
         uses: jurplel/install-qt-action@v4
         with:
-          version: "6.8.3"
+          version: ${{ env.QT_VERSION }}
           cache: true
           archives: qtbase
 

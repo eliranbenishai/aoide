@@ -11,6 +11,30 @@ How Tramp is built and handed to listeners. Product page: `https://tramp.music`.
 | [`.github/workflows/merge-if-green.yml`](../.github/workflows/merge-if-green.yml) | CI completed | Squash-merges a same-repo, non-draft PR at that SHA when CI is green. Skips forks, drafts, and `do-not-merge` |
 | [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Tag `v*` or **Run workflow** | Test, then Windows / Linux packages; tags also attach a GitHub Release |
 
+Both packaging jobs **run the thing they packaged** before it is published: the
+staged binary, the AppImage, and the extracted tarball each get
+`--bench-chrome` (links, finds its assets and fonts, is optimised) and a
+`TRAMP_AUTO_QUIT=1` session start. `ctest` runs against the build tree, which
+still resolves Qt and libmpv from the runner — only these runs prove the
+artifact carries its own, so they clear the runner's Qt out of the environment
+first. Deleting one library from the staging directory fails the job.
+
+## Qt version
+
+`QT_VERSION` in both workflows is the authority: one Qt, built and tested
+against everywhere something ships. It is **6.8.3**, and the reason is
+`org.kde.Platform` — the Flatpak runtime is the one Qt we cannot choose, and it
+tracks 6.8, so `QT_RUNTIME` and
+[`packaging/flatpak/com.proximamagnifica.tramp.yml`](../packaging/flatpak/com.proximamagnifica.tramp.yml)
+say `6.8` and the rest follows.
+
+Linux installs that Qt through `install-qt-action` rather than apt: the runner's
+`qt6-base-dev` is 6.4.2 and does not have `QEvent::DevicePixelRatioChange`.
+
+[`build.sh`](../build.sh) is deliberately **not** pinned. It uses whatever Qt the
+developer has — Homebrew's, currently newer — and prints the version it used, so
+a local-vs-release difference shows up in the log instead of in a bug report.
+
 Cut a release by bumping [`VERSION`](../VERSION), committing, then:
 
 ```bash
