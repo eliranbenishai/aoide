@@ -6,11 +6,37 @@ namespace tramp {
 
 namespace {
 
+/// A **Spin** is one track played through to the end, so most of the running
+/// time has to have actually gone past. The rest is the fade, the applause, or
+/// the second the listener dragged the seek bar over.
+constexpr int kSpinHeardPercent = 90;
+
+/// Anything longer than this between two clock readings is a jump, not
+/// listening. Generous, because the tick can be starved by a slow repaint —
+/// a seek the listener asked for is discounted where it happens, not here.
+constexpr qint64 kListenStepCapMs = 5000;
+
 QVector<QString> trackPaths(const QVector<Track>& tracks) {
   QVector<QString> paths;
   paths.reserve(tracks.size());
   for (const Track& t : tracks) paths.push_back(t.path);
   return paths;
+}
+
+/// Where a pass over the list starts: the head of the shuffle order, or the top
+/// of the list when nothing is shuffled.
+std::optional<int> firstPlayableInPass(int length, const QVector<int>& order,
+                                       const std::function<bool(int)>& playable) {
+  if (!order.isEmpty()) {
+    for (int i : order) {
+      if (i >= 0 && i < length && playable(i)) return i;
+    }
+    return std::nullopt;
+  }
+  for (int i = 0; i < length; ++i) {
+    if (playable(i)) return i;
+  }
+  return std::nullopt;
 }
 
 bool isSameListMinusPath(const QVector<QString>& previous, const QVector<Track>& next,
@@ -40,6 +66,7 @@ PlaybackController::PlaybackController(PlaylistController* playlist, PlayerEngin
 void PlaybackController::bindEngine() {
   engine_->onPlaying = [](bool) {};  // chrome is optimistic; mpv pause events lag
   engine_->onPosition = [this](qint64 ms) {
+    accrueListened(ms);
     positionMs_ = ms;
     if (onPosition_) onPosition_();
   };
@@ -139,6 +166,15 @@ void PlaybackController::stop() {
   mediaOpen_ = false;
   playing_ = false;
   positionMs_ = 0;
+  // Stop unloads media, so nothing about that media survives on the readouts:
+  // not the error that ended it, not the title, not the length.
+  durationMs_ = 0;
+  failureMessage_.clear();
+  playingPath_.clear();
+  playingTrack_.reset();
+  playingIndex_.reset();
+  format_ = {};
+  resetListenTally();
   notify();
 }
 
@@ -147,8 +183,14 @@ void PlaybackController::next() {
   if (tracks.isEmpty()) return;
   const int current = playingIndex_.value_or(playlist_->selectedIndex().value_or(0));
   auto playable = [&](int i) { return i >= 0 && i < tracks.size() && !tracks[i].disabled; };
-  const auto next =
-      nextPlayableIndex(current, tracks.size(), shuffle_, repeatMode_, shuffledOrder_, playable);
+  auto next = nextPlayableIndex(current, tracks.size(), shuffle_, RepeatMode::off, shuffledOrder_,
+                                playable);
+  if (!next && repeatMode_ == RepeatMode::all) {
+    // This pass is over. Deal the next one rather than replaying the order the
+    // listener already heard, then start it from its head.
+    if (shuffle_) rebuildShuffleOrder(false);
+    next = firstPlayableInPass(tracks.size(), shuffle_ ? shuffledOrder_ : QVector<int>{}, playable);
+  }
   if (!next) {
     stop();
     return;
@@ -179,6 +221,7 @@ void PlaybackController::playIndex(int index) {
   playingTrack_ = tracks[index];
   format_ = {};
   failureMessage_.clear();
+  resetListenTally();
   playlist_->select(index);
   engine_->open(tracks[index]);
   // mpv reports a loadfile failure inline from open(), and onEngineError has
@@ -193,6 +236,29 @@ void PlaybackController::playIndex(int index) {
   engine_->play();
   playing_ = true;
   notify();
+}
+
+void PlaybackController::playFrom(int index) {
+  const auto tracks = playlist_->tracks();
+  if (index < 0 || index >= tracks.size()) return;
+  if (!tracks[index].disabled) {
+    playIndex(index);
+    return;
+  }
+  auto playable = [&](int i) { return i >= 0 && i < tracks.size() && !tracks[i].disabled; };
+  const auto fallback =
+      nextPlayableIndex(index, tracks.size(), false, RepeatMode::all, {}, playable);
+  if (!fallback) {
+    failureMessage_ = QStringLiteral("No playable track in this playlist");
+    notify();
+    return;
+  }
+  const QString skipped = tracks[index].displayTitle();
+  playIndex(*fallback);
+  if (failureMessage_.isEmpty()) {
+    failureMessage_ = QStringLiteral("Skipped %1 — the file is missing").arg(skipped);
+    notify();
+  }
 }
 
 void PlaybackController::pauseOrResumeCurrent() {
@@ -214,13 +280,34 @@ void PlaybackController::pauseOrResumeCurrent() {
 
 void PlaybackController::seekMs(qint64 positionMs) {
   positionMs_ = positionMs;
+  listenCursorMs_ = positionMs;
   engine_->seekMs(positionMs);
   if (onPosition_) onPosition_();
 }
 
 void PlaybackController::pollClock() {
   const qint64 ms = engine_->queryPositionMs();
-  if (ms >= 0) positionMs_ = ms;
+  if (ms < 0) return;
+  accrueListened(ms);
+  positionMs_ = ms;
+}
+
+void PlaybackController::accrueListened(qint64 positionMs) {
+  const qint64 step = positionMs - listenCursorMs_;
+  listenCursorMs_ = positionMs;
+  if (step > 0 && step <= kListenStepCapMs) heardMs_ += step;
+}
+
+void PlaybackController::resetListenTally() {
+  heardMs_ = 0;
+  listenCursorMs_ = 0;
+}
+
+bool PlaybackController::heardEnoughForSpin() const {
+  // No length to measure against: take the end of the file at its word rather
+  // than never counting a spin for a track whose duration nothing reported.
+  if (durationMs_ <= 0) return true;
+  return heardMs_ * 100 >= durationMs_ * kSpinHeardPercent;
 }
 
 void PlaybackController::setVolume(double volume) {
@@ -247,7 +334,7 @@ void PlaybackController::toggleShuffle() { setShuffle(!shuffle_); }
 
 void PlaybackController::setShuffle(bool on) {
   shuffle_ = on;
-  if (shuffle_) rebuildShuffleOrder();
+  if (shuffle_) rebuildShuffleOrder(true);
   notify();
 }
 
@@ -276,11 +363,15 @@ void PlaybackController::onEngineError(const QString& message) {
   failureMessage_ = message;
   playing_ = false;
   mediaOpen_ = false;
+  // Stop is what unloads media. Leaving the refused file attached keeps mpv
+  // holding an errored load that nothing will ever play.
+  engine_->stop();
   notify();
 }
 
 void PlaybackController::onCompleted() {
-  countSpin();
+  if (heardEnoughForSpin()) countSpin();
+  resetListenTally();
   switch (repeatMode_) {
     case RepeatMode::one:
       engine_->seekMs(0);
@@ -307,12 +398,16 @@ void PlaybackController::countSpin() {
   notify();
 }
 
-void PlaybackController::rebuildShuffleOrder() {
-  shuffledOrder_ = shuffledOrder(playlist_->tracks().size(), int(playingIndex_.value_or(0) + 1));
+void PlaybackController::rebuildShuffleOrder(bool openOnCurrent) {
+  shuffledOrder_ = shuffledOrder(playlist_->tracks().size());
+  if (!playingIndex_ || shuffledOrder_.size() < 2) return;
+  const int at = shuffledOrder_.indexOf(*playingIndex_);
+  if (at < 0) return;
+  std::swap(shuffledOrder_[at], shuffledOrder_[openOnCurrent ? 0 : shuffledOrder_.size() - 1]);
 }
 
 void PlaybackController::onPlaylistChanged() {
-  if (shuffle_) rebuildShuffleOrder();
+  if (shuffle_) rebuildShuffleOrder(true);
   const auto tracks = playlist_->tracks();
   const QVector<QString> previous = previousPaths_;
   previousPaths_ = trackPaths(tracks);

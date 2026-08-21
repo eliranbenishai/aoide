@@ -302,6 +302,19 @@ int main() {
   }
 
   {
+    // Next must never hand back the track that is already playing. When the
+    // current index is missing from the shuffle order — a playlist replace
+    // clears it while the open file keeps playing — the fallback used to be
+    // the current index itself, so Next re-opened the same track.
+    const QVector<int> order{2, 0, 1};
+    REQUIRE_EQ(nextIndex(3, 4, true, RepeatMode::off, order).value_or(-1), 2);
+    REQUIRE_EQ(previousIndex(3, 4, true, RepeatMode::off, order).value_or(-1), 1);
+    // With no order drawn yet, shuffle walks the list rather than standing still.
+    REQUIRE_EQ(nextIndex(0, 3, true, RepeatMode::off, {}).value_or(-1), 1);
+    REQUIRE_EQ(previousIndex(2, 3, true, RepeatMode::off, {}).value_or(-1), 1);
+  }
+
+  {
     PlaylistController pl;
     Track a;
     a.path = QStringLiteral("/a.mp3");
@@ -761,13 +774,21 @@ int main() {
     // MpvEngine reports a loadfile failure synchronously from open(). playIndex
     // used to set playing_ = true immediately afterwards, so a file that never
     // opened still read as playing and the chrome showed the pause face.
+    // The refused file also has to be let go: stop is what unloads media, and
+    // without it mpv keeps the errored load attached.
     class RefusingEngine : public NullEngine {
      public:
       void open(const Track&) override {
+        if (onDuration) onDuration(200000);
         if (onError) onError(QStringLiteral("cannot open"));
       }
       void play() override { played = true; }
+      void stop() override {
+        stopped = true;
+        NullEngine::stop();
+      }
       bool played = false;
+      bool stopped = false;
     };
     PlaylistController playlist;
     Track track;
@@ -778,7 +799,24 @@ int main() {
     playback.playIndex(0);
     REQUIRE(!playback.playing());
     REQUIRE(!engine.played);
+    REQUIRE(engine.stopped);
     REQUIRE_EQ(playback.failureMessage(), QStringLiteral("cannot open"));
+    REQUIRE_EQ(playback.durationMs(), qint64(200000));
+
+    // Stop unloads media, and the readouts let go with it. They used to
+    // survive: the subtitle still carried the error and the clock still showed
+    // the length of a track nothing was playing.
+    playback.stop();
+    REQUIRE(playback.failureMessage().isEmpty());
+    REQUIRE_EQ(playback.durationMs(), qint64(0));
+    REQUIRE_EQ(playback.positionMs(), qint64(0));
+    REQUIRE(!playback.currentTrack().has_value());
+    REQUIRE(!playback.playingIndex().has_value());
+    REQUIRE(!playback.playing());
+    REQUIRE(!playback.paused());
+    // Play picks the list back up from the row still selected.
+    playback.playPause();
+    REQUIRE_EQ(playback.playingIndex().value_or(-1), 0);
   }
 
   {
@@ -1016,6 +1054,169 @@ int main() {
     REQUIRE_EQ(*playback.playingIndex(), 2);
     playback.previous();
     REQUIRE_EQ(*playback.playingIndex(), 0);
+  }
+
+  {
+    // Shuffle was seeded from the playing index, so turning it on at the same
+    // track always dealt the same order — the listener's second evening was
+    // the first one again.
+    PlaylistController playlist;
+    QVector<Track> many;
+    for (int i = 0; i < 30; ++i) {
+      Track t;
+      t.path = QStringLiteral("/tmp/shuffle-%1.mp3").arg(i);
+      many.push_back(t);
+    }
+    playlist.setTracks(many);
+    NullEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    QSet<int> dealt;
+    for (int attempt = 0; attempt < 8; ++attempt) {
+      playback.setShuffle(false);
+      playback.playIndex(0);
+      playback.setShuffle(true);
+      playback.next();
+      dealt.insert(playback.playingIndex().value_or(-1));
+    }
+    REQUIRE(dealt.size() > 1);
+  }
+
+  {
+    // Repeat-all has to deal a new pass when the list wraps. Replaying the one
+    // order is the same complaint one lap later.
+    PlaylistController playlist;
+    QVector<Track> many;
+    for (int i = 0; i < 12; ++i) {
+      Track t;
+      t.path = QStringLiteral("/tmp/lap-%1.mp3").arg(i);
+      many.push_back(t);
+    }
+    playlist.setTracks(many);
+    NullEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.setRepeatMode(RepeatMode::all);
+    playback.playIndex(0);
+    playback.setShuffle(true);
+    auto restOfPass = [&]() {
+      QVector<int> visited;
+      for (int i = 1; i < many.size(); ++i) {
+        playback.next();
+        visited.push_back(playback.playingIndex().value_or(-1));
+      }
+      return visited;
+    };
+    const QVector<int> first = restOfPass();
+    playback.next();
+    const int secondOpener = playback.playingIndex().value_or(-1);
+    const QVector<int> second = restOfPass();
+    REQUIRE(first != second);
+    // A new deal must not re-open the track that just finished.
+    REQUIRE(secondOpener != first.back());
+    // And each pass still gives every enabled row exactly one turn.
+    QSet<int> firstPass(first.begin(), first.end());
+    firstPass.insert(0);
+    REQUIRE_EQ(firstPass.size(), many.size());
+    QSet<int> secondPass(second.begin(), second.end());
+    secondPass.insert(secondOpener);
+    REQUIRE_EQ(secondPass.size(), many.size());
+  }
+
+  {
+    // Auto-start and resume both hand the transport an index nothing checked:
+    // the first row, or the one the listener left. playIndex refuses a disabled
+    // row, so a playlist whose first file went missing came up silent with
+    // nothing on the display saying why.
+    PlaylistController playlist;
+    Track gone;
+    gone.path = QStringLiteral("/tmp/gone.mp3");
+    gone.disabled = true;
+    Track live;
+    live.path = QStringLiteral("/tmp/live.mp3");
+    playlist.setTracks({gone, live});
+    NullEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.playFrom(0);
+    REQUIRE(playback.playing());
+    REQUIRE_EQ(playback.playingIndex().value_or(-1), 1);
+    REQUIRE(playback.failureMessage().contains(QStringLiteral("gone.mp3")));
+    // A playable row is played as asked, with nothing to report.
+    playback.playFrom(1);
+    REQUIRE_EQ(playback.playingIndex().value_or(-1), 1);
+    REQUIRE(playback.failureMessage().isEmpty());
+    // Play and double-click still refuse a disabled row outright.
+    playback.playIndex(0);
+    REQUIRE_EQ(playback.playingIndex().value_or(-1), 1);
+  }
+
+  {
+    // A Spin is one track played through to the end. The counter used to fire
+    // on the end-of-file event alone, so dragging the seek bar to the last
+    // second of a track earned a spin nobody listened to.
+    class ClockEngine : public NullEngine {
+     public:
+      void open(const Track&) override {
+        at = 0;
+        if (onDuration) onDuration(200000);
+      }
+      void seekMs(qint64 positionMs) override {
+        at = positionMs;
+        NullEngine::seekMs(positionMs);
+      }
+      /// Hand the clock forward the way playback does, a tick at a time.
+      void playTo(qint64 ms) {
+        for (qint64 t = at + 250; t <= ms; t += 250) {
+          at = t;
+          if (onPosition) onPosition(t);
+        }
+      }
+      void finish() {
+        if (onCompleted) onCompleted();
+      }
+      qint64 at = 0;
+    };
+    PlaylistController playlist;
+    Track track;
+    track.path = QStringLiteral("/tmp/spin.mp3");
+    playlist.setTracks({track});
+    ClockEngine engine;
+    PlaybackController playback(&playlist, &engine);
+
+    playback.playIndex(0);
+    engine.playTo(200000);
+    engine.finish();
+    REQUIRE_EQ(playback.spins(), 1);
+
+    playback.playIndex(0);
+    engine.playTo(5000);
+    playback.seekMs(199000);
+    engine.playTo(200000);
+    engine.finish();
+    REQUIRE_EQ(playback.spins(), 1);
+
+    // Most of the track is enough — the last few seconds of applause are not
+    // what makes it a listen.
+    playback.playIndex(0);
+    engine.playTo(195000);
+    engine.finish();
+    REQUIRE_EQ(playback.spins(), 2);
+  }
+
+  {
+    // Nothing left to fall through to: say so rather than sit silent.
+    PlaylistController playlist;
+    Track gone;
+    gone.path = QStringLiteral("/tmp/gone.mp3");
+    gone.disabled = true;
+    Track alsoGone;
+    alsoGone.path = QStringLiteral("/tmp/also-gone.mp3");
+    alsoGone.disabled = true;
+    playlist.setTracks({gone, alsoGone});
+    NullEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.playFrom(1);
+    REQUIRE(!playback.playing());
+    REQUIRE(!playback.playingIndex().has_value());
+    REQUIRE(!playback.failureMessage().isEmpty());
   }
 
   {

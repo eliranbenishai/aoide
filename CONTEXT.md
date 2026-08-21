@@ -144,8 +144,12 @@ _Avoid_: LCD (alone), screen, display (when the inset glass region is meant)
 `AudioLevels` frames marked `synthetic: true` — a hard-fail / development signal when real spectrum cannot be measured. Not the product end-state; normal play must use real analyser levels.
 _Avoid_: treating synthetic levels as the shipped spectrum design, fake levels (pejorative), mock levels, placeholder spectrum (as a planned deliverable)
 
+**Shuffle**:
+Playing the current playlist in a random order instead of top to bottom. The order is drawn one full pass at a time: every enabled row gets exactly one turn and **disabled tracks** are skipped. A fresh order is drawn each time shuffle is switched on and each time repeat-all wraps the list, and a new pass never opens on the track that just finished — so the same starting track does not deal the same evening twice. The order is unpredictable by design: it is not reproducible, not shareable, and not persisted.
+_Avoid_: random (as the feature name), seeded shuffle, reproducible order, treating the order as something the listener can go back to
+
 **Spin**:
-One track played through to the end — the unit the About stats well counts.
+One track played through to the end — the unit the About stats well counts. Earned when the track ends *and* at least 90% of its running time actually played, so dragging the seek bar past unheard audio does not buy one. The 10% slack is the fade and the applause, not a shortcut.
 _Avoid_: play (ambiguous with the transport verb), listen, stream
 
 **Maker's plate**:

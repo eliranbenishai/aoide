@@ -41,6 +41,11 @@ class PlaybackController {
   void next();
   void previous();
   void playIndex(int index);
+  /// Start at [index], or at the next playable row when that one is a
+  /// **disabled track**, saying which row was skipped. Auto-start and resume
+  /// hand over an index nothing has checked; `playIndex` refuses a disabled
+  /// row, and silence with no explanation is worse than a mild surprise.
+  void playFrom(int index);
   void seekMs(qint64 positionMs);
   void setVolume(double volume);
   void toggleMute();
@@ -55,9 +60,17 @@ class PlaybackController {
  private:
   void bindEngine();
   void pauseOrResumeCurrent();
-  void rebuildShuffleOrder();
+  /// Deal a fresh pass over the list. [openOnCurrent] puts the playing track at
+  /// the head so the pass still covers every other row; a wrap wants the
+  /// opposite, because the track that just finished must not open the new pass.
+  void rebuildShuffleOrder(bool openOnCurrent);
   void notify();
   void countSpin();
+  /// Credit the stretch of audio between two clock readings, so a jump the
+  /// listener made with the seek bar is not mistaken for listening.
+  void accrueListened(qint64 positionMs);
+  void resetListenTally();
+  bool heardEnoughForSpin() const;
   void onCompleted();
   void onEngineError(const QString& message);
 
@@ -79,6 +92,8 @@ class PlaybackController {
   QVector<QString> previousPaths_;
   AudioFormatInfo format_;
   QString failureMessage_;
+  qint64 heardMs_ = 0;
+  qint64 listenCursorMs_ = 0;
   int spins_ = 0;
   std::function<void()> onChanged_;
   std::function<void()> onPosition_;

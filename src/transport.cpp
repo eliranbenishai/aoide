@@ -19,10 +19,12 @@ std::optional<int> nextIndex(int current, int length, bool shuffle, RepeatMode r
   if (length == 0) {
     return std::nullopt;
   }
-  if (shuffle) {
+  if (shuffle && !shuffledOrder.isEmpty()) {
     const int position = shuffledOrder.indexOf(current);
+    // Not in this pass: the open file outlived the list it came from. Start the
+    // pass rather than handing back the track that is already playing.
     if (position == -1) {
-      return qBound(0, current, length - 1);
+      return shuffledOrder.first();
     }
     if (position < shuffledOrder.size() - 1) {
       return shuffledOrder[position + 1];
@@ -46,10 +48,10 @@ std::optional<int> previousIndex(int current, int length, bool shuffle, RepeatMo
   if (length == 0) {
     return std::nullopt;
   }
-  if (shuffle) {
+  if (shuffle && !shuffledOrder.isEmpty()) {
     const int position = shuffledOrder.indexOf(current);
     if (position == -1) {
-      return qBound(0, current, length - 1);
+      return shuffledOrder.last();
     }
     if (position > 0) {
       return shuffledOrder[position - 1];
@@ -92,14 +94,14 @@ std::optional<int> previousPlayableIndex(int current, int length, bool shuffle, 
   return std::nullopt;
 }
 
-QVector<int> shuffledOrder(int length, int seed) {
+QVector<int> shuffledOrder(int length) {
   QVector<int> order(length);
   for (int i = 0; i < length; ++i) {
     order[i] = i;
   }
-  QRandomGenerator rng{quint32(seed)};
+  QRandomGenerator* rng = QRandomGenerator::global();
   for (int i = length - 1; i > 0; --i) {
-    const int j = int(rng.bounded(i + 1));
+    const int j = int(rng->bounded(i + 1));
     std::swap(order[i], order[j]);
   }
   return order;
