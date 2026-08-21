@@ -49,7 +49,7 @@ void renderToWav(const QString& inputPath, const QString& outputPath,
     check(mpv_command(mpv, cmd), "loadfile");
 
     // A short tick against the same 120 s deadline: the tick is how often a
-    // caller that has moved on gets to say so, and 250 ms of that is felt on
+    // caller that has moved on gets to say so, and 50 ms of that is felt on
     // quit.
     constexpr double kTickSeconds = 0.05;
     const int deadlineTicks = int(120 / kTickSeconds);
