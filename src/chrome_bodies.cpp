@@ -19,10 +19,6 @@ namespace {
 
 const ChromeTokens& T() { return currentLook(); }
 
-QRectF bodyRect(QSize logical) {
-  return QRectF(0, kTitleBar, logical.width(), logical.height() - kTitleBar);
-}
-
 /// A control's face. Panels paint from the phase store so a state change
 /// cross-fades instead of snapping; a golden dump or a test paints without a
 /// live store and takes plain session state.
@@ -113,8 +109,6 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
   QString fmtLabel = view.formatChip;
   qreal volume = view.muted ? 0 : view.volume;
   qreal seek = view.durationMs > 0 ? qreal(view.positionMs) / qreal(view.durationMs) : 0;
-  QString pos = formatClock(view.positionMs);
-  QString dur = formatClock(view.durationMs);
   bool playOn = view.playing;
   bool pauseOn = view.paused;
   bool shuffleOn = view.shuffle;
@@ -132,8 +126,6 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
     fmtLabel = QStringLiteral("MP3");
     volume = 0.66;
     seek = 161.0 / 347.0;
-    pos = QStringLiteral("2:41");
-    dur = QStringLiteral("5:47");
     playOn = true;
     pauseOn = false;
     shuffleOn = true;
@@ -148,13 +140,13 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
   const bool live = pass != BodyPaint::chassis;
   const bool glow = pass == BodyPaint::full;
 
-  const QRectF well(body.left() + 96, body.top() + 14, 705, 132);
+  const MainDisplayRow display = layoutMainDisplay(body);
+  const QRectF& well = display.well;
   const QRectF inner = well.adjusted(16, 12, -16, -12);
 
   if (chassis) {
     drawScreenWell(p, well);
-    drawGlyphBtn(p, QRectF(body.left() + 22, body.top() + 18, 26, 26), MockupIcon::options,
-                 faceOf(phases, K::options, false), 16);
+    drawGlyphBtn(p, display.options, MockupIcon::options, faceOf(phases, K::options, false), 16);
   }
 
   if (live) {
@@ -286,64 +278,45 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
   }
 
   if (chassis) {
-    const QRectF volRow(body.left() + 22, body.top() + 156, body.width() - 44, 40);
-    drawGlyphBtn(p, QRectF(volRow.left(), volRow.top(), 40, 40), MockupIcon::mute,
-                 faceOf(phases, K::mute, view.muted), 21);
+    const MainVolumeRow vol = layoutMainVolumeRow(body);
+    drawGlyphBtn(p, vol.mute, MockupIcon::mute, faceOf(phases, K::mute, view.muted), 21);
     p.setFont(condensedFont(11, 0.2));
     p.setPen(T().inkFaint);
-    const qreal volLabelLeft = volRow.left() + 40 + 14;
-    p.drawText(QRectF(volLabelLeft, volRow.top(), 34, 40), Qt::AlignVCenter,
-               QStringLiteral("VOL"));
-    const qreal plLeft = volRow.right() - 74;
-    const qreal eqLeft = plLeft - 8 - 74;
-    const qreal monoLeft = eqLeft - 14 - 86;
-    const qreal sliderLeft = volLabelLeft + 34 + 10;
-    const qreal sliderRight = monoLeft - 14;
-    drawSlider(p, QRectF(sliderLeft, volRow.center().y() - 7, sliderRight - sliderLeft, 14),
-               volume);
-    drawBtn(p, QRectF(monoLeft, volRow.top() + 1, 86, 38), faceOf(phases, K::mono, view.forceMono),
-            QStringLiteral("MONO"));
-    drawBtn(p, QRectF(eqLeft, volRow.top() + 1, 74, 38), faceOf(phases, K::eqToggle, view.eqOn),
-            QStringLiteral("EQ"));
-    drawBtn(p, QRectF(plLeft, volRow.top() + 1, 74, 38), faceOf(phases, K::plToggle, view.plOn),
-            QStringLiteral("PL"));
+    p.drawText(vol.label, Qt::AlignVCenter, QStringLiteral("VOL"));
+    drawSlider(p, vol.track, volume);
+    drawBtn(p, vol.mono, faceOf(phases, K::mono, view.forceMono), QStringLiteral("MONO"));
+    drawBtn(p, vol.eq, faceOf(phases, K::eqToggle, view.eqOn), QStringLiteral("EQ"));
+    drawBtn(p, vol.pl, faceOf(phases, K::plToggle, view.plOn), QStringLiteral("PL"));
   }
 
   if (live) {
-    const QRectF seekRow(body.left() + 22, body.top() + 206, body.width() - 44, 32);
     const QFont stamp = monoFont(14);
     const QFontMetricsF sm(stamp);
-    const qreal posW = sm.horizontalAdvance(pos);
-    const qreal durW = sm.horizontalAdvance(dur);
+    const SeekStamps stamps = mainSeekStamps(view);
+    const MainSeekRow row = layoutMainSeekRow(body, sm.horizontalAdvance(stamps.elapsed),
+                                              sm.horizontalAdvance(stamps.duration));
     p.setFont(stamp);
     p.setPen(T().inkDim);
-    p.drawText(QRectF(seekRow.left(), seekRow.top(), posW, 32), Qt::AlignVCenter, pos);
-    p.drawText(QRectF(seekRow.right() - durW, seekRow.top(), durW, 32), Qt::AlignVCenter, dur);
-    drawSlider(p, QRectF(seekRow.left() + posW + 14, seekRow.center().y() - 8,
-                         seekRow.width() - posW - durW - 28, 16),
-               seek, true, glow);
+    p.drawText(row.elapsed, Qt::AlignVCenter, stamps.elapsed);
+    p.drawText(row.duration, Qt::AlignVCenter, stamps.duration);
+    drawSlider(p, row.track, seek, true, glow);
   }
 
   if (chassis) {
-    const QRectF playRow(body.left() + 22, body.top() + 246, body.width() - 44, 50);
-    qreal x = playRow.left();
-    auto place = [&](qreal w, MockupIcon icon, ChromeHit::Kind kind, bool on) {
-      drawGlyphBtn(p, QRectF(x, playRow.top(), w, 50), icon, faceOf(phases, kind, on), 22);
-      x += w + 6;
+    const MainTransportRow row =
+        layoutMainTransportRow(body, toggleBtnWidth(QStringLiteral("SHUFFLE")),
+                               toggleBtnWidth(QStringLiteral("REPEAT")));
+    auto place = [&](const QRectF& r, MockupIcon icon, ChromeHit::Kind kind, bool on) {
+      drawGlyphBtn(p, r, icon, faceOf(phases, kind, on), 22);
     };
-    place(66, MockupIcon::previous, K::prev, false);
-    place(78, MockupIcon::play, K::play, playOn);
-    place(66, MockupIcon::pause, K::pause, pauseOn);
-    place(66, MockupIcon::stop, K::stop, false);
-    place(66, MockupIcon::next, K::next, false);
-    x += 10;
-    place(66, MockupIcon::eject, K::eject, false);
-    const qreal shuffleW = toggleBtnWidth(QStringLiteral("SHUFFLE"));
-    const qreal repeatW = toggleBtnWidth(QStringLiteral("REPEAT"));
-    const QRectF repeat(playRow.right() - repeatW, playRow.top(), repeatW, 50);
-    const QRectF shuffle(repeat.left() - 6 - shuffleW, playRow.top(), shuffleW, 50);
-    drawToggleBtn(p, shuffle, QStringLiteral("SHUFFLE"), faceOf(phases, K::shuffle, shuffleOn));
-    drawToggleBtn(p, repeat, QStringLiteral("REPEAT"), faceOf(phases, K::repeat, repeatOn));
+    place(row.prev, MockupIcon::previous, K::prev, false);
+    place(row.play, MockupIcon::play, K::play, playOn);
+    place(row.pause, MockupIcon::pause, K::pause, pauseOn);
+    place(row.stop, MockupIcon::stop, K::stop, false);
+    place(row.next, MockupIcon::next, K::next, false);
+    place(row.eject, MockupIcon::eject, K::eject, false);
+    drawToggleBtn(p, row.shuffle, QStringLiteral("SHUFFLE"), faceOf(phases, K::shuffle, shuffleOn));
+    drawToggleBtn(p, row.repeat, QStringLiteral("REPEAT"), faceOf(phases, K::repeat, repeatOn));
   }
 }
 
@@ -369,49 +342,37 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
   const bool live = pass != BodyPaint::chassis;
   const bool glow = pass == BodyPaint::full;
 
-  const qreal onW = labelBtnWidth(QStringLiteral("ON"));
-  const qreal autoW = labelBtnWidth(QStringLiteral("AUTO"));
-  const qreal presetsW = labelBtnWidth(QStringLiteral("PRESETS"), 16, 22);
-  qreal hx = body.left() + 22;
-  const qreal hy = body.top() + 16;
-  const QRectF curveWell(body.right() - 22 - 372, body.top() + 16, 372, 62);
-  const QRectF bandRow(body.left() + 22, body.top() + 92, body.width() - 44, 196);
+  const EqHeaderRow header = layoutEqHeader(body, labelBtnWidth(QStringLiteral("ON")),
+                                            labelBtnWidth(QStringLiteral("AUTO")),
+                                            labelBtnWidth(QStringLiteral("PRESETS"), 16, 22));
+  const QRectF& curveWell = header.curveWell;
+  const QRectF bandRow = eqBandRow(body);
   const char* labels[] = {"PREAMP", "60", "170", "310", "600", "1k",
                           "3k",     "6k", "12k", "14k", "16k"};
   qreal allGains[11] = {preamp};
   for (int i = 0; i < 10; ++i) allGains[i + 1] = gains[i];
 
   if (chassis) {
-    drawBtn(p, QRectF(hx, hy, onW, 38), faceOf(phases, K::eqOn, on), QStringLiteral("ON"));
-    hx += onW + 8;
-    drawBtn(p, QRectF(hx, hy, autoW, 38), faceOf(phases, K::eqAuto, autoOn),
-            QStringLiteral("AUTO"));
-    hx += autoW + 8;
-    const QRectF presets(hx, hy, presetsW, 38);
-    drawBtn(p, presets, faceOf(phases, K::eqPresets, false), QStringLiteral("PRESETS"));
-    drawMenuCaret(p, presets);
-    hx += presetsW + 14;
+    drawBtn(p, header.on, faceOf(phases, K::eqOn, on), QStringLiteral("ON"));
+    drawBtn(p, header.autoBtn, faceOf(phases, K::eqAuto, autoOn), QStringLiteral("AUTO"));
+    drawBtn(p, header.presets, faceOf(phases, K::eqPresets, false), QStringLiteral("PRESETS"));
+    drawMenuCaret(p, header.presets);
     p.setFont(condensedFont(11, 0.2));
     p.setPen(T().inkFaint);
-    p.drawText(QRectF(hx, hy, 180, 38), Qt::AlignVCenter,
+    p.drawText(header.curveLabel, Qt::AlignVCenter,
                QStringLiteral("CURVE · %1").arg(curveName));
     drawScreenWell(p, curveWell);
     p.setFont(monoFont(11));
     p.setPen(T().inkFaint);
-    p.drawText(QRectF(bandRow.left(), bandRow.top() + 18, 36, 14),
-               Qt::AlignRight | Qt::AlignVCenter, QStringLiteral("+12"));
-    p.drawText(QRectF(bandRow.left(), bandRow.top() + 18 + 67, 36, 14),
-               Qt::AlignRight | Qt::AlignVCenter, QStringLiteral("0"));
-    p.drawText(QRectF(bandRow.left(), bandRow.top() + 18 + 134, 36, 14),
-               Qt::AlignRight | Qt::AlignVCenter, QStringLiteral("−12"));
-    qreal lx = bandRow.left() + 44;
-    for (int i = 0; i < 11; ++i) {
-      const qreal w = i == 0 ? 62 : 50;
+    const QString scale[] = {QStringLiteral("+12"), QStringLiteral("0"), QStringLiteral("−12")};
+    for (int i = 0; i < 3; ++i) {
+      p.drawText(eqScaleMark(bandRow, i), Qt::AlignRight | Qt::AlignVCenter, scale[i]);
+    }
+    for (int i = 0; i < kEqBandCount; ++i) {
       p.setFont(condensedFont(11, i == 0 ? 0.18 : 0.1));
       p.setPen(i == 0 ? withAlpha(T().phos, 140) : T().inkFaint);
-      p.drawText(QRectF(lx, bandRow.top() + 166, w, 26), Qt::AlignHCenter | Qt::AlignVCenter,
+      p.drawText(eqBandColumn(bandRow, i).label, Qt::AlignHCenter | Qt::AlignVCenter,
                  QString::fromLatin1(labels[i]));
-      lx += w + (i == 0 ? 16 : 0);
     }
   }
 
@@ -466,15 +427,12 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
     p.restore();
     drawScreenOverlay(p, curveWell);
 
-    qreal x = bandRow.left() + 44;
-    for (int i = 0; i < 11; ++i) {
-      const qreal w = i == 0 ? 62 : 50;
+    for (int i = 0; i < kEqBandCount; ++i) {
+      const EqBandColumn column = eqBandColumn(bandRow, i);
       p.setFont(monoFont(11));
       p.setPen(T().ink);
-      p.drawText(QRectF(x, bandRow.top(), w, 18), Qt::AlignHCenter | Qt::AlignVCenter,
-                 formatGain(allGains[i]));
-      drawVBand(p, QRectF(x, bandRow.top() + 18, w, 148), allGains[i]);
-      x += w + (i == 0 ? 16 : 0);
+      p.drawText(column.gain, Qt::AlignHCenter | Qt::AlignVCenter, formatGain(allGains[i]));
+      drawVBand(p, column.well, allGains[i]);
     }
     drawLogoMark(p, QRectF(body.right() - 36 - 120, body.top() + 120, 120, 120), logo, 0.14);
   }
@@ -772,7 +730,7 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
   tab(body.top(), QStringLiteral("General"), K::settingsGeneral, tabIndex == 0);
   tab(body.top() + 42, QStringLiteral("Skins"), K::settingsSkins, tabIndex == 1);
 
-  const QRectF pane(body.left() + 108, body.top(), body.width() - 108, body.height() - 40);
+  const QRectF pane = settingsPane(body);
   if (tabIndex == 1) {
     const QVector<SkinCatalogEntry> skins = view.goldenDemo ? QVector<SkinCatalogEntry>{} : view.skins;
     const QString active = view.goldenDemo ? QStringLiteral("builtin") : view.activeSkinId;
@@ -811,7 +769,7 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
       p.drawText(QRectF(pane.left() + 12, pane.bottom() - 92, pane.width() - 24, 28),
                  Qt::AlignLeft | Qt::AlignVCenter | Qt::TextWordWrap, view.skinsError);
     }
-    const qreal btnY = pane.bottom() - 58;
+    const qreal btnY = pane.bottom() - kSkinsBtnStackH;
     drawBtn(p, QRectF(pane.left() + 12, btnY, 148, 26), faceOf(phases, K::settingsInstallZip, false),
             QStringLiteral("Install zip"));
     drawBtn(p, QRectF(pane.left() + 168, btnY, 160, 26),
@@ -1039,7 +997,7 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
 
 void paintWindowBody(QPainter& painter, WindowId id, QSize logical, const QImage* logo,
                      const SessionView& view, BodyPaint pass, const ChromePhases& phases) {
-  const QRectF body = bodyRect(logical);
+  const QRectF body = panelBody(logical);
   switch (id) {
     case WindowId::main:
       paintMain(painter, body, view, pass, phases);

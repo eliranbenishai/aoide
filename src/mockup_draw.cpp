@@ -934,6 +934,21 @@ void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle, bool 
   }
 }
 
+namespace {
+
+/// The value point a gain sits at down a band well: full scale at the top.
+qreal bandValueY(const QRectF& well, qreal gainDb) {
+  const qreal frac = qBound(0.0, (gainDb + 12.0) / 24.0, 1.0);
+  return well.top() + (1.0 - frac) * well.height();
+}
+
+}  // namespace
+
+QRectF bandThumbRect(const QRectF& well, qreal gainDb) {
+  return QRectF(well.center().x() - kEqBandThumbW / 2,
+                bandValueY(well, gainDb) - kEqBandThumbH / 2, kEqBandThumbW, kEqBandThumbH);
+}
+
 void drawVBand(QPainter& p, const QRectF& column, qreal gainDb) {
   constexpr qreal trackW = 12;
   const QRectF track(column.center().x() - trackW / 2, column.top(), trackW,
@@ -946,8 +961,7 @@ void drawVBand(QPainter& p, const QRectF& column, qreal gainDb) {
   tg.setColorAt(1, T().metalLo);
   p.fillPath(trough, tg);
 
-  const qreal frac = qBound(0.0, (gainDb + 12.0) / 24.0, 1.0);
-  const qreal thumbY = track.top() + (1.0 - frac) * track.height();
+  const qreal thumbY = bandValueY(track, gainDb);
   if (track.bottom() - thumbY > 0.5) {
     p.save();
     p.setClipPath(trough);
@@ -960,7 +974,7 @@ void drawVBand(QPainter& p, const QRectF& column, qreal gainDb) {
   p.fillRect(QRectF(track.left() - 13, track.center().y() - 0.5, trackW + 26, 1),
              withAlpha(T().coolSheen, 36));
 
-  const QRectF thumb(column.center().x() - 17, thumbY - 9, 34, 18);
+  const QRectF thumb = bandThumbRect(column, gainDb);
   QLinearGradient face(thumb.topLeft(), thumb.bottomLeft());
   face.setColorAt(0, T().eqThumbHi);
   face.setColorAt(0.42, T().idleLedHi);

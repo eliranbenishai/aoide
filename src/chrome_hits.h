@@ -95,6 +95,17 @@ inline QPoint sliderPressPoint(const QRect& well, QPoint logical) {
   return logical;
 }
 
+/// The two clock stamps the seek row paints. The row shows elapsed time even
+/// while the display well above it shows remaining, and the seek well's left
+/// edge is the measured width of the first stamp — so hit-testing and painting
+/// read the strings from here rather than each picking their own.
+struct SeekStamps {
+  QString elapsed;
+  QString duration;
+};
+
+SeekStamps mainSeekStamps(const SessionView& view);
+
 ChromeHit hitTest(WindowId id, QSize logical, QPoint pos, const SessionView& view);
 
 QRect mainOptionsHit(QSize logical);

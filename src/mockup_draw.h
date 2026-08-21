@@ -75,6 +75,10 @@ void drawGlyphBtn(QPainter& p, const QRectF& r, MockupIcon icon, BtnFace face,
 void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle = false,
                 bool glow = true);
 void drawVBand(QPainter& p, const QRectF& column, qreal gainDb);
+/// Where [drawVBand] puts the thumb for a gain. Centred on the value point, so
+/// at the ends of the range it stands proud of the well — exported so hit
+/// regions can be checked against the paint rather than against a copy of it.
+QRectF bandThumbRect(const QRectF& well, qreal gainDb);
 void drawLed(QPainter& p, QPointF c, qreal on, qreal size = 8);
 qreal toggleBtnWidth(const QString& label);
 /// Label plus an indicator lamp. `face.on` lights the lamp, not the chassis:
