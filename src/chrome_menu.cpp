@@ -20,7 +20,6 @@
 #include <QRectF>
 #include <QScreen>
 #include <QWidget>
-#include <QWindow>
 #include <algorithm>
 #include <cmath>
 
@@ -62,12 +61,16 @@ class ChromeMenuWindow : public QWidget {
       // window_spec.h's Qt::Window-only rule is about the host panels, which
       // have to stay ordinary toplevels; a transient menu is what it excludes.
       //
-      // Deliberately unparented: this widget lives on execChromeMenu's stack for
-      // the length of a nested event loop, and a QWidget parent would let Qt
-      // delete it if the panel went away underneath. The compositor still gets
-      // the stacking relationship through the transient parent below.
-      : QWidget(nullptr, Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint),
-        owner_(owner),
+      // The widget parent is load-bearing, not decoration. Qt picks the surface
+      // role while it creates the platform window, and it reads the transient
+      // parent to do it — an unparented popup measures NULL there and comes out
+      // an ordinary toplevel, with no grab, no dismiss and no keys, whatever you
+      // set afterwards. Do not reparent this to nullptr to make the lifetime
+      // tidier; it holds the same shape as QMenu::exec for the same reason.
+      //
+      // Panels are non-native children of the host shell, so the surface the
+      // compositor ends up hanging this off is the shell, which is what we want.
+      : QWidget(owner, Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint),
         items_(items),
         zoom_(qMax(1, zoomPercent) / 100.0),
         metrics_(chromeMenuMetrics(zoom_)),
@@ -82,7 +85,6 @@ class ChromeMenuWindow : public QWidget {
     setGeometry(QRect(clampToWorkArea(popupMenuPos(anchorGlobal, wanted, anchor), wanted,
                                       anchorGlobal),
                       wanted));
-    adoptTransientParent();
     show();
     raise();
     setFocus(Qt::PopupFocusReason);
@@ -213,16 +215,6 @@ class ChromeMenuWindow : public QWidget {
     return widest;
   }
 
-  /// Panels are non-native children of the host shell, so the shell's window is
-  /// the only surface a compositor can hang this popup off.
-  void adoptTransientParent() {
-    QWidget* top = owner_ ? owner_->window() : nullptr;
-    QWindow* anchorWindow = top ? top->windowHandle() : nullptr;
-    if (!anchorWindow) return;
-    create();
-    if (QWindow* handle = windowHandle()) handle->setTransientParent(anchorWindow);
-  }
-
   int rowUnder(const QMouseEvent* event) const {
     const QPoint pos = event->position().toPoint();
     if (!rect().contains(pos)) return kChromeMenuNone;
@@ -243,7 +235,6 @@ class ChromeMenuWindow : public QWidget {
     loop_.quit();
   }
 
-  QWidget* owner_ = nullptr;
   QVector<ChromeMenuItem> items_;
   qreal zoom_ = 0.75;
   ChromeMenuMetrics metrics_{};
