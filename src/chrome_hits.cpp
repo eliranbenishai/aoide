@@ -10,10 +10,6 @@
 namespace tramp {
 namespace {
 
-QRectF bodyRect(QSize logical) {
-  return QRectF(0, kTitleBar, logical.width(), logical.height() - kTitleBar);
-}
-
 ChromeHit hitIf(const QRect& r, QPoint pos, ChromeHit::Kind kind, int index = -1) {
   if (r.contains(pos)) {
     return {kind, index, r};
@@ -21,107 +17,97 @@ ChromeHit hitIf(const QRect& r, QPoint pos, ChromeHit::Kind kind, int index = -1
   return {};
 }
 
+/// Painted rectangles carry sub-pixel edges — anything sized to its own label
+/// does — while hit regions are whole logical pixels. Rounding outwards keeps
+/// every pixel a control paints on inside its hit region.
+QRect toHitRect(const QRectF& r) { return r.toAlignedRect(); }
+
 ChromeHit hitMain(QSize logical, QPoint pos, const SessionView& view) {
-  const QRectF body = bodyRect(logical);
-  const QRect options(int(body.left() + 22), int(body.top() + 18), 26, 26);
-  if (auto h = hitIf(options, pos, ChromeHit::Kind::options); h.kind != ChromeHit::Kind::none) {
+  const QRectF body = panelBody(logical);
+  const MainDisplayRow display = layoutMainDisplay(body);
+  if (auto h = hitIf(toHitRect(display.options), pos, ChromeHit::Kind::options);
+      h.kind != ChromeHit::Kind::none) {
     return h;
   }
-  const QRectF well(body.left() + 96, body.top() + 14, 705, 132);
-  if (QRect(well.toRect()).contains(pos)) {
-    return {ChromeHit::Kind::timeToggle, -1, well.toRect()};
+  if (auto h = hitIf(toHitRect(display.well), pos, ChromeHit::Kind::timeToggle);
+      h.kind != ChromeHit::Kind::none) {
+    return h;
   }
 
-  const QRectF volRow(body.left() + 22, body.top() + 156, body.width() - 44, 40);
-  const QRect mute(int(volRow.left()), int(volRow.top()), 40, 40);
-  if (auto h = hitIf(mute, pos, ChromeHit::Kind::mute); h.kind != ChromeHit::Kind::none) return h;
-  const qreal volLabelLeft = volRow.left() + 40 + 14;
-  const qreal plLeft = volRow.right() - 74;
-  const qreal eqLeft = plLeft - 8 - 74;
-  const qreal monoLeft = eqLeft - 14 - 86;
-  const qreal sliderLeft = volLabelLeft + 34 + 10;
-  const qreal sliderRight = monoLeft - 14;
-  const QRect volume =
-      sliderHitRect(QRectF(sliderLeft, volRow.center().y() - 7, sliderRight - sliderLeft, 14),
-                    kVolumeThumbH);
+  const MainVolumeRow vol = layoutMainVolumeRow(body);
+  if (auto h = hitIf(toHitRect(vol.mute), pos, ChromeHit::Kind::mute);
+      h.kind != ChromeHit::Kind::none) {
+    return h;
+  }
+  const QRect volume = sliderHitRect(vol.track, kVolumeThumbH);
   if (auto h = hitIf(volume, pos, ChromeHit::Kind::volume); h.kind != ChromeHit::Kind::none) return h;
-  const QRect mono(int(monoLeft), int(volRow.top() + 1), 86, 38);
-  if (auto h = hitIf(mono, pos, ChromeHit::Kind::mono); h.kind != ChromeHit::Kind::none) return h;
-  const QRect eq(int(eqLeft), int(volRow.top() + 1), 74, 38);
-  if (auto h = hitIf(eq, pos, ChromeHit::Kind::eqToggle); h.kind != ChromeHit::Kind::none) return h;
-  const QRect pl(int(plLeft), int(volRow.top() + 1), 74, 38);
-  if (auto h = hitIf(pl, pos, ChromeHit::Kind::plToggle); h.kind != ChromeHit::Kind::none) return h;
+  if (auto h = hitIf(toHitRect(vol.mono), pos, ChromeHit::Kind::mono);
+      h.kind != ChromeHit::Kind::none) {
+    return h;
+  }
+  if (auto h = hitIf(toHitRect(vol.eq), pos, ChromeHit::Kind::eqToggle);
+      h.kind != ChromeHit::Kind::none) {
+    return h;
+  }
+  if (auto h = hitIf(toHitRect(vol.pl), pos, ChromeHit::Kind::plToggle);
+      h.kind != ChromeHit::Kind::none) {
+    return h;
+  }
 
-  const QRectF seekRow(body.left() + 22, body.top() + 206, body.width() - 44, 32);
-  const QFont stamp = monoFont(14);
-  const QFontMetricsF sm(stamp);
-  const QString posText = formatClock(view.showElapsed ? view.positionMs
-                                                       : qMax<qint64>(0, view.durationMs - view.positionMs));
-  const QString durText = formatClock(view.durationMs);
-  const qreal posW = sm.horizontalAdvance(view.goldenDemo ? QStringLiteral("2:41") : posText);
-  const qreal durW = sm.horizontalAdvance(view.goldenDemo ? QStringLiteral("5:47") : durText);
-  const QRect seek = sliderHitRect(QRectF(seekRow.left() + posW + 14, seekRow.center().y() - 8,
-                                          seekRow.width() - posW - durW - 28, 16),
+  const QFontMetricsF sm(monoFont(14));
+  const SeekStamps stamps = mainSeekStamps(view);
+  const QRect seek = sliderHitRect(layoutMainSeekRow(body, sm.horizontalAdvance(stamps.elapsed),
+                                                     sm.horizontalAdvance(stamps.duration))
+                                       .track,
                                    kSeekThumbH);
   if (auto h = hitIf(seek, pos, ChromeHit::Kind::seek); h.kind != ChromeHit::Kind::none) return h;
 
-  const QRectF playRow(body.left() + 22, body.top() + 246, body.width() - 44, 50);
-  qreal x = playRow.left();
-  auto place = [&](qreal w, ChromeHit::Kind kind) -> ChromeHit {
-    const QRect r(int(x), int(playRow.top()), int(w), 50);
-    x += w + 6;
-    return hitIf(r, pos, kind);
+  const MainTransportRow play =
+      layoutMainTransportRow(body, toggleBtnWidth(QStringLiteral("SHUFFLE")),
+                             toggleBtnWidth(QStringLiteral("REPEAT")));
+  const std::pair<const QRectF&, ChromeHit::Kind> transport[] = {
+      {play.prev, ChromeHit::Kind::prev},     {play.play, ChromeHit::Kind::play},
+      {play.pause, ChromeHit::Kind::pause},   {play.stop, ChromeHit::Kind::stop},
+      {play.next, ChromeHit::Kind::next},     {play.eject, ChromeHit::Kind::eject},
+      {play.shuffle, ChromeHit::Kind::shuffle}, {play.repeat, ChromeHit::Kind::repeat},
   };
-  if (auto h = place(66, ChromeHit::Kind::prev); h.kind != ChromeHit::Kind::none) return h;
-  if (auto h = place(78, ChromeHit::Kind::play); h.kind != ChromeHit::Kind::none) return h;
-  if (auto h = place(66, ChromeHit::Kind::pause); h.kind != ChromeHit::Kind::none) return h;
-  if (auto h = place(66, ChromeHit::Kind::stop); h.kind != ChromeHit::Kind::none) return h;
-  if (auto h = place(66, ChromeHit::Kind::next); h.kind != ChromeHit::Kind::none) return h;
-  x += 10;
-  if (auto h = place(66, ChromeHit::Kind::eject); h.kind != ChromeHit::Kind::none) return h;
-  const qreal shuffleW = toggleBtnWidth(QStringLiteral("SHUFFLE"));
-  const qreal repeatW = toggleBtnWidth(QStringLiteral("REPEAT"));
-  const QRect repeat(int(playRow.right() - repeatW), int(playRow.top()), int(repeatW), 50);
-  const QRect shuffle(int(repeat.left() - 6 - shuffleW), int(playRow.top()), int(shuffleW), 50);
-  if (auto h = hitIf(shuffle, pos, ChromeHit::Kind::shuffle); h.kind != ChromeHit::Kind::none) return h;
-  if (auto h = hitIf(repeat, pos, ChromeHit::Kind::repeat); h.kind != ChromeHit::Kind::none) return h;
+  for (const auto& [rect, kind] : transport) {
+    if (auto h = hitIf(toHitRect(rect), pos, kind); h.kind != ChromeHit::Kind::none) return h;
+  }
   return {};
 }
 
 ChromeHit hitEq(QSize logical, QPoint pos) {
-  const QRectF body = bodyRect(logical);
-  const qreal onW = labelBtnWidth(QStringLiteral("ON"));
-  const qreal autoW = labelBtnWidth(QStringLiteral("AUTO"));
-  const qreal presetsW = labelBtnWidth(QStringLiteral("PRESETS"), 16, 22);
-  qreal hx = body.left() + 22;
-  const qreal hy = body.top() + 16;
-  const QRect on(int(hx), int(hy), int(onW), 38);
-  if (auto h = hitIf(on, pos, ChromeHit::Kind::eqOn); h.kind != ChromeHit::Kind::none) return h;
-  hx += onW + 8;
-  const QRect autoBtn(int(hx), int(hy), int(autoW), 38);
-  if (auto h = hitIf(autoBtn, pos, ChromeHit::Kind::eqAuto); h.kind != ChromeHit::Kind::none) return h;
-  hx += autoW + 8;
-  const QRect presets(int(hx), int(hy), int(presetsW), 38);
-  if (auto h = hitIf(presets, pos, ChromeHit::Kind::eqPresets); h.kind != ChromeHit::Kind::none) {
+  const QRectF body = panelBody(logical);
+  const EqHeaderRow header = layoutEqHeader(body, labelBtnWidth(QStringLiteral("ON")),
+                                            labelBtnWidth(QStringLiteral("AUTO")),
+                                            labelBtnWidth(QStringLiteral("PRESETS"), 16, 22));
+  if (auto h = hitIf(toHitRect(header.on), pos, ChromeHit::Kind::eqOn);
+      h.kind != ChromeHit::Kind::none) {
+    return h;
+  }
+  if (auto h = hitIf(toHitRect(header.autoBtn), pos, ChromeHit::Kind::eqAuto);
+      h.kind != ChromeHit::Kind::none) {
+    return h;
+  }
+  if (auto h = hitIf(toHitRect(header.presets), pos, ChromeHit::Kind::eqPresets);
+      h.kind != ChromeHit::Kind::none) {
     return h;
   }
 
-  const QRectF bandRow(body.left() + 22, body.top() + 92, body.width() - 44, 196);
-  qreal x = bandRow.left() + 44;
-  for (int i = 0; i < 11; ++i) {
-    const qreal w = i == 0 ? 62 : 50;
-    const QRect band(int(x), int(bandRow.top() + 18), int(w), 148);
-    if (band.contains(pos)) {
+  const QRectF bandRow = eqBandRow(body);
+  for (int i = 0; i < kEqBandCount; ++i) {
+    const EqBandColumn column = eqBandColumn(bandRow, i);
+    if (bandHitRect(column, kEqBandThumbH).contains(pos)) {
       return {i == 0 ? ChromeHit::Kind::eqPreamp : ChromeHit::Kind::eqBand, i == 0 ? -1 : i - 1,
-              band};
+              toHitRect(column.well)};
     }
-    x += w + (i == 0 ? 16 : 0);
   }
   return {};
 }
 
 ChromeHit hitPlaylist(QSize logical, QPoint pos, const SessionView& view) {
-  const QRectF body = bodyRect(logical);
+  const QRectF body = panelBody(logical);
   const qreal collectionW = view.collectionCollapsed ? 0 : view.collectionWidth;
   if (view.collectionCollapsed) {
     const QRect reopen(int(body.left() + 4), int(body.top() + 12), 14, 56);
@@ -221,7 +207,7 @@ ChromeHit hitPlaylist(QSize logical, QPoint pos, const SessionView& view) {
 }
 
 ChromeHit hitSettings(QSize logical, QPoint pos, const SessionView& view) {
-  const QRectF body = bodyRect(logical);
+  const QRectF body = panelBody(logical);
   if (auto h = hitIf(QRect(int(body.left()), int(body.top()), 108, 42), pos,
                      ChromeHit::Kind::settingsGeneral);
       h.kind != ChromeHit::Kind::none) {
@@ -289,7 +275,7 @@ ChromeHit hitSettings(QSize logical, QPoint pos, const SessionView& view) {
 }
 
 ChromeHit hitAbout(QSize logical, QPoint pos) {
-  const QRectF body = bodyRect(logical);
+  const QRectF body = panelBody(logical);
   const QRectF inner = body.adjusted(16, 14, -16, -14);
   const QRectF plate(inner.left(), inner.bottom() - 48, inner.width(), 48);
   const QRect web =
@@ -299,6 +285,13 @@ ChromeHit hitAbout(QSize logical, QPoint pos) {
 }
 
 }  // namespace
+
+SeekStamps mainSeekStamps(const SessionView& view) {
+  if (view.goldenDemo) {
+    return {QStringLiteral("2:41"), QStringLiteral("5:47")};
+  }
+  return {formatClock(view.positionMs), formatClock(view.durationMs)};
+}
 
 ChromeHit hitTest(WindowId id, QSize logical, QPoint pos, const SessionView& view) {
   switch (id) {
@@ -317,18 +310,11 @@ ChromeHit hitTest(WindowId id, QSize logical, QPoint pos, const SessionView& vie
 }
 
 QRect mainOptionsHit(QSize logical) {
-  Q_UNUSED(logical);
-  return QRect(22, kTitleBar + 18, 26, 26);
+  return toHitRect(layoutMainDisplay(panelBody(logical)).options);
 }
 
-QRect mainEqHit(QSize logical) {
-  const QRectF volRow(22, kTitleBar + 156, logical.width() - 44, 40);
-  return QRect(int(volRow.right() - 74 - 8 - 74), int(volRow.top() + 1), 74, 38);
-}
+QRect mainEqHit(QSize logical) { return toHitRect(layoutMainVolumeRow(panelBody(logical)).eq); }
 
-QRect mainPlHit(QSize logical) {
-  const QRectF volRow(22, kTitleBar + 156, logical.width() - 44, 40);
-  return QRect(int(volRow.right() - 74), int(volRow.top() + 1), 74, 38);
-}
+QRect mainPlHit(QSize logical) { return toHitRect(layoutMainVolumeRow(panelBody(logical)).pl); }
 
 }  // namespace tramp

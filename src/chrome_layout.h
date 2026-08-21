@@ -60,8 +60,34 @@ inline qreal marqueeOffset(qreal textWidth, qreal clipWidth, qint64 elapsedMs, b
   return std::fmod(scrolled, loop);
 }
 
+/// Main and EQ bodies inset their rows by the same pad.
+inline constexpr qreal kBodySidePad = 22;
+
+inline constexpr qreal kMainOptionsTop = 18;
+inline constexpr qreal kMainOptionsSize = 26;
+inline constexpr qreal kDisplayWellLeft = 96;
+inline constexpr qreal kDisplayWellTop = 14;
+inline constexpr qreal kDisplayWellW = 705;
+inline constexpr qreal kDisplayWellH = 132;
+
+struct MainDisplayRow {
+  QRectF options;
+  QRectF well;
+};
+
+/// The options cog sits in the gutter left of the display well, which takes
+/// the rest of the row. The whole well toggles elapsed against remaining.
+inline MainDisplayRow layoutMainDisplay(const QRectF& body) {
+  MainDisplayRow out;
+  out.options = QRectF(body.left() + kBodySidePad, body.top() + kMainOptionsTop, kMainOptionsSize,
+                       kMainOptionsSize);
+  out.well = QRectF(body.left() + kDisplayWellLeft, body.top() + kDisplayWellTop, kDisplayWellW,
+                    kDisplayWellH);
+  return out;
+}
+
 /// Well 705, inner pad 16 per side, title meta inset 288.
-inline constexpr qreal kDisplayTitleClipW = 705 - 32 - 288;
+inline constexpr qreal kDisplayTitleClipW = kDisplayWellW - 32 - 288;
 
 /// Moving lines paint on the live pass; static lines stay on the chassis.
 inline bool displayTitleOnLivePass(qreal offset) { return offset > 0; }
@@ -73,11 +99,225 @@ inline constexpr qreal kSeekThumbW = 22;
 inline constexpr qreal kSeekThumbH = 32;
 inline constexpr qreal kVolumeThumbW = 20;
 inline constexpr qreal kVolumeThumbH = 30;
+/// The equaliser bands run the same way vertically: the thumb is centred on the
+/// value point, so at ±12 dB half of it hangs past the end of the well.
+inline constexpr qreal kEqBandThumbW = 34;
+inline constexpr qreal kEqBandThumbH = 18;
 
+/// Rounds outwards: a well whose edges fall between logical pixels — the seek
+/// well starts at the measured width of the elapsed stamp — would otherwise
+/// leave the pixels it paints on either end dead.
 inline QRect sliderHitRect(const QRectF& track, qreal thumbH) {
   const qreal h = std::max(track.height(), thumbH);
-  return QRect(int(track.left()), int(std::round(track.center().y() - h / 2)),
-               int(track.width()), int(h));
+  return QRectF(track.left(), track.center().y() - h / 2, track.width(), h).toAlignedRect();
+}
+
+inline constexpr qreal kVolRowTop = 156;
+inline constexpr qreal kVolRowH = 40;
+inline constexpr qreal kVolMuteW = 40;
+inline constexpr qreal kVolLabelGap = 14;
+inline constexpr qreal kVolLabelW = 34;
+inline constexpr qreal kVolTrackGap = 10;
+inline constexpr qreal kVolTrackH = 14;
+inline constexpr qreal kVolTrackToMono = 14;
+inline constexpr qreal kVolBtnH = 38;
+inline constexpr qreal kVolBtnInset = 1;
+inline constexpr qreal kMonoBtnW = 86;
+inline constexpr qreal kMonoToEqGap = 14;
+inline constexpr qreal kPanelBtnW = 74;
+inline constexpr qreal kPanelBtnGap = 8;
+
+struct MainVolumeRow {
+  QRectF row;
+  QRectF mute;
+  QRectF label;
+  QRectF track;
+  QRectF mono;
+  QRectF eq;
+  QRectF pl;
+};
+
+/// Mute and the VOL label flow from the left; PL, EQ and MONO pack from the
+/// right; the volume well takes the span between them.
+inline MainVolumeRow layoutMainVolumeRow(const QRectF& body) {
+  MainVolumeRow out;
+  out.row = QRectF(body.left() + kBodySidePad, body.top() + kVolRowTop,
+                   body.width() - 2 * kBodySidePad, kVolRowH);
+  const QRectF& row = out.row;
+  out.mute = QRectF(row.left(), row.top(), kVolMuteW, kVolRowH);
+  out.label = QRectF(out.mute.right() + kVolLabelGap, row.top(), kVolLabelW, kVolRowH);
+  const qreal btnY = row.top() + kVolBtnInset;
+  out.pl = QRectF(row.right() - kPanelBtnW, btnY, kPanelBtnW, kVolBtnH);
+  out.eq = QRectF(out.pl.left() - kPanelBtnGap - kPanelBtnW, btnY, kPanelBtnW, kVolBtnH);
+  out.mono = QRectF(out.eq.left() - kMonoToEqGap - kMonoBtnW, btnY, kMonoBtnW, kVolBtnH);
+  const qreal trackLeft = out.label.right() + kVolTrackGap;
+  const qreal trackRight = out.mono.left() - kVolTrackToMono;
+  out.track = QRectF(trackLeft, row.center().y() - kVolTrackH / 2, trackRight - trackLeft,
+                     kVolTrackH);
+  return out;
+}
+
+inline constexpr qreal kSeekRowTop = 206;
+inline constexpr qreal kSeekRowH = 32;
+inline constexpr qreal kSeekStampGap = 14;
+inline constexpr qreal kSeekTrackH = 16;
+
+struct MainSeekRow {
+  QRectF row;
+  QRectF elapsed;
+  QRectF duration;
+  QRectF track;
+};
+
+/// The seek well sits between the two clock stamps, so its left edge moves with
+/// the rendered width of the elapsed time: `10:01` pushes it a digit further
+/// right than `9:59`, and a skin's LCD face moves it again. Callers pass the
+/// measured widths; layout stays independent of the font machinery.
+inline MainSeekRow layoutMainSeekRow(const QRectF& body, qreal posW, qreal durW) {
+  MainSeekRow out;
+  out.row = QRectF(body.left() + kBodySidePad, body.top() + kSeekRowTop,
+                   body.width() - 2 * kBodySidePad, kSeekRowH);
+  const QRectF& row = out.row;
+  out.elapsed = QRectF(row.left(), row.top(), posW, kSeekRowH);
+  out.duration = QRectF(row.right() - durW, row.top(), durW, kSeekRowH);
+  out.track = QRectF(row.left() + posW + kSeekStampGap, row.center().y() - kSeekTrackH / 2,
+                     row.width() - posW - durW - 2 * kSeekStampGap, kSeekTrackH);
+  return out;
+}
+
+inline constexpr qreal kPlayRowTop = 246;
+inline constexpr qreal kPlayRowH = 50;
+inline constexpr qreal kPlayBtnW = 66;
+inline constexpr qreal kPlayBtnGap = 6;
+inline constexpr qreal kPlayPlayW = 78;
+inline constexpr qreal kPlayEjectGap = 10;
+
+struct MainTransportRow {
+  QRectF row;
+  QRectF prev;
+  QRectF play;
+  QRectF pause;
+  QRectF stop;
+  QRectF next;
+  QRectF eject;
+  QRectF shuffle;
+  QRectF repeat;
+};
+
+/// Transport flows from the left with Eject held off the cluster; the two
+/// toggles pack from the right and are sized to their own labels, so callers
+/// pass the measured widths.
+inline MainTransportRow layoutMainTransportRow(const QRectF& body, qreal shuffleW, qreal repeatW) {
+  MainTransportRow out;
+  out.row = QRectF(body.left() + kBodySidePad, body.top() + kPlayRowTop,
+                   body.width() - 2 * kBodySidePad, kPlayRowH);
+  const QRectF& row = out.row;
+  qreal x = row.left();
+  auto place = [&](qreal w) {
+    const QRectF r(x, row.top(), w, kPlayRowH);
+    x += w + kPlayBtnGap;
+    return r;
+  };
+  out.prev = place(kPlayBtnW);
+  out.play = place(kPlayPlayW);
+  out.pause = place(kPlayBtnW);
+  out.stop = place(kPlayBtnW);
+  out.next = place(kPlayBtnW);
+  x += kPlayEjectGap;
+  out.eject = place(kPlayBtnW);
+  out.repeat = QRectF(row.right() - repeatW, row.top(), repeatW, kPlayRowH);
+  out.shuffle = QRectF(out.repeat.left() - kPlayBtnGap - shuffleW, row.top(), shuffleW, kPlayRowH);
+  return out;
+}
+
+inline constexpr qreal kEqHeaderTop = 16;
+inline constexpr qreal kEqHeaderBtnH = 38;
+inline constexpr qreal kEqHeaderGap = 8;
+inline constexpr qreal kEqCurveLabelGap = 14;
+inline constexpr qreal kEqCurveLabelW = 180;
+inline constexpr qreal kEqCurveWellW = 372;
+inline constexpr qreal kEqCurveWellH = 62;
+
+struct EqHeaderRow {
+  QRectF on;
+  QRectF autoBtn;
+  QRectF presets;
+  QRectF curveLabel;
+  QRectF curveWell;
+};
+
+/// ON / AUTO / PRESETS flow from the left, each sized to its own label, with
+/// the CURVE readout after them and the curve well on the right edge.
+inline EqHeaderRow layoutEqHeader(const QRectF& body, qreal onW, qreal autoW, qreal presetsW) {
+  EqHeaderRow out;
+  const qreal y = body.top() + kEqHeaderTop;
+  qreal x = body.left() + kBodySidePad;
+  out.on = QRectF(x, y, onW, kEqHeaderBtnH);
+  x += onW + kEqHeaderGap;
+  out.autoBtn = QRectF(x, y, autoW, kEqHeaderBtnH);
+  x += autoW + kEqHeaderGap;
+  out.presets = QRectF(x, y, presetsW, kEqHeaderBtnH);
+  x += presetsW + kEqCurveLabelGap;
+  out.curveLabel = QRectF(x, y, kEqCurveLabelW, kEqHeaderBtnH);
+  out.curveWell =
+      QRectF(body.right() - kBodySidePad - kEqCurveWellW, y, kEqCurveWellW, kEqCurveWellH);
+  return out;
+}
+
+inline constexpr int kEqBandCount = 11;
+inline constexpr qreal kEqBandRowTop = 92;
+inline constexpr qreal kEqBandRowH = 196;
+inline constexpr qreal kEqScaleW = 36;
+inline constexpr qreal kEqScaleH = 14;
+inline constexpr qreal kEqBandsLeft = 44;
+inline constexpr qreal kEqPreampW = 62;
+inline constexpr qreal kEqPreampGap = 16;
+inline constexpr qreal kEqBandW = 50;
+inline constexpr qreal kEqGainH = 18;
+inline constexpr qreal kEqWellH = 148;
+inline constexpr qreal kEqBandLabelTop = 166;
+inline constexpr qreal kEqBandLabelH = 26;
+
+inline QRectF eqBandRow(const QRectF& body) {
+  return QRectF(body.left() + kBodySidePad, body.top() + kEqBandRowTop,
+                body.width() - 2 * kBodySidePad, kEqBandRowH);
+}
+
+/// The +12 / 0 / −12 marks down the left gutter, level with the top, middle
+/// and bottom of the wells beside them.
+inline QRectF eqScaleMark(const QRectF& bandRow, int index) {
+  return QRectF(bandRow.left(), bandRow.top() + kEqGainH + index * (kEqWellH - kEqScaleH) / 2,
+                kEqScaleW, kEqScaleH);
+}
+
+struct EqBandColumn {
+  QRectF gain;
+  QRectF well;
+  QRectF label;
+};
+
+/// Column 0 is the preamp: wider than the ten bands and set off from them.
+inline EqBandColumn eqBandColumn(const QRectF& bandRow, int index) {
+  qreal x = bandRow.left() + kEqBandsLeft;
+  for (int i = 0; i < index; ++i) {
+    x += i == 0 ? kEqPreampW + kEqPreampGap : kEqBandW;
+  }
+  const qreal w = index == 0 ? kEqPreampW : kEqBandW;
+  EqBandColumn out;
+  out.gain = QRectF(x, bandRow.top(), w, kEqGainH);
+  out.well = QRectF(x, bandRow.top() + kEqGainH, w, kEqWellH);
+  out.label = QRectF(x, bandRow.top() + kEqBandLabelTop, w, kEqBandLabelH);
+  return out;
+}
+
+/// What the pointer may grab on a band. The readout above the well is part of
+/// the control the eye sees, so it drags the band, and the thumb hangs half its
+/// height below the well at −12 dB — but the rect the hit carries stays the
+/// well alone, so the drag still reads the full ±12 dB off the value's domain.
+inline QRect bandHitRect(const EqBandColumn& column, qreal thumbH) {
+  return QRectF(column.well.left(), column.gain.top(), column.well.width(),
+                column.well.bottom() + thumbH / 2 - column.gain.top())
+      .toAlignedRect();
 }
 
 /// The maker's-plate web pill is sized to its own text, so a fixed-width hit box
@@ -101,14 +341,17 @@ inline constexpr int kSkinsBtnGap = 8;
 inline constexpr int kSkinsScrollW = 14;
 inline constexpr int kSkinsScrollGap = 10;
 
-inline QRectF settingsBody(QSize logical) {
+/// Everything a panel owns below its title bar. Hit-testing and painting both
+/// start here, so it is the one place the title bar is subtracted.
+inline QRectF panelBody(QSize logical) {
   return QRectF(0, kTitleBar, logical.width(), logical.height() - kTitleBar);
 }
 
-inline QRectF settingsPane(QSize logical) {
-  const QRectF body = settingsBody(logical);
+inline QRectF settingsPane(const QRectF& body) {
   return QRectF(body.left() + 108, body.top(), body.width() - 108, body.height() - 40);
 }
+
+inline QRectF settingsPane(QSize logical) { return settingsPane(panelBody(logical)); }
 
 inline QRectF skinsListViewport(const QRectF& pane) {
   const qreal top = pane.top() + kSkinRowTop;
