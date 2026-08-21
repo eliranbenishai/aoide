@@ -94,6 +94,39 @@ void drawLogoMark(QPainter& p, const QRectF& box, const QImage* logo, qreal opac
   p.restore();
 }
 
+/// Word-wrapped text that says when it has been cut. Text longer than the box
+/// has room for is clipped mid-line, and a clipped line reads as a sentence
+/// that simply stopped rather than one there is more of; keep the longest
+/// prefix that fits and end it in an ellipsis. Text that fits goes through
+/// [QPainter::drawText] untouched.
+void drawWrappedElided(QPainter& p, const QRectF& box, int flags, const QString& text) {
+  const auto fits = [&](const QString& candidate) {
+    return p.boundingRect(box, flags, candidate).height() <= box.height();
+  };
+  if (fits(text)) {
+    p.drawText(box, flags, text);
+    return;
+  }
+  // Wrapped height only grows with the text, so the longest prefix that fits
+  // can be halved out rather than walked a character at a time.
+  const auto cut = [&](int chars) {
+    QString head = text.left(chars);
+    while (head.endsWith(QLatin1Char(' '))) head.chop(1);
+    return head + QStringLiteral("…");
+  };
+  int keep = 0;
+  int most = int(text.size());
+  while (keep < most) {
+    const int mid = keep + (most - keep + 1) / 2;
+    if (fits(cut(mid))) {
+      keep = mid;
+    } else {
+      most = mid - 1;
+    }
+  }
+  p.drawText(box, flags, cut(keep));
+}
+
 void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPaint pass,
                const ChromePhases& phases) {
   using K = ChromeHit::Kind;
@@ -727,7 +760,8 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
       p.setClipRect(strip);
       p.setFont(monoFont(10));
       p.setPen(T().accent);
-      p.drawText(strip, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextWordWrap, view.skinsError);
+      drawWrappedElided(p, strip, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextWordWrap,
+                        view.skinsError);
       p.restore();
     }
     const qreal btnY = pane.bottom() - kSkinsBtnStackH;
