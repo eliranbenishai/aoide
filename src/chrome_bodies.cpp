@@ -306,25 +306,20 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
   }
 
   if (chassis) {
-    const QRectF playRow(body.left() + 22, body.top() + 246, body.width() - 44, 50);
-    qreal x = playRow.left();
-    auto place = [&](qreal w, MockupIcon icon, ChromeHit::Kind kind, bool on) {
-      drawGlyphBtn(p, QRectF(x, playRow.top(), w, 50), icon, faceOf(phases, kind, on), 22);
-      x += w + 6;
+    const MainTransportRow row =
+        layoutMainTransportRow(body, toggleBtnWidth(QStringLiteral("SHUFFLE")),
+                               toggleBtnWidth(QStringLiteral("REPEAT")));
+    auto place = [&](const QRectF& r, MockupIcon icon, ChromeHit::Kind kind, bool on) {
+      drawGlyphBtn(p, r, icon, faceOf(phases, kind, on), 22);
     };
-    place(66, MockupIcon::previous, K::prev, false);
-    place(78, MockupIcon::play, K::play, playOn);
-    place(66, MockupIcon::pause, K::pause, pauseOn);
-    place(66, MockupIcon::stop, K::stop, false);
-    place(66, MockupIcon::next, K::next, false);
-    x += 10;
-    place(66, MockupIcon::eject, K::eject, false);
-    const qreal shuffleW = toggleBtnWidth(QStringLiteral("SHUFFLE"));
-    const qreal repeatW = toggleBtnWidth(QStringLiteral("REPEAT"));
-    const QRectF repeat(playRow.right() - repeatW, playRow.top(), repeatW, 50);
-    const QRectF shuffle(repeat.left() - 6 - shuffleW, playRow.top(), shuffleW, 50);
-    drawToggleBtn(p, shuffle, QStringLiteral("SHUFFLE"), faceOf(phases, K::shuffle, shuffleOn));
-    drawToggleBtn(p, repeat, QStringLiteral("REPEAT"), faceOf(phases, K::repeat, repeatOn));
+    place(row.prev, MockupIcon::previous, K::prev, false);
+    place(row.play, MockupIcon::play, K::play, playOn);
+    place(row.pause, MockupIcon::pause, K::pause, pauseOn);
+    place(row.stop, MockupIcon::stop, K::stop, false);
+    place(row.next, MockupIcon::next, K::next, false);
+    place(row.eject, MockupIcon::eject, K::eject, false);
+    drawToggleBtn(p, row.shuffle, QStringLiteral("SHUFFLE"), faceOf(phases, K::shuffle, shuffleOn));
+    drawToggleBtn(p, row.repeat, QStringLiteral("REPEAT"), faceOf(phases, K::repeat, repeatOn));
   }
 }
 

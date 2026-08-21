@@ -17,12 +17,10 @@ ChromeHit hitIf(const QRect& r, QPoint pos, ChromeHit::Kind kind, int index = -1
   return {};
 }
 
-/// Painted rectangles carry sub-pixel edges; hit regions are whole logical
-/// pixels. Truncating keeps the region on the same pixel the chrome has always
-/// used.
-QRect toHitRect(const QRectF& r) {
-  return QRect(int(r.left()), int(r.top()), int(r.width()), int(r.height()));
-}
+/// Painted rectangles carry sub-pixel edges — anything sized to its own label
+/// does — while hit regions are whole logical pixels. Rounding outwards keeps
+/// every pixel a control paints on inside its hit region.
+QRect toHitRect(const QRectF& r) { return r.toAlignedRect(); }
 
 ChromeHit hitMain(QSize logical, QPoint pos, const SessionView& view) {
   const QRectF body = panelBody(logical);
@@ -64,26 +62,18 @@ ChromeHit hitMain(QSize logical, QPoint pos, const SessionView& view) {
   const QRect seek = sliderHitRect(layoutMainSeekRow(body, posW, durW).track, kSeekThumbH);
   if (auto h = hitIf(seek, pos, ChromeHit::Kind::seek); h.kind != ChromeHit::Kind::none) return h;
 
-  const QRectF playRow(body.left() + 22, body.top() + 246, body.width() - 44, 50);
-  qreal x = playRow.left();
-  auto place = [&](qreal w, ChromeHit::Kind kind) -> ChromeHit {
-    const QRect r(int(x), int(playRow.top()), int(w), 50);
-    x += w + 6;
-    return hitIf(r, pos, kind);
+  const MainTransportRow play =
+      layoutMainTransportRow(body, toggleBtnWidth(QStringLiteral("SHUFFLE")),
+                             toggleBtnWidth(QStringLiteral("REPEAT")));
+  const std::pair<const QRectF&, ChromeHit::Kind> transport[] = {
+      {play.prev, ChromeHit::Kind::prev},     {play.play, ChromeHit::Kind::play},
+      {play.pause, ChromeHit::Kind::pause},   {play.stop, ChromeHit::Kind::stop},
+      {play.next, ChromeHit::Kind::next},     {play.eject, ChromeHit::Kind::eject},
+      {play.shuffle, ChromeHit::Kind::shuffle}, {play.repeat, ChromeHit::Kind::repeat},
   };
-  if (auto h = place(66, ChromeHit::Kind::prev); h.kind != ChromeHit::Kind::none) return h;
-  if (auto h = place(78, ChromeHit::Kind::play); h.kind != ChromeHit::Kind::none) return h;
-  if (auto h = place(66, ChromeHit::Kind::pause); h.kind != ChromeHit::Kind::none) return h;
-  if (auto h = place(66, ChromeHit::Kind::stop); h.kind != ChromeHit::Kind::none) return h;
-  if (auto h = place(66, ChromeHit::Kind::next); h.kind != ChromeHit::Kind::none) return h;
-  x += 10;
-  if (auto h = place(66, ChromeHit::Kind::eject); h.kind != ChromeHit::Kind::none) return h;
-  const qreal shuffleW = toggleBtnWidth(QStringLiteral("SHUFFLE"));
-  const qreal repeatW = toggleBtnWidth(QStringLiteral("REPEAT"));
-  const QRect repeat(int(playRow.right() - repeatW), int(playRow.top()), int(repeatW), 50);
-  const QRect shuffle(int(repeat.left() - 6 - shuffleW), int(playRow.top()), int(shuffleW), 50);
-  if (auto h = hitIf(shuffle, pos, ChromeHit::Kind::shuffle); h.kind != ChromeHit::Kind::none) return h;
-  if (auto h = hitIf(repeat, pos, ChromeHit::Kind::repeat); h.kind != ChromeHit::Kind::none) return h;
+  for (const auto& [rect, kind] : transport) {
+    if (auto h = hitIf(toHitRect(rect), pos, kind); h.kind != ChromeHit::Kind::none) return h;
+  }
   return {};
 }
 

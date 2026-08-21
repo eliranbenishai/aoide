@@ -158,6 +158,51 @@ inline MainSeekRow layoutMainSeekRow(const QRectF& body, qreal posW, qreal durW)
   return out;
 }
 
+inline constexpr qreal kPlayRowTop = 246;
+inline constexpr qreal kPlayRowH = 50;
+inline constexpr qreal kPlayBtnW = 66;
+inline constexpr qreal kPlayBtnGap = 6;
+inline constexpr qreal kPlayPlayW = 78;
+inline constexpr qreal kPlayEjectGap = 10;
+
+struct MainTransportRow {
+  QRectF row;
+  QRectF prev;
+  QRectF play;
+  QRectF pause;
+  QRectF stop;
+  QRectF next;
+  QRectF eject;
+  QRectF shuffle;
+  QRectF repeat;
+};
+
+/// Transport flows from the left with Eject held off the cluster; the two
+/// toggles pack from the right and are sized to their own labels, so callers
+/// pass the measured widths.
+inline MainTransportRow layoutMainTransportRow(const QRectF& body, qreal shuffleW, qreal repeatW) {
+  MainTransportRow out;
+  out.row = QRectF(body.left() + kBodySidePad, body.top() + kPlayRowTop,
+                   body.width() - 2 * kBodySidePad, kPlayRowH);
+  const QRectF& row = out.row;
+  qreal x = row.left();
+  auto place = [&](qreal w) {
+    const QRectF r(x, row.top(), w, kPlayRowH);
+    x += w + kPlayBtnGap;
+    return r;
+  };
+  out.prev = place(kPlayBtnW);
+  out.play = place(kPlayPlayW);
+  out.pause = place(kPlayBtnW);
+  out.stop = place(kPlayBtnW);
+  out.next = place(kPlayBtnW);
+  x += kPlayEjectGap;
+  out.eject = place(kPlayBtnW);
+  out.repeat = QRectF(row.right() - repeatW, row.top(), repeatW, kPlayRowH);
+  out.shuffle = QRectF(out.repeat.left() - kPlayBtnGap - shuffleW, row.top(), shuffleW, kPlayRowH);
+  return out;
+}
+
 /// The maker's-plate web pill is sized to its own text, so a fixed-width hit box
 /// drifts from it as soon as a skin changes the LCD face. Callers pass the
 /// measured text width; layout stays independent of the font machinery.

@@ -165,6 +165,26 @@ void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
                          seekRow.track.width(), tramp::kSeekThumbH),
                   tramp::ChromeHit::Kind::seek, "the seek well and its thumb");
 
+  const tramp::MainTransportRow transport = tramp::layoutMainTransportRow(
+      tramp::panelBody(main), tramp::toggleBtnWidth(QStringLiteral("SHUFFLE")),
+      tramp::toggleBtnWidth(QStringLiteral("REPEAT")));
+  grabCoversPaint(tramp::WindowId::main, main, transport.prev, tramp::ChromeHit::Kind::prev,
+                  "Previous");
+  grabCoversPaint(tramp::WindowId::main, main, transport.play, tramp::ChromeHit::Kind::play,
+                  "Play");
+  grabCoversPaint(tramp::WindowId::main, main, transport.pause, tramp::ChromeHit::Kind::pause,
+                  "Pause");
+  grabCoversPaint(tramp::WindowId::main, main, transport.stop, tramp::ChromeHit::Kind::stop,
+                  "Stop");
+  grabCoversPaint(tramp::WindowId::main, main, transport.next, tramp::ChromeHit::Kind::next,
+                  "Next");
+  grabCoversPaint(tramp::WindowId::main, main, transport.eject, tramp::ChromeHit::Kind::eject,
+                  "Eject");
+  grabCoversPaint(tramp::WindowId::main, main, transport.shuffle, tramp::ChromeHit::Kind::shuffle,
+                  "SHUFFLE");
+  grabCoversPaint(tramp::WindowId::main, main, transport.repeat, tramp::ChromeHit::Kind::repeat,
+                  "REPEAT");
+
   tramp::ChromeHit volume;
   tramp::ChromeHit seek;
   for (int y = 0; y < main.height(); ++y) {
