@@ -48,6 +48,8 @@ target_link_libraries(tramp_window_spec PUBLIC Qt6::Widgets)
 set(TRAMP_HAVE_MPV OFF)
 set(TRAMP_MPV_LIBS "")
 set(BUNDLED_MPV_SO "${TRAMP_MPV_ROOT}/linux/x86_64/libmpv.so")
+set(BUNDLED_MPV_IMPLIB "${TRAMP_MPV_ROOT}/windows/x86_64/libmpv.dll.a")
+set(TRAMP_WIN_MPV_DLL "${TRAMP_MPV_ROOT}/windows/x86_64/libmpv-2.dll")
 
 if(PkgConfig_FOUND)
   pkg_check_modules(MPV IMPORTED_TARGET mpv)
@@ -83,6 +85,19 @@ elseif(UNIX AND NOT APPLE AND EXISTS "${BUNDLED_MPV_SO}")
     stub_libvapoursynth-script.so.0
     stub_libXpresent.so.1
   )
+elseif(WIN32 AND EXISTS "${BUNDLED_MPV_IMPLIB}" AND EXISTS "${TRAMP_WIN_MPV_DLL}")
+  # The pinned shinchiro archive names its import library GNU-style, but the
+  # file is a Microsoft short-import library — the format lib.exe emits. link.exe
+  # identifies archives by content rather than extension, so the copy to a
+  # conventional name is only to keep the toolchain unsurprised.
+  #
+  # Both files are required: the import library is what links, the DLL is what
+  # ships, and a build that can link but not ship is the silent-Windows defect
+  # this branch exists to close.
+  set(TRAMP_HAVE_MPV ON)
+  set(TRAMP_MPV_IMPLIB "${CMAKE_CURRENT_BINARY_DIR}/mpv.lib")
+  configure_file("${BUNDLED_MPV_IMPLIB}" "${TRAMP_MPV_IMPLIB}" COPYONLY)
+  list(APPEND TRAMP_MPV_LIBS "${TRAMP_MPV_IMPLIB}")
 endif()
 
 # A music player that cannot play music must not be packageable by accident.
@@ -96,7 +111,8 @@ if(NOT TRAMP_HAVE_MPV AND NOT TRAMP_ALLOW_NO_AUDIO)
     "No audio engine: libmpv was not found, so this build could not play anything.\n"
     "  Linux/macOS: install libmpv development files (pkg-config must find 'mpv'),\n"
     "               or place the bundle at third_party/libmpv/linux/x86_64/libmpv.so.\n"
-    "  Windows:     linking libmpv is not implemented yet (no import library).\n"
+    "  Windows:     run tool/fetch_full_libmpv.ps1, which installs libmpv-2.dll and\n"
+    "               its import library into third_party/libmpv/windows/x86_64.\n"
     "Configure with -DTRAMP_ALLOW_NO_AUDIO=ON to build a deliberately silent binary.")
 endif()
 
@@ -163,12 +179,21 @@ if(TRAMP_HAVE_MPV)
   target_compile_definitions(tramp PRIVATE TRAMP_HAVE_MPV)
   target_link_libraries(tramp PRIVATE ${TRAMP_MPV_LIBS})
   if(UNIX AND NOT APPLE AND EXISTS "${BUNDLED_MPV_SO}" AND NOT TARGET PkgConfig::MPV)
-    target_link_options(tramp PRIVATE
-      "-Wl,--allow-shlib-undefined"
-      "-Wl,-rpath,${TRAMP_MPV_ROOT}/linux/x86_64"
-      "-Wl,-rpath,${CMAKE_CURRENT_BINARY_DIR}/mpv-stubs"
-    )
+    target_link_options(tramp PRIVATE "-Wl,--allow-shlib-undefined")
+    # BUILD_RPATH, not -Wl,-rpath: CMake strips what it set when it installs, so
+    # the shipped binary does not carry this machine's source paths and cannot
+    # quietly satisfy itself from the build tree.
+    set_property(TARGET tramp APPEND PROPERTY BUILD_RPATH
+      "${TRAMP_MPV_ROOT}/linux/x86_64"
+      "${CMAKE_CURRENT_BINARY_DIR}/mpv-stubs")
   endif()
+endif()
+if(UNIX AND NOT APPLE)
+  # The bundle keeps every shipped library in lib/ beside the binary, and the
+  # tarball is extracted and run in place with nothing to set LD_LIBRARY_PATH.
+  # packaging/linux/stage_bundle.sh gives the libraries and plugins the matching
+  # $ORIGIN runpaths.
+  set_target_properties(tramp PROPERTIES INSTALL_RPATH "$ORIGIN/lib;$ORIGIN")
 endif()
 target_link_libraries(tramp PRIVATE tramp_window_spec Qt6::Widgets)
 if(TARGET Qt6::DBus)
@@ -322,6 +347,19 @@ foreach(tramp_target IN ITEMS
   target_link_libraries(${tramp_target} PRIVATE tramp_warnings)
 endforeach()
 
+# Both binaries carry a static import of libmpv-2.dll, so the Windows loader
+# resolves it at process start — before main, before any assertion. Without the
+# DLL in the build tree ctest dies with STATUS_DLL_NOT_FOUND (0xC0000135) and
+# reports nothing useful. The install rule below covers the package, not this.
+if(WIN32 AND TRAMP_HAVE_MPV)
+  foreach(win_mpv_target IN ITEMS tramp domain_test)
+    add_custom_command(TARGET ${win_mpv_target} POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${TRAMP_WIN_MPV_DLL}" "$<TARGET_FILE_DIR:${win_mpv_target}>"
+      VERBATIM)
+  endforeach()
+endif()
+
 enable_testing()
 add_test(NAME window_spec COMMAND window_spec_test)
 add_test(NAME host_shell COMMAND host_shell_test)
@@ -334,6 +372,22 @@ add_test(NAME wait_cursor COMMAND wait_cursor_test)
 add_test(NAME domain COMMAND domain_test)
 add_test(NAME look COMMAND look_test)
 add_test(NAME font_metrics COMMAND font_metrics_test)
+
+# A test needs a QPA platform iff it constructs something that loads one:
+# QTEST_MAIN builds a QApplication, and font_metrics_test builds a
+# QGuiApplication by hand. The other six do not — QTEST_APPLESS_MAIN builds no
+# application object, QTEST_GUILESS_MAIN builds a QCoreApplication, and
+# domain_test / look_test have plain mains — so they need nothing set and are
+# left alone. This is the same split build.sh makes, for the same reason.
+#
+# Offscreen rather than the default because ctest has to be right in both
+# directions. On a headless runner the default is xcb with no display to connect
+# to, and the test aborts instead of running; on a developer's desktop the
+# default is a real compositor that ignores the geometry these tests assert, and
+# host_window_move fails for reasons that have nothing to do with the code. Set
+# here rather than in the workflow so `ctest` is the same check everywhere.
+set_tests_properties(host_shell_window host_window_move chrome_tooltip wait_cursor font_metrics
+  PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 install(TARGETS tramp RUNTIME DESTINATION .)
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/assets" DESTINATION .)
@@ -348,9 +402,6 @@ if(UNIX AND NOT APPLE)
     install(FILES ${TRAMP_LINUX_MPV} DESTINATION lib)
   endif()
 endif()
-if(WIN32)
-  set(TRAMP_WIN_MPV_DLL "${TRAMP_MPV_ROOT}/windows/x86_64/libmpv-2.dll")
-  if(EXISTS "${TRAMP_WIN_MPV_DLL}")
-    install(FILES "${TRAMP_WIN_MPV_DLL}" DESTINATION .)
-  endif()
+if(WIN32 AND EXISTS "${TRAMP_WIN_MPV_DLL}")
+  install(FILES "${TRAMP_WIN_MPV_DLL}" DESTINATION .)
 endif()

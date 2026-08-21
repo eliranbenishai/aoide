@@ -13,19 +13,39 @@ env:
   MSIX_PUBLISHER_DEFAULT: "CN=Proxima Magnifica"
   MSIX_IDENTITY_DEFAULT: "ProximaMagnifica.trampmusic"
 
+  # The Qt every shipped bit is built and tested against. This is the authority:
+  # ci.yml matches it, and the Flatpak runtime below is the same line.
+  #
+  # 6.8 because org.kde.Platform is the one place we cannot choose freely, and it
+  # tracks 6.8. Linux installs this Qt rather than the runner's apt Qt, which on
+  # ubuntu-24.04 is 6.4.2 and does not have QEvent::DevicePixelRatioChange.
+  #
+  # build.sh deliberately does not pin: it uses whatever Qt the developer has and
+  # prints it, so a local-vs-release difference is visible rather than silent.
+  QT_VERSION: "6.8.3"
+  QT_RUNTIME: "6.8"
+
 jobs:
   test:
     name: Test (Linux Qt)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
-      - name: Qt deps
+      - name: Build deps
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             cmake ninja-build g++ pkg-config \
-            qt6-base-dev qt6-wayland libgl1-mesa-dev libx11-dev \
-            libmpv-dev
+            libgl1-mesa-dev libx11-dev libmpv-dev \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xkb1 \
+            libxkbcommon-x11-0 libwayland-client0 libwayland-cursor0 libwayland-egl1
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          cache: true
+          archives: qtbase
+          modules: qtwayland
       - name: Tag matches VERSION
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
@@ -52,7 +72,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: jurplel/install-qt-action@v4
         with:
-          version: "6.8.3"
+          version: ${{ env.QT_VERSION }}
           cache: true
           archives: qtbase
       - name: Fetch full libmpv
@@ -67,6 +87,24 @@ jobs:
       - name: Stage
         shell: pwsh
         run: powershell -ExecutionPolicy Bypass -File packaging/windows/stage.ps1
+      # Run what we are about to wrap in an installer. ctest above ran the build
+      # tree; this is the only step that proves the staged tree has its Qt DLLs,
+      # its libmpv and its assets. The support dir is not redirected here —
+      # XDG_DATA_HOME only binds on Linux — but the runner is thrown away.
+      - name: Smoke-test the staged EXE
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Windows searches the exe's own directory first but PATH after it, and
+          # install-qt-action puts Qt's bin on PATH. Drop that entry, or a stage
+          # windeployqt left a DLL out of would still start.
+          if [ -n "${QT_ROOT_DIR:-}" ]; then
+            qt_bin="$(cygpath -u "$QT_ROOT_DIR")/bin"
+            PATH="$(printf '%s\n' "$PATH" | tr ':' '\n' | grep -vxF "$qt_bin" | paste -sd ':' -)"
+            export PATH
+          fi
+          QT_QPA_PLATFORM=offscreen build/windows/stage/tramp.exe --bench-chrome
+          TRAMP_AUTO_QUIT=1 build/windows/stage/tramp.exe
       - name: Inno Setup installer
         shell: pwsh
         run: |
@@ -107,8 +145,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             cmake ninja-build g++ pkg-config \
-            qt6-base-dev qt6-wayland libgl1-mesa-dev libx11-dev \
-            libmpv-dev libmpv2
+            libgl1-mesa-dev libx11-dev libmpv-dev libmpv2 patchelf \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xkb1 \
+            libxkbcommon-x11-0 libwayland-client0 libwayland-cursor0 libwayland-egl1
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          cache: true
+          archives: qtbase
+          modules: qtwayland
       - name: Stage full libmpv into the tree
         run: |
           chmod +x tool/*.sh packaging/linux/*.sh
@@ -126,6 +172,31 @@ jobs:
           eval "$(./tool/version.sh)"
           tar -C build/linux -czf \
             "build/linux/Tramp-${version}-linux-x86_64.tar.gz" bundle
+      # Run the things we are about to publish. ctest above ran the build tree,
+      # which still resolves Qt and libmpv from the runner; only these runs prove
+      # the artifacts carry their own. The tarball is extracted somewhere else
+      # first, because relocating is the whole claim.
+      - name: Smoke-test the artifacts
+        run: |
+          set -euo pipefail
+          # Take the runner's Qt out of the environment first. install-qt-action
+          # exports LD_LIBRARY_PATH, and with it set an artifact missing its own
+          # Qt still starts — the check would pass for the wrong reason.
+          unset LD_LIBRARY_PATH QT_PLUGIN_PATH QT_QPA_PLATFORM_PLUGIN_PATH
+          export QT_QPA_PLATFORM=offscreen APPIMAGE_EXTRACT_AND_RUN=1
+          appimage="$(ls build/linux/Tramp-*-linux-x86_64.AppImage)"
+          tarball="$(ls build/linux/Tramp-*-linux-x86_64.tar.gz)"
+
+          build/linux/bundle/tramp --bench-chrome
+          XDG_DATA_HOME="$(mktemp -d)" TRAMP_AUTO_QUIT=1 build/linux/bundle/tramp
+
+          "$appimage" --bench-chrome
+          XDG_DATA_HOME="$(mktemp -d)" TRAMP_AUTO_QUIT=1 "$appimage"
+
+          extracted="$(mktemp -d)"
+          tar -C "$extracted" -xzf "$tarball"
+          "$extracted/bundle/tramp" --bench-chrome
+          XDG_DATA_HOME="$(mktemp -d)" TRAMP_AUTO_QUIT=1 "$extracted/bundle/tramp"
       - uses: actions/upload-artifact@v6
         with:
           name: linux
@@ -135,31 +206,65 @@ jobs:
 
   flatpak:
     name: Linux Flatpak bundle
-    needs: linux
+    needs: test
     runs-on: ubuntu-24.04
     continue-on-error: true
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v7
-        with:
-          name: linux
-          path: artifacts
-      - name: Unpack Linux bundle
+      # Built here rather than unpacked from the linux job's tarball. That
+      # tarball carries Qt, because a tarball has to; this runs on
+      # org.kde.Platform, which is a Qt runtime, and taking the tarball is what
+      # used to put a second Qt inside the sandbox. Same staging script as the
+      # tarball and the AppImage, with --no-qt — see make_flatpak.sh.
+      - name: Linux build deps
         run: |
-          tarball="$(find artifacts -name 'Tramp-*-linux-x86_64.tar.gz' | head -n 1)"
-          test -n "$tarball"
-          mkdir -p build/linux
-          tar -C build/linux -xzf "$tarball"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ pkg-config \
+            libgl1-mesa-dev libx11-dev libmpv-dev libmpv2 patchelf
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          cache: true
+          archives: qtbase
+          modules: qtwayland
+      - name: Configure and build
+        run: |
+          chmod +x tool/*.sh packaging/linux/*.sh
+          ./tool/stage_linux_libmpv.sh
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
       - name: Install flatpak-builder
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends flatpak flatpak-builder
           sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          sudo flatpak install -y flathub org.kde.Platform//6.8 org.kde.Sdk//6.8
+          sudo flatpak install -y flathub \
+            "org.kde.Platform//${QT_RUNTIME}" "org.kde.Sdk//${QT_RUNTIME}"
       - name: Build .flatpak
+        run: ./packaging/linux/make_flatpak.sh
+      # A second Qt inside a Qt runtime is invisible in a bundle that otherwise
+      # works, so assert it rather than trusting the flag stayed wired up.
+      - name: Flatpak staging carries no Qt
         run: |
-          chmod +x packaging/linux/make_flatpak.sh tool/version.sh
-          ./packaging/linux/make_flatpak.sh
+          set -euo pipefail
+          stage=build/linux/flatpak-bundle
+          if find "$stage" -name 'libQt6*' | grep .; then
+            echo "^ Qt in the Flatpak staging: stage_bundle.sh --no-qt regressed" >&2
+            exit 1
+          fi
+          test ! -e "$stage/plugins"
+          test ! -e "$stage/qt.conf"
+          find "$stage/lib" -name 'libmpv.so*' | grep .
+      - name: Smoke-test the .flatpak
+        run: |
+          set -euo pipefail
+          sudo flatpak install -y --noninteractive \
+            "$(ls build/linux/Tramp-*-linux-x86_64.flatpak)"
+          sudo flatpak run --env=QT_QPA_PLATFORM=offscreen \
+            com.proximamagnifica.tramp --bench-chrome
+          sudo flatpak run --env=QT_QPA_PLATFORM=offscreen --env=TRAMP_AUTO_QUIT=1 \
+            com.proximamagnifica.tramp
       - uses: actions/upload-artifact@v6
         with:
           name: linux-flatpak

@@ -11,6 +11,32 @@ How Tramp is built and handed to listeners. Product page: `https://tramp.music`.
 | [`.github/workflows/merge-if-green.yml`](../.github/workflows/merge-if-green.yml) | CI completed | Squash-merges a same-repo, non-draft PR at that SHA when CI is green. Skips forks, drafts, and `do-not-merge` |
 | [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Tag `v*` or **Run workflow** | Test, then Windows / Linux packages; tags also attach a GitHub Release |
 
+Every packaging job **runs the thing it packaged** before it is published: the
+staged binary, the AppImage, the extracted tarball and the installed `.flatpak`
+each get `--bench-chrome` (links, finds its assets and fonts, is optimised) and
+a `TRAMP_AUTO_QUIT=1` session start. `ctest` runs against the build tree, which
+still resolves Qt and libmpv from the runner — only these runs prove the
+artifact carries its own, so they clear the runner's Qt out of the environment
+first. Deleting one library from the staging directory fails the job. The
+Flatpak run proves the opposite property, that it can get Qt from its runtime,
+and the job also asserts no `libQt6*` reached its staging directory.
+
+## Qt version
+
+`QT_VERSION` in both workflows is the authority: one Qt, built and tested
+against everywhere something ships. It is **6.8.3**, and the reason is
+`org.kde.Platform` — the Flatpak runtime is the one Qt we cannot choose, and it
+tracks 6.8, so `QT_RUNTIME` and
+[`packaging/flatpak/com.proximamagnifica.tramp.yml`](../packaging/flatpak/com.proximamagnifica.tramp.yml)
+say `6.8` and the rest follows.
+
+Linux installs that Qt through `install-qt-action` rather than apt: the runner's
+`qt6-base-dev` is 6.4.2 and does not have `QEvent::DevicePixelRatioChange`.
+
+[`build.sh`](../build.sh) is deliberately **not** pinned. It uses whatever Qt the
+developer has — Homebrew's, currently newer — and prints the version it used, so
+a local-vs-release difference shows up in the log instead of in a bug report.
+
 Cut a release by bumping [`VERSION`](../VERSION), committing, then:
 
 ```bash
@@ -70,12 +96,33 @@ Create the `.p12` from a **Developer ID Application** certificate (not Apple Dev
 Same scripts the workflows call, after a Release Qt build on that OS:
 
 ```bash
-# Linux
+# Linux — needs patchelf as well as the Qt and libmpv development packages
 ./tool/stage_linux_libmpv.sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ./packaging/linux/stage_bundle.sh
 ./packaging/linux/make_appimage.sh
 ```
+
+`stage_bundle.sh` deploys Qt into the bundle and rewrites every runpath to
+`$ORIGIN`, so the tarball and the AppImage carry their own Qt and run on a
+machine that has never installed one. It deploys the Qt the binary was **linked
+against**, so build and package on the same machine, and on the oldest glibc you
+intend to support — the host still supplies the loader, the C/C++ runtimes and
+the GL driver.
+
+The Flatpak is built from the same tree by the same script, and is the one
+artifact that must **not** carry Qt — `org.kde.Platform` is a Qt runtime, so a
+bundled Qt is dead weight that can shadow the runtime's:
+
+```bash
+./packaging/linux/make_flatpak.sh   # runs stage_bundle.sh --no-qt for you
+```
+
+That is the only caller of `--no-qt`, and it stages into
+`build/linux/flatpak-bundle` so `build/linux/bundle` keeps the Qt the tarball
+and the AppImage need. One script and one code path for all three; do not give
+the Flatpak its own staging script or strip Qt out afterwards, because then two
+places have to agree on what Qt is.
 
 Windows (on a Windows host): `tool/fetch_full_libmpv.ps1`, CMake Release build, then `packaging/windows/stage.ps1`, Inno (`packaging/windows/tramp.iss`) and `packaging/windows/make_msix.ps1`. The EXE installer runs `vc_redist.x64.exe` when `MSVCP140.dll` / `VCRUNTIME140.dll` are missing. The MSIX declares `Microsoft.VCLibs.140.00.UWPDesktop` so the Store supplies that runtime.

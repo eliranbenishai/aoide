@@ -15,6 +15,11 @@ $OutDir = Join-Path $Root 'third_party\libmpv\windows\x86_64'
 $ArchivePath = Join-Path $CacheDir $Win.archive
 $ExtractDir = Join-Path $CacheDir 'extract-win-x64'
 $OutDll = Join-Path $OutDir $Win.dll
+# The archive's import library carries a GNU-style name but is a Microsoft
+# short-import library. Without it on disk a Windows configure cannot link
+# libmpv, and the build quietly loses its audio engine.
+$ImportLib = 'libmpv.dll.a'
+$OutImportLib = Join-Path $OutDir $ImportLib
 
 New-Item -ItemType Directory -Force -Path $CacheDir, $OutDir | Out-Null
 
@@ -57,8 +62,13 @@ $srcDll = Join-Path $ExtractDir $Win.dll
 if (-not (Test-Path $srcDll)) {
   throw "Extracted archive missing $($Win.dll)"
 }
+$srcImportLib = Join-Path $ExtractDir $ImportLib
+if (-not (Test-Path $srcImportLib)) {
+  throw "Extracted archive missing $ImportLib"
+}
 
 Copy-Item -Force $srcDll $OutDll
+Copy-Item -Force $srcImportLib $OutImportLib
 $dllHash = Get-Sha256 $OutDll
 if ($dllHash -ne $Win.dllSha256.ToUpperInvariant()) {
   throw "DLL SHA-256 mismatch: got $dllHash expected $($Win.dllSha256)"
@@ -75,3 +85,6 @@ if (-not ($text.Contains('aresample') -and $text.Contains('equalizer'))) {
 
 $sizeMb = [math]::Round((Get-Item $OutDll).Length / 1MB, 1)
 Write-Host "Installed full libmpv -> $OutDll ($sizeMb MiB, sha256=$dllHash)"
+# No separate hash for the import library: the archive SHA-256 above already
+# gates every file that came out of it.
+Write-Host "Installed import library -> $OutImportLib"
