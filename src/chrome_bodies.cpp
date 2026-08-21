@@ -94,6 +94,39 @@ void drawLogoMark(QPainter& p, const QRectF& box, const QImage* logo, qreal opac
   p.restore();
 }
 
+/// Word-wrapped text that says when it has been cut. Text longer than the box
+/// has room for is clipped mid-line, and a clipped line reads as a sentence
+/// that simply stopped rather than one there is more of; keep the longest
+/// prefix that fits and end it in an ellipsis. Text that fits goes through
+/// [QPainter::drawText] untouched.
+void drawWrappedElided(QPainter& p, const QRectF& box, int flags, const QString& text) {
+  const auto fits = [&](const QString& candidate) {
+    return p.boundingRect(box, flags, candidate).height() <= box.height();
+  };
+  if (fits(text)) {
+    p.drawText(box, flags, text);
+    return;
+  }
+  // Wrapped height only grows with the text, so the longest prefix that fits
+  // can be halved out rather than walked a character at a time.
+  const auto cut = [&](int chars) {
+    QString head = text.left(chars);
+    while (head.endsWith(QLatin1Char(' '))) head.chop(1);
+    return head + QStringLiteral("…");
+  };
+  int keep = 0;
+  int most = int(text.size());
+  while (keep < most) {
+    const int mid = keep + (most - keep + 1) / 2;
+    if (fits(cut(mid))) {
+      keep = mid;
+    } else {
+      most = mid - 1;
+    }
+  }
+  p.drawText(box, flags, cut(keep));
+}
+
 void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPaint pass,
                const ChromePhases& phases) {
   using K = ChromeHit::Kind;
@@ -631,29 +664,33 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   p.setFont(statusFont);
   p.setPen(T().inkFaint);
   const QRectF status(footer.left() + 6, footer.bottom() - 26, footer.width() - 28, 26);
-  qreal sx = status.left();
-  auto statusBit = [&](const QString& text) {
-    const qreal w = textWidth(statusFont, text);
-    p.drawText(QRectF(sx, status.top(), w, 26), Qt::AlignVCenter, text);
-    sx += w;
-  };
-  statusBit(statusName);
-  drawStatusDot(p, QPointF(sx + 18 + 2.5, status.center().y()));
-  sx += 18 + 5 + 18;
-  statusBit(QStringLiteral("%1 TRACKS").arg(view.playlistTrackCount));
-  drawStatusDot(p, QPointF(sx + 18 + 2.5, status.center().y()));
-  sx += 18 + 5 + 18;
-  statusBit(playingN > 0 ? QStringLiteral("PLAYING %1").arg(playingN) : QStringLiteral("STOPPED"));
-  // The readouts flow from the left and the hint is pinned to the right, so a
-  // narrow panel runs them together. The hint is the one part of the strip that
-  // says nothing about this playlist, so it is what gives way — with the same
-  // gap-dot-gap the readouts keep between them, or it is not there at all.
+  const QString tracksText = QStringLiteral("%1 TRACKS").arg(view.playlistTrackCount);
+  const QString playingText =
+      playingN > 0 ? QStringLiteral("PLAYING %1").arg(playingN) : QStringLiteral("STOPPED");
   const QString drop = QStringLiteral("DROP FILES HERE TO ENQUEUE");
-  const qreal dropLeft = status.right() - textWidth(statusFont, drop);
-  if (dropLeft >= sx + 18 + 5 + 18) {
-    drawStatusDot(p, QPointF(sx + 18 + 2.5, status.center().y()));
-    p.drawText(QRectF(dropLeft, status.top(), status.right() - dropLeft, 26), Qt::AlignVCenter,
-               drop);
+  const qreal tracksW = textWidth(statusFont, tracksText);
+  const qreal playingW = textWidth(statusFont, playingText);
+  // A playlist can be named anything, and the run had nothing clipping it, so a
+  // long enough name on a narrow panel painted off the right edge of the strip.
+  // The name is what gives way: the readouts after it are the information the
+  // strip exists to carry.
+  const qreal nameRoom = playlistStatusNameWidth(status, tracksW, playingW);
+  if (textWidth(statusFont, statusName) > nameRoom) {
+    statusName = QFontMetricsF(statusFont).elidedText(statusName, Qt::ElideRight, nameRoom);
+  }
+  const PlaylistStatusRun run =
+      layoutPlaylistStatus(status, textWidth(statusFont, statusName), tracksW, playingW,
+                           textWidth(statusFont, drop));
+  p.drawText(run.name, Qt::AlignVCenter, statusName);
+  drawStatusDot(p, run.nameDot);
+  p.drawText(run.tracks, Qt::AlignVCenter, tracksText);
+  drawStatusDot(p, run.tracksDot);
+  p.drawText(run.playing, Qt::AlignVCenter, playingText);
+  // The hint is the one part of the strip that says nothing about this
+  // playlist, so it is what goes first — whole, rather than crowded.
+  if (!run.drop.isEmpty()) {
+    drawStatusDot(p, run.dropDot);
+    p.drawText(run.drop, Qt::AlignVCenter, drop);
   }
 }
 
@@ -723,7 +760,8 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
       p.setClipRect(strip);
       p.setFont(monoFont(10));
       p.setPen(T().accent);
-      p.drawText(strip, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextWordWrap, view.skinsError);
+      drawWrappedElided(p, strip, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextWordWrap,
+                        view.skinsError);
       p.restore();
     }
     const qreal btnY = pane.bottom() - kSkinsBtnStackH;

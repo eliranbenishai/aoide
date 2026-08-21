@@ -2,6 +2,7 @@
 
 #include "tramp_metrics.h"
 
+#include <QPointF>
 #include <QRectF>
 #include <QSize>
 #include <algorithm>
@@ -502,6 +503,60 @@ inline PlaylistStripLayout layoutPlaylistStrip(const QRectF& deckInner, qreal to
   out.play = QRectF(prevLeft + w + gap, y, w, h);
   out.next = QRectF(prevLeft + 2 * (w + gap), y, w, h);
   out.total = QRectF(totalLeft, y + (h - kPlaylistStripTotalH) / 2, totalW, kPlaylistStripTotalH);
+  return out;
+}
+
+inline constexpr qreal kPlaylistStatusGap = 18;
+inline constexpr qreal kPlaylistStatusDotW = 5;
+/// Gap, dot, gap — what the status run keeps between two readouts.
+inline constexpr qreal kPlaylistStatusSep = kPlaylistStatusGap * 2 + kPlaylistStatusDotW;
+
+struct PlaylistStatusRun {
+  QRectF name;
+  QRectF tracks;
+  QRectF playing;
+  QPointF nameDot;
+  QPointF tracksDot;
+  QPointF dropDot;
+  /// Empty when the readouts have reached the hint and it gives way.
+  QRectF drop;
+};
+
+/// What the playlist name may have of the footer strip: whatever the two
+/// readouts and the separators between the three of them leave.
+inline qreal playlistStatusNameWidth(const QRectF& strip, qreal tracksW, qreal playingW) {
+  return std::max<qreal>(0, strip.width() - kPlaylistStatusSep * 2 - tracksW - playingW);
+}
+
+/// `name · N TRACKS · PLAYING n` flowing from the left of the footer strip,
+/// with `DROP FILES HERE TO ENQUEUE` pinned to its right.
+///
+/// Two things give way as the strip narrows, in this order. The hint goes
+/// first and goes whole: it is the one part that says nothing about this
+/// playlist. Then the name, which is the only part that can be arbitrarily
+/// long — it takes [playlistStatusNameWidth] and the caller elides it to that,
+/// because the readouts after it are what the strip exists to carry. Without
+/// that clamp the run simply flowed at its measured width and painted off the
+/// right edge of the strip.
+inline PlaylistStatusRun layoutPlaylistStatus(const QRectF& strip, qreal nameW, qreal tracksW,
+                                              qreal playingW, qreal dropW) {
+  const qreal y = strip.top();
+  const qreal h = strip.height();
+  const auto dotAfter = [&](qreal right) {
+    return QPointF(right + kPlaylistStatusGap + kPlaylistStatusDotW / 2, strip.center().y());
+  };
+  PlaylistStatusRun out;
+  out.name = QRectF(strip.left(), y,
+                    std::min(nameW, playlistStatusNameWidth(strip, tracksW, playingW)), h);
+  out.nameDot = dotAfter(out.name.right());
+  out.tracks = QRectF(out.name.right() + kPlaylistStatusSep, y, tracksW, h);
+  out.tracksDot = dotAfter(out.tracks.right());
+  out.playing = QRectF(out.tracks.right() + kPlaylistStatusSep, y, playingW, h);
+  out.dropDot = dotAfter(out.playing.right());
+  const qreal dropLeft = strip.right() - dropW;
+  if (dropLeft >= out.playing.right() + kPlaylistStatusSep) {
+    out.drop = QRectF(dropLeft, y, strip.right() - dropLeft, h);
+  }
   return out;
 }
 
