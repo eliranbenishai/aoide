@@ -421,7 +421,6 @@ void HostWindowMoveTest::hitRegionsDoNotOverlap() {
   };
 
   const tramp::SessionView plain;
-  const tramp::SessionView golden = tramp::SessionView::golden();
   panelHoldsItsRegionsApart(tramp::WindowId::main, specs[0].logicalSize, plain,
                             QStringLiteral("the main panel's"));
   panelHoldsItsRegionsApart(tramp::WindowId::equalizer, specs[1].logicalSize, plain,
@@ -431,8 +430,7 @@ void HostWindowMoveTest::hitRegionsDoNotOverlap() {
 
   // The playlist and settings only grow their rows and buttons once there is
   // something to list, so the empty panel is the weaker case of the two.
-  tramp::SessionView listed = golden;
-  listed.goldenDemo = false;
+  tramp::SessionView listed = plain;
   listed.collection = {{QStringLiteral("Nights"), 12, true, false},
                        {QStringLiteral("Drive"), 8, false, false}};
   // One more track than the well shows: the row past the bottom is painted
@@ -509,7 +507,7 @@ void HostWindowMoveTest::waitCursorRebuildsChassisBeforeRefreshReturns() {
   shell.show();
   panel.show();
   QVERIFY(QTest::qWaitForWindowExposed(&panel));
-  const tramp::SessionView view = tramp::SessionView::golden();
+  const tramp::SessionView view = tramp::goldenDemoView();
   panel.setSessionView(view);
   QApplication::processEvents();
   {

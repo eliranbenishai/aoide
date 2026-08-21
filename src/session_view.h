@@ -30,6 +30,9 @@ struct TrackRowView {
 };
 
 struct SessionView {
+  /// Marks a paint as the fidelity reference: animation is held still and the
+  /// title marquee does not run, so two dumps of the same state match. It says
+  /// nothing about the content — that comes from [goldenDemoView].
   bool goldenDemo = false;
   bool eqOn = true;
   bool plOn = true;
@@ -88,9 +91,17 @@ struct SessionView {
   QString activeSkinId = QStringLiteral("builtin");
   QString skinsError;
   int skinsScroll = 0;
-
-  static SessionView golden();
 };
+
+/// The demo state every golden dump and paint benchmark is measured in.
+///
+/// It is data rather than something the painters synthesise, so a caller can
+/// photograph a state the demo does not open on — another settings tab, a
+/// scrolled list, a disabled row — by saying so on the view. A painter that
+/// overrode the view instead would make that state unreachable, and an
+/// unreachable state is an unwatched one. This is the only way to get the demo:
+/// there was once a second, bare-flag one that painted an empty player.
+SessionView goldenDemoView();
 
 struct NowPlayingDisplay {
   QString title = QStringLiteral("No track");
