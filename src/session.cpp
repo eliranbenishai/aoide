@@ -336,10 +336,6 @@ void TrampSession::bootstrap(const QStringList& argvFiles) {
     }
   }
   schedulePathVerify();
-  const WindowFrame& plFrame = layout_.layout().playlist;
-  if (pl_ && plFrame.width && plFrame.height) {
-    pl_->setPlaylistLogicalSize(QSize(int(*plFrame.width), int(*plFrame.height)));
-  }
   layout_.docking().nudgeOffMainIfStacked(WindowId::equalizer);
   layout_.docking().nudgeOffMainIfStacked(WindowId::playlist);
   layout_.fitClusterToHost();
