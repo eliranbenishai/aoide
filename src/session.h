@@ -1,6 +1,7 @@
 #pragma once
 
 #include "chrome_hits.h"
+#include "chrome_menu.h"
 #include "collection.h"
 #include "docking.h"
 #include "look.h"
@@ -12,20 +13,19 @@
 #include "settings.h"
 #include "spectrum.h"
 
-#include <QAction>
 #include <QElapsedTimer>
 #include <QObject>
 #include <QPoint>
 #include <QRect>
 #include <QSet>
 #include <QTimer>
+#include <QVector>
 #include <atomic>
 #include <memory>
 #include <optional>
 
 class HostWindow;
 class HostShell;
-class QMenu;
 
 namespace tramp {
 
@@ -115,7 +115,8 @@ class TrampSession : public QObject {
   void clampOneToHost(WindowId id);
   void fitClusterToHost();
   void showOptionsMenu(QRect logicalHit);
-  QAction* execAnchoredMenu(QMenu& menu, HostWindow* host, QRect logicalHit, bool above);
+  int execAnchoredMenu(const QVector<ChromeMenuItem>& items, HostWindow* host, QRect logicalHit,
+                       PopupAnchor anchor);
   void showTrackInfo();
   bool reportPlaylistWriteFailure(bool wrote, const QString& path);
   bool confirmReplaceAltered(const QString& consequence = {});

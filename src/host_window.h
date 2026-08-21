@@ -1,5 +1,6 @@
 #pragma once
 
+#include "chrome_anim.h"
 #include "chrome_hits.h"
 #include "session_view.h"
 #include "title_chrome.h"
@@ -7,6 +8,7 @@
 #include "window_spec.h"
 
 #include <QCloseEvent>
+#include <QElapsedTimer>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QEvent>
@@ -113,6 +115,14 @@ class HostWindow : public QWidget {
   void rebuildChassis();
   void grabPointerIfAllowed();
   void releasePointerIfHeld();
+  /// Point the pointer channels at whatever is under [widgetPos]. Passing an
+  /// empty optional means the pointer left, so everything cools off.
+  void trackPointer(std::optional<QPointF> widgetPos, bool pressed);
+  /// Aim the latched channels at the state this view describes. [snap] skips the
+  /// animation, for the first view a panel is ever handed.
+  void syncLatchedPhases(bool snap);
+  void stepButtonAnimation();
+  void startButtonAnimation();
 
   tramp::WindowSpec spec_;
   tramp::TitleChromeLayout title_;
@@ -130,6 +140,10 @@ class HostWindow : public QWidget {
   bool grabbedPointer_ = false;
   QPoint grabOffset_;
   tramp::ChromeHit dragHit_;
+  tramp::ChromePhases phases_;
+  QTimer animTimer_;
+  QElapsedTimer animClock_;
+  bool sawFirstView_ = false;
   QTimer tooltipTimer_;
   QString tooltipCandidate_;
   QPoint tooltipGlobal_;

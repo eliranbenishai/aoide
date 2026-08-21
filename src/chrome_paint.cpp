@@ -150,10 +150,13 @@ void drawGlyph(QPainter& p, const QRect& btn, TitleChromeLayout::Hit kind, const
   drawIcon(p, g, icon, color);
 }
 
-void drawWinBtn(QPainter& p, const QRect& btn, bool close, TitleChromeLayout::Hit kind) {
+void drawWinBtn(QPainter& p, const QRect& btn, bool close, TitleChromeLayout::Hit kind,
+                BtnFace state) {
   if (btn.isEmpty()) {
     return;
   }
+  const qreal hover = std::clamp(state.hover, qreal(0), qreal(1));
+  const qreal press = std::clamp(state.press, qreal(0), qreal(1));
   const QRectF r = btn;
   QPainterPath path;
   path.addRoundedRect(r, 3, 3);
@@ -163,22 +166,29 @@ void drawWinBtn(QPainter& p, const QRect& btn, bool close, TitleChromeLayout::Hi
     bp.drawPath(path.translated(0, 1));
   });
 
+  // Close is already the loud one, so it lifts less than the neutral buttons or
+  // it goes past the accent and stops reading as a warning.
+  const qreal lift = 1 + (close ? 0.16 : 0.24) * hover - 0.18 * press;
   QLinearGradient face(r.topLeft(), r.bottomLeft());
   if (close) {
-    face.setColorAt(0, T().wbtnClose0);
-    face.setColorAt(0.55, T().wbtnClose55);
-    face.setColorAt(1, T().wbtnClose100);
+    face.setColorAt(0, scaled(T().wbtnClose0, lift));
+    face.setColorAt(0.55, scaled(T().wbtnClose55, lift));
+    face.setColorAt(1, scaled(T().wbtnClose100, lift));
   } else {
-    face.setColorAt(0, T().wbtn0);
-    face.setColorAt(0.55, T().wbtn55);
-    face.setColorAt(1, T().wbtn100);
+    face.setColorAt(0, scaled(T().wbtn0, lift));
+    face.setColorAt(0.55, scaled(T().wbtn55, lift));
+    face.setColorAt(1, scaled(T().wbtn100, lift));
   }
   p.fillPath(path, face);
 
   p.save();
   p.setClipPath(path);
-  p.fillRect(QRectF(r.left(), r.top(), r.width(), 1), withAlpha(T().hoverLift, 77));
+  p.fillRect(QRectF(r.left(), r.top(), r.width(), 1),
+             withAlpha(T().hoverLift, int(std::lround(77 + 70 * hover))));
   p.fillRect(QRectF(r.left(), r.bottom() - 1, r.width(), 1), QColor(0, 0, 0, 153));
+  if (press > 0.004) {
+    p.fillRect(r, QColor(0, 0, 0, int(std::lround(46 * press))));
+  }
   p.restore();
 
   drawGlyph(p, btn, kind, close ? T().closeGlyph : T().glyphInk);
@@ -213,7 +223,7 @@ void drawRole(QPainter& p, const QRectF& box, const QString& name) {
 }
 
 void drawTitleContents(QPainter& p, const TitleChromeLayout& title, const QImage* logo,
-                       int zoomPercent) {
+                       int zoomPercent, const ChromePhases& phases) {
   constexpr int padL = 10;
   const QRect bar = title.titleBar;
   qreal x = padL;
@@ -253,14 +263,15 @@ void drawTitleContents(QPainter& p, const TitleChromeLayout& title, const QImage
     p.drawText(title.zoomReadout, Qt::AlignCenter, label);
   }
 
+  using Hit = TitleChromeLayout::Hit;
   if (title.showZoom) {
-    drawWinBtn(p, title.minimize, false, TitleChromeLayout::Hit::minimize);
-    drawWinBtn(p, title.zoomOut, false, TitleChromeLayout::Hit::zoomOut);
-    drawWinBtn(p, title.zoomIn, false, TitleChromeLayout::Hit::zoomIn);
+    drawWinBtn(p, title.minimize, false, Hit::minimize, phases.titleFace(Hit::minimize));
+    drawWinBtn(p, title.zoomOut, false, Hit::zoomOut, phases.titleFace(Hit::zoomOut));
+    drawWinBtn(p, title.zoomIn, false, Hit::zoomIn, phases.titleFace(Hit::zoomIn));
   } else {
-    drawWinBtn(p, title.minimize, false, TitleChromeLayout::Hit::collapse);
+    drawWinBtn(p, title.minimize, false, Hit::collapse, phases.titleFace(Hit::collapse));
   }
-  drawWinBtn(p, title.close, true, TitleChromeLayout::Hit::close);
+  drawWinBtn(p, title.close, true, Hit::close, phases.titleFace(Hit::close));
 }
 
 }  // namespace
@@ -271,10 +282,11 @@ void paintMockupWindow(QPainter& painter,
                        const TitleChromeLayout& title,
                        const QImage* logo,
                        const SessionView& view,
-                       BodyPaint pass) {
+                       BodyPaint pass,
+                       const ChromePhases& phases) {
   LookPaintScope scope(view.look);
   if (pass == BodyPaint::live) {
-    paintWindowBody(painter, id, logical, logo, view, pass);
+    paintWindowBody(painter, id, logical, logo, view, pass, phases);
     return;
   }
   const QRectF rect(0, 0, logical.width(), logical.height());
@@ -285,9 +297,9 @@ void paintMockupWindow(QPainter& painter,
   painter.setClipPath(shell);
   drawNoiseOverlay(painter, rect, kShellRadius);
   drawTitleFace(painter, QRectF(title.titleBar));
-  drawTitleContents(painter, title, logo, view.zoomPercent);
+  drawTitleContents(painter, title, logo, view.zoomPercent, phases);
   if (logical.height() > kTitleBar) {
-    paintWindowBody(painter, id, logical, logo, view, pass);
+    paintWindowBody(painter, id, logical, logo, view, pass, phases);
   }
   drawRivet(painter, QPointF(9 + 3.5, logical.height() - 8 - 3.5));
   drawRivet(painter, QPointF(logical.width() - 9 - 3.5, logical.height() - 8 - 3.5));

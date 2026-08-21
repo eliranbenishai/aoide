@@ -125,8 +125,8 @@ The **cyan** colour of the mockup chrome’s “screen glow” — used for lit 
 _Avoid_: neon green, lime, acid chartreuse (retired graphite accent), LCD green (the older pure-green token)
 
 **Rail**:
-The cyan→magenta grip rails / brushed filler strips in the mockup chrome (title-bar grips and transport rail).
-_Avoid_: rule, divider, separator (when meaning those accents); warm yellow rails (retired graphite title-bar accent)
+The cyan→magenta grip rails in the title bar. The mockup also filled the slack in the transport row and the playlist footer with brushed **rail** and **plate** strips; both are retired, so a button row now sits on the bare shell.
+_Avoid_: rule, divider, separator (when meaning those accents); warm yellow rails (retired graphite title-bar accent); transport rail, footer plate (retired)
 
 **Well**:
 A recessed inset surface — groove, slider track, or `.screen` glass — cut into the chrome.

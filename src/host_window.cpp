@@ -31,6 +31,13 @@ HostWindow::HostWindow(const tramp::WindowSpec& spec, QWidget* parent)
     winId();
   }
   logo_ = tramp::loadTrampLogo();
+  phases_.setLive(true);
+  // A transition rebuilds the chassis per frame, which the paint budget only
+  // affords because a pointer cannot hover a button and drag a panel at once.
+  // The step is driven by the wall clock, so a panel too slow to hit this
+  // interval still finishes in kBtnTransitionMs — it just draws fewer frames.
+  animTimer_.setInterval(16);
+  connect(&animTimer_, &QTimer::timeout, this, &HostWindow::stepButtonAnimation);
   tooltipTimer_.setSingleShot(true);
   connect(&tooltipTimer_, &QTimer::timeout, this, [this]() {
     if (tooltipCandidate_.isEmpty()) return;
@@ -87,6 +94,8 @@ void HostWindow::setSessionView(const tramp::SessionView& view) {
   view_.zoomPercent = zoomPercent_;
   titleMarqueeLive_ = view_.scrollTitle && !view_.goldenDemo &&
                       view_.titleScrollMs > tramp::kMarqueeHoldMs;
+  syncLatchedPhases(!sawFirstView_);
+  sawFirstView_ = true;
   invalidateChassis();
   if (collectionChanged) applyNativeSize();
   if (tramp::WaitCursorScope::showing()) {
@@ -100,7 +109,10 @@ void HostWindow::applyEqualizer(const tramp::EqualizerSettings& eq) {
   const bool chrome = view_.eq.enabled != eq.enabled || view_.eq.auto_ != eq.auto_ ||
                       view_.eq.presetName != eq.presetName;
   view_.eq = eq;
-  if (chrome) invalidateChassis();
+  if (chrome) {
+    syncLatchedPhases(false);
+    invalidateChassis();
+  }
   update();
 }
 
@@ -134,6 +146,94 @@ void HostWindow::applyLiveReadouts(const tramp::MainLiveReadouts& live) {
 }
 
 void HostWindow::invalidateChassis() { chassisValid_ = false; }
+
+void HostWindow::startButtonAnimation() {
+  if (!phases_.moving()) return;
+  if (animTimer_.isActive()) return;
+  animClock_.restart();
+  animTimer_.start();
+}
+
+void HostWindow::stepButtonAnimation() {
+  const qreal dtMs = qreal(animClock_.restart());
+  const bool busy = phases_.advance(dtMs);
+  invalidateChassis();
+  update();
+  if (!busy) animTimer_.stop();
+}
+
+void HostWindow::syncLatchedPhases(bool snap) {
+  using K = tramp::ChromeHit::Kind;
+  using tramp::BtnChannel;
+  auto aim = [&](K kind, bool on, bool immediate = false) {
+    if (snap || immediate) {
+      phases_.snapTo(kind, -1, BtnChannel::on, on ? 1 : 0);
+    } else {
+      phases_.setTarget(kind, -1, BtnChannel::on, on ? 1 : 0);
+    }
+  };
+  switch (spec_.id) {
+    case tramp::WindowId::main:
+      aim(K::mute, view_.muted);
+      aim(K::mono, view_.forceMono);
+      aim(K::eqToggle, view_.eqOn);
+      aim(K::plToggle, view_.plOn);
+      aim(K::play, view_.playing);
+      aim(K::pause, view_.paused);
+      aim(K::shuffle, view_.shuffle);
+      aim(K::repeat, view_.repeat != tramp::RepeatMode::off);
+      break;
+    case tramp::WindowId::equalizer:
+      aim(K::eqOn, view_.eq.enabled);
+      aim(K::eqAuto, view_.eq.auto_);
+      break;
+    case tramp::WindowId::playlist:
+      aim(K::plPlay, view_.playing);
+      // Refresh is a busy lamp, not a toggle. The work it announces blocks the
+      // event loop, so a fade would still be dark when the loop stops and would
+      // only reach full once the work had finished — the opposite of the signal.
+      aim(K::plRefresh, view_.playlistRefreshing, true);
+      break;
+    case tramp::WindowId::settings:
+      aim(K::settingsGeneral, view_.settingsTab == 0);
+      aim(K::settingsSkins, view_.settingsTab == 1);
+      aim(K::settingsResume, view_.resumeLastSession);
+      aim(K::settingsConfirm, view_.confirmBeforeQuit);
+      aim(K::settingsScroll, view_.scrollTitle);
+      aim(K::settingsMinimize, view_.minimizeHidesSecondaries);
+      aim(K::settingsSnapOff, view_.dockSnap == 0);
+      aim(K::settingsSnapNormal, view_.dockSnap == 1);
+      aim(K::settingsSnapStrong, view_.dockSnap == 2);
+      break;
+    case tramp::WindowId::about:
+      break;
+  }
+  if (!snap) startButtonAnimation();
+}
+
+void HostWindow::trackPointer(std::optional<QPointF> widgetPos, bool pressed) {
+  using tramp::BtnChannel;
+  phases_.releaseChannel(BtnChannel::hover);
+  phases_.releaseChannel(BtnChannel::press);
+  // A held button keeps its press even if the pointer slides off, matching how
+  // a real button behaves under a finger; a wait cursor means nothing is live.
+  if (widgetPos && !tramp::WaitCursorScope::showing()) {
+    const QPoint logical = logicalFrom(*widgetPos);
+    const auto titleHit = title_.hit(logical);
+    if (titleHit != tramp::TitleChromeLayout::Hit::none &&
+        titleHit != tramp::TitleChromeLayout::Hit::drag) {
+      phases_.setTitleTarget(titleHit, BtnChannel::hover, 1);
+      if (pressed) phases_.setTitleTarget(titleHit, BtnChannel::press, 1);
+    } else if (titleHit == tramp::TitleChromeLayout::Hit::none) {
+      const auto hit = tramp::hitTest(spec_.id, spec_.logicalSize, logical, view_);
+      if (tramp::takesPointerFeedback(hit.kind)) {
+        phases_.setTarget(hit.kind, hit.index, BtnChannel::hover, 1);
+        if (pressed) phases_.setTarget(hit.kind, hit.index, BtnChannel::press, 1);
+      }
+    }
+  }
+  startButtonAnimation();
+}
 
 void HostWindow::grabPointerIfAllowed() {
   if (QGuiApplication::platformName() == QLatin1String("wayland")) return;
@@ -169,7 +269,8 @@ void HostWindow::rebuildChassis() {
   // per-frame content at all, so the whole paint is cacheable.
   chassisIsFullPaint_ = !hasLiveBody();
   tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_,
-                           chassisIsFullPaint_ ? tramp::BodyPaint::full : tramp::BodyPaint::chassis);
+                           chassisIsFullPaint_ ? tramp::BodyPaint::full : tramp::BodyPaint::chassis,
+                           phases_);
   p.end();
   chassisValid_ = true;
 }
@@ -327,7 +428,8 @@ void HostWindow::paintChrome(QPainter& p) {
   p.drawImage(QPointF(0, 0), chassis_);
   if (chassisIsFullPaint_) return;
   p.scale(sx, sy);
-  tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_, tramp::BodyPaint::live);
+  tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_, tramp::BodyPaint::live,
+                           phases_);
 }
 
 void HostWindow::paintEvent(QPaintEvent*) {
@@ -357,6 +459,12 @@ void HostWindow::showEvent(QShowEvent* event) {
 
 void HostWindow::hideEvent(QHideEvent* event) {
   hideChromeTooltipNow();
+  // A panel hidden under the pointer gets no leaveEvent, so without this the
+  // button the cursor was over is still lit when the panel comes back.
+  phases_.releaseChannel(tramp::BtnChannel::hover);
+  phases_.releaseChannel(tramp::BtnChannel::press);
+  phases_.advance(tramp::kBtnTransitionMs);
+  animTimer_.stop();
   QWidget::hideEvent(event);
 }
 
@@ -387,6 +495,7 @@ void HostWindow::closeEvent(QCloseEvent* event) {
 void HostWindow::mousePressEvent(QMouseEvent* event) {
   if (event->button() != Qt::LeftButton) return;
   hideChromeTooltipNow();
+  trackPointer(event->position(), true);
   const QPoint logical = logicalFrom(event->position());
   const auto hit = title_.hit(logical);
   switch (hit) {
@@ -438,11 +547,17 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
 
 void HostWindow::leaveEvent(QEvent* event) {
   hideChromeTooltipNow();
+  trackPointer(std::nullopt, false);
   QWidget::leaveEvent(event);
 }
 
 void HostWindow::mouseMoveEvent(QMouseEvent* event) {
   applyHitCursor(event->position());
+  // Not while a gesture owns the pointer: a drag repaints the panel already,
+  // and a chassis rebuild per move is exactly what the paint budget forbids.
+  if (!draggingTitle_ && !resizingPlaylist_) {
+    trackPointer(event->position(), draggingChrome_ && (event->buttons() & Qt::LeftButton));
+  }
   if (draggingTitle_ && (event->buttons() & Qt::LeftButton)) {
     const QPoint newTopLeft = event->globalPosition().toPoint() - grabOffset_;
     emit nativeMoved(newTopLeft);
@@ -477,6 +592,11 @@ void HostWindow::mouseReleaseEvent(QMouseEvent* event) {
   if (draggingChrome_) {
     draggingChrome_ = false;
     emit chromeReleased();
+  }
+  if (underMouse()) {
+    trackPointer(event->position(), false);
+  } else {
+    trackPointer(std::nullopt, false);
   }
   QWidget::mouseReleaseEvent(event);
 }

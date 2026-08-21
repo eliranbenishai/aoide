@@ -208,13 +208,13 @@ inline qreal playlistStripTotalWidth(qreal labelW, qreal valueW) {
 /// right edge; TOTAL sits to its left; the transport cluster is packed from
 /// the right against TOTAL, with [kPlaylistStripGap] between Next and TOTAL
 /// (mockup `.pl-strip` flex gap).
-inline PlaylistStripLayout layoutPlaylistStrip(const QRectF& plateInner, qreal totalW) {
+inline PlaylistStripLayout layoutPlaylistStrip(const QRectF& deckInner, qreal totalW) {
   PlaylistStripLayout out;
-  const qreal y = plateInner.top();
+  const qreal y = deckInner.top();
   const qreal w = kPlaylistStripBtn;
   const qreal h = kPlaylistStripBtnH;
   const qreal gap = kPlaylistStripGap;
-  qreal x = plateInner.left();
+  qreal x = deckInner.left();
   auto place = [&](QRectF& r) {
     r = QRectF(x, y, w, h);
     x += w + gap;
@@ -230,7 +230,7 @@ inline PlaylistStripLayout layoutPlaylistStrip(const QRectF& plateInner, qreal t
   const qreal refreshW = kPlaylistStripRefresh;
   const qreal refreshH = kPlaylistStripTotalH;
   out.refresh =
-      QRectF(plateInner.right() - refreshW, y + (h - refreshH) / 2, refreshW, refreshH);
+      QRectF(deckInner.right() - refreshW, y + (h - refreshH) / 2, refreshW, refreshH);
   const qreal totalLeft = out.refresh.left() - gap - totalW;
   const qreal cluster = w * 3 + gap * 2;
   const qreal nextRight = totalLeft - gap;

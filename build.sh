@@ -62,10 +62,12 @@ SRCS=(
   "$ROOT/src/host_shell_window.cpp"
   "$ROOT/src/mockup_draw.cpp"
   "$ROOT/src/tramp_fonts.cpp"
+  "$ROOT/src/chrome_anim.cpp"
   "$ROOT/src/chrome_paint.cpp"
   "$ROOT/src/chrome_bodies.cpp"
   "$ROOT/src/chrome_hits.cpp"
   "$ROOT/src/chrome_tooltip.cpp"
+  "$ROOT/src/chrome_menu.cpp"
   "$ROOT/src/session_view.cpp"
   "$ROOT/src/m3u.cpp"
   "$ROOT/src/equalizer.cpp"
@@ -182,6 +184,7 @@ QT_QPA_PLATFORM=offscreen "$BUILD/host_shell_window_test"
   "$ROOT/src/host_shell.cpp" "$ROOT/src/host_shell_window.cpp" \
   "$ROOT/src/app_icon.cpp" \
   "$ROOT/src/host_window.cpp" "$ROOT/src/chrome_paint.cpp" \
+  "$ROOT/src/chrome_anim.cpp" \
   "$ROOT/src/chrome_bodies.cpp" "$ROOT/src/chrome_hits.cpp" \
   "$ROOT/src/chrome_tooltip.cpp" \
   "$ROOT/src/mockup_draw.cpp" "$ROOT/src/tramp_fonts.cpp" \
@@ -217,9 +220,17 @@ QT_QPA_PLATFORM=offscreen "$BUILD/wait_cursor_test"
   -o "$BUILD/chrome_tooltip_test"
 QT_QPA_PLATFORM=offscreen "$BUILD/chrome_tooltip_test"
 
+"$MOC" "$ROOT/tests/chrome_menu_test.cpp" -o "$BUILD/chrome_menu_test.moc"
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
+  "$ROOT/tests/chrome_menu_test.cpp" \
+  -L"$QT/lib" -lQt6Test -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
+  -o "$BUILD/chrome_menu_test"
+"$BUILD/chrome_menu_test"
+
 "$MOC" "$ROOT/tests/chrome_spec_test.cpp" -o "$BUILD/chrome_spec_test.moc"
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
   "$ROOT/src/window_spec.cpp" "$ROOT/src/title_chrome.cpp" \
+  "$ROOT/src/chrome_anim.cpp" \
   "$ROOT/tests/chrome_spec_test.cpp" \
   -L"$QT/lib" -lQt6Test -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
   -o "$BUILD/chrome_spec_test"

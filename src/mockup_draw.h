@@ -51,17 +51,36 @@ void drawScreenOverlay(QPainter& p, const QRectF& well,
 void drawScreen(QPainter& p, const QRectF& well);
 void drawListWell(QPainter& p, const QRectF& well);
 
-void drawBtn(QPainter& p, const QRectF& r, bool on, const QString& label = {});
+/// How far a button face has travelled between its states, each 0..1. A button
+/// is never simply lit or idle: `on` is the latched amount, `hover` and `press`
+/// are pointer feedback, and each is walked to its target by [ChromePhases] so
+/// the face cross-fades instead of snapping. The implicit bool conversion keeps
+/// call sites that only care about the latched state reading as they did.
+struct BtnFace {
+  qreal on = 0;
+  qreal hover = 0;
+  qreal press = 0;
+
+  BtnFace() = default;
+  BtnFace(bool lit) : on(lit ? 1 : 0) {}  // NOLINT(google-explicit-constructor)
+  BtnFace(qreal onPhase, qreal hoverPhase, qreal pressPhase)
+      : on(onPhase), hover(hoverPhase), press(pressPhase) {}
+};
+
+void drawBtn(QPainter& p, const QRectF& r, BtnFace face, const QString& label = {});
 qreal labelBtnWidth(const QString& label, qreal padL = 16, qreal padR = 16);
 void drawIcon(QPainter& p, const QRectF& box, MockupIcon icon, const QColor& color);
-void drawGlyphBtn(QPainter& p, const QRectF& r, MockupIcon icon, bool on,
+void drawGlyphBtn(QPainter& p, const QRectF& r, MockupIcon icon, BtnFace face,
                   qreal iconSize = 22);
 void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle = false,
                 bool glow = true);
 void drawVBand(QPainter& p, const QRectF& column, qreal gainDb);
-void drawLed(QPainter& p, QPointF c, bool on, qreal size = 8);
+void drawLed(QPainter& p, QPointF c, qreal on, qreal size = 8);
 qreal toggleBtnWidth(const QString& label);
-void drawToggleBtn(QPainter& p, const QRectF& r, const QString& label, bool lit);
+/// Label plus an indicator lamp. `face.on` lights the lamp, not the chassis:
+/// this is the one button kind whose latched state lives beside the face rather
+/// than in it.
+void drawToggleBtn(QPainter& p, const QRectF& r, const QString& label, BtnFace face);
 void drawMenuCaret(QPainter& p, const QRectF& btn);
 void drawReload(QPainter& p, const QRectF& box, const QColor& color);
 void drawChevron(QPainter& p, const QRectF& box, bool pointsLeft, const QColor& color);

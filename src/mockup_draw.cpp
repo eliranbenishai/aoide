@@ -634,10 +634,10 @@ const CachedWell& cachedWell(int w, int h) {
     mp.setBrush(Qt::white);
     mp.drawRoundedRect(QRectF(pad, pad, w, h), kWellRadius, kWellRadius);
     mp.end();
-    QPainter mix(&blurred);
-    mix.setCompositionMode(QPainter::CompositionMode_DestinationIn);
-    mix.drawImage(0, 0, mask);
-    mix.end();
+    QPainter cut(&blurred);
+    cut.setCompositionMode(QPainter::CompositionMode_DestinationIn);
+    cut.drawImage(0, 0, mask);
+    cut.end();
     c.inner = std::move(blurred);
   }
   cache.push_front(std::move(c));
@@ -719,47 +719,64 @@ void drawListWell(QPainter& p, const QRectF& well) {
   p.drawRoundedRect(well.adjusted(0.5, 0.5, -0.5, -0.5), kWellRadius - 0.5, kWellRadius - 0.5);
 }
 
-void drawBtn(QPainter& p, const QRectF& r, bool on, const QString& label) {
+void drawBtn(QPainter& p, const QRectF& r, BtnFace face, const QString& label) {
+  const qreal on = std::clamp(face.on, qreal(0), qreal(1));
+  const qreal hover = std::clamp(face.hover, qreal(0), qreal(1));
+  const qreal press = std::clamp(face.press, qreal(0), qreal(1));
   QPainterPath path;
   path.addRoundedRect(r, 4, 4);
-  if (on) {
+  if (on > 0.004) {
     paintBlurred(p, r.adjusted(-18, -18, 18, 18), 4, [&](QPainter& bp) {
       bp.setPen(Qt::NoPen);
-      bp.setBrush(withAlpha(T().phos, 77));
+      bp.setBrush(withAlpha(T().phos, int(std::lround(77 * on))));
       bp.drawRoundedRect(r.adjusted(-3, -3, 3, 3), 7, 7);
     });
   }
-  QLinearGradient face(r.topLeft(), r.bottomLeft());
-  if (on) {
-    face.setColorAt(0, T().btnOn0);
-    face.setColorAt(0.45, T().btnOn1);
-    face.setColorAt(1, T().btnOn2);
-  } else {
-    face.setColorAt(0, T().btnIdle0);
-    face.setColorAt(0.48, T().btnIdle48);
-    face.setColorAt(1, T().btnIdle100);
-  }
-  p.fillPath(path, face);
+  // The lit and idle faces are different gradients, not one gradient with a
+  // brighter stop, so a transition has to mix them stop by stop. Hover lifts the
+  // whole face a little; press sinks it, which is the only cue a flat button has.
+  // The shell is dark enough that a subtle lift is simply invisible; hover has
+  // to be worth about a third of the face's brightness to register at all.
+  const qreal lift = (1 + 0.34 * hover) * (1 - 0.30 * press);
+  QLinearGradient faceFill(r.topLeft(), r.bottomLeft());
+  // The two faces do not even put their middle stop in the same place, so the
+  // position travels with the colour.
+  faceFill.setColorAt(0, scaled(mix(T().btnIdle0, T().btnOn0, on), lift));
+  faceFill.setColorAt(0.48 + (0.45 - 0.48) * on,
+                      scaled(mix(T().btnIdle48, T().btnOn1, on), lift));
+  faceFill.setColorAt(1, scaled(mix(T().btnIdle100, T().btnOn2, on), lift));
+  p.fillPath(path, faceFill);
   p.save();
   p.setClipPath(path);
-  if (on) {
-    p.setPen(QPen(QColor(T().btnOnLip.red(), T().btnOnLip.green(), T().btnOnLip.blue(), 179), 1));
+  if (on > 0.004) {
+    p.setPen(QPen(withAlpha(T().btnOnLip, int(std::lround(179 * on))), 1));
     p.drawLine(QPointF(r.left() + 2, r.top() + 1), QPointF(r.right() - 2, r.top() + 1));
     p.fillRect(QRectF(r.left() + 1, r.bottom() - 4, r.width() - 2, 3),
-               QColor(T().btnOnFoot.red(), T().btnOnFoot.green(), T().btnOnFoot.blue(), 140));
-  } else {
+               withAlpha(T().btnOnFoot, int(std::lround(140 * on))));
+  }
+  if (on < 0.996) {
+    const qreal idle = 1 - on;
     QLinearGradient rim(r.topLeft(), r.bottomLeft());
-    rim.setColorAt(0, withAlpha(T().hoverLift, 51));
+    rim.setColorAt(0, withAlpha(T().hoverLift, int(std::lround((51 + 90 * hover) * idle))));
     rim.setColorAt(0.5, Qt::transparent);
-    rim.setColorAt(1, QColor(0, 0, 0, 128));
+    rim.setColorAt(1, QColor(0, 0, 0, int(std::lround(128 * idle))));
     p.setPen(QPen(QBrush(rim), 1));
     p.setBrush(Qt::NoBrush);
     p.drawRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), 4, 4);
   }
   QLinearGradient gloss(r.topLeft(), QPointF(r.left(), r.top() + r.height() * 0.55));
-  gloss.setColorAt(0, withAlpha(T().hoverLift, on ? 71 : 31));
+  const qreal glossTop = (31 + 40 * on + 55 * hover) * (1 - 0.7 * press);
+  gloss.setColorAt(0, withAlpha(T().hoverLift, int(std::lround(glossTop))));
   gloss.setColorAt(1, withAlpha(T().hoverLift, 0));
   p.fillRect(QRectF(r.left() + 1, r.top() + 1, r.width() - 2, r.height() * 0.5), gloss);
+  if (press > 0.004) {
+    // Pressed buttons also take a shadow from the top edge, so the face reads as
+    // sunk into the chassis rather than merely darker.
+    QLinearGradient sink(r.topLeft(), QPointF(r.left(), r.top() + r.height() * 0.6));
+    sink.setColorAt(0, QColor(0, 0, 0, int(std::lround(92 * press))));
+    sink.setColorAt(1, QColor(0, 0, 0, 0));
+    p.fillRect(r, sink);
+  }
   p.restore();
   paintBlurred(p, r.adjusted(-4, -2, 4, 6), 1.2, [&](QPainter& bp) {
     bp.setPen(QPen(QColor(0, 0, 0, 153), 0.5));
@@ -768,7 +785,7 @@ void drawBtn(QPainter& p, const QRectF& r, bool on, const QString& label) {
   });
   if (!label.isEmpty()) {
     p.setFont(condensedFont(13, 0.18));
-    p.setPen(on ? T().btnOnInk : T().btnLabelIdle);
+    p.setPen(mix(T().btnLabelIdle, T().btnOnInk, on));
     p.drawText(r, Qt::AlignCenter, label.toUpper());
   }
 }
@@ -827,11 +844,11 @@ void drawIcon(QPainter& p, const QRectF& box, MockupIcon icon, const QColor& col
   }
 }
 
-void drawGlyphBtn(QPainter& p, const QRectF& r, MockupIcon icon, bool on, qreal iconSize) {
-  drawBtn(p, r, on, {});
+void drawGlyphBtn(QPainter& p, const QRectF& r, MockupIcon icon, BtnFace face, qreal iconSize) {
+  drawBtn(p, r, face, {});
   const QRectF box(r.center().x() - iconSize / 2, r.center().y() - iconSize / 2, iconSize,
                    iconSize);
-  drawIcon(p, box, icon, on ? T().btnOnInk : T().glyphInk);
+  drawIcon(p, box, icon, mix(T().glyphInk, T().btnOnInk, face.on));
 }
 
 void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle, bool glow) {
@@ -959,36 +976,33 @@ void drawVBand(QPainter& p, const QRectF& column, qreal gainDb) {
   fillRound(p, line, 1, lg);
 }
 
-void drawLed(QPainter& p, QPointF c, bool on, qreal size) {
+void drawLed(QPainter& p, QPointF c, qreal on, qreal size) {
+  on = std::clamp(on, qreal(0), qreal(1));
   const qreal r = size / 2;
-  if (on) {
+  if (on > 0.004) {
     paintBlurred(p, QRectF(c.x() - r - 12, c.y() - r - 12, (r + 12) * 2, (r + 12) * 2), 6,
                  [&](QPainter& bp) {
                    bp.setPen(Qt::NoPen);
-                   bp.setBrush(QColor(T().accent.red(), T().accent.green(), T().accent.blue(), 89));
+                   bp.setBrush(withAlpha(T().accent, int(std::lround(89 * on))));
                    bp.drawEllipse(c, r + 5, r + 5);
                  });
     paintBlurred(p, QRectF(c.x() - r - 8, c.y() - r - 8, (r + 8) * 2, (r + 8) * 2), 3,
                  [&](QPainter& bp) {
                    bp.setPen(Qt::NoPen);
-                   bp.setBrush(QColor(T().accent.red(), T().accent.green(), T().accent.blue(), 179));
+                   bp.setBrush(withAlpha(T().accent, int(std::lround(179 * on))));
                    bp.drawEllipse(c, r + 1.5, r + 1.5);
                  });
-    QRadialGradient g(c + QPointF(-r * 0.2, -r * 0.3), r);
-    g.setColorAt(0, T().accentHot);
-    g.setColorAt(0.45, T().accent);
-    g.setColorAt(1, T().accentDim);
-    p.setBrush(g);
-    p.setPen(QPen(QColor(T().litLedRim.red(), T().litLedRim.green(), T().litLedRim.blue(), 153), 1));
-    p.drawEllipse(c, r, r);
-  } else {
-    QRadialGradient g(c + QPointF(-r * 0.2, -r * 0.3), r);
-    g.setColorAt(0, T().idleLedHi);
-    g.setColorAt(1, T().idleLedLo);
-    p.setBrush(g);
-    p.setPen(QPen(QColor(0, 0, 0, 204), 1));
-    p.drawEllipse(c, r, r);
   }
+  // The dark LED is a plain two-stop gradient and the lit one has a hot centre,
+  // so the mid stop has to start where the dark gradient already was or an
+  // unlit LED gains a highlight it never had.
+  QRadialGradient g(c + QPointF(-r * 0.2, -r * 0.3), r);
+  g.setColorAt(0, mix(T().idleLedHi, T().accentHot, on));
+  g.setColorAt(0.45, mix(mix(T().idleLedHi, T().idleLedLo, 0.45), T().accent, on));
+  g.setColorAt(1, mix(T().idleLedLo, T().accentDim, on));
+  p.setBrush(g);
+  p.setPen(QPen(mix(QColor(0, 0, 0, 204), withAlpha(T().litLedRim, 153), on), 1));
+  p.drawEllipse(c, r, r);
 }
 
 void drawMenuCaret(QPainter& p, const QRectF& btn) {
@@ -1083,9 +1097,9 @@ qreal toggleBtnWidth(const QString& label) {
   return 15 + 8 + 9 + textWidth(condensedFont(13, 0.16), label.toUpper()) + 15;
 }
 
-void drawToggleBtn(QPainter& p, const QRectF& r, const QString& label, bool lit) {
-  drawBtn(p, r, false, {});
-  drawLed(p, QPointF(r.left() + 15 + 4, r.center().y()), lit);
+void drawToggleBtn(QPainter& p, const QRectF& r, const QString& label, BtnFace face) {
+  drawBtn(p, r, BtnFace(0, face.hover, face.press), {});
+  drawLed(p, QPointF(r.left() + 15 + 4, r.center().y()), face.on);
   p.setFont(condensedFont(13, 0.16));
   p.setPen(T().btnLabelIdle);
   p.drawText(r.adjusted(15 + 8 + 9, 0, -15, 0), Qt::AlignVCenter | Qt::AlignLeft,

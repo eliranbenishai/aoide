@@ -179,14 +179,14 @@ ChromeHit hitPlaylist(QSize logical, QPoint pos, const SessionView& view) {
 
   const QRectF footer(trackInner.left(), trackInner.bottom() - kPlaylistFooterH, trackInner.width(),
                       kPlaylistFooterH);
-  const QRectF plateInner =
+  const QRectF deckInner =
       QRectF(footer.left(), footer.top(), footer.width(), 74).adjusted(12, 10, -12, -10);
   const QString totalText =
       view.goldenDemo ? QStringLiteral("55:34") : formatClock(view.playlistTotalMs);
   const qreal totalW = playlistStripTotalWidth(
       textWidth(condensedFont(11, 0.2), QStringLiteral("TOTAL")),
       textWidth(monoFont(18), totalText));
-  const auto strip = layoutPlaylistStrip(plateInner, totalW);
+  const auto strip = layoutPlaylistStrip(deckInner, totalW);
   auto hitBtn = [&](const QRectF& r, ChromeHit::Kind kind) {
     return hitIf(r.toRect(), pos, kind);
   };

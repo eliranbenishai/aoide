@@ -162,6 +162,23 @@ inline QColor withAlpha(const QColor& c, int alpha) {
   return QColor(c.red(), c.green(), c.blue(), alpha);
 }
 
+/// Straight channel blend, [t] 0 = [a], 1 = [b]. Chrome that transitions between
+/// two token colours mixes them here rather than fading one over the other, so a
+/// half-lit button is one opaque face and not two stacked translucent ones.
+inline QColor mix(const QColor& a, const QColor& b, qreal t) {
+  const qreal k = t < 0 ? 0 : (t > 1 ? 1 : t);
+  auto lerp = [k](int from, int to) { return int(qRound(from + (to - from) * k)); };
+  return QColor(lerp(a.red(), b.red()), lerp(a.green(), b.green()), lerp(a.blue(), b.blue()),
+                lerp(a.alpha(), b.alpha()));
+}
+
+/// Multiply a colour's brightness, keeping alpha. Used for the small lift and
+/// sink that mark hover and press without introducing new tokens per skin.
+inline QColor scaled(const QColor& c, qreal factor) {
+  auto ch = [factor](int v) { return int(qBound(0, qRound(v * factor), 255)); };
+  return QColor(ch(c.red()), ch(c.green()), ch(c.blue()), c.alpha());
+}
+
 const ChromeTokens& currentLook();
 
 class LookPaintScope {

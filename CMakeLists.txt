@@ -110,11 +110,15 @@ set(TRAMP_SOURCES
   src/host_window.h
   src/session.cpp
   src/session.h
+  src/chrome_anim.cpp
+  src/chrome_anim.h
   src/chrome_paint.cpp
   src/chrome_bodies.cpp
   src/chrome_hits.cpp
   src/chrome_tooltip.cpp
   src/chrome_tooltip.h
+  src/chrome_menu.cpp
+  src/chrome_menu.h
   src/session_view.cpp
   src/mockup_draw.cpp
   src/tramp_fonts.cpp
@@ -201,6 +205,7 @@ qt_add_executable(host_window_move_test
   src/app_icon.cpp
   src/host_window.cpp
   src/host_window.h
+  src/chrome_anim.cpp
   src/chrome_paint.cpp
   src/chrome_bodies.cpp
   src/chrome_hits.cpp
@@ -221,7 +226,7 @@ target_compile_definitions(host_window_move_test PRIVATE
 target_link_libraries(host_window_move_test PRIVATE tramp_window_spec Qt6::Test Qt6::Widgets)
 set_target_properties(host_window_move_test PROPERTIES AUTOMOC ON)
 
-qt_add_executable(chrome_spec_test tests/chrome_spec_test.cpp)
+qt_add_executable(chrome_spec_test tests/chrome_spec_test.cpp src/chrome_anim.cpp)
 target_link_libraries(chrome_spec_test PRIVATE tramp_window_spec Qt6::Test)
 set_target_properties(chrome_spec_test PROPERTIES AUTOMOC ON)
 
@@ -240,6 +245,11 @@ target_compile_definitions(chrome_tooltip_test PRIVATE
 )
 target_link_libraries(chrome_tooltip_test PRIVATE tramp_window_spec Qt6::Test Qt6::Widgets)
 set_target_properties(chrome_tooltip_test PROPERTIES AUTOMOC ON)
+
+qt_add_executable(chrome_menu_test tests/chrome_menu_test.cpp)
+target_include_directories(chrome_menu_test PRIVATE src)
+target_link_libraries(chrome_menu_test PRIVATE Qt6::Test Qt6::Widgets)
+set_target_properties(chrome_menu_test PROPERTIES AUTOMOC ON)
 
 qt_add_executable(wait_cursor_test
   tests/wait_cursor_test.cpp
@@ -307,7 +317,7 @@ target_link_libraries(font_metrics_test PRIVATE Qt6::Gui)
 foreach(tramp_target IN ITEMS
     tramp_window_spec tramp
     window_spec_test host_shell_test host_shell_window_test host_window_move_test
-    chrome_spec_test chrome_tooltip_test wait_cursor_test domain_test
+    chrome_spec_test chrome_tooltip_test chrome_menu_test wait_cursor_test domain_test
     look_test font_metrics_test)
   target_link_libraries(${tramp_target} PRIVATE tramp_warnings)
 endforeach()
@@ -319,6 +329,7 @@ add_test(NAME host_shell_window COMMAND host_shell_window_test)
 add_test(NAME host_window_move COMMAND host_window_move_test)
 add_test(NAME chrome_spec COMMAND chrome_spec_test)
 add_test(NAME chrome_tooltip COMMAND chrome_tooltip_test)
+add_test(NAME chrome_menu COMMAND chrome_menu_test)
 add_test(NAME wait_cursor COMMAND wait_cursor_test)
 add_test(NAME domain COMMAND domain_test)
 add_test(NAME look COMMAND look_test)

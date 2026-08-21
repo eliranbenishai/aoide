@@ -20,7 +20,6 @@
 #include "tramp_fonts.h"
 #include "tramp_metrics.h"
 
-#include <QAction>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFile>
@@ -29,7 +28,6 @@
 #include <QInputDialog>
 #include <QLineEdit>
 #include <QMap>
-#include <QMenu>
 #include <QMessageBox>
 #include <QPointer>
 #include <QPushButton>
@@ -616,7 +614,13 @@ void TrampSession::fitClusterToHost() {
   const auto delta = tramp::clusterDeltaToFit(rects, host);
   if (delta) {
     if (delta->isNull()) return;
-    for (int i = 0; i < ids.size(); ++i) writeNativeFrame(ids[i], rects[i].translated(*delta));
+    // Only visible panels decide how far the cluster has to move, but a hidden
+    // one still rides along: a main drag already carries it, and leaving it
+    // behind here would walk it out of the cluster one correction at a time.
+    for (WindowId id : {WindowId::main, WindowId::equalizer, WindowId::playlist,
+                        WindowId::settings, WindowId::about}) {
+      writeNativeFrame(id, nativeFrameRect(id).translated(*delta));
+    }
     return;
   }
   for (WindowId id : ids) clampOneToHost(id);
@@ -1171,19 +1175,18 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       refreshEqChrome();
       break;
     case K::eqPresets: {
-      QMenu menu(eq_ ? static_cast<QWidget*>(eq_) : static_cast<QWidget*>(main_));
-      for (const auto& preset : EqualizerPresets::builtIn()) {
-        QAction* a = menu.addAction(preset.first);
-        QObject::connect(a, &QAction::triggered, this, [this, preset]() {
-          settings_.equalizerCurve =
-              settings_.equalizerCurve.withPreset(preset.first, preset.second);
-          settings_.equalizerCurve.enabled = true;
-          applyEq();
-          schedulePersist();
-          refreshEqChrome();
-        });
-      }
-      execAnchoredMenu(menu, eq_, hit.rect, false);
+      const auto& presets = EqualizerPresets::builtIn();
+      QVector<ChromeMenuItem> items;
+      items.reserve(presets.size());
+      for (const auto& preset : presets) items.push_back(ChromeMenuItem::action(preset.first));
+      const int chosen = execAnchoredMenu(items, eq_, hit.rect, PopupAnchor::belowLeft);
+      if (chosen == kChromeMenuNone) break;
+      settings_.equalizerCurve =
+          settings_.equalizerCurve.withPreset(presets[chosen].first, presets[chosen].second);
+      settings_.equalizerCurve.enabled = true;
+      applyEq();
+      schedulePersist();
+      refreshEqChrome();
       break;
     }
     case K::plCollapse:
@@ -1212,13 +1215,15 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       break;
     }
     case K::plCreate: {
-      QMenu menu(pl_ ? static_cast<QWidget*>(pl_) : static_cast<QWidget*>(main_));
-      QAction* fromCurrent = menu.addAction(QStringLiteral("From current playlist"));
-      fromCurrent->setEnabled(!playlist_.tracks().isEmpty());
-      QAction* fromSel = menu.addAction(QStringLiteral("From selection"));
-      fromSel->setEnabled(!playlist_.selectedIndices().isEmpty());
-      QAction* chosen = execAnchoredMenu(menu, pl_, hit.rect, true);
-      if (chosen == fromCurrent) {
+      enum Row { kFromCurrent, kFromSelection };
+      const QVector<ChromeMenuItem> items{
+          ChromeMenuItem::action(QStringLiteral("From current playlist"),
+                                 !playlist_.tracks().isEmpty()),
+          ChromeMenuItem::action(QStringLiteral("From selection"),
+                                 !playlist_.selectedIndices().isEmpty()),
+      };
+      const int chosen = execAnchoredMenu(items, pl_, hit.rect, PopupAnchor::aboveLeft);
+      if (chosen == kFromCurrent) {
         const QString path = pickPlaylist(true);
         if (!path.isEmpty()) {
           WaitCursorScope wait;
@@ -1229,7 +1234,7 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
             persistCollectionCache();
           }
         }
-      } else if (chosen == fromSel) {
+      } else if (chosen == kFromSelection) {
         const QString path = pickPlaylist(true);
         if (!path.isEmpty()) {
           WaitCursorScope wait;
@@ -1286,36 +1291,66 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       playlist_.removeSelected();
       break;
     case K::plSort: {
-      QMenu menu(pl_ ? static_cast<QWidget*>(pl_) : static_cast<QWidget*>(main_));
-      auto add = [&](const QString& name, PlaylistSortKey key) {
-        QAction* a = menu.addAction(name);
-        QObject::connect(a, &QAction::triggered, this, [this, key]() { playlist_.sortBy(key); });
+      enum Row { kTitle, kArtist, kDuration, kPath, kReverse };
+      const QVector<ChromeMenuItem> items{
+          ChromeMenuItem::action(QStringLiteral("Title")),
+          ChromeMenuItem::action(QStringLiteral("Artist")),
+          ChromeMenuItem::action(QStringLiteral("Duration")),
+          ChromeMenuItem::action(QStringLiteral("Path")),
+          ChromeMenuItem::action(QStringLiteral("Reverse")),
       };
-      add(QStringLiteral("Title"), PlaylistSortKey::title);
-      add(QStringLiteral("Artist"), PlaylistSortKey::artist);
-      add(QStringLiteral("Duration"), PlaylistSortKey::duration);
-      add(QStringLiteral("Path"), PlaylistSortKey::path);
-      QAction* rev = menu.addAction(QStringLiteral("Reverse"));
-      QObject::connect(rev, &QAction::triggered, this, [this]() { playlist_.reverseTracks(); });
-      if (pl_) execAnchoredMenu(menu, pl_, hit.rect, true);
+      switch (execAnchoredMenu(items, pl_, hit.rect, PopupAnchor::aboveLeft)) {
+        case kTitle:
+          playlist_.sortBy(PlaylistSortKey::title);
+          break;
+        case kArtist:
+          playlist_.sortBy(PlaylistSortKey::artist);
+          break;
+        case kDuration:
+          playlist_.sortBy(PlaylistSortKey::duration);
+          break;
+        case kPath:
+          playlist_.sortBy(PlaylistSortKey::path);
+          break;
+        case kReverse:
+          playlist_.reverseTracks();
+          break;
+        default:
+          break;
+      }
       break;
     }
     case K::plOptions: {
-      QMenu menu(pl_ ? static_cast<QWidget*>(pl_) : static_cast<QWidget*>(main_));
-      menu.addAction(QStringLiteral("Select all"), this, [this]() { playlist_.selectAll(); });
-      menu.addAction(QStringLiteral("Invert selection"), this, [this]() { playlist_.invertSelection(); });
-      menu.addAction(QStringLiteral("Save playlist…"), this, [this]() {
-        const QString path = pickPlaylist(true);
-        if (!path.isEmpty() &&
-            reportPlaylistWriteFailure(playlist_.savePlaylistFile(path), path)) {
-          if (collection_.contains(path)) {
+      enum Row { kSelectAll, kInvertSelection, kSave, kClear };
+      const QVector<ChromeMenuItem> items{
+          ChromeMenuItem::action(QStringLiteral("Select all")),
+          ChromeMenuItem::action(QStringLiteral("Invert selection")),
+          ChromeMenuItem::action(QStringLiteral("Save playlist…")),
+          ChromeMenuItem::action(QStringLiteral("Clear")),
+      };
+      switch (execAnchoredMenu(items, pl_, hit.rect, PopupAnchor::aboveLeft)) {
+        case kSelectAll:
+          playlist_.selectAll();
+          break;
+        case kInvertSelection:
+          playlist_.invertSelection();
+          break;
+        case kSave: {
+          const QString path = pickPlaylist(true);
+          if (!path.isEmpty() &&
+              reportPlaylistWriteFailure(playlist_.savePlaylistFile(path), path) &&
+              collection_.contains(path)) {
             collection_.addWritten(path, playlist_.tracks());
             persistCollectionCache();
           }
+          break;
         }
-      });
-      menu.addAction(QStringLiteral("Clear"), this, [this]() { playlist_.clear(); });
-      if (pl_) execAnchoredMenu(menu, pl_, hit.rect, true);
+        case kClear:
+          playlist_.clear();
+          break;
+        default:
+          break;
+      }
       break;
     }
     case K::settingsGeneral:
@@ -1460,35 +1495,50 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
 }
 
 void TrampSession::showOptionsMenu(QRect logicalHit) {
-  QMenu menu(main_);
-  QAction* aot = menu.addAction(settings_.alwaysOnTop ? QStringLiteral("Always on top ✓")
-                                                      : QStringLiteral("Always on top"));
-  QObject::connect(aot, &QAction::triggered, this, [this]() {
-    settings_.alwaysOnTop = !settings_.alwaysOnTop;
-    applyAlwaysOnTop();
-    schedulePersist();
-  });
-  menu.addAction(QStringLiteral("Settings…"), this, [this]() {
-    setWindowVisible(WindowId::settings, !windowShouldShow(WindowId::settings));
-  });
-  menu.addAction(QStringLiteral("Track info"), this, [this]() { showTrackInfo(); });
-  menu.addAction(QStringLiteral("About Tramp"), this, [this]() {
-    if (windowShouldShow(WindowId::about)) emit requestRaise(WindowId::about);
-    else setWindowVisible(WindowId::about, true);
-  });
-  menu.addAction(QStringLiteral("Quit"), this, [this]() { quitFromMenu(); });
+  // The rules keep the window toggle and the destructive row away from the
+  // three that just open something. Row indices count them, hence the members.
+  enum Row { kAlwaysOnTop, kRuleTop, kSettings, kTrackInfo, kAbout, kRuleQuit, kQuit };
+  const QVector<ChromeMenuItem> items{
+      ChromeMenuItem::check(QStringLiteral("Always on top"), settings_.alwaysOnTop),
+      ChromeMenuItem::separator(),
+      ChromeMenuItem::action(QStringLiteral("Settings…")),
+      ChromeMenuItem::action(QStringLiteral("Track info")),
+      ChromeMenuItem::action(QStringLiteral("About Tramp")),
+      ChromeMenuItem::separator(),
+      ChromeMenuItem::action(QStringLiteral("Quit")),
+  };
   if (logicalHit.isEmpty()) logicalHit = mainOptionsHit(kMainPlayer);
-  execAnchoredMenu(menu, main_, logicalHit, false);
+  switch (execAnchoredMenu(items, main_, logicalHit, PopupAnchor::belowLeft)) {
+    case kAlwaysOnTop:
+      settings_.alwaysOnTop = !settings_.alwaysOnTop;
+      applyAlwaysOnTop();
+      schedulePersist();
+      break;
+    case kSettings:
+      setWindowVisible(WindowId::settings, !windowShouldShow(WindowId::settings));
+      break;
+    case kTrackInfo:
+      showTrackInfo();
+      break;
+    case kAbout:
+      if (windowShouldShow(WindowId::about)) emit requestRaise(WindowId::about);
+      else setWindowVisible(WindowId::about, true);
+      break;
+    case kQuit:
+      quitFromMenu();
+      break;
+    default:
+      break;
+  }
 }
 
-QAction* TrampSession::execAnchoredMenu(QMenu& menu, HostWindow* host, QRect logicalHit, bool above) {
-  if (!host) return nullptr;
+int TrampSession::execAnchoredMenu(const QVector<ChromeMenuItem>& items, HostWindow* host,
+                                   QRect logicalHit, PopupAnchor anchor) {
+  if (!host) return kChromeMenuNone;
   if (logicalHit.isEmpty()) logicalHit = QRect(0, 0, 1, 1);
-  menu.adjustSize();
   const QRect widget = host->widgetRectFromLogical(logicalHit);
   const QRect global(host->mapToGlobal(widget.topLeft()), widget.size());
-  return menu.exec(popupMenuPos(global, menu.sizeHint(),
-                                above ? PopupAnchor::aboveLeft : PopupAnchor::belowLeft));
+  return execChromeMenu(host, items, global, anchor, settings_.zoomPercent, skins_.tokens());
 }
 
 void TrampSession::showTrackInfo() {

@@ -1,3 +1,4 @@
+#include "chrome_anim.h"
 #include "chrome_layout.h"
 #include "mockup_tokens.h"
 #include "title_chrome.h"
@@ -25,6 +26,10 @@ class ChromeSpecTest : public QObject {
   void playlistHidesScrollbarWhenRowsFit();
   void playlistStripKeepsGapBeforeLengthWell();
   void playlistStripRefreshSitsRightOfTotal();
+  void buttonPhaseTakesTheWholeTransitionWhateverTheFrameRate();
+  void inertPhaseStoreLeavesPaintersOnPlainSessionState();
+  void pointerFeedbackSkipsSlidersAndListRows();
+  void settledPhasesDoNotAccumulate();
 };
 
 void ChromeSpecTest::tokensMatchMockupCssRoot() {
@@ -207,8 +212,8 @@ void ChromeSpecTest::playlistStripKeepsGapBeforeLengthWell() {
   // player-mockup-2.html `.pl-strip { gap: 8px }` — Next must not sit flush on TOTAL.
   QCOMPARE(tramp::kPlaylistStripGap, 8.0);
 
-  const QRectF plateInner(0, 0, 800, 54);
-  const auto strip = tramp::layoutPlaylistStrip(plateInner, 140);
+  const QRectF deckInner(0, 0, 800, 54);
+  const auto strip = tramp::layoutPlaylistStrip(deckInner, 140);
   QCOMPARE(strip.total.left() - strip.next.right(), tramp::kPlaylistStripGap);
   QVERIFY(!strip.next.intersects(strip.total));
   QCOMPARE(strip.play.left() - strip.prev.right(), tramp::kPlaylistStripGap);
@@ -216,12 +221,91 @@ void ChromeSpecTest::playlistStripKeepsGapBeforeLengthWell() {
 }
 
 void ChromeSpecTest::playlistStripRefreshSitsRightOfTotal() {
-  const QRectF plateInner(0, 0, 800, 54);
-  const auto strip = tramp::layoutPlaylistStrip(plateInner, 140);
+  const QRectF deckInner(0, 0, 800, 54);
+  const auto strip = tramp::layoutPlaylistStrip(deckInner, 140);
   QCOMPARE(strip.refresh.left() - strip.total.right(), tramp::kPlaylistStripGap);
-  QCOMPARE(strip.refresh.right(), plateInner.right());
+  QCOMPARE(strip.refresh.right(), deckInner.right());
   QCOMPARE(strip.total.left() - strip.next.right(), tramp::kPlaylistStripGap);
   QVERIFY(!strip.total.intersects(strip.refresh));
+}
+
+void ChromeSpecTest::buttonPhaseTakesTheWholeTransitionWhateverTheFrameRate() {
+  using tramp::BtnChannel;
+  using K = tramp::ChromeHit::Kind;
+
+  // A panel that can only manage a few frames must still finish on time, so the
+  // step is wall-clock and not per-frame.
+  tramp::ChromePhases coarse;
+  coarse.setLive(true);
+  coarse.setTarget(K::shuffle, -1, BtnChannel::on, 1);
+  QVERIFY(coarse.moving());
+  QVERIFY(coarse.advance(tramp::kBtnTransitionMs / 2));
+  QVERIFY(!coarse.advance(tramp::kBtnTransitionMs / 2));
+  QVERIFY(!coarse.moving());
+  QCOMPARE(coarse.face(K::shuffle).on, 1.0);
+
+  tramp::ChromePhases fine;
+  fine.setLive(true);
+  fine.setTarget(K::shuffle, -1, BtnChannel::on, 1);
+  int frames = 0;
+  while (fine.advance(16) && frames < 1000) ++frames;
+  QCOMPARE(fine.face(K::shuffle).on, 1.0);
+  QVERIFY(frames >= int(tramp::kBtnTransitionMs / 16) - 1);
+
+  // Mid-transition the face is neither of its two states, which is the point.
+  tramp::ChromePhases part;
+  part.setLive(true);
+  part.setTarget(K::mute, -1, BtnChannel::on, 1);
+  part.advance(tramp::kBtnTransitionMs / 2);
+  const qreal half = part.face(K::mute).on;
+  QVERIFY(half > 0.0);
+  QVERIFY(half < 1.0);
+}
+
+void ChromeSpecTest::inertPhaseStoreLeavesPaintersOnPlainSessionState() {
+  // Golden dumps and tests paint without a panel behind them; painters key off
+  // live() to fall back to the session's booleans, so lit buttons stay lit.
+  tramp::ChromePhases inert;
+  QVERIFY(!inert.live());
+  tramp::ChromePhases driven;
+  driven.setLive(true);
+  QVERIFY(driven.live());
+}
+
+void ChromeSpecTest::pointerFeedbackSkipsSlidersAndListRows() {
+  using K = tramp::ChromeHit::Kind;
+  QVERIFY(tramp::takesPointerFeedback(K::play));
+  QVERIFY(tramp::takesPointerFeedback(K::plSort));
+  QVERIFY(tramp::takesPointerFeedback(K::eqPresets));
+  // Hovering these would rebuild a whole panel chassis per mouse move.
+  QVERIFY(!tramp::takesPointerFeedback(K::plTrackRow));
+  QVERIFY(!tramp::takesPointerFeedback(K::plCollectionRow));
+  QVERIFY(!tramp::takesPointerFeedback(K::settingsSkinRow));
+  QVERIFY(!tramp::takesPointerFeedback(K::volume));
+  QVERIFY(!tramp::takesPointerFeedback(K::seek));
+  QVERIFY(!tramp::takesPointerFeedback(K::eqBand));
+  QVERIFY(!tramp::takesPointerFeedback(K::plResize));
+  QVERIFY(!tramp::takesPointerFeedback(K::none));
+}
+
+void ChromeSpecTest::settledPhasesDoNotAccumulate() {
+  using tramp::BtnChannel;
+  using K = tramp::ChromeHit::Kind;
+  tramp::ChromePhases phases;
+  phases.setLive(true);
+  // Asking an untouched control for zero must not record anything: every view
+  // the session publishes aims every latched button, most of them at zero.
+  for (int i = 0; i < 100; ++i) phases.setTarget(K::stop, -1, BtnChannel::on, 0);
+  QVERIFY(!phases.moving());
+
+  // A pointer crossing a row of buttons leaves one cooling entry each; they must
+  // be reclaimed once they reach the floor.
+  phases.setTarget(K::prev, -1, BtnChannel::hover, 1);
+  phases.advance(tramp::kBtnTransitionMs);
+  phases.releaseChannel(BtnChannel::hover);
+  phases.advance(tramp::kBtnTransitionMs);
+  QVERIFY(!phases.moving());
+  QCOMPARE(phases.face(K::prev).hover, 0.0);
 }
 
 QTEST_APPLESS_MAIN(ChromeSpecTest)

@@ -16,6 +16,7 @@ void paintMockupWindow(QPainter& painter,
                        const TitleChromeLayout& title,
                        const QImage* logo,
                        const SessionView& view = {},
-                       BodyPaint pass = BodyPaint::full);
+                       BodyPaint pass = BodyPaint::full,
+                       const ChromePhases& phases = ChromePhases());
 
 }  // namespace tramp
