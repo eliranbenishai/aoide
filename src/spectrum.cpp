@@ -35,8 +35,8 @@ QVector<std::array<double, AudioLevels::kBandCount>> foldInSlices(
   for (int first = 0; first < frameCount; first += perSlice) {
     // No frames means cancelled, which is not the same as silent and not a
     // failure either: the caller asked us to stop and will drop the result
-    // unread. A decode that fails has to say so in its own way, because a broken
-    // analyser must not be readable as a quiet passage.
+    // unread. A decode that fails says so with [Spectrogram::unmeasured]
+    // instead, because a broken analyser must not read as a quiet passage.
     if (!stillWanted()) return {};
     const int last = std::min(first + perSlice, frameCount);
     frames += stft.analyze(samples.mid(first * hop, (last - 1 - first) * hop + kFftSize),
@@ -55,12 +55,23 @@ Spectrogram Spectrogram::silent() {
   return spec;
 }
 
+Spectrogram Spectrogram::unmeasured() {
+  // One flat frame, the same shape silence has, which is the whole reason it has
+  // to carry the mark.
+  Spectrogram spec = silent();
+  spec.synthetic = true;
+  return spec;
+}
+
+Spectrogram Spectrogram::cancelled() { return {}; }
+
 AudioLevels Spectrogram::levelsAt(qint64 positionMs) const {
-  if (frames.isEmpty()) return AudioLevels::silent();
+  AudioLevels levels;
+  levels.synthetic = synthetic;
+  if (frames.isEmpty()) return levels;
   const double seconds = double(positionMs) / 1000.0;
   int idx = int(std::floor(seconds * double(framesPerSecond)));
   idx = std::clamp(idx, 0, int(frames.size() - 1));
-  AudioLevels levels;
   levels.bands = frames[idx];
   double rms = 0;
   for (double b : levels.bands) {
@@ -70,7 +81,6 @@ AudioLevels Spectrogram::levelsAt(qint64 positionMs) const {
   const double amp = rms > 0 ? std::clamp(rms, 0.0, 1.0) : 0.0;
   levels.leftRms = amp;
   levels.rightRms = amp;
-  levels.synthetic = false;
   return levels;
 }
 
@@ -102,19 +112,27 @@ Spectrogram SpectrumAnalyzer::load(const QString& path) const { return load(path
 
 Spectrogram SpectrumAnalyzer::load(const QString& path, const CancelFn& stillWanted) const {
   const auto wanted = [&stillWanted]() { return !stillWanted || stillWanted(); };
-  if (!loader_ || !wanted()) return Spectrogram::silent();
+  if (!wanted()) return Spectrogram::cancelled();
+  // Nothing to ask, so nothing to measure. A build without a decoder is the
+  // development case synthetic levels were named for.
+  if (!loader_) return Spectrogram::unmeasured();
   try {
     const PcmBuffer pcm = loader_(path, stillWanted);
-    if (!wanted()) return Spectrogram::silent();
+    if (!wanted()) return Spectrogram::cancelled();
     if (!stillWanted) return analyzeMonoPcm(pcm.samples, pcm.sampleRateHz);
     Spectrogram spec;
     spec.framesPerSecond = kFramesPerSecond;
     spec.sampleRateHz = pcm.sampleRateHz;
     spec.frames = foldInSlices(pcm.samples, pcm.sampleRateHz, stillWanted);
-    if (spec.frames.isEmpty()) return Spectrogram::silent();  // cancelled, and unread
+    if (spec.frames.isEmpty()) return Spectrogram::cancelled();
     return spec;
   } catch (...) {
-    return Spectrogram::silent();
+    // The decoder throws for a deadline it never met and for a caller that has
+    // moved on, and only the first failed to measure anything. Ask again rather
+    // than read the exception: the loader is anyone's, and "does anyone still
+    // want this?" is the question that separates the two.
+    if (!wanted()) return Spectrogram::cancelled();
+    return Spectrogram::unmeasured();
   }
 }
 

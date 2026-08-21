@@ -508,17 +508,35 @@ int main() {
   }
 
   {
+    // A decode that failed has flat bands, which is what a quiet passage has
+    // too, so the bands cannot be what tells them apart: the frames are marked
+    // synthetic instead. A broken analyser that reads as silence is a lie the
+    // listener has no way to catch.
     SpectrumAnalyzer analyzer([](const QString&) -> PcmBuffer {
       throw std::runtime_error("decode failed");
     });
     const Spectrogram spec = analyzer.load(QStringLiteral("missing.wav"));
+    REQUIRE_EQ(int(spec.frames.size()), 1);  // a frame, unlike a cancelled load
     const AudioLevels frame = spec.levelsAt(0);
-    REQUIRE(!frame.synthetic);
+    REQUIRE(frame.synthetic);
     bool quiet = true;
     for (double b : frame.bands) {
       if (b != 0.0) quiet = false;
     }
     REQUIRE(quiet);
+  }
+
+  {
+    // The deadline is the other way a decode ends without a measurement: the
+    // decoder gives up on a track it cannot render in two minutes and throws,
+    // with the caller still waiting for an answer. Failing to measure is not a
+    // measurement of quiet, so it reaches the same mark as a broken file.
+    const SpectrumAnalyzer analyzer(SpectrumAnalyzer::CancellablePcmLoader(
+        [](const QString&, const SpectrumAnalyzer::CancelFn&) -> PcmBuffer {
+          throw std::runtime_error("timeout waiting for PCM end-file");
+        }));
+    const Spectrogram spec = analyzer.load(QStringLiteral("long.wav"), []() { return true; });
+    REQUIRE(spec.levelsAt(0).synthetic);
   }
 
   {
@@ -571,14 +589,39 @@ int main() {
   }
 
   {
-    // Cancelling is not failing. The fold stops with no frames and load reports
-    // silence, which nobody reads: the worker that asked to stop drops it.
+    // Cancelling is not failing, and the decoder cannot tell the two apart: it
+    // throws either way, once for a deadline it never met and once for a caller
+    // that has moved on. Only asking again whether anyone still wants the
+    // result separates them, and a normal quit must not look like a broken
+    // analyser.
+    bool wanted = true;
+    const SpectrumAnalyzer analyzer(SpectrumAnalyzer::CancellablePcmLoader(
+        [&wanted](const QString&, const SpectrumAnalyzer::CancelFn&) -> PcmBuffer {
+          wanted = false;
+          throw std::runtime_error("PCM decode dropped");
+        }));
+    const Spectrogram spec =
+        analyzer.load(QStringLiteral("tone.wav"), [&wanted]() { return wanted; });
+    REQUIRE(spec.frames.isEmpty());
+    REQUIRE(!spec.levelsAt(0).synthetic);
+  }
+
+  {
+    // Cancelling in the fold, where a five-minute track spends its second. The
+    // fold stops with no frames and load hands that emptiness on: no frames is
+    // neither quiet nor broken, and the worker that asked to stop drops the
+    // result unread, so there is nothing to mark and nobody to tell.
+    int asked = 0;
     const SpectrumAnalyzer analyzer(SpectrumAnalyzer::CancellablePcmLoader(
         [](const QString&, const SpectrumAnalyzer::CancelFn&) {
           return PcmBuffer{QVector<double>(200000, 0.25), 44100};
         }));
-    const Spectrogram spec = analyzer.load(QStringLiteral("tone.wav"), []() { return false; });
-    REQUIRE_EQ(int(spec.frames.size()), 1);
+    // Yes while load starts and while it checks the decode is still wanted, no
+    // by the time the fold asks.
+    const Spectrogram spec =
+        analyzer.load(QStringLiteral("tone.wav"), [&asked]() { return ++asked <= 2; });
+    REQUIRE(asked >= 3);  // the fold saw the no, not a gate before it
+    REQUIRE(spec.frames.isEmpty());
     REQUIRE(!spec.levelsAt(0).synthetic);
   }
 
