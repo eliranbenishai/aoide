@@ -20,7 +20,7 @@ class HostShellWindowTest : public QObject {
   void translatingEveryPanelLeavesTheHostPut();
   void movingOnePanelDoesNotResizeTheHost();
   void expandingPastTopLeftKeepsSiblingOnScreen();
-  void deferredPunchStillAppliesWhenLayoutAlreadyCaughtUp();
+  void punchFollowsEveryPlacementWhileMapped();
 };
 
 void HostShellWindowTest::shellIsFramelessToplevelNotTool() {
@@ -182,7 +182,11 @@ void HostShellWindowTest::expandingPastTopLeftKeepsSiblingOnScreen() {
   QCOMPARE(shell.pos(), hostPos);
 }
 
-void HostShellWindowTest::deferredPunchStillAppliesWhenLayoutAlreadyCaughtUp() {
+// Punch deferral shipped once and left ghost rectangles on KWin, so the punch
+// follows the panels on every placement while the host is mapped — including the
+// one after the widgets have already moved, which is where a deferral would show
+// as a hole in the wrong place.
+void HostShellWindowTest::punchFollowsEveryPlacementWhileMapped() {
   HostShell shell;
   QWidget panel(&shell);
   const QRect start(40, 40, 120, 60);
@@ -191,14 +195,16 @@ void HostShellWindowTest::deferredPunchStillAppliesWhenLayoutAlreadyCaughtUp() {
   shell.show();
   QVERIFY(shell.mask().contains(panel.geometry().center()));
 
-  shell.placePanels({{&panel, end}}, false);
+  shell.placePanels({{&panel, end}});
   QCOMPARE(panel.mapToGlobal(QPoint(0, 0)), end.topLeft());
   QVERIFY2(!shell.mask().isEmpty(),
            "empty mask is full input on Wayland; punch must stay a panel union");
   QVERIFY(shell.mask().contains(panel.geometry().center()));
-  QVERIFY(!shell.mask().contains(QPoint(10, 10)));
+  const QRect vacated = panel.geometry().translated(start.topLeft() - end.topLeft());
+  QVERIFY2(!shell.mask().contains(vacated.center()),
+           "the vacated rectangle must leave the punch, or it stays on the canvas");
 
-  shell.placePanels({{&panel, end}}, true);
+  shell.placePanels({{&panel, end}});
   QVERIFY(shell.mask().contains(panel.geometry().center()));
   QVERIFY(!shell.mask().contains(QPoint(10, 10)));
 }

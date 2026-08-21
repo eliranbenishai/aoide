@@ -702,6 +702,39 @@ int main() {
   }
 
   {
+    // A crawl of two logical pixels is under the peel delta, so the dock edge
+    // holds and the panel keeps the group it is in.
+    tramp::DockLayout layout;
+    layout.main = {true, false, 0, 0, {}, {}};
+    layout.equalizer = {true, false, 0, 348, {}, {}};
+    layout.playlist.visible = false;
+    layout.dockEdges = {
+        {tramp::WindowId::equalizer, tramp::WindowId::main, tramp::DockSide::top}};
+    tramp::DockingCoordinator dock(layout);
+    dock.setSnapThreshold(20);
+    dock.move(tramp::WindowId::equalizer, QPointF(2, 350), false, true);
+    REQUIRE_EQ(dock.layout().dockEdges.size(), 1);
+    REQUIRE_EQ(dock.layout().equalizer.left, 2.0);
+    REQUIRE_EQ(dock.layout().equalizer.top, 350.0);
+
+    // Shift undocks the same crawl: the edge goes at once, and the drop is left
+    // where the listener put it instead of snapping back onto main.
+    dock.move(tramp::WindowId::equalizer, QPointF(4, 352), true, true);
+    REQUIRE(dock.layout().dockEdges.isEmpty());
+    REQUIRE_EQ(dock.layout().equalizer.left, 4.0);
+    REQUIRE_EQ(dock.layout().equalizer.top, 352.0);
+    // Main is not dragged along by an undock.
+    REQUIRE_EQ(dock.layout().main.left, 0.0);
+    REQUIRE_EQ(dock.layout().main.top, 0.0);
+
+    // Undocked is not un-dockable: the next ordinary drop this close snaps back.
+    dock.move(tramp::WindowId::equalizer, QPointF(4, 352), false, true);
+    REQUIRE(!dock.layout().dockEdges.isEmpty());
+    REQUIRE_EQ(dock.layout().equalizer.left, 0.0);
+    REQUIRE_EQ(dock.layout().equalizer.top, 348.0);
+  }
+
+  {
     tramp::DockLayout layout;
     layout.main = {true, false, 0, 0, {}, {}};
     layout.equalizer = {true, false, 0, 358, {}, {}};

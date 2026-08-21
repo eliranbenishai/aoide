@@ -43,8 +43,7 @@ void HostShell::applyLayout(const tramp::HostShellLayout& layout) {
   update();
 }
 
-void HostShell::placePanels(const QVector<HostPanelPlacement>& panels, bool updatePunch) {
-  Q_UNUSED(updatePunch);
+void HostShell::placePanels(const QVector<HostPanelPlacement>& panels) {
   QVector<QRect> screenRects;
   screenRects.reserve(panels.size());
   for (const HostPanelPlacement& place : panels) {
