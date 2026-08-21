@@ -16,6 +16,15 @@ class FakeDesktop : public tramp::PanelSurfaces {
   QRect hostRect() const override { return host_; }
   void setHostRect(QRect host) { host_ = host; }
 
+  /// Empty until a test says otherwise, which is "no work area known" — the
+  /// state every test that is not about zoom availability wants.
+  QRect workAreaFor(QRect clusterNative) const override {
+    clusterAsked = clusterNative;
+    return work_;
+  }
+  void setWorkArea(QRect work) { work_ = work; }
+  mutable QRect clusterAsked;
+
   void placePanels(const QVector<tramp::PanelPlacement>& panels) override {
     ++passes;
     last = panels;
@@ -33,6 +42,7 @@ class FakeDesktop : public tramp::PanelSurfaces {
 
  private:
   QRect host_;
+  QRect work_;
 };
 
 }  // namespace
@@ -54,6 +64,12 @@ class LayoutSyncTest : public QObject {
   void aClusterTooWideForTheDesktopClampsEachPanelAndDropsTheEdgesThatBreaks();
   void aCrawlTooSlowToPeelStillLosesTheEdgeItCrawledAwayFrom();
   void aClusterThatOnlyMovedKeepsEveryEdgeItWasDockedBy();
+  void aZoomStepTheWorkAreaCannotHoldIsNotOffered();
+  void closingAPanelBringsTheStepsItCrowdedOutBack();
+  void theWorkAreaIsAskedForWhereTheClusterActuallyIs();
+  void anUnknownWorkAreaWithdrawsNoStep();
+  void theLadderRefusesAStepItDoesNotCarry();
+  void zoomingBackOutOfAStepTheDisplayOutgrewIsAlwaysOffered();
   void everyPanelReachesTheSurfacesIncludingTheHiddenOnes();
   void minimizingMainSuppressesThePanelsWithoutForgettingThem();
   void aShadedPanelKeepsTheCanvasItWillGoBackTo();
@@ -263,6 +279,114 @@ void LayoutSyncTest::aClusterThatOnlyMovedKeepsEveryEdgeItWasDockedBy() {
   QCOMPARE(layout.layout().dockEdges.size(), 4);
   QVERIFY(layout.layout().playlist.left - layout.layout().main.left - 825.0 <=
           tramp::DockingCoordinator::kEdgeSlack);
+}
+
+namespace {
+
+/// Main, EQ and playlist at their defaults: the vertical stack a first launch
+/// opens on, 1073 x 1392 logical.
+DockLayout defaultCluster() {
+  DockLayout dock;
+  dock.main = tramp::WindowFrame::mainDefault();
+  dock.equalizer = tramp::WindowFrame::equalizerDefault();
+  dock.playlist = tramp::WindowFrame::playlistDefault();
+  return dock;
+}
+
+/// A 1080p display less a desktop panel along the bottom.
+constexpr QRect kWorkArea1080p(0, 0, 1920, 1044);
+
+}  // namespace
+
+void LayoutSyncTest::aZoomStepTheWorkAreaCannotHoldIsNotOffered() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  desktop.setWorkArea(kWorkArea1080p);
+  LayoutSync layout(defaultCluster(), 75);
+  layout.setSurfaces(&desktop);
+
+  // The default stack is 1392 logical tall, which is 1044 native at 75% and
+  // 1392 at 100%. There is no room for the step up, so it is not offered and
+  // handing it over anyway changes nothing.
+  QCOMPARE(layout.clusterLogicalSize(), QSizeF(1073, 1392));
+  QVERIFY(!layout.zoomStepAvailable(100));
+  QVERIFY(!layout.zoomStepUp().has_value());
+  QVERIFY(!layout.setZoomPercent(100));
+  QCOMPARE(layout.zoomPercent(), 75);
+}
+
+void LayoutSyncTest::closingAPanelBringsTheStepsItCrowdedOutBack() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  desktop.setWorkArea(kWorkArea1080p);
+  DockLayout dock = defaultCluster();
+  dock.playlist.visible = false;
+  LayoutSync layout(dock, 75);
+  layout.setSurfaces(&desktop);
+
+  // Availability is a question about what is open, not about the ladder, so a
+  // step withdrawn while the playlist was up comes back when it is closed.
+  QCOMPARE(layout.clusterLogicalSize(), QSizeF(825, 696));
+  QCOMPARE(layout.zoomStepUp().value_or(0), 100);
+  QVERIFY(layout.zoomStepAvailable(150));
+}
+
+void LayoutSyncTest::theWorkAreaIsAskedForWhereTheClusterActuallyIs() {
+  FakeDesktop desktop(QRect(-1920, 0, 3840, 1080));
+  desktop.setWorkArea(kWorkArea1080p);
+  DockLayout dock = defaultCluster();
+  dock.playlist.visible = false;
+  dock.main.left = -1600;
+  dock.equalizer.left = -1600;
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  layout.zoomStepUp();
+  // Which display the ladder is measured against is a question about where the
+  // panels are, so the cluster's own rectangle is what gets asked — not the
+  // desktop, and not the primary screen.
+  QCOMPARE(desktop.clusterAsked, QRect(-1600, 0, 825, 696));
+}
+
+void LayoutSyncTest::anUnknownWorkAreaWithdrawsNoStep() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  LayoutSync layout(defaultCluster(), 75);
+  layout.setSurfaces(&desktop);
+
+  // No work area is not a display of no size: it is a question nobody could
+  // answer, and a step is only withdrawn on evidence.
+  for (int step : {100, 125, 150}) QVERIFY(layout.zoomStepAvailable(step));
+  QVERIFY(layout.setZoomPercent(150));
+  QCOMPARE(layout.zoomPercent(), 150);
+}
+
+void LayoutSyncTest::theLadderRefusesAStepItDoesNotCarry() {
+  LayoutSync layout(defaultCluster(), 75);
+  // Nothing off the ladder reaches here today, and every caller walks the steps
+  // — but a setter that took any number was one careless call from a zoom the
+  // chrome has no readout for.
+  QVERIFY(!layout.setZoomPercent(137));
+  QVERIFY(!layout.setZoomPercent(50));
+  QCOMPARE(layout.zoomPercent(), 75);
+  QVERIFY(layout.setZoomPercent(125));
+}
+
+void LayoutSyncTest::zoomingBackOutOfAStepTheDisplayOutgrewIsAlwaysOffered() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  desktop.setWorkArea(kWorkArea1080p);
+  LayoutSync layout(defaultCluster(), 150);
+  layout.setSurfaces(&desktop);
+
+  // A layout persisted on a bigger display restores at a step this one cannot
+  // hold — 150% of the default stack is 2088 native tall against 1044 of work
+  // area. Withdrawing the way out would strand the listener at it, so a step at
+  // or below the one in force is always carried.
+  QVERIFY(!tramp::zoomStepFits(layout.clusterLogicalSize(), kWorkArea1080p.size(), 150));
+  QCOMPARE(layout.zoomStepDown().value_or(0), 125);
+  QVERIFY(layout.setZoomPercent(125));
+  QCOMPARE(layout.zoomStepDown().value_or(0), 100);
+
+  LayoutSync floor(defaultCluster(), 75);
+  floor.setSurfaces(&desktop);
+  QVERIFY(!floor.zoomStepDown().has_value());
 }
 
 void LayoutSyncTest::everyPanelReachesTheSurfacesIncludingTheHiddenOnes() {

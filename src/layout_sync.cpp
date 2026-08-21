@@ -49,6 +49,47 @@ void LayoutSync::setNativeFrame(WindowId id, QRect native) {
 
 QRect LayoutSync::hostRect() const { return surfaces_ ? surfaces_->hostRect() : QRect(); }
 
+QRect LayoutSync::clusterNativeRect() const {
+  QRect united;
+  for (WindowId id : visibleClusterMembers(docking_.layout())) {
+    united = united.united(nativeFrameRect(id));
+  }
+  return united;
+}
+
+QSizeF LayoutSync::clusterLogicalSize() const {
+  QRectF united;
+  for (WindowId id : visibleClusterMembers(docking_.layout())) {
+    united = united.united(docking_.rectFor(id));
+  }
+  return united.size();
+}
+
+bool LayoutSync::zoomStepAvailable(int percent) const {
+  if (percent != snapZoomPercent(percent)) return false;
+  if (percent <= zoomPercent_) return true;
+  const QRect work = surfaces_ ? surfaces_->workAreaFor(clusterNativeRect()) : QRect();
+  return zoomStepFits(clusterLogicalSize(), work.size(), percent);
+}
+
+std::optional<int> LayoutSync::zoomStepUp() const {
+  const int up = nextZoomPercent(zoomPercent_);
+  if (up == zoomPercent_ || !zoomStepAvailable(up)) return std::nullopt;
+  return up;
+}
+
+std::optional<int> LayoutSync::zoomStepDown() const {
+  const int down = prevZoomPercent(zoomPercent_);
+  if (down == zoomPercent_) return std::nullopt;
+  return down;
+}
+
+bool LayoutSync::setZoomPercent(int percent) {
+  if (!zoomStepAvailable(percent)) return false;
+  zoomPercent_ = percent;
+  return true;
+}
+
 void LayoutSync::clampToHost(WindowId id) {
   const QRect host = hostRect();
   if (host.isEmpty()) return;

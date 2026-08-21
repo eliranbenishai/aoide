@@ -23,6 +23,7 @@
 #include <QVector>
 #include <atomic>
 #include <memory>
+#include <optional>
 
 class HostWindow;
 class HostShell;
@@ -43,6 +44,11 @@ class TrampSession : public QObject, public PanelSurfaces {
   SessionView view() const;
   MainLiveReadouts mainLive() const;
   int zoomPercent() const { return layout_.zoomPercent(); }
+  /// The step each zoom button would take, or nothing when it would take none.
+  /// What decides whether the button paints enabled, and what a caller should
+  /// ask before handing [setZoomPercent] anything.
+  std::optional<int> zoomStepUp() const { return layout_.zoomStepUp(); }
+  std::optional<int> zoomStepDown() const { return layout_.zoomStepDown(); }
   bool confirmQuit() const;
   bool windowShouldShow(WindowId id) const;
   void persistNow();
@@ -119,6 +125,7 @@ class TrampSession : public QObject, public PanelSurfaces {
   void openPaths(const QStringList& paths, bool enqueue);
   void loadCollectionRow(int index);
   QRect hostRect() const override;
+  QRect workAreaFor(QRect clusterNative) const override;
   void placePanels(const QVector<PanelPlacement>& panels) override;
   void showOptionsMenu(QRect logicalHit);
   int execAnchoredMenu(const QVector<ChromeMenuItem>& items, HostWindow* host, QRect logicalHit,

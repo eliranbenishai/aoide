@@ -9,7 +9,9 @@
 #include <QRect>
 #include <QSet>
 #include <QSize>
+#include <QSizeF>
 #include <QVector>
+#include <optional>
 
 namespace tramp {
 
@@ -36,6 +38,10 @@ class PanelSurfaces {
   /// The virtual desktop every panel has to stay inside. Empty before there is
   /// a host, and nothing is clamped against an empty rectangle.
   virtual QRect hostRect() const = 0;
+  /// The work area of the display the cluster is on: that screen less whatever
+  /// the desktop keeps for itself. What a zoom step has to fit inside. Empty
+  /// when it is not known, which withdraws nothing.
+  virtual QRect workAreaFor(QRect clusterNative) const = 0;
   /// All five panels arrive every pass, hidden ones included, because hiding is
   /// something this call has to do rather than something it can skip. A panel
   /// missing from the list would keep its pixels on the canvas while dropping
@@ -58,7 +64,27 @@ class LayoutSync {
   const DockLayout& layout() const { return docking_.layout(); }
 
   int zoomPercent() const { return zoomPercent_; }
-  void setZoomPercent(int percent) { zoomPercent_ = percent; }
+  /// Take a zoom step, and say whether it was taken. Anything off the ladder,
+  /// and any step the display cannot hold, is refused here rather than applied
+  /// and then clamped into a stack.
+  bool setZoomPercent(int percent);
+
+  /// Whether the ladder still carries [percent] where the cluster is now. A step
+  /// goes only on evidence that the cluster would not fit the work area at it.
+  /// A step at or below the one in force cannot make the cluster bigger and is
+  /// always carried, so a layout restored onto a smaller display can still be
+  /// zoomed back out of.
+  bool zoomStepAvailable(int percent) const;
+  /// The step each zoom button would take, or nothing when it would take none —
+  /// the ladder has run out, or the next one up does not fit.
+  std::optional<int> zoomStepUp() const;
+  std::optional<int> zoomStepDown() const;
+
+  /// Where the cluster sits on the screen: the union of the rectangles the
+  /// listener can see. Which display it is on, as far as anyone asking knows.
+  QRect clusterNativeRect() const;
+  /// The cluster's logical bounding box, before zoom — what a step has to fit.
+  QSizeF clusterLogicalSize() const;
 
   QPointF nativeToLogical(QPoint native) const;
   QPoint logicalToNative(QPointF logical) const;

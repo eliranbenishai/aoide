@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QSize>
+#include <QSizeF>
 #include <QtGlobal>
 
 namespace tramp {
@@ -65,6 +66,16 @@ inline constexpr QSize kPlaylistMinWithCollection{
 inline QSize zoomed(QSize logical, int zoomPercent) {
   const qreal z = zoomPercent / 100.0;
   return QSize(qRound(logical.width() * z), qRound(logical.height() * z));
+}
+
+/// Whether a cluster whose logical bounding box is [logical] still fits inside
+/// [workArea] once it is scaled to [percent]. An empty work area is not a
+/// display of no size, it is not knowing yet: a step is taken off the ladder on
+/// evidence, never on a missing answer.
+inline bool zoomStepFits(QSizeF logical, QSize workArea, int percent) {
+  if (workArea.isEmpty() || logical.isEmpty()) return true;
+  const QSize at = zoomed(QSize(qRound(logical.width()), qRound(logical.height())), percent);
+  return at.width() <= workArea.width() && at.height() <= workArea.height();
 }
 
 /// Backing-store size for chrome rasterized at the widget's device pixels.
