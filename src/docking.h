@@ -8,6 +8,7 @@
 #include <QRectF>
 #include <QSet>
 #include <QSizeF>
+#include <QVector>
 #include <optional>
 
 namespace tramp {
@@ -23,6 +24,12 @@ struct DockLayout {
   WindowFrame& frameOf(WindowId id);
   const WindowFrame& frameOf(WindowId id) const;
 };
+
+/// Panels that hold the cluster against the edges of the desktop. A hidden panel
+/// keeps the position it will reappear at, so counting it here reserves ghost
+/// space — a closed About parked to main's left stopped main reaching the left
+/// edge of the screen. Main is always a member; it cannot be hidden.
+QVector<WindowId> visibleClusterMembers(const DockLayout& layout);
 
 class DockingCoordinator {
  public:

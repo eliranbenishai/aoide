@@ -74,6 +74,20 @@ void SpectrumHold::apply(const AudioLevels& frame) {
   }
 }
 
+void SpectrumHold::release() {
+  for (int i = 0; i < AudioLevels::kBandCount; ++i) {
+    bars[size_t(i)] *= kRestDecay;
+    peaks[size_t(i)] *= kRestDecay;
+  }
+}
+
+bool SpectrumHold::atRest() const {
+  for (int i = 0; i < AudioLevels::kBandCount; ++i) {
+    if (bars[size_t(i)] > kRestFloor || peaks[size_t(i)] > kRestFloor) return false;
+  }
+  return true;
+}
+
 void SpectrumHold::reset() {
   bars.fill(0);
   peaks.fill(0);

@@ -196,17 +196,29 @@ void TrampSession::syncSpectrum() {
     }
     return;
   }
-  if (spectrumTimer_.isActive()) {
+  if (playback_->paused()) {
+    // Pause holds the last frame: the track is still cued up under the needle.
     spectrumTimer_.stop();
-    spectrumHold_.apply(AudioLevels::silent());
+    return;
   }
+  // Stopped, or the track ran out. Keep ticking so the bars fall to rest instead
+  // of freezing mid-song, which reads as if something were still sounding.
+  if (!spectrumHold_.atRest() && !spectrumTimer_.isActive()) spectrumTimer_.start();
 }
 
 void TrampSession::tickSpectrum() {
   playback_->pollClock();
-  const AudioLevels frame =
-      spectrumFrame(spectrogram_, playback_->playing() && spectrumReady_, playback_->positionMs());
-  spectrumHold_.apply(frame);
+  if (playback_->playing() || playback_->paused()) {
+    const AudioLevels frame =
+        spectrumFrame(spectrogram_, playback_->playing() && spectrumReady_, playback_->positionMs());
+    spectrumHold_.apply(frame);
+  } else {
+    spectrumHold_.release();
+    if (spectrumHold_.atRest()) {
+      spectrumHold_.reset();
+      spectrumTimer_.stop();
+    }
+  }
   emit mainChromeChanged();
 }
 
@@ -597,8 +609,7 @@ void TrampSession::fitClusterToHost() {
   if (!shell_) return;
   const QRect host = shell_->virtualDesktop();
   if (host.isEmpty()) return;
-  const QVector<WindowId> ids{WindowId::main, WindowId::equalizer, WindowId::playlist,
-                              WindowId::settings, WindowId::about};
+  const QVector<WindowId> ids = visibleClusterMembers(docking_.layout());
   QVector<QRect> rects;
   rects.reserve(ids.size());
   for (WindowId id : ids) rects.push_back(nativeFrameRect(id));

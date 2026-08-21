@@ -516,6 +516,68 @@ int main() {
   }
 
   {
+    // Stopping drops the bars to rest. The musical release holds peaks near the
+    // top for seconds, which reads as a track still sounding after it ended.
+    SpectrumHold hold;
+    AudioLevels frame;
+    frame.bands.fill(1.0);
+    hold.apply(frame);
+    REQUIRE(!hold.atRest());
+    int frames = 0;
+    while (!hold.atRest() && frames < 200) {
+      hold.release();
+      ++frames;
+    }
+    REQUIRE(hold.atRest());
+    // ~0.5s of fall at the 33 ms spectrum tick, not the ~6s kPeakDecay took.
+    REQUIRE(frames > 4);
+    REQUIRE(frames < 25);
+    for (int i = 0; i < AudioLevels::kBandCount; ++i) {
+      REQUIRE(hold.peaks[size_t(i)] <= SpectrumHold::kRestFloor);
+    }
+  }
+
+  {
+    SpectrumHold hold;
+    REQUIRE(hold.atRest());
+    AudioLevels frame;
+    frame.bands[3] = 0.5;
+    hold.apply(frame);
+    REQUIRE(!hold.atRest());
+  }
+
+  {
+    // A hidden panel keeps the position it will reappear at. Counting it against
+    // the desktop edge reserved ghost space: a closed About parked left of main
+    // stopped main reaching the left edge of the screen.
+    tramp::DockLayout layout;
+    layout.main = {true, false, 400, 100, {}, {}};
+    layout.equalizer = {true, false, 400, 448, {}, {}};
+    layout.playlist = {false, false, 0, 0, {}, {}};
+    layout.settings = {false, false, 0, 0, {}, {}};
+    layout.about = {false, false, 0, 500, {}, {}};
+    const QVector<tramp::WindowId> members = tramp::visibleClusterMembers(layout);
+    REQUIRE_EQ(members.size(), 2);
+    REQUIRE(members.contains(tramp::WindowId::main));
+    REQUIRE(members.contains(tramp::WindowId::equalizer));
+    REQUIRE(!members.contains(tramp::WindowId::about));
+
+    layout.about.visible = true;
+    REQUIRE(tramp::visibleClusterMembers(layout).contains(tramp::WindowId::about));
+  }
+
+  {
+    // Main cannot be hidden, so it anchors the cluster even if persist says otherwise.
+    tramp::DockLayout layout;
+    layout.main = {false, false, 0, 0, {}, {}};
+    layout.equalizer = {false, false, 0, 0, {}, {}};
+    layout.playlist = {false, false, 0, 0, {}, {}};
+    layout.settings = {false, false, 0, 0, {}, {}};
+    layout.about = {false, false, 0, 0, {}, {}};
+    REQUIRE_EQ(tramp::visibleClusterMembers(layout), QVector<tramp::WindowId>{tramp::WindowId::main});
+  }
+
+  {
     const QRect cog(100, 200, 26, 26);
     const QSize menu(180, 120);
     REQUIRE_EQ(tramp::popupMenuPos(cog, menu, tramp::PopupAnchor::belowLeft), QPoint(100, 226));

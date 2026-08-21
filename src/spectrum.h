@@ -39,11 +39,19 @@ class SpectrumAnalyzer {
 struct SpectrumHold {
   static constexpr double kDecay = 0.86;
   static constexpr double kPeakDecay = 0.97;
+  /// Playback stopped. Bars and peaks fall together: the musical release keeps
+  /// peaks near the top for seconds, which reads as a track still sounding.
+  static constexpr double kRestDecay = 0.72;
+  /// Below this a bar is sub-pixel in the display well.
+  static constexpr double kRestFloor = 0.004;
 
   std::array<qreal, AudioLevels::kBandCount> bars{};
   std::array<qreal, AudioLevels::kBandCount> peaks{};
 
   void apply(const AudioLevels& frame);
+  /// One frame of the fall to rest, for when nothing is playing.
+  void release();
+  bool atRest() const;
   void reset();
 };
 

@@ -107,6 +107,15 @@ bool DockingCoordinator::overlapsOrNear1D(double a0, double a1, double b0, doubl
          (a0 < b1 && a1 > b0);
 }
 
+QVector<WindowId> visibleClusterMembers(const DockLayout& layout) {
+  QVector<WindowId> members;
+  for (WindowId id : {WindowId::main, WindowId::equalizer, WindowId::playlist, WindowId::settings,
+                      WindowId::about}) {
+    if (id == WindowId::main || layout.frameOf(id).visible) members.push_back(id);
+  }
+  return members;
+}
+
 void DockingCoordinator::setShaded(WindowId id, bool shaded) {
   layout_.frameOf(id).shaded = shaded;
 }
