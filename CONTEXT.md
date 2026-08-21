@@ -72,8 +72,8 @@ The single process that owns shared controllers (playback, playlist, EQ, zoom, s
 _Avoid_: multi-process, separate apps per window, extra OS windows per panel
 
 **Docking** / **dock group**:
-Winamp-style edge snap between panels. Dragging the main title bar translates every panel inside the host so the cluster stays together; main never snaps and never creates dock edges. Dragging EQ, playlist, settings, or about moves only that panel on screen; siblings stay put. EQ or playlist peel their dock edges on drag; snap runs only on EQ/PL drag end. Settings and about never snap and are never snap targets. EQ and playlist may snap to any side, and on both axes at once (flush under main and against a neighbor in the same drop). Undock via peel, break-threshold, and/or Shift. A panel cannot hang off the virtual desktop. If a monitor is unplugged, the cluster is translated onto what remains when it still fits, otherwise each panel is clamped. Main minimize may hide/restore visible secondaries (including settings/about) when the preference is on; always-on-top and main-minimize apply to the host window. Settings stays raised among panels. The taskbar/pager shows Tramp (the host window).
-_Avoid_: tiling WM, snap layouts (OS), tabs; docking settings/about to main/EQ/PL; extra OS windows for docked surfaces
+Winamp-style edge snap between panels. Dragging the main title bar translates every panel inside the host so the cluster stays together; main never snaps and never creates dock edges. Dragging EQ, playlist, settings, or about moves only that panel on screen; siblings stay put. EQ or playlist peel their dock edges on drag; snap runs only on EQ/PL drag end. Settings and about never snap and are never snap targets. EQ and playlist may snap to any side, and on both axes at once (flush under main and against a neighbor in the same drop). Undock via peel or **Shift**: peel breaks the edges when a drag jumps far enough in one movement, and Shift breaks them however slowly the panel is dragged, leaving it where it was dropped instead of snapping back. A panel cannot hang off the virtual desktop. If a monitor is unplugged, the cluster is translated onto what remains when it still fits, otherwise each panel is clamped. Main minimize may hide/restore visible secondaries (including settings/about) when the preference is on; always-on-top and main-minimize apply to the host window. Settings stays raised among panels. The taskbar/pager shows Tramp (the host window).
+_Avoid_: tiling WM, snap layouts (OS), tabs; docking settings/about to main/EQ/PL; extra OS windows for docked surfaces; break-threshold undock (retired — never built, and Shift covers the slow drag peel misses)
 
 **Playlist**:
 An ordered list of playable tracks the user can manage (add, remove, reorder, play from).
@@ -100,6 +100,10 @@ _Avoid_: active playlist, now playing (that is the transport's track, not this l
 A current playlist whose track list has changed since it was loaded or last saved — tracks added, removed, reordered, sorted, or cleared. Navigating to another saved playlist asks the listener before discarding it. Only writing the whole list to a file makes it unaltered again.
 _Avoid_: dirty (implementation jargon in product talk), modified playlist, unsaved playlist (a current playlist can be unsaved without being altered)
 
+**Session resume**:
+What a launch brings back. The **current playlist** always comes back — the **altered** list if one was left unsaved, otherwise the last saved playlist that was loaded, painted from the track-set cache — and so do panel positions, shade, playlist size and **zoom step**. What the *Resume last session* preference (on by default) governs is the **transport**: quitting while paused reopens that track and seeks back to where it was left, still paused; quitting while playing reopens it and plays, so Tramp is audible on launch. Quitting from **stop** launches with the playlist and an empty transport, because stop unloads the track and clears the playing index — that is intended, and stopping is how the listener asks for a quiet launch.
+_Avoid_: session restore (OS session management — a different thing), remembering the queue, autoplay (for the resumed-playing case), treating a stopped quit as a lost session
+
 **Disabled playlist**:
 A saved playlist whose file was missing at the last validation pass. It cannot be *re-read* (Refresh is disabled) but it can still be opened: the current list is painted from the track-set cache. It can only be removed from the collection; if the file comes back, it enables itself again.
 _Avoid_: broken playlist, orphaned playlist, deleted playlist (the entry survives — the file is what is gone)
@@ -122,13 +126,13 @@ _Premise_ (2026-08-21, accepted without evidence): that the listener already liv
 _Avoid_: collection, media database (in v1 discussions); using "library" for the playlist collection
 
 **Zoom step**:
-One of the discrete scale factors (75%, 100%, 125%, 150%; default **75%**) applied globally to the main, equalizer, and playlist panels’ logical canvases. Persisted — a saved factor that is no longer a step snaps to the nearest surviving one; steps that would not fit the display’s work area are disabled. Changes via main title-bar zoom-in / zoom-out (and matching menu or shortcut). Scales main/EQ canvases and the playlist’s stored logical size; does not replace playlist free resize.
+One of the discrete scale factors (75%, 100%, 125%, 150%; default **75%**) applied globally to the main, equalizer, and playlist panels’ logical canvases. Persisted — a saved factor that is no longer a step snaps to the nearest surviving one; steps that would not fit the display’s work area are disabled. Changes via the main title bar’s zoom-in / zoom-out buttons, which are the only way to change it. Scales main/EQ canvases and the playlist’s stored logical size; does not replace playlist free resize.
 _Premise_ (2026-08-21, accepted without evidence): that 75% is the right size to ship at, while fidelity is mockup-absolute at 100% and 75% is now the floor of the ladder — zoom-out at the default does nothing. Revisit if first-run size arrives unprompted in an issue or a store review, or a crispness defect needs 75% special-cased in drawing code — `docs/premises.md` §3.
-_Avoid_: DPI scale (OS setting), continuous zoom, maximize (as a window-size control), per-panel zoom (product model is global), stretching main/EQ via panel drag, 50% / 200% / 250% / 300% (retired steps)
+_Avoid_: DPI scale (OS setting), continuous zoom, maximize (as a window-size control), per-panel zoom (product model is global), stretching main/EQ via panel drag, 50% / 200% / 250% / 300% (retired steps), zoom menu row / zoom keyboard shortcut (never built — see Accessibility in the v1 spec)
 
-**Clutterbar**:
-The vertical letter strip on the main player. Product letters: **O** (options), **A** (always-on-top for the visible docked group), **I** (track info). No D, no V.
-_Avoid_: toolbar (when this strip is meant), doublesize button, viz button
+**Options cog**:
+The cog in the gutter left of the main player's **display well**. It opens the main player's menu: always-on-top (a check, applied to the **host window**), Settings…, Track info, About Tramp, Quit. One cog, not a strip of letters — the mockup's clutterbar is not the product chrome.
+_Avoid_: clutterbar, clutter rail, **O** / **A** / **I** as product controls (all retired — the mockup's vertical letter strip, replaced by the cog); toolbar (when this control is meant); doublesize button (**D**), viz button (**V**); always-on-top as a per-panel or per-group control
 
 **Phosphor**:
 The **cyan** colour of the mockup chrome’s “screen glow” — used for lit LCD text, spectrum bars, and other live readouts (`#3de7ff` / hot variants). Not chartreuse.
@@ -157,6 +161,10 @@ _Avoid_: treating synthetic levels as the shipped spectrum design, fake levels (
 **Shuffle**:
 Playing the current playlist in a random order instead of top to bottom. The order is drawn one full pass at a time: every enabled row gets exactly one turn and **disabled tracks** are skipped. A fresh order is drawn each time shuffle is switched on and each time repeat-all wraps the list, and a new pass never opens on the track that just finished — so the same starting track does not deal the same evening twice. The order is unpredictable by design: it is not reproducible, not shareable, and not persisted.
 _Avoid_: random (as the feature name), seeded shuffle, reproducible order, treating the order as something the listener can go back to
+
+**Collection figures**:
+The readouts in the About panel's stats well, under the heading ON THIS MACHINE. PLAYLISTS counts every entry in the **playlist collection**, a **disabled playlist** included. TRACKS and TOTAL TIME count each distinct track the collection references that was on the disk the last time Tramp looked — and it looks at launch, and when a playlist is added, refreshed or saved, never from a repaint, because a question per track is a stall on a share that has dropped. So ON THIS MACHINE means *as of the last time we looked*: a track deleted while Tramp is open keeps counting until the next add, Refresh or restart, and nothing on the panel says when the count was taken. SPINS is a lifetime tally of **spins**, not a reading of the disk.
+_Avoid_: library figures (there is no **Library**), live counts / real-time figures (they are neither), treating a figure that has not caught up with a deletion as a bug
 
 **Spin**:
 One track played through to the end — the unit the About stats well counts. Earned when the track ends *and* at least 90% of its running time actually played, so dragging the seek bar past unheard audio does not buy one. The 10% slack is the fade and the applause, not a shortcut.

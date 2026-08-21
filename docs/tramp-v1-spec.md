@@ -34,13 +34,13 @@ Tramp is a multi-platform desktop music player — a spiritual successor to Wina
 - **Move / snap ownership** — dragging the main title bar translates every panel inside the host (cluster moves as a unit; host stays the virtual desktop). Dragging EQ, playlist, settings, or about moves only that panel; siblings stay put. Snap only from EQ/playlist: any side of any panel (both axes in one drop). Details: [`2026-08-09-ui-polish-docking-taskbar-design.md`](superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md).
 - **App chrome** — no OS title bar or standard window frame; the visible UI is the app surface. Title-bar window buttons match mockup `.wbtn` bevel chrome. Main title bar shows logo + TRAMP wordmark; EQ/playlist title bars show **role title only**.
 - **No version in the title bar** — the mockup's `TRAMP<sup>1.0</sup>` superscript is dropped (approved delta). The version belongs to the About panel's readout, where it is real and comes from [`VERSION`](../VERSION).
-- **Main / equalizer never stretch** — permanent. On-screen size follows the global zoom step only (logical canvases: main **825×348**, EQ **825×348**). Playlist is freely resizable (default logical **825×696**); user size is stored in logical coordinates and scaled by zoom.
+- **Main / equalizer never stretch** — permanent. On-screen size follows the global zoom step only (logical canvases: main **825×348**, EQ **825×348**). Playlist is freely resizable (default logical **1073×696**, as above); user size is stored in logical coordinates and scaled by zoom.
 - **Controls:** in-app minimize (main hides/restores visible secondaries then minimizes the host window), zoom-in / zoom-out on the main title bar (global), and close (main quits; EQ/PL hide). No maximize-as-size-control.
 - **Taskbar:** the host window (Tramp) is the taskbar/pager entry.
-- **Zoom:** four discrete steps — 75%, 100%, 125%, 150% (default **75%**) — persisted across sessions; a saved factor that is no longer a step snaps to the nearest surviving one, and steps larger than the current display’s work area are disabled. Main title-bar zoom-in / zoom-out (and matching menu/shortcuts) change the step for **all three** dockable panels.
+- **Zoom:** four discrete steps — 75%, 100%, 125%, 150% (default **75%**) — persisted across sessions; a saved factor that is no longer a step snaps to the nearest surviving one, and steps larger than the current display’s work area are disabled. Main title-bar zoom-in / zoom-out change the step for **all three** dockable panels, and are the only control that does: there is no zoom row in the options menu and no zoom shortcut (see Accessibility).
 - **Windowshade:** EQ and playlist title-bar collapse → title bar only; docking uses shaded height.
 - **EQ band faders:** bottom→thumb fill using the spectrum cyan→magenta gradient (product enhancement vs mockup HTML bands).
-- **Options cog** on main (top-left of body): opens Always on top / Look packs… / Track info / About / Quit. Replaces mockup clutter **O / A / I** (approved delta).
+- **Options cog** on main (top-left of body): opens Always on top / Settings… / Track info / About Tramp / Quit. Replaces mockup clutter **O / A / I** (approved delta). Skins are a tab inside the settings panel, not a menu row — “look pack” is a retired term ([`CONTEXT.md`](../CONTEXT.md): **Skin**).
 
 ## UI direction
 
@@ -69,7 +69,8 @@ Must decode and play: **MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus**.
 - Shuffle
 - Repeat: off / all / one
 - Show current-track title / artist / album from tags when present
-- OS media-key support
+- **Media keys** — play/pause, stop, next and previous, while Tramp is the focused application. They are application shortcuts, not a system-wide registration: there is no MPRIS or SMTC surface, so a media key pressed while another app has focus does nothing for Tramp.
+- **Session resume** (*Resume last session*, on by default): the transport reopens the track the last session was left on and seeks back to where it stopped, paused if it was paused and playing if it was playing. A session quit from **stop** launches with the playlist and an empty transport. The current playlist itself comes back either way. Vocabulary: [`CONTEXT.md`](../CONTEXT.md): **Session resume**.
 
 ### How music enters
 
@@ -90,7 +91,8 @@ Associate Tramp with v1 audio formats and `.m3u` / `.m3u8` so “Open with Tramp
 
 ## Accessibility
 
-- Keyboard can drive transport and playlist selection.
+- **The whole keyboard surface:** Space toggles play/pause; Ctrl+A selects every row of the current playlist; Delete and Backspace remove the selected rows; the four media keys drive play/pause, stop, next and previous. Arrow keys, Enter and Escape work inside an open options menu. That is all of it.
+- **Keyboard navigation and the accessibility tree are deferred whole** (2026-08-21) — deferred, not dropped, and not staged either. There is no way to *move* the playlist selection from the keyboard, no focus policy anywhere, and nothing in `src/` builds an accessibility tree (no `QAccessible`, no `setAccessibleName`). Volume, seek, the EQ bands and presets, the Playlist Manager, settings, skins, zoom, shade and dock are mouse-only. The reasoning and the price are recorded in [`premises.md`](premises.md) §8; this is the one deferral that excludes people rather than inconveniencing them, and it should be the first thing picked up.
 - No WCAG certification or full a11y audit as a v1 gate.
 
 ## Non-goals (v1)

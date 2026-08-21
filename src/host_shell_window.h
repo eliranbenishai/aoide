@@ -21,9 +21,13 @@ class HostShell : public QWidget {
   explicit HostShell(QWidget* parent = nullptr);
 
   void applyLayout(const tramp::HostShellLayout& layout);
-  /// Places children. Punch is always the current panel union (`updatePunch` is
-  /// accepted and ignored: an empty mask is full-desktop input on Wayland).
-  void placePanels(const QVector<HostPanelPlacement>& panels, bool updatePunch = true);
+  /// Places children and punches the host to their union, on every call. The
+  /// punch is not optional and must not be deferred: on KWin the mask is the
+  /// hole the compositor actually shows and hits, so a mask left on the old
+  /// rectangle leaves the vacated pixels on the canvas, and an empty one gives
+  /// the whole desktop-sized surface the clicks. Deferring it shipped once and
+  /// was undone — `docs/agents/title-bar-drag.md`.
+  void placePanels(const QVector<HostPanelPlacement>& panels);
   void setAlwaysOnTop(bool on);
   void setPrimaryPanel(QWidget* panel);
   QRect virtualDesktop() const;

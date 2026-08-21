@@ -33,8 +33,10 @@ QVector<WindowId> visibleClusterMembers(const DockLayout& layout);
 
 class DockingCoordinator {
  public:
+  /// How far a drag has to travel to peel a dock edge. Measured per move event,
+  /// not from where the panel was docked, so a drag slow enough to stay under it
+  /// keeps its edges however far it goes — which is what Shift-undock is for.
   static constexpr double kPeelDelta = 8.0;
-  static constexpr double kUndockSeparation = 48.0;
 
   explicit DockingCoordinator(DockLayout layout = {});
 
@@ -43,6 +45,9 @@ class DockingCoordinator {
   void setSnapThreshold(double px) { snapThreshold_ = px; }
   double snapThreshold() const { return snapThreshold_; }
 
+  /// Moves one panel, or the whole cluster when [id] is main. `shiftUndock`
+  /// breaks [id]'s dock edges whatever the distance, and leaves the panel where
+  /// it was dropped instead of snapping it back.
   void move(WindowId id, QPointF topLeft, bool shiftUndock, bool snap);
   void resizePlaylist(QSizeF logical);
   void setShaded(WindowId id, bool shaded);

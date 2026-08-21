@@ -74,7 +74,7 @@ void HostWindowMoveTest::siblingDragDoesNotPayFullClusterPaint() {
   QElapsedTimer timer;
   timer.start();
   for (int i = 0; i < 20; ++i) {
-    shell.placePanels({{&main, mainR.translated(i, 0)}, {&pl, plR}}, false);
+    shell.placePanels({{&main, mainR.translated(i, 0)}, {&pl, plR}});
   }
   const qint64 ns = timer.nsecsElapsed();
   std::fprintf(stderr, "drag-path CPU placePanels: %lld ns\n", static_cast<long long>(ns));

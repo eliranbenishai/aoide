@@ -849,7 +849,13 @@ void TrampSession::removeSelectedTracks() { playlist_.removeSelected(); }
 
 void TrampSession::windowMoved(WindowId id, QPoint nativeTopLeft, bool finalize) {
   if (applyingDock_) return;
-  docking_.move(id, nativeToLogical(nativeTopLeft), false, finalize && id != WindowId::main);
+  // Shift undocks. The modifier is read here rather than carried on the move
+  // signal because the drag is app-owned: what matters is whether Shift is down
+  // at the moment the panel moves, and again when it is dropped, since a
+  // Shift-drop must not snap back onto the edge it was pulled off.
+  const bool shiftUndock = QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier);
+  docking_.move(id, nativeToLogical(nativeTopLeft), shiftUndock,
+                finalize && id != WindowId::main);
   if (id == WindowId::main) fitClusterToHost();
   else clampOneToHost(id);
   applyFramesToWindows();
