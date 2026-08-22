@@ -509,6 +509,18 @@ int main() {
   }
 
   {
+    // The display-well mark reads Spectrogram::synthetic, never the per-frame
+    // levels. Pause answers silent levels that are not synthetic, so a mark
+    // that followed levelsAt — or spectrumFrame while paused — would vanish
+    // the moment the listener stopped the needle.
+    const Spectrogram spec = Spectrogram::unmeasured();
+    REQUIRE(spec.synthetic);
+    REQUIRE(spec.levelsAt(0).synthetic);
+    const AudioLevels paused = spectrumFrame(spec, false, 250);
+    REQUIRE(!paused.synthetic);
+  }
+
+  {
     // A decode that failed has flat bands, which is what a quiet passage has
     // too, so the bands cannot be what tells them apart: the frames are marked
     // synthetic instead. A broken analyser that reads as silence is a lie the

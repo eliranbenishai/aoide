@@ -87,6 +87,18 @@ inline MainDisplayRow layoutMainDisplay(const QRectF& body) {
   return out;
 }
 
+/// Failure-surface marks sit in the gap above the spectrum viz, left-aligned
+/// with the bars, so they stay inside the well and off the title.
+inline constexpr qreal kDisplayWellMarkH = 12;
+inline constexpr qreal kDisplayWellVizH = 42;
+inline constexpr qreal kDisplayWellMarkGap = 4;
+
+inline QRectF displayWellMarks(const QRectF& inner) {
+  return QRectF(inner.left(),
+                inner.bottom() - kDisplayWellVizH - kDisplayWellMarkGap - kDisplayWellMarkH,
+                248, kDisplayWellMarkH);
+}
+
 /// Well 705, inner pad 16 per side, title meta inset 288.
 inline constexpr qreal kDisplayTitleClipW = kDisplayWellW - 32 - 288;
 

@@ -272,8 +272,12 @@ void TrampSession::startSpectrumDecode(const QString& path, int gen) {
         this,
         [this, spec, gen]() {
           if (gen != spectrumGen_.load()) return;
+          const bool wasSynthetic = spectrogram_.synthetic;
           spectrogram_ = spec;
           spectrumReady_ = true;
+          // The well mark is chassis, so a spectrogram that arrives unmeasured
+          // has to rebuild it. Live readouts only carry the bars.
+          if (spec.synthetic != wasSynthetic) refreshChrome();
           tickSpectrum();
         },
         Qt::QueuedConnection);
@@ -648,6 +652,7 @@ SessionView TrampSession::view() const {
   v.zoomOutEnabled = layout_.zoomStepDown().has_value();
   v.spectrum = spectrumHold_.bars;
   v.spectrumPeaks = spectrumHold_.peaks;
+  v.spectrumUnmeasured = spectrogram_.synthetic;
   v.eq = settings_.equalizerCurve;
   v.playingIndex = playback_->playingIndex();
   v.selectedIndices = playlist_.selectedIndices();

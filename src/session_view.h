@@ -115,6 +115,10 @@ struct SessionView {
   QString activeSkinId = QStringLiteral("builtin");
   QString skinsError;
   int skinsScroll = 0;
+  /// The session spectrogram could not be measured. Read from
+  /// `Spectrogram::synthetic`, never from the per-frame levels that go silent
+  /// on pause. The 120 s decode timeout is the same mark.
+  bool spectrumUnmeasured = false;
 };
 
 /// Whether the display well's marquee is moving rather than held at the start.
