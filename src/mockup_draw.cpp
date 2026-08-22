@@ -510,24 +510,59 @@ void drawCog(QPainter& p, const QRectF& box, const QColor& color) {
   p.restore();
 }
 
+QPainterPath theaterMaskBody(const QRectF& b) {
+  QPainterPath p;
+  const qreal x = b.x();
+  const qreal y = b.y();
+  const qreal w = b.width();
+  const qreal h = b.height();
+  const qreal cx = b.center().x();
+  p.moveTo(x + w * 0.06, y + h * 0.28);
+  p.cubicTo(x - w * 0.02, y + h * 0.08, x + w * 0.18, y - h * 0.02, x + w * 0.32, y + h * 0.10);
+  p.cubicTo(cx - w * 0.04, y + h * 0.20, cx + w * 0.04, y + h * 0.20, x + w * 0.68, y + h * 0.10);
+  p.cubicTo(x + w * 0.82, y - h * 0.02, x + w * 1.02, y + h * 0.08, x + w * 0.94, y + h * 0.28);
+  p.cubicTo(x + w * 1.04, y + h * 0.52, x + w * 0.90, y + h * 0.82, cx, y + h);
+  p.cubicTo(x + w * 0.10, y + h * 0.82, x - w * 0.04, y + h * 0.52, x + w * 0.06, y + h * 0.28);
+  p.closeSubpath();
+  return p;
+}
+
+QPainterPath smileHole(const QRectF& b) {
+  QPainterPath p;
+  p.moveTo(b.left(), b.top());
+  p.cubicTo(b.left() + b.width() * 0.22, b.bottom(), b.right() - b.width() * 0.22, b.bottom(),
+            b.right(), b.top());
+  p.cubicTo(b.right() - b.width() * 0.28, b.top() + b.height() * 0.52,
+            b.left() + b.width() * 0.28, b.top() + b.height() * 0.52, b.left(), b.top());
+  p.closeSubpath();
+  return p;
+}
+
+QPainterPath frownHole(const QRectF& b) {
+  QPainterPath p;
+  p.moveTo(b.left(), b.bottom());
+  p.cubicTo(b.left() + b.width() * 0.22, b.top(), b.right() - b.width() * 0.22, b.top(), b.right(),
+            b.bottom());
+  p.cubicTo(b.right() - b.width() * 0.28, b.bottom() - b.height() * 0.52,
+            b.left() + b.width() * 0.28, b.bottom() - b.height() * 0.52, b.left(), b.bottom());
+  p.closeSubpath();
+  return p;
+}
+
 QPainterPath pathSkins() {
-  // Upper-face mask: brow, cheeks, nose. A full face with a smile is a
-  // smiley at 16px; an eye-bar is goggles. This silhouette is only a mask.
-  QPainterPath path;
-  path.setFillRule(Qt::OddEvenFill);
-  path.moveTo(3.0, 8.6);
-  path.cubicTo(3.0, 3.8, 7.0, 2.2, 12.0, 2.2);
-  path.cubicTo(17.0, 2.2, 21.0, 3.8, 21.0, 8.6);
-  path.cubicTo(21.0, 11.4, 18.8, 13.8, 16.4, 14.4);
-  path.lineTo(14.2, 15.0);
-  path.lineTo(12.0, 18.8);
-  path.lineTo(9.8, 15.0);
-  path.lineTo(7.6, 14.4);
-  path.cubicTo(5.2, 13.8, 3.0, 11.4, 3.0, 8.6);
-  path.closeSubpath();
-  path.addEllipse(QRectF(5.4, 6.4, 5.0, 4.2));
-  path.addEllipse(QRectF(13.6, 6.4, 5.0, 4.2));
-  return path;
+  // Comedy over tragedy, like the sock-and-buskin mark. United so the overlap
+  // stays solid; a single OddEven path would punch a hole through both faces.
+  const QRectF comedyBox(0.8, 1.2, 13.8, 16.0);
+  const QRectF tragedyBox(9.4, 6.4, 13.6, 15.8);
+  QPainterPath comedy = theaterMaskBody(comedyBox);
+  comedy -= smileHole(QRectF(3.4, 11.4, 8.6, 3.6));
+  comedy -= frownHole(QRectF(3.2, 6.2, 3.6, 2.4));
+  comedy -= frownHole(QRectF(8.4, 6.2, 3.6, 2.4));
+  QPainterPath tragedy = theaterMaskBody(tragedyBox);
+  tragedy -= frownHole(QRectF(12.0, 16.2, 8.4, 3.4));
+  tragedy -= smileHole(QRectF(11.8, 10.6, 3.6, 2.4));
+  tragedy -= smileHole(QRectF(17.0, 10.6, 3.6, 2.4));
+  return comedy.united(tragedy.subtracted(theaterMaskBody(comedyBox)));
 }
 
 QPainterPath pathTrackInfo() {
