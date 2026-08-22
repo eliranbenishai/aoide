@@ -1,6 +1,7 @@
 #include "chrome_tooltip.h"
 
 #include "tramp_fonts.h"
+#include "tramp_metrics.h"
 
 #include <QFont>
 #include <QFontMetrics>
@@ -14,16 +15,39 @@
 namespace tramp {
 namespace {
 
-QString titleTip(TitleChromeLayout::Hit title) {
+/// Naming the control is no use on a button that will not take it: "Zoom out"
+/// on a dead button says what it would have done, which is the reading the
+/// disabled face exists to prevent. So a withdrawn step says why instead, and
+/// the two reasons are not the same answer — the floor of the ladder is where
+/// Tramp ends, and a step that will not fit is where this display ends. At the
+/// shipped default both are out at once on a short screen, and a whole cluster
+/// greyed for one unexplained reason is what reads as broken chrome.
+QString zoomFloorTip(const SessionView& view) {
+  return QStringLiteral("%1% is as small as Tramp goes").arg(view.zoomPercent);
+}
+
+/// The step is named rather than called "the next one": the readout between the
+/// buttons already says where the listener is, and this says what is out of
+/// reach from there. Closing a panel is the way back — but only while one is
+/// open to close, or the sentence sends them after something that is not there.
+QString zoomNoRoomTip(const SessionView& view) {
+  const int step = nextZoomPercent(view.zoomPercent);
+  if (!view.eqOn && !view.plOn) {
+    return QStringLiteral("No room for %1% on this display").arg(step);
+  }
+  return QStringLiteral("No room for %1% — close a panel").arg(step);
+}
+
+QString titleTip(TitleChromeLayout::Hit title, const SessionView& view) {
   switch (title) {
     case TitleChromeLayout::Hit::minimize:
       return QStringLiteral("Minimize");
     case TitleChromeLayout::Hit::collapse:
       return QStringLiteral("Collapse");
     case TitleChromeLayout::Hit::zoomOut:
-      return QStringLiteral("Zoom out");
+      return view.zoomOutEnabled ? QStringLiteral("Zoom out") : zoomFloorTip(view);
     case TitleChromeLayout::Hit::zoomIn:
-      return QStringLiteral("Zoom in");
+      return view.zoomInEnabled ? QStringLiteral("Zoom in") : zoomNoRoomTip(view);
     case TitleChromeLayout::Hit::close:
       return QStringLiteral("Close");
     case TitleChromeLayout::Hit::drag:
@@ -216,7 +240,7 @@ ChromeTooltipWindow* g_tip = nullptr;
 QString chromeTooltip(TitleChromeLayout::Hit title, const ChromeHit& chrome,
                       const SessionView& view) {
   if (title == TitleChromeLayout::Hit::drag) return {};
-  if (const QString named = titleTip(title); !named.isEmpty()) return named;
+  if (const QString named = titleTip(title, view); !named.isEmpty()) return named;
   return chromeKindTip(chrome, view);
 }
 

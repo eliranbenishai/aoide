@@ -7,6 +7,7 @@ class ChromeTooltipTest : public QObject {
 
  private slots:
   void titleButtonsKeepFlutterNames();
+  void withdrawnZoomStepsNameWhy();
   void transportGlyphsKeepFlutterNames();
   void muteAndTogglesSayWhichWay();
   void slidersAndListsStayQuiet();
@@ -31,6 +32,32 @@ void ChromeTooltipTest::titleButtonsKeepFlutterNames() {
   QCOMPARE(tramp::chromeTooltip(Hit::drag, {}, view), QString());
   QCOMPARE(tramp::chromeTooltip(Hit::none, {}, view), QString());
   QCOMPARE(tramp::chromeTooltip(Hit::drag, kind(tramp::ChromeHit::Kind::play), view), QString());
+}
+
+void ChromeTooltipTest::withdrawnZoomStepsNameWhy() {
+  using Hit = tramp::TitleChromeLayout::Hit;
+  tramp::SessionView view;
+
+  // The floor of the ladder is where Tramp ends. The percent is the one the
+  // readout already shows, so the tip does not invent a smaller step.
+  view.zoomPercent = 75;
+  view.zoomOutEnabled = false;
+  QCOMPARE(tramp::chromeTooltip(Hit::zoomOut, {}, view),
+           QStringLiteral("75% is as small as Tramp goes"));
+
+  // A step that will not fit is where this display ends. Closing a panel is
+  // the way back — but only while one is open to close.
+  view.zoomOutEnabled = true;
+  view.zoomInEnabled = false;
+  view.eqOn = true;
+  view.plOn = false;
+  QCOMPARE(tramp::chromeTooltip(Hit::zoomIn, {}, view),
+           QStringLiteral("No room for 100% — close a panel"));
+
+  view.eqOn = false;
+  view.plOn = false;
+  QCOMPARE(tramp::chromeTooltip(Hit::zoomIn, {}, view),
+           QStringLiteral("No room for 100% on this display"));
 }
 
 void ChromeTooltipTest::transportGlyphsKeepFlutterNames() {

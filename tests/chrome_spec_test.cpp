@@ -1,5 +1,6 @@
 #include "chrome_anim.h"
 #include "chrome_layout.h"
+#include "chrome_paint.h"
 #include "mockup_draw.h"
 #include "mockup_tokens.h"
 #include "title_chrome.h"
@@ -34,6 +35,7 @@ class ChromeSpecTest : public QObject {
   void buttonPhaseTakesTheWholeTransitionWhateverTheFrameRate();
   void inertPhaseStoreLeavesPaintersOnPlainSessionState();
   void pointerFeedbackSkipsSlidersAndListRows();
+  void aWithdrawnZoomStepLeavesAFaceThePointerCannotLight();
   void settledPhasesDoNotAccumulate();
   void thePainterReadingNamesEveryKindOfLeak();
 };
@@ -408,6 +410,53 @@ void ChromeSpecTest::pointerFeedbackSkipsSlidersAndListRows() {
   QVERIFY(!tramp::takesPointerFeedback(K::eqBand));
   QVERIFY(!tramp::takesPointerFeedback(K::plResize));
   QVERIFY(!tramp::takesPointerFeedback(K::none));
+}
+
+// A zoom step the layout has withdrawn takes its button's lift and its glyph's
+// ink, and nothing else: the button keeps its rectangle, or the title bar
+// reflows to the eye every time a step goes. The panel still records a hover on
+// it — the hover label is the whole point, and it has to be asked for — so the
+// pointer channels are dropped at the face instead, which is also the only
+// place a golden dump or a benchmark passes through. The painted result answers
+// to `host_window_move_test` and the fidelity gate; the arithmetic under it
+// belongs here.
+void ChromeSpecTest::aWithdrawnZoomStepLeavesAFaceThePointerCannotLight() {
+  const tramp::BtnFace under(0, 1, 1);  // hovered, and held down
+
+  const tramp::WinBtnFace live = tramp::winBtnFace(under, false, true);
+  QCOMPARE(live.hover, 1.0);
+  QCOMPARE(live.press, 1.0);
+  QCOMPARE(live.lift, 1 + 0.24 - 0.18);
+  QVERIFY(!live.dead);
+
+  // The same pointer, on a button with nothing to take: neither channel reaches
+  // the face, so there is no hover glow and no press to be had.
+  const tramp::WinBtnFace dead = tramp::winBtnFace(under, false, false);
+  QVERIFY(dead.dead);
+  QCOMPARE(dead.hover, 0.0);
+  QCOMPARE(dead.press, 0.0);
+  QCOMPARE(dead.lift, tramp::kWinBtnDeadLift);
+
+  // Dead sits below resting rather than level with it. Minimize and close are
+  // in the same row, at rest, one gap away — a dead button that painted at 1.0
+  // would be a live one that happens not to respond.
+  const tramp::WinBtnFace resting = tramp::winBtnFace({}, false, true);
+  QCOMPARE(resting.lift, 1.0);
+  QVERIFY(dead.lift < resting.lift);
+  QVERIFY(tramp::kWinBtnDeadGlyphAlpha < tramp::kGlyphInk.alpha());
+
+  // Close lifts less than a neutral button under the same hover, and being
+  // loud does not buy it a different dead face.
+  const tramp::BtnFace hovered(0, 1, 0);
+  QVERIFY(tramp::winBtnFace(hovered, true, true).lift <
+          tramp::winBtnFace(hovered, false, true).lift);
+  QCOMPARE(tramp::winBtnFace(hovered, true, false).lift, tramp::kWinBtnDeadLift);
+
+  // Phases are read mid-transition, and a face handed one off either end must
+  // still land inside the gradient's stops.
+  const tramp::WinBtnFace clamped = tramp::winBtnFace(tramp::BtnFace(0, 4, -2), false, true);
+  QCOMPARE(clamped.hover, 1.0);
+  QCOMPARE(clamped.press, 0.0);
 }
 
 void ChromeSpecTest::settledPhasesDoNotAccumulate() {
