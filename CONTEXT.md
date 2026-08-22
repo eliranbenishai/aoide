@@ -101,8 +101,16 @@ A current playlist whose track list has changed since it was loaded or last save
 _Avoid_: dirty (implementation jargon in product talk), modified playlist, unsaved playlist (a current playlist can be unsaved without being altered)
 
 **Session resume**:
-What a launch brings back. The **current playlist** always comes back — the **altered** list if one was left unsaved, otherwise the last saved playlist that was loaded, painted from the track-set cache — and so do panel positions, shade, playlist size and **zoom step**. What the *Resume last session* preference (on by default) governs is the **transport**: quitting while paused reopens that track and seeks back to where it was left, still paused; quitting while playing reopens it and plays, so Tramp is audible on launch. Quitting from **stop** launches with the playlist and an empty transport, because stop unloads the track and clears the playing index — that is intended, and stopping is how the listener asks for a quiet launch.
+What a launch brings back. The **current playlist** always comes back — the **altered** list if one was left unsaved, otherwise the last saved playlist that was loaded, painted from the track-set cache — and so do panel positions, shade, playlist size and **zoom step**. What the **Resume playback** preference (on by default) governs is the **transport**: quitting while paused reopens that track and seeks back to where it was left, still paused; quitting while playing reopens it and plays, so Tramp is audible on launch. Quitting from **stop** launches with the playlist and an empty transport, because stop unloads the track and clears the playing index — that is intended, and stopping is how the listener asks for a quiet launch.
 _Avoid_: session restore (OS session management — a different thing), remembering the queue, autoplay (for the resumed-playing case), treating a stopped quit as a lost session
+
+**Resume playback**:
+The Settings row (on by default) that starts the transport on launch. Playlist, geometry and zoom always come back; this switch is only whether Tramp is audible. The retired label was *Resume last session*.
+_Avoid_: Resume last session (retired label); treating the switch as what restores the playlist
+
+**Empty state**:
+The copy a well paints when it has no rows, and the main title when nothing is loaded yet. The playlist track well says `THIS LIST IS EMPTY` / `Drop files here, or open one from PLAYLISTS.`; the collection well says `NO SAVED PLAYLISTS` / `A playlist is a file you keep. Tramp does not scan a library.`; the main title is `Drop files to play` while the display title would be `No track` *and* the current list is empty. Once there are rows, a stopped transport stays `No track`. There is no first-run flag and no tour — the empty wells carry the idea that music enters through files and playlists.
+_Avoid_: wizard, onboarding, first-run tour, repeating the footer drop hint as a third well line, treating `No track` as the first-run title
 
 **Disabled playlist**:
 A saved playlist whose file was missing at the last validation pass. It cannot be *re-read* (Refresh is disabled) but it can still be opened: the current list is painted from the track-set cache. It can only be removed from the collection; if the file comes back, it enables itself again.

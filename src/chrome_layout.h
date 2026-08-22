@@ -601,6 +601,36 @@ inline QRectF playlistTracksPane(const QRectF& body, qreal collectionW) {
   return QRectF(body.left() + gutter, body.top(), body.width() - gutter, body.height());
 }
 
+inline constexpr qreal kPlaylistCollectionPadL = 12;
+inline constexpr qreal kPlaylistCollectionPadT = 12;
+inline constexpr qreal kPlaylistCollectionPadR = 6;
+inline constexpr qreal kPlaylistCollectionPadB = 12;
+inline constexpr qreal kPlaylistCollectionHeaderH = 30;
+inline constexpr qreal kPlaylistCollectionBtnGap = 8;
+inline constexpr qreal kPlaylistCollectionBtnH = 24;
+
+inline QRectF playlistCollectionColumn(const QRectF& body, qreal collectionW) {
+  return QRectF(body.left(), body.top(), collectionW, body.height());
+}
+
+inline QRectF playlistCollectionInner(const QRectF& collection) {
+  return collection.adjusted(kPlaylistCollectionPadL, kPlaylistCollectionPadT,
+                             -kPlaylistCollectionPadR, -kPlaylistCollectionPadB);
+}
+
+/// The saved-playlists well under PLAYLISTS. Paint and the empty-state crop
+/// both come from here so the copy is centred in the same rectangle the rows
+/// would have occupied.
+inline QRectF playlistCollectionWell(const QRectF& colInner) {
+  return QRectF(colInner.left(), colInner.top() + kPlaylistCollectionHeaderH, colInner.width(),
+                colInner.height() - kPlaylistCollectionHeaderH - kPlaylistCollectionBtnGap -
+                    kPlaylistCollectionBtnH);
+}
+
+inline QRectF playlistCollectionWell(const QRectF& body, qreal collectionW) {
+  return playlistCollectionWell(playlistCollectionInner(playlistCollectionColumn(body, collectionW)));
+}
+
 inline QRectF playlistTrackInner(const QRectF& tracksPane) {
   return tracksPane.adjusted(kPlaylistPanePad, kPlaylistPanePad, -kPlaylistPanePad,
                              -kPlaylistPanePad);

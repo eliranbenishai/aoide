@@ -89,9 +89,13 @@ bool paintsSame(WindowId id, const SessionView& a, const SessionView& b) {
       // above because main is the only panel whose title bar carries them:
       // `TitleChromeLayout::forWindow` gives the other four minimize and close
       // and nothing else, so a step going grey is invisible on them.
+      // `mainEmptyTitle` is the empty-list swap: title can stay `No track`
+      // while the list gains a row, and the chassis would otherwise keep
+      // "Drop files to play".
       return zoomInEnabled == b.zoomInEnabled && zoomOutEnabled == b.zoomOutEnabled &&
              showElapsed == b.showElapsed && positionMs == b.positionMs &&
-             durationMs == b.durationMs && title == b.title && subtitle == b.subtitle &&
+             durationMs == b.durationMs && title == b.title &&
+             mainEmptyTitle(a) == mainEmptyTitle(b) && subtitle == b.subtitle &&
              bitrate == b.bitrate && sampleRate == b.sampleRate && channels == b.channels &&
              formatChip == b.formatChip && volume == b.volume && muted == b.muted &&
              forceMono == b.forceMono && playing == b.playing && paused == b.paused &&

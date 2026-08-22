@@ -8,6 +8,7 @@
 #include "host_window.h"
 #include "look.h"
 #include "session_view.h"
+#include "tramp_fonts.h"
 #include "tramp_metrics.h"
 #include "wait_cursor.h"
 #include "window_spec.h"
@@ -59,6 +60,9 @@ class HostWindowMoveTest : public QObject {
   void mockupHelpersLeaveThePainterAsTheyFoundIt();
   void panelPaintersLeaveThePainterAsTheyFoundIt();
   void panelPaintersDrawWithWhatTheySet();
+  void emptyStateCopyIsTheLockedCopy();
+  void paintsSameFlipsWhenAnEmptyListGainsARow();
+  void emptyWellsAreNotBlank();
 };
 
 void HostWindowMoveTest::parentedPanelMoveDoesNotEmitNativeMoved() {
@@ -713,6 +717,12 @@ std::vector<FieldChange> everyFieldOfTheSnapshot() {
       // Playlist: the collection column, the list, the deck and the footer.
       {"tracks", "playlist",
        [](tramp::SessionView& v) { v.tracks[0].title = QStringLiteral("Renamed"); }},
+      // Emptiness is what the empty-well copy and the main title swap read.
+      // Clearing the demo's rows keeps its named title, so only the playlist
+      // chassis turns over — main stays until the title is `No track` too.
+      {"tracks emptied", "playlist", [](tramp::SessionView& v) { v.tracks.clear(); }},
+      {"collection emptied", "playlist",
+       [](tramp::SessionView& v) { v.collection.clear(); }},
       {"playingIndex", "playlist", [](tramp::SessionView& v) { v.playingIndex = 5; }},
       {"trackScroll", "playlist", [](tramp::SessionView& v) { v.trackScroll = 3; }},
       {"collection", "playlist", [](tramp::SessionView& v) { v.collection[0].count = 99; }},
@@ -1142,6 +1152,145 @@ void HostWindowMoveTest::panelPaintersDrawWithWhatTheySet() {
                               .arg(panel.what, QLatin1String(passName(pass)))));
     }
   }
+}
+
+void HostWindowMoveTest::emptyStateCopyIsTheLockedCopy() {
+  const tramp::EmptyWellCopy playlist = tramp::playlistEmptyCopy();
+  QCOMPARE(playlist.heading, QStringLiteral("THIS LIST IS EMPTY"));
+  QCOMPARE(playlist.body, QStringLiteral("Drop files here, or open one from PLAYLISTS."));
+  QVERIFY(!playlist.body.contains(QStringLiteral("DROP FILES HERE TO ENQUEUE")));
+
+  const tramp::EmptyWellCopy collection = tramp::collectionEmptyCopy();
+  QCOMPARE(collection.heading, QStringLiteral("NO SAVED PLAYLISTS"));
+  QCOMPARE(collection.body,
+           QStringLiteral("A playlist is a file you keep. Tramp does not scan a library."));
+
+  QCOMPARE(tramp::resumePlaybackLabel(), QStringLiteral("Resume playback"));
+
+  tramp::SessionView empty;
+  QCOMPARE(empty.title, QStringLiteral("No track"));
+  QVERIFY(empty.tracks.isEmpty());
+  QCOMPARE(tramp::mainEmptyTitle(empty), QStringLiteral("Drop files to play"));
+
+  tramp::SessionView stopped = empty;
+  stopped.tracks.push_back(
+      {QStringLiteral("A"), QStringLiteral("B"), QStringLiteral("1:00")});
+  QCOMPARE(tramp::mainEmptyTitle(stopped), QStringLiteral("No track"));
+
+  const tramp::SessionView golden = tramp::goldenDemoView();
+  QVERIFY(!golden.tracks.isEmpty());
+  QCOMPARE(golden.aboutSpins, 4096);
+  QCOMPARE(tramp::mainEmptyTitle(golden), golden.title);
+
+  tramp::SessionView named;
+  named.title = QStringLiteral("Velvet Static");
+  QCOMPARE(tramp::mainEmptyTitle(named), QStringLiteral("Velvet Static"));
+
+  const auto display = tramp::nowPlayingDisplay(std::nullopt, std::nullopt, 0);
+  QCOMPARE(display.title, QStringLiteral("No track"));
+}
+
+void HostWindowMoveTest::paintsSameFlipsWhenAnEmptyListGainsARow() {
+  tramp::SessionView empty;
+  tramp::SessionView oneTrack = empty;
+  oneTrack.tracks.push_back(
+      {QStringLiteral("Artist"), QStringLiteral("Track"), QStringLiteral("3:20")});
+
+  QVERIFY2(!tramp::paintsSame(tramp::WindowId::playlist, empty, oneTrack),
+           "the playlist chassis must turn over when the track list leaves empty");
+  QVERIFY2(!tramp::paintsSame(tramp::WindowId::main, empty, oneTrack),
+           "the main chassis must turn over: Drop files to play becomes No track");
+
+  tramp::SessionView oneList = empty;
+  oneList.collection.push_back({QStringLiteral("Nights"), 12, true, false});
+  QVERIFY2(!tramp::paintsSame(tramp::WindowId::playlist, empty, oneList),
+           "the playlist chassis must turn over when the collection leaves empty");
+
+  tramp::SessionView titled;
+  titled.title = QStringLiteral("Velvet Static");
+  tramp::SessionView titledOne = titled;
+  titledOne.tracks.push_back(
+      {QStringLiteral("Artist"), QStringLiteral("Track"), QStringLiteral("3:20")});
+  QVERIFY2(tramp::paintsSame(tramp::WindowId::main, titled, titledOne),
+           "a named title must not rebuild main just because the list gained a row");
+}
+
+namespace {
+
+QRectF paintedTrackWell(const tramp::SessionView& view) {
+  const QRectF body = tramp::panelBody(tramp::kPlaylistDefault);
+  const qreal collectionW = view.collectionCollapsed ? 0 : view.collectionWidth;
+  return tramp::playlistListWell(
+      tramp::playlistListRowRect(
+          tramp::playlistTrackInner(tramp::playlistTracksPane(body, collectionW))),
+      view.tracks.size());
+}
+
+int pixelsNear(const QImage& img, const QRect& region, const QColor& target, int maxDist) {
+  int n = 0;
+  const QRect clipped = region.intersected(QRect(QPoint(), img.size()));
+  for (int y = clipped.top(); y <= clipped.bottom(); ++y) {
+    for (int x = clipped.left(); x <= clipped.right(); ++x) {
+      if (rgbDistance(img.pixel(x, y), target) <= maxDist) ++n;
+    }
+  }
+  return n;
+}
+
+}  // namespace
+
+void HostWindowMoveTest::emptyWellsAreNotBlank() {
+  tramp::loadTrampFonts();
+  tramp::SessionView empty;
+  tramp::SessionView withTrack = empty;
+  withTrack.tracks.push_back({QStringLiteral("Cassette Mirage"),
+                              QStringLiteral("Low Orbit Lullaby"), QStringLiteral("4:12")});
+  tramp::SessionView withList = empty;
+  withList.collection.push_back({QStringLiteral("ANALOGUE GHOSTS"), 24, false, false});
+
+  const QImage emptyPl = paintPlaylistPanel(empty);
+  const QImage trackPl = paintPlaylistPanel(withTrack);
+  const QImage listPl = paintPlaylistPanel(withList);
+  QVERIFY2(emptyPl != trackPl, "an empty track well must not paint like a list with a row");
+  QVERIFY2(emptyPl != listPl, "an empty collection well must not paint like a list with a row");
+
+  const tramp::ChromeTokens tokens = tramp::ChromeTokens::builtin();
+  const QRect listWell = paintedTrackWell(empty).toAlignedRect();
+  const int emptyInk = pixelsNear(emptyPl, listWell, tokens.inkFaint, 72);
+  const int trackInk = pixelsNear(trackPl, listWell, tokens.inkFaint, 72);
+  QVERIFY2(emptyInk > 80,
+           qPrintable(QStringLiteral("empty track well ink-faint pixels: %1 (wash only would be ~0)")
+                          .arg(emptyInk)));
+  QVERIFY2(emptyInk > trackInk, "track rows are phosphor; empty-state copy is chrome ink");
+
+  const QRect colWell =
+      tramp::playlistCollectionWell(tramp::panelBody(tramp::kPlaylistDefault),
+                                    empty.collectionWidth)
+          .toAlignedRect();
+  const int emptyColInk = pixelsNear(emptyPl, colWell, tokens.inkFaint, 72);
+  const int listedColInk = pixelsNear(listPl, colWell, tokens.inkFaint, 72);
+  QVERIFY2(emptyColInk > 80,
+           qPrintable(QStringLiteral("empty collection well ink-faint pixels: %1")
+                          .arg(emptyColInk)));
+  QVERIFY2(emptyColInk > listedColInk, "a saved-playlist row is not the empty-state heading");
+
+  const tramp::SessionView golden = tramp::goldenDemoView();
+  const QImage goldenPl = paintPlaylistPanel(golden);
+  QVERIFY2(goldenPl != emptyPl, "the golden playlist dump must keep its rows");
+  QVERIFY2(emptyPl.copy(listWell) !=
+               goldenPl.copy(paintedTrackWell(golden).toAlignedRect()),
+           "empty-well copy must not appear on the golden playlist");
+
+  const QSize mainLogical = tramp::kMainPlayer;
+  const QImage emptyMain = paintCachedPass(tramp::WindowId::main, mainLogical, empty);
+  const QImage stoppedMain = paintCachedPass(tramp::WindowId::main, mainLogical, withTrack);
+  QVERIFY2(emptyMain != stoppedMain, "Drop files to play must leave the chassis once a row exists");
+
+  tramp::SessionView spun = golden;
+  spun.aboutSpins = 0;
+  QVERIFY2(paintCachedPass(tramp::WindowId::main, mainLogical, golden) ==
+               paintCachedPass(tramp::WindowId::main, mainLogical, spun),
+           "the golden demo title must not follow aboutSpins");
 }
 
 QTEST_MAIN(HostWindowMoveTest)

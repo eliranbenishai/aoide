@@ -145,7 +145,7 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
                                        : qMax<qint64>(0, view.durationMs - view.positionMs));
   const QString timeLabel =
       view.showElapsed ? QStringLiteral("ELAPSED") : QStringLiteral("REMAIN");
-  const QString& title = view.title;
+  const QString title = mainEmptyTitle(view);
   const QString subtitle = view.subtitle.toUpper();
   const QString& bitrate = view.bitrate;
   const QString& rate = view.sampleRate;
@@ -455,6 +455,26 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
   }
 }
 
+/// Two centred lines in a well that has no rows. Heading in the faint
+/// condensed face the PLAYLISTS label already uses; body one step dimmer so
+/// the sentence reads as chrome, not as a phosphor track.
+void paintEmptyWellCopy(QPainter& p, const QRectF& well, const EmptyWellCopy& copy) {
+  const QFont head = condensedFont(12, 0.18);
+  const QFont body = condensedFont(11, 0.08);
+  const qreal pad = 16;
+  const qreal headH = 20;
+  const qreal bodyH = 40;
+  const qreal top = well.center().y() - (headH + bodyH) / 2;
+  const QRectF headBox(well.left() + pad, top, well.width() - 2 * pad, headH);
+  const QRectF bodyBox(well.left() + pad, top + headH, well.width() - 2 * pad, bodyH);
+  p.setFont(head);
+  p.setPen(T().inkFaint);
+  p.drawText(headBox, Qt::AlignHCenter | Qt::AlignVCenter, copy.heading);
+  p.setFont(body);
+  p.setPen(T().inkDim);
+  p.drawText(bodyBox, Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap, copy.body);
+}
+
 void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const SessionView& view,
                    const ChromePhases& phases) {
   const PainterStateScope hold(p);
@@ -468,7 +488,7 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   const int playingN = view.playingIndex ? *view.playingIndex + 1 : 0;
   const qreal collectionW = view.collectionCollapsed ? 0 : view.collectionWidth;
 
-  const QRectF collection(body.left(), body.top(), collectionW, body.height());
+  const QRectF collection = playlistCollectionColumn(body, collectionW);
   const QRectF divider(collection.right(), collection.top(),
                        collectionW > 0 ? kPlaylistDividerW : 0, collection.height());
   const QRectF tracksPane = playlistTracksPane(body, collectionW);
@@ -477,7 +497,7 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
     drawFooterSep(p, QRectF(divider.center().x() - 1, divider.top() + 24, 1,
                             divider.height() - 48));
 
-  const QRectF colInner = collection.adjusted(12, 12, -6, -12);
+  const QRectF colInner = playlistCollectionInner(collection);
   p.setFont(condensedFont(11, 0.2));
   p.setPen(T().inkFaint);
   p.drawText(QRectF(colInner.left(), colInner.top(), colInner.width() - 30, 20),
@@ -487,13 +507,15 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   drawChevron(p, QRectF(collapse.center().x() - 2.8, collapse.center().y() - 4, 5.6, 8), true,
               T().glyphInk);
 
-  const QRectF colWell(colInner.left(), colInner.top() + 30, colInner.width(),
-                       colInner.height() - 30 - 8 - 24);
+  const QRectF colWell = playlistCollectionWell(colInner);
   drawScreenWell(p, colWell);
   p.save();
   QPainterPath colClip;
   colClip.addRoundedRect(colWell, kWellRadius, kWellRadius);
   p.setClipPath(colClip);
+  if (lists.isEmpty()) {
+    paintEmptyWellCopy(p, colWell, collectionEmptyCopy());
+  }
   for (int i = 0; i < lists.size(); ++i) {
     QRectF row(colWell.left(), colWell.top() + 4 + i * 26, colWell.width(), 26);
     if (lists[i].selected) {
@@ -568,6 +590,9 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
     if (!widestTime || r.time.size() > widestTime->size()) widestTime = &r.time;
   }
   const qreal timeTextW = widestTime ? textWidth(lcd, *widestTime) : 0;
+  if (rows.isEmpty()) {
+    paintEmptyWellCopy(p, listWell, playlistEmptyCopy());
+  }
   for (int vis = 0; vis < visible && scrollRows + vis < rows.size(); ++vis) {
     const int i = scrollRows + vis;
     const QRectF row(listWell.left(), listWell.top() + kPlaylistRowPadTop + vis * kPlaylistRowStride,
@@ -793,22 +818,22 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
     return;
   }
   struct Toggle {
-    const char* label;
+    QString label;
     ChromeHit::Kind kind;
     bool on;
   };
   const Toggle rows[] = {
-      {"Resume last session", K::settingsResume, resume},
-      {"Confirm before quit", K::settingsConfirm, confirm},
-      {"Scroll title", K::settingsScroll, scroll},
-      {"Minimize hides secondaries", K::settingsMinimize, minimize},
+      {resumePlaybackLabel(), K::settingsResume, resume},
+      {QStringLiteral("Confirm before quit"), K::settingsConfirm, confirm},
+      {QStringLiteral("Scroll title"), K::settingsScroll, scroll},
+      {QStringLiteral("Minimize hides secondaries"), K::settingsMinimize, minimize},
   };
   for (const Toggle& toggle : rows) {
     const int i = int(&toggle - rows);
     const QRectF row(pane.left() + 16, pane.top() + 12 + i * 36, pane.width() - 32, 32);
     p.setFont(condensedFont(12, 0.08));
     p.setPen(T().ink);
-    p.drawText(row, Qt::AlignVCenter, QString::fromLatin1(toggle.label));
+    p.drawText(row, Qt::AlignVCenter, toggle.label);
     const BtnFace face = faceOf(phases, toggle.kind, toggle.on);
     const QRectF sw(row.right() - 40, row.center().y() - 10, 36, 20);
     // The thumb slides the width of the track rather than teleporting between
