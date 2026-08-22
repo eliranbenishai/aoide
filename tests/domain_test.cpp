@@ -10,6 +10,7 @@
 #include "player_engine.h"
 #include "playlist.h"
 #include "popup_anchor.h"
+#include "session.h"
 #include "session_view.h"
 #include "spectrum.h"
 #include "support_dir.h"
@@ -2270,6 +2271,31 @@ int main() {
     }
     REQUIRE_EQ(restored, 2);
     tramp::WaitCursorScope::resetHooks();
+  }
+
+  {
+    // The options cog is the named home for the same open as eject. Labels are
+    // the product list; Open files sits with the other openers, before Quit.
+    tramp::TrampSettings settings;
+    const auto items = tramp::optionsMenuItems(settings);
+    QStringList labels;
+    for (const auto& item : items) {
+      if (item.kind != tramp::ChromeMenuKind::separator) labels.push_back(item.label);
+    }
+    REQUIRE_EQ(labels, (QStringList{
+                           QStringLiteral("Always on top"),
+                           QStringLiteral("Settings…"),
+                           QStringLiteral("Track info"),
+                           QStringLiteral("About Tramp"),
+                           QStringLiteral("Open files…"),
+                           QStringLiteral("Quit"),
+                       }));
+    REQUIRE(items.front().checkable);
+    REQUIRE(!items.front().checked);
+    settings.alwaysOnTop = true;
+    REQUIRE(tramp::optionsMenuItems(settings).front().checked);
+    REQUIRE_EQ(items.at(items.size() - 2).kind, tramp::ChromeMenuKind::separator);
+    REQUIRE_EQ(items.at(items.size() - 3).label, QStringLiteral("Open files…"));
   }
 
   if (gFails != 0) {

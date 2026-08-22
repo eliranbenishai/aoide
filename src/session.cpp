@@ -1374,17 +1374,9 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
 
 void TrampSession::showOptionsMenu(QRect logicalHit) {
   // The rules keep the window toggle and the destructive row away from the
-  // three that just open something. Row indices count them, hence the members.
-  enum Row { kAlwaysOnTop, kRuleTop, kSettings, kTrackInfo, kAbout, kRuleQuit, kQuit };
-  const QVector<ChromeMenuItem> items{
-      ChromeMenuItem::check(QStringLiteral("Always on top"), settings_.alwaysOnTop),
-      ChromeMenuItem::separator(),
-      ChromeMenuItem::action(QStringLiteral("Settings…")),
-      ChromeMenuItem::action(QStringLiteral("Track info")),
-      ChromeMenuItem::action(QStringLiteral("About Tramp")),
-      ChromeMenuItem::separator(),
-      ChromeMenuItem::action(QStringLiteral("Quit")),
-  };
+  // four that just open something. Row indices count them, hence the members.
+  enum Row { kAlwaysOnTop, kRuleTop, kSettings, kTrackInfo, kAbout, kOpenFiles, kRuleQuit, kQuit };
+  const QVector<ChromeMenuItem> items = optionsMenuItems(settings_);
   if (logicalHit.isEmpty()) logicalHit = mainOptionsHit(kMainPlayer);
   switch (execAnchoredMenu(items, windowFor(WindowId::main), logicalHit, PopupAnchor::belowLeft)) {
     case kAlwaysOnTop:
@@ -1402,6 +1394,11 @@ void TrampSession::showOptionsMenu(QRect logicalHit) {
       if (windowShouldShow(WindowId::about)) emit requestRaise(WindowId::about);
       else setWindowVisible(WindowId::about, true);
       break;
+    case kOpenFiles: {
+      const QString picked = pickAudio(true);
+      if (!picked.isEmpty()) openPaths(picked.split(QLatin1Char('\n')), true);
+      break;
+    }
     case kQuit:
       quitFromMenu();
       break;

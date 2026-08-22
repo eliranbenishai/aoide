@@ -32,6 +32,21 @@ class HostShell;
 
 namespace tramp {
 
+/// Rows the options cog presents. Always-on-top and Quit stay off the openers;
+/// the check follows [TrampSettings::alwaysOnTop].
+inline QVector<ChromeMenuItem> optionsMenuItems(const TrampSettings& settings) {
+  return {
+      ChromeMenuItem::check(QStringLiteral("Always on top"), settings.alwaysOnTop),
+      ChromeMenuItem::separator(),
+      ChromeMenuItem::action(QStringLiteral("Settings…")),
+      ChromeMenuItem::action(QStringLiteral("Track info")),
+      ChromeMenuItem::action(QStringLiteral("About Tramp")),
+      ChromeMenuItem::action(QStringLiteral("Open files…")),
+      ChromeMenuItem::separator(),
+      ChromeMenuItem::action(QStringLiteral("Quit")),
+  };
+}
+
 class TrampSession : public QObject, public PanelSurfaces {
   Q_OBJECT
 
