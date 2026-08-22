@@ -126,6 +126,8 @@ set(TRAMP_SOURCES
   src/host_window.h
   src/session.cpp
   src/session.h
+  src/chrome_command.cpp
+  src/chrome_command.h
   src/chrome_anim.cpp
   src/chrome_anim.h
   src/chrome_paint.cpp
@@ -269,6 +271,23 @@ qt_add_executable(chrome_spec_test tests/chrome_spec_test.cpp src/chrome_anim.cp
 target_link_libraries(chrome_spec_test PRIVATE tramp_window_spec Qt6::Test)
 set_target_properties(chrome_spec_test PROPERTIES AUTOMOC ON)
 
+qt_add_executable(chrome_command_test
+  tests/chrome_command_test.cpp
+  src/chrome_command.cpp
+  src/playback.cpp
+  src/playlist.cpp
+  src/transport.cpp
+  src/persist.cpp
+  src/m3u.cpp
+  src/settings.cpp
+  src/equalizer.cpp
+  src/collection.cpp
+  src/docking.cpp
+)
+target_include_directories(chrome_command_test PRIVATE src)
+target_link_libraries(chrome_command_test PRIVATE tramp_window_spec Qt6::Test)
+set_target_properties(chrome_command_test PROPERTIES AUTOMOC ON)
+
 qt_add_executable(chrome_tooltip_test
   tests/chrome_tooltip_test.cpp
   src/chrome_tooltip.cpp
@@ -357,7 +376,7 @@ foreach(tramp_target IN ITEMS
     tramp_window_spec tramp
     window_spec_test host_shell_test host_shell_window_test host_window_move_test
     layout_sync_test
-    chrome_spec_test chrome_tooltip_test chrome_menu_test wait_cursor_test domain_test
+    chrome_spec_test chrome_command_test chrome_tooltip_test chrome_menu_test wait_cursor_test domain_test
     look_test font_metrics_test)
   target_link_libraries(${tramp_target} PRIVATE tramp_warnings)
 endforeach()
@@ -382,6 +401,7 @@ add_test(NAME host_shell_window COMMAND host_shell_window_test)
 add_test(NAME host_window_move COMMAND host_window_move_test)
 add_test(NAME layout_sync COMMAND layout_sync_test)
 add_test(NAME chrome_spec COMMAND chrome_spec_test)
+add_test(NAME chrome_command COMMAND chrome_command_test)
 add_test(NAME chrome_tooltip COMMAND chrome_tooltip_test)
 add_test(NAME chrome_menu COMMAND chrome_menu_test)
 add_test(NAME wait_cursor COMMAND wait_cursor_test)

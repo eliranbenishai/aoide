@@ -5,6 +5,7 @@
 #include "host_window.h"
 #include "mockup_draw.h"
 #include "native_file_dialog.h"
+#include "panel_registry.h"
 #include "session.h"
 #include "session_view.h"
 #include "support_dir.h"
@@ -38,21 +39,7 @@
 
 namespace {
 
-QString dumpName(tramp::WindowId id) {
-  switch (id) {
-    case tramp::WindowId::main:
-      return QStringLiteral("main_player_window");
-    case tramp::WindowId::equalizer:
-      return QStringLiteral("equalizer_window");
-    case tramp::WindowId::playlist:
-      return QStringLiteral("playlist_window");
-    case tramp::WindowId::settings:
-      return QStringLiteral("settings_window");
-    case tramp::WindowId::about:
-      return QStringLiteral("about_window");
-  }
-  return QStringLiteral("window");
-}
+QString dumpName(tramp::WindowId id) { return tramp::panelSpec(id).dumpName; }
 
 int dumpChrome(const QString& dirPath) {
   QDir().mkpath(dirPath);
@@ -326,28 +313,13 @@ struct DragBenchOptions {
 };
 
 bool panelFromName(const QString& name, tramp::WindowId* out) {
-  const QString key = name.toLower();
-  if (key == QLatin1String("main")) *out = tramp::WindowId::main;
-  else if (key == QLatin1String("eq") || key == QLatin1String("equalizer"))
-    *out = tramp::WindowId::equalizer;
-  else if (key == QLatin1String("pl") || key == QLatin1String("playlist"))
-    *out = tramp::WindowId::playlist;
-  else if (key == QLatin1String("settings")) *out = tramp::WindowId::settings;
-  else if (key == QLatin1String("about")) *out = tramp::WindowId::about;
-  else return false;
+  const auto id = tramp::panelForName(name);
+  if (!id) return false;
+  *out = *id;
   return true;
 }
 
-QString panelName(tramp::WindowId id) {
-  switch (id) {
-    case tramp::WindowId::main: return QStringLiteral("main");
-    case tramp::WindowId::equalizer: return QStringLiteral("eq");
-    case tramp::WindowId::playlist: return QStringLiteral("playlist");
-    case tramp::WindowId::settings: return QStringLiteral("settings");
-    case tramp::WindowId::about: return QStringLiteral("about");
-  }
-  return QStringLiteral("?");
-}
+QString panelName(tramp::WindowId id) { return tramp::panelSpec(id).commandNames.first(); }
 
 DragBenchOptions parseDragBench(const QStringList& args) {
   DragBenchOptions opts;
@@ -653,34 +625,16 @@ int main(int argc, char** argv) {
   session.setShell(&hostShell);
 
   std::vector<HostWindow*> windows;
-  windows.reserve(5);
-  HostWindow* mainWindow = nullptr;
-  HostWindow* eqWindow = nullptr;
-  HostWindow* plWindow = nullptr;
-  HostWindow* settingsWindow = nullptr;
-  HostWindow* aboutWindow = nullptr;
+  windows.reserve(tramp::kPanelCount);
+  tramp::PanelWindows panels;
   for (const tramp::WindowSpec& spec : tramp::windowSpecs()) {
     auto* window = new HostWindow(spec, &hostShell);
     windows.push_back(window);
-    switch (spec.id) {
-      case tramp::WindowId::main:
-        mainWindow = window;
-        break;
-      case tramp::WindowId::equalizer:
-        eqWindow = window;
-        break;
-      case tramp::WindowId::playlist:
-        plWindow = window;
-        break;
-      case tramp::WindowId::settings:
-        settingsWindow = window;
-        break;
-      case tramp::WindowId::about:
-        aboutWindow = window;
-        break;
-    }
+    panels.set(spec.id, window);
   }
-  session.setWindows(mainWindow, eqWindow, plWindow, settingsWindow, aboutWindow);
+  HostWindow* mainWindow = panels[tramp::WindowId::main];
+  HostWindow* settingsWindow = panels[tramp::WindowId::settings];
+  session.setWindows(panels);
   hostShell.setPrimaryPanel(mainWindow);
   mainWindow->setQuitConfirmer([&]() {
     if (!session.confirmQuit()) return true;
@@ -718,25 +672,7 @@ int main(int argc, char** argv) {
     for (HostWindow* window : windows) window->setZoomPercent(z);
   });
   QObject::connect(&session, &tramp::TrampSession::requestShow, mainWindow, [&](tramp::WindowId id) {
-    HostWindow* w = nullptr;
-    switch (id) {
-      case tramp::WindowId::equalizer:
-        w = eqWindow;
-        break;
-      case tramp::WindowId::playlist:
-        w = plWindow;
-        break;
-      case tramp::WindowId::settings:
-        w = settingsWindow;
-        break;
-      case tramp::WindowId::about:
-        w = aboutWindow;
-        break;
-      case tramp::WindowId::main:
-        w = mainWindow;
-        break;
-    }
-    if (w) {
+    if (HostWindow* w = panels[id]) {
       w->show();
       w->raise();
     }
@@ -746,32 +682,15 @@ int main(int argc, char** argv) {
     refresh();
   });
   QObject::connect(&session, &tramp::TrampSession::requestHide, mainWindow, [&](tramp::WindowId id) {
-    if (id == tramp::WindowId::equalizer) eqWindow->hide();
-    if (id == tramp::WindowId::playlist) plWindow->hide();
-    if (id == tramp::WindowId::settings) settingsWindow->hide();
-    if (id == tramp::WindowId::about) aboutWindow->hide();
+    // Main is the host's reason to exist and cannot be hidden; the layout says
+    // so too, so a request naming it is one nothing should have sent.
+    if (id != tramp::WindowId::main) {
+      if (HostWindow* w = panels[id]) w->hide();
+    }
     refresh();
   });
   QObject::connect(&session, &tramp::TrampSession::requestRaise, mainWindow, [&](tramp::WindowId id) {
-    HostWindow* w = nullptr;
-    switch (id) {
-      case tramp::WindowId::equalizer:
-        w = eqWindow;
-        break;
-      case tramp::WindowId::playlist:
-        w = plWindow;
-        break;
-      case tramp::WindowId::settings:
-        w = settingsWindow;
-        break;
-      case tramp::WindowId::about:
-        w = aboutWindow;
-        break;
-      case tramp::WindowId::main:
-        w = mainWindow;
-        break;
-    }
-    if (w) w->raise();
+    if (HostWindow* w = panels[id]) w->raise();
   });
 
   for (HostWindow* window : windows) {

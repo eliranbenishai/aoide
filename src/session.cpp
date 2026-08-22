@@ -1,5 +1,6 @@
 #include "session.h"
 
+#include "chrome_command.h"
 #include "chrome_layout.h"
 #include "files.h"
 #include "host_shell.h"
@@ -89,11 +90,7 @@ TrampSession::TrampSession(QObject* parent)
   });
   marqueeClock_.start();
   DockLayout layout;
-  layout.main = settings_.main;
-  layout.equalizer = settings_.equalizer;
-  layout.playlist = settings_.playlist;
-  layout.settings = settings_.settings;
-  layout.about = settings_.about;
+  copyPanelFrames(layout, settings_);
   layout.dockEdges = settings_.dockEdges;
   layout_ = LayoutSync(layout, settings_.zoomPercent);
   layout_.setSurfaces(this);
@@ -116,7 +113,8 @@ TrampSession::TrampSession(QObject* parent)
   usageTimer_.setInterval(2000);
   QObject::connect(&usageTimer_, &QTimer::timeout, this, [this]() {
     store_.writeUsage({playback_->spins()});
-    if (about_ && about_->isVisible()) refreshAboutFigures();
+    HostWindow* about = windowFor(WindowId::about);
+    if (about && about->isVisible()) refreshAboutFigures();
   });
   aboutTimer_.setSingleShot(true);
   aboutTimer_.setInterval(50);
@@ -166,11 +164,7 @@ TrampSession::~TrampSession() {
 
 void TrampSession::detachWindows() {
   persistNow();
-  main_ = nullptr;
-  eq_ = nullptr;
-  pl_ = nullptr;
-  settingsWin_ = nullptr;
-  about_ = nullptr;
+  windows_.clear();
   shell_ = nullptr;
 }
 
@@ -286,14 +280,7 @@ void TrampSession::startSpectrumDecode(const QString& path, int gen) {
   });
 }
 
-void TrampSession::setWindows(HostWindow* main, HostWindow* eq, HostWindow* pl,
-                             HostWindow* settings, HostWindow* about) {
-  main_ = main;
-  eq_ = eq;
-  pl_ = pl;
-  settingsWin_ = settings;
-  about_ = about;
-}
+void TrampSession::setWindows(const PanelWindows& windows) { windows_ = windows; }
 
 void TrampSession::setShell(HostShell* shell) {
   if (shell_ == shell) return;
@@ -353,7 +340,7 @@ void TrampSession::scheduleApplyEq() {
 }
 
 void TrampSession::refreshEqChrome() {
-  if (eq_) eq_->applyEqualizer(settings_.equalizerCurve);
+  if (HostWindow* eq = windowFor(WindowId::equalizer)) eq->applyEqualizer(settings_.equalizerCurve);
 }
 
 bool TrampSession::confirmQuit() const { return settings_.confirmBeforeQuit; }
@@ -377,7 +364,8 @@ void TrampSession::persistCollectionCache() {
   collection_.saveTrackSets(store_);
   figures_ = collection_.readFigures();
   figuresLoaded_ = true;
-  if (about_ && about_->isVisible()) refreshChrome();
+  HostWindow* about = windowFor(WindowId::about);
+  if (about && about->isVisible()) refreshChrome();
 }
 
 /// Rows first, durations later. `collection_.add` reads the file and fills in
@@ -583,17 +571,13 @@ void TrampSession::setIngesting(bool ingesting) {
 
 void TrampSession::persistNow() {
   if (qEnvironmentVariable("TRAMP_AUTO_QUIT") == QLatin1String("1")) return;
-  if (!main_) return;
+  if (!windowFor(WindowId::main)) return;
   // The settings are a view of the layout taken at the moment of writing, not a
   // second copy kept level with it. Nothing reads a frame back out of a widget:
   // where a panel is, how big it is and whether it is shaded are all decided in
   // the layout and pushed from there.
   const DockLayout& live = layout_.layout();
-  settings_.main = live.main;
-  settings_.equalizer = live.equalizer;
-  settings_.playlist = live.playlist;
-  settings_.settings = live.settings;
-  settings_.about = live.about;
+  copyPanelFrames(settings_, live);
   settings_.dockEdges = live.dockEdges;
   settings_.zoomPercent = layout_.zoomPercent();
   // Main cannot be hidden, and a file saying otherwise launches with no player.
@@ -621,20 +605,14 @@ void TrampSession::schedulePersist() { persistTimer_.start(); }
 void TrampSession::scheduleAltered() { alteredTimer_.start(); }
 void TrampSession::scheduleUsage() { usageTimer_.start(); }
 
-HostWindow* TrampSession::windowFor(WindowId id) const {
-  switch (id) {
-    case WindowId::main:
-      return main_;
-    case WindowId::equalizer:
-      return eq_;
-    case WindowId::playlist:
-      return pl_;
-    case WindowId::settings:
-      return settingsWin_;
-    case WindowId::about:
-      return about_;
-  }
-  return main_;
+HostWindow* TrampSession::windowFor(WindowId id) const { return windows_[id]; }
+
+/// A dialog belongs to the panel it was raised from, so it lands over that
+/// panel rather than wherever the window manager felt like. Main stands in when
+/// the panel has no window — the dump and bench paths run with fewer than five.
+QWidget* TrampSession::dialogParent(WindowId id) const {
+  if (HostWindow* window = windowFor(id)) return window;
+  return windowFor(WindowId::main);
 }
 
 QRect TrampSession::hostRect() const { return shell_ ? shell_->virtualDesktop() : QRect(); }
@@ -828,11 +806,16 @@ void TrampSession::mainMinimized(bool minimized) {
   layout_.setMainMinimized(minimized);
   if (!minimized) applyAlwaysOnTop();
   layout_.place();
-  if (!minimized && settingsWin_ && settingsWin_->isVisible()) settingsWin_->raise();
+  if (!minimized) raiseSettingsIfShowing();
 }
 
-void TrampSession::mainActivated() {
-  if (settingsWin_ && settingsWin_->isVisible()) settingsWin_->raise();
+void TrampSession::mainActivated() { raiseSettingsIfShowing(); }
+
+/// Settings sits above the cluster: anything that brings main forward has to
+/// bring it along, or it disappears behind the player it configures.
+void TrampSession::raiseSettingsIfShowing() {
+  HostWindow* settings = windowFor(WindowId::settings);
+  if (settings && settings->isVisible()) settings->raise();
 }
 
 void TrampSession::playTrackAt(int index) {
@@ -962,7 +945,7 @@ void TrampSession::openPaths(const QStringList& paths, bool enqueue) {
 
 QString TrampSession::pickAudio(bool multiple) {
   FilePick pick;
-  pick.parent = main_;
+  pick.parent = windowFor(WindowId::main);
   pick.title = multiple ? QStringLiteral("Add audio files") : QStringLiteral("Open audio");
   pick.filter = QStringLiteral("Audio (*.mp3 *.m4a *.aac *.flac *.wav *.ogg *.opus)");
   pick.kind = multiple ? FilePickKind::openFiles : FilePickKind::openFile;
@@ -972,7 +955,7 @@ QString TrampSession::pickAudio(bool multiple) {
 
 QString TrampSession::pickPlaylist(bool save) {
   FilePick pick;
-  pick.parent = main_;
+  pick.parent = windowFor(WindowId::main);
   pick.filter = QStringLiteral("Playlists (*.m3u *.m3u8)");
   if (save) {
     pick.title = QStringLiteral("Save playlist");
@@ -1082,119 +1065,31 @@ void TrampSession::handleDrag(WindowId id, ChromeHit hit, QPoint logical) {
   }
 }
 
-void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical) {
-  using K = ChromeHit::Kind;
-  dragOrigin_ = logical;
-  switch (hit.kind) {
-    case K::options:
-      showOptionsMenu(hit.rect);
-      break;
-    case K::timeToggle:
-      settings_.showElapsed = !settings_.showElapsed;
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::mute:
-      playback_->toggleMute();
-      break;
-    case K::volume:
-    case K::seek:
-    case K::eqPreamp:
-    case K::eqBand:
-      sliderKind_ = hit.kind;
-      sliderIndex_ = hit.index;
-      handleDrag(id, hit, sliderPressPoint(hit.rect, logical));
-      break;
-    case K::mono:
-      settings_.forceMono = !settings_.forceMono;
-      engine_->setForceMono(settings_.forceMono);
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::eqToggle:
-      setWindowVisible(WindowId::equalizer, !layout_.layout().equalizer.visible);
-      break;
-    case K::plToggle:
-      setWindowVisible(WindowId::playlist, !layout_.layout().playlist.visible);
-      break;
-    case K::prev:
-    case K::plPrev:
-      playback_->previous();
-      break;
-    case K::play:
-      if (!playback_->playing()) playback_->playPause();
-      break;
-    case K::pause:
-      if (playback_->playing()) playback_->playPause();
-      break;
-    case K::plPlay:
-      playback_->playPause();
-      break;
-    case K::stop:
-      playback_->stop();
-      break;
-    case K::next:
-    case K::plNext:
-      playback_->next();
-      break;
-    case K::plRefresh:
-      refreshCurrentPlaylist();
-      break;
-    case K::eject:
-    case K::plAdd: {
+void TrampSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowId id,
+                                        const ChromeHit& hit, QPoint logical) {
+  if (out.beginSlider) {
+    sliderKind_ = out.sliderKind;
+    sliderIndex_ = out.sliderIndex;
+    handleDrag(id, hit, sliderPressPoint(hit.rect, logical));
+  }
+  if (out.toggleVisible) {
+    setWindowVisible(*out.toggleVisible, !windowShouldShow(*out.toggleVisible));
+  }
+  if (out.settingsTab) settingsTab_ = *out.settingsTab;
+  if (out.applyEq) applyEq();
+  if (out.applyAlwaysOnTop) applyAlwaysOnTop();
+  if (out.syncTitleMarquee) syncTitleMarquee();
+  if (out.persist) schedulePersist();
+  if (out.persistCollection) persistCollectionCache();
+  if (out.refreshEq) refreshEqChrome();
+  if (out.refreshChrome) refreshChrome();
+  switch (out.intent) {
+    case ChromeIntent::pickAudio: {
       const QString picked = pickAudio(true);
       if (!picked.isEmpty()) openPaths(picked.split(QLatin1Char('\n')), true);
       break;
     }
-    case K::shuffle:
-      playback_->toggleShuffle();
-      break;
-    case K::repeat:
-      playback_->cycleRepeatMode();
-      break;
-    case K::eqOn:
-      settings_.equalizerCurve.enabled = !settings_.equalizerCurve.enabled;
-      applyEq();
-      schedulePersist();
-      refreshEqChrome();
-      break;
-    case K::eqAuto:
-      settings_.equalizerCurve.auto_ = !settings_.equalizerCurve.auto_;
-      schedulePersist();
-      refreshEqChrome();
-      break;
-    case K::eqPresets: {
-      const auto& presets = EqualizerPresets::builtIn();
-      QVector<ChromeMenuItem> items;
-      items.reserve(presets.size());
-      for (const auto& preset : presets) items.push_back(ChromeMenuItem::action(preset.first));
-      const int chosen = execAnchoredMenu(items, eq_, hit.rect, PopupAnchor::belowLeft);
-      if (chosen == kChromeMenuNone) break;
-      settings_.equalizerCurve =
-          settings_.equalizerCurve.withPreset(presets[chosen].first, presets[chosen].second);
-      settings_.equalizerCurve.enabled = true;
-      applyEq();
-      schedulePersist();
-      refreshEqChrome();
-      break;
-    }
-    case K::plCollapse:
-      settings_.playlistCollectionCollapsed = !settings_.playlistCollectionCollapsed;
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::plCollectionRow: {
-      const auto entries = collection_.entries();
-      if (hit.index < 0 || hit.index >= entries.size()) break;
-      if (mods & Qt::ControlModifier) {
-        collection_.select(entries[hit.index].path);
-        refreshChrome();
-      } else {
-        loadCollectionRow(hit.index);
-      }
-      break;
-    }
-    case K::plAddCollection: {
+    case ChromeIntent::pickPlaylistFile: {
       const QString path = pickPlaylist(false);
       if (!path.isEmpty()) {
         startDurationProbe(ingestPlaylistFile(path));
@@ -1202,163 +1097,46 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       }
       break;
     }
-    case K::plCreate: {
-      enum Row { kFromCurrent, kFromSelection };
-      const QVector<ChromeMenuItem> items{
-          ChromeMenuItem::action(QStringLiteral("From current playlist"),
-                                 !playlist_.tracks().isEmpty()),
-          ChromeMenuItem::action(QStringLiteral("From selection"),
-                                 !playlist_.selectedIndices().isEmpty()),
-      };
-      const int chosen = execAnchoredMenu(items, pl_, hit.rect, PopupAnchor::aboveLeft);
-      if (chosen == kFromCurrent) {
-        const QString path = pickPlaylist(true);
-        if (!path.isEmpty()) {
-          if (reportPlaylistWriteFailure(playlist_.savePlaylistFile(path), path)) {
-            collection_.addWritten(path, playlist_.tracks());
-            persistCollectionCache();
-            startDurationProbe(playlist_.tracks());
-          }
-        }
-      } else if (chosen == kFromSelection) {
-        const QString path = pickPlaylist(true);
-        if (!path.isEmpty()) {
-          QVector<Track> selected;
-          QList<int> idx = playlist_.selectedIndices().values();
-          std::sort(idx.begin(), idx.end());
-          for (int i : idx) selected.push_back(playlist_.tracks()[i]);
-          // Whatever the cache already knows goes into the file; the rest is
-          // asked for behind the save, the same as every other ingest. Saving
-          // from the current list has always written it this way.
-          collection_.hydrateDurations(selected);
-          if (reportPlaylistWriteFailure(writeM3uFile(path, selected), path)) {
-            collection_.addWritten(path, selected);
-            persistCollectionCache();
-            startDurationProbe(selected);
-          }
-        }
-      }
+    case ChromeIntent::showPlCreateMenu:
+      presentPlCreateMenu(hit);
+      break;
+    case ChromeIntent::renameCollectionEntry:
+      presentPlRename();
+      break;
+    case ChromeIntent::showPlSortMenu:
+      presentPlSortMenu(hit);
+      break;
+    case ChromeIntent::showPlOptionsMenu:
+      presentPlOptionsMenu(hit);
+      break;
+    case ChromeIntent::refreshCurrentPlaylist:
+      refreshCurrentPlaylist();
+      break;
+    case ChromeIntent::loadCollectionRow:
+      loadCollectionRow(out.collectionRow);
+      break;
+    case ChromeIntent::showOptionsMenu:
+      showOptionsMenu(hit.rect);
+      break;
+    case ChromeIntent::showEqPresets:
+      presentEqPresets(hit);
+      break;
+    case ChromeIntent::openWebsite:
+      QDesktopServices::openUrl(QUrl(QStringLiteral("https://tramp.music")));
+      break;
+    case ChromeIntent::resetSettings:
+      presentResetSettings();
+      break;
+    case ChromeIntent::rescanSkins: {
+      WaitCursorScope wait;
+      skins_.rescan();
       refreshChrome();
       break;
     }
-    case K::plRename: {
-      if (collection_.selectedPath().isEmpty()) break;
-      QString current;
-      for (const SavedPlaylist& e : collection_.entries()) {
-        if (e.path == collection_.selectedPath()) {
-          current = e.displayName();
-          break;
-        }
-      }
-      bool ok = false;
-      const QString name = QInputDialog::getText(
-          pl_ ? static_cast<QWidget*>(pl_) : static_cast<QWidget*>(main_),
-          QStringLiteral("Rename playlist"), QStringLiteral("Name"), QLineEdit::Normal, current,
-          &ok);
-      if (!ok) break;
-      collection_.rename(collection_.selectedPath(), name);
-      persistCollectionCache();
-      refreshChrome();
-      break;
-    }
-    case K::plRemoveCollection:
-      if (!collection_.selectedPath().isEmpty()) {
-        collection_.remove(collection_.selectedPath());
-        persistCollectionCache();
-        refreshChrome();
-      }
-      break;
-    case K::plTrackRow: {
-      sliderKind_ = K::plTrackRow;
-      sliderIndex_ = hit.index;
-      if (mods & Qt::ShiftModifier) playlist_.selectRange(hit.index);
-      else if (mods & Qt::ControlModifier) playlist_.toggleSelection(hit.index);
-      else playlist_.select(hit.index);
-      break;
-    }
-    case K::plRemove:
-      playlist_.removeSelected();
-      break;
-    case K::plSort: {
-      enum Row { kTitle, kArtist, kDuration, kPath, kReverse };
-      const QVector<ChromeMenuItem> items{
-          ChromeMenuItem::action(QStringLiteral("Title")),
-          ChromeMenuItem::action(QStringLiteral("Artist")),
-          ChromeMenuItem::action(QStringLiteral("Duration")),
-          ChromeMenuItem::action(QStringLiteral("Path")),
-          ChromeMenuItem::action(QStringLiteral("Reverse")),
-      };
-      switch (execAnchoredMenu(items, pl_, hit.rect, PopupAnchor::aboveLeft)) {
-        case kTitle:
-          playlist_.sortBy(PlaylistSortKey::title);
-          break;
-        case kArtist:
-          playlist_.sortBy(PlaylistSortKey::artist);
-          break;
-        case kDuration:
-          playlist_.sortBy(PlaylistSortKey::duration);
-          break;
-        case kPath:
-          playlist_.sortBy(PlaylistSortKey::path);
-          break;
-        case kReverse:
-          playlist_.reverseTracks();
-          break;
-        default:
-          break;
-      }
-      break;
-    }
-    case K::plOptions: {
-      enum Row { kSelectAll, kInvertSelection, kSave, kClear };
-      const QVector<ChromeMenuItem> items{
-          ChromeMenuItem::action(QStringLiteral("Select all")),
-          ChromeMenuItem::action(QStringLiteral("Invert selection")),
-          ChromeMenuItem::action(QStringLiteral("Save playlist…")),
-          ChromeMenuItem::action(QStringLiteral("Clear")),
-      };
-      switch (execAnchoredMenu(items, pl_, hit.rect, PopupAnchor::aboveLeft)) {
-        case kSelectAll:
-          playlist_.selectAll();
-          break;
-        case kInvertSelection:
-          playlist_.invertSelection();
-          break;
-        case kSave: {
-          const QString path = pickPlaylist(true);
-          if (!path.isEmpty() &&
-              reportPlaylistWriteFailure(playlist_.savePlaylistFile(path), path) &&
-              collection_.contains(path)) {
-            collection_.addWritten(path, playlist_.tracks());
-            persistCollectionCache();
-            startDurationProbe(playlist_.tracks());
-          }
-          break;
-        }
-        case kClear:
-          playlist_.clear();
-          break;
-        default:
-          break;
-      }
-      break;
-    }
-    case K::settingsGeneral:
-      settingsTab_ = 0;
-      refreshChrome();
-      break;
-    case K::settingsSkins:
-      settingsTab_ = 1;
-      {
-        WaitCursorScope wait;
-        skins_.rescan();
-      }
-      refreshChrome();
-      break;
-    case K::settingsSkinRow: {
+    case ChromeIntent::activateSkin: {
       const auto catalog = skins_.catalog();
-      if (hit.index < 0 || hit.index >= catalog.size()) break;
-      const QString id = catalog[hit.index].id;
+      if (out.collectionRow < 0 || out.collectionRow >= catalog.size()) break;
+      const QString id = catalog[out.collectionRow].id;
       withWaitCursor(this, [this, id]() {
         if (skins_.activate(id, settings_)) {
           schedulePersist();
@@ -1367,121 +1145,231 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       });
       break;
     }
-    case K::settingsInstallZip: {
-      FilePick pick;
-      pick.parent = settingsWin_;
-      pick.title = QStringLiteral("Install skin");
-      pick.filter = QStringLiteral("Skin zip (*.zip)");
-      pick.kind = FilePickKind::openFile;
-      const QString path = pickFile(pick);
-      if (!path.isEmpty()) {
-        WaitCursorScope wait;
-        if (skins_.installZip(path, skinConflictPrompt())) {
-          schedulePersist();
-        }
-      }
+    case ChromeIntent::pickSkinZip:
+      presentSkinZipInstall();
+      break;
+    case ChromeIntent::pickSkinFolder:
+      presentSkinFolderInstall();
+      break;
+    case ChromeIntent::pickSkinsDirectory:
+      presentSkinsDirectoryPick();
+      break;
+    case ChromeIntent::resetSkinsDirectory: {
+      WaitCursorScope wait;
+      skins_.setSkinsDirectory({}, settings_);
+      schedulePersist();
       refreshChrome();
       break;
     }
-    case K::settingsInstallFolder: {
-      FilePick pick;
-      pick.parent = settingsWin_;
-      pick.title = QStringLiteral("Install skin folder");
-      pick.kind = FilePickKind::openDirectory;
-      const QString path = pickFile(pick);
-      if (!path.isEmpty()) {
-        WaitCursorScope wait;
-        if (skins_.installDirectory(path, skinConflictPrompt())) {
-          schedulePersist();
-        }
-      }
-      refreshChrome();
-      break;
-    }
-    case K::settingsSkinsFolder: {
-      FilePick pick;
-      pick.parent = settingsWin_;
-      pick.title = QStringLiteral("Skins folder");
-      pick.directory = skins_.skinsDirectory();
-      pick.kind = FilePickKind::openDirectory;
-      const QString path = pickFile(pick);
-      if (!path.isEmpty()) {
-        WaitCursorScope wait;
-        skins_.setSkinsDirectory(path, settings_);
-        schedulePersist();
-      }
-      refreshChrome();
-      break;
-    }
-    case K::settingsResetSkinsFolder:
-      {
-        WaitCursorScope wait;
-        skins_.setSkinsDirectory({}, settings_);
-      }
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::settingsResume:
-      settings_.resumeLastSession = !settings_.resumeLastSession;
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::settingsConfirm:
-      settings_.confirmBeforeQuit = !settings_.confirmBeforeQuit;
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::settingsScroll:
-      settings_.scrollTitle = !settings_.scrollTitle;
-      syncTitleMarquee();
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::settingsMinimize:
-      settings_.minimizeHidesSecondaries = !settings_.minimizeHidesSecondaries;
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::settingsSnapOff:
-      settings_.dockSnapStrength = DockSnapStrength::off;
-      layout_.docking().setSnapThreshold(0);
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::settingsSnapNormal:
-      settings_.dockSnapStrength = DockSnapStrength::normal;
-      layout_.docking().setSnapThreshold(20);
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::settingsSnapStrong:
-      settings_.dockSnapStrength = DockSnapStrength::strong;
-      layout_.docking().setSnapThreshold(40);
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::settingsReset:
-      settings_ = TrampSettings{};
-      applyEq();
-      engine_->setForceMono(false);
-      layout_.docking().setSnapThreshold(20);
-      applyAlwaysOnTop();
-      {
-        WaitCursorScope wait;
-        skins_.setSkinsDirectory({}, settings_);
-      }
-      syncTitleMarquee();
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::aboutWeb:
-      QDesktopServices::openUrl(QUrl(QStringLiteral("https://tramp.music")));
-      break;
-    case K::plResize:
-    case K::plDivider:
-    case K::none:
+    case ChromeIntent::none:
       break;
   }
+}
+
+void TrampSession::presentPlCreateMenu(const ChromeHit& hit) {
+  enum Row { kFromCurrent, kFromSelection };
+  const QVector<ChromeMenuItem> items{
+      ChromeMenuItem::action(QStringLiteral("From current playlist"),
+                             !playlist_.tracks().isEmpty()),
+      ChromeMenuItem::action(QStringLiteral("From selection"),
+                             !playlist_.selectedIndices().isEmpty()),
+  };
+  const int chosen = execAnchoredMenu(items, windowFor(WindowId::playlist), hit.rect, PopupAnchor::aboveLeft);
+  if (chosen == kFromCurrent) {
+    const QString path = pickPlaylist(true);
+    if (!path.isEmpty()) {
+      if (reportPlaylistWriteFailure(playlist_.savePlaylistFile(path), path)) {
+        collection_.addWritten(path, playlist_.tracks());
+        persistCollectionCache();
+        startDurationProbe(playlist_.tracks());
+      }
+    }
+  } else if (chosen == kFromSelection) {
+    const QString path = pickPlaylist(true);
+    if (!path.isEmpty()) {
+      QVector<Track> selected;
+      QList<int> idx = playlist_.selectedIndices().values();
+      std::sort(idx.begin(), idx.end());
+      for (int i : idx) selected.push_back(playlist_.tracks()[i]);
+      // Whatever the cache already knows goes into the file; the rest is
+      // asked for behind the save, the same as every other ingest. Saving
+      // from the current list has always written it this way.
+      collection_.hydrateDurations(selected);
+      if (reportPlaylistWriteFailure(writeM3uFile(path, selected), path)) {
+        collection_.addWritten(path, selected);
+        persistCollectionCache();
+        startDurationProbe(selected);
+      }
+    }
+  }
+  refreshChrome();
+}
+
+void TrampSession::presentPlRename() {
+  if (collection_.selectedPath().isEmpty()) return;
+  QString current;
+  for (const SavedPlaylist& e : collection_.entries()) {
+    if (e.path == collection_.selectedPath()) {
+      current = e.displayName();
+      break;
+    }
+  }
+  bool ok = false;
+  const QString name = QInputDialog::getText(
+      dialogParent(WindowId::playlist), QStringLiteral("Rename playlist"), QStringLiteral("Name"),
+      QLineEdit::Normal, current, &ok);
+  if (!ok) return;
+  collection_.rename(collection_.selectedPath(), name);
+  persistCollectionCache();
+  refreshChrome();
+}
+
+void TrampSession::presentPlSortMenu(const ChromeHit& hit) {
+  enum Row { kTitle, kArtist, kDuration, kPath, kReverse };
+  const QVector<ChromeMenuItem> items{
+      ChromeMenuItem::action(QStringLiteral("Title")),
+      ChromeMenuItem::action(QStringLiteral("Artist")),
+      ChromeMenuItem::action(QStringLiteral("Duration")),
+      ChromeMenuItem::action(QStringLiteral("Path")),
+      ChromeMenuItem::action(QStringLiteral("Reverse")),
+  };
+  switch (execAnchoredMenu(items, windowFor(WindowId::playlist), hit.rect, PopupAnchor::aboveLeft)) {
+    case kTitle:
+      playlist_.sortBy(PlaylistSortKey::title);
+      break;
+    case kArtist:
+      playlist_.sortBy(PlaylistSortKey::artist);
+      break;
+    case kDuration:
+      playlist_.sortBy(PlaylistSortKey::duration);
+      break;
+    case kPath:
+      playlist_.sortBy(PlaylistSortKey::path);
+      break;
+    case kReverse:
+      playlist_.reverseTracks();
+      break;
+    default:
+      break;
+  }
+}
+
+void TrampSession::presentPlOptionsMenu(const ChromeHit& hit) {
+  enum Row { kSelectAll, kInvertSelection, kSave, kClear };
+  const QVector<ChromeMenuItem> items{
+      ChromeMenuItem::action(QStringLiteral("Select all")),
+      ChromeMenuItem::action(QStringLiteral("Invert selection")),
+      ChromeMenuItem::action(QStringLiteral("Save playlist…")),
+      ChromeMenuItem::action(QStringLiteral("Clear")),
+  };
+  switch (execAnchoredMenu(items, windowFor(WindowId::playlist), hit.rect, PopupAnchor::aboveLeft)) {
+    case kSelectAll:
+      playlist_.selectAll();
+      break;
+    case kInvertSelection:
+      playlist_.invertSelection();
+      break;
+    case kSave: {
+      const QString path = pickPlaylist(true);
+      if (!path.isEmpty() &&
+          reportPlaylistWriteFailure(playlist_.savePlaylistFile(path), path) &&
+          collection_.contains(path)) {
+        collection_.addWritten(path, playlist_.tracks());
+        persistCollectionCache();
+        startDurationProbe(playlist_.tracks());
+      }
+      break;
+    }
+    case kClear:
+      playlist_.clear();
+      break;
+    default:
+      break;
+  }
+}
+
+void TrampSession::presentEqPresets(const ChromeHit& hit) {
+  const auto& presets = EqualizerPresets::builtIn();
+  QVector<ChromeMenuItem> items;
+  items.reserve(presets.size());
+  for (const auto& preset : presets) items.push_back(ChromeMenuItem::action(preset.first));
+  const int chosen =
+      execAnchoredMenu(items, windowFor(WindowId::equalizer), hit.rect, PopupAnchor::belowLeft);
+  if (chosen == kChromeMenuNone) return;
+  settings_.equalizerCurve =
+      settings_.equalizerCurve.withPreset(presets[chosen].first, presets[chosen].second);
+  settings_.equalizerCurve.enabled = true;
+  applyEq();
+  schedulePersist();
+  refreshEqChrome();
+}
+
+void TrampSession::presentResetSettings() {
+  settings_ = TrampSettings{};
+  applyEq();
+  engine_->setForceMono(false);
+  layout_.docking().setSnapThreshold(snapPixels(settings_.dockSnapStrength));
+  applyAlwaysOnTop();
+  {
+    WaitCursorScope wait;
+    skins_.setSkinsDirectory({}, settings_);
+  }
+  syncTitleMarquee();
+  schedulePersist();
+  refreshChrome();
+}
+
+void TrampSession::presentSkinZipInstall() {
+  FilePick pick;
+  pick.parent = windowFor(WindowId::settings);
+  pick.title = QStringLiteral("Install skin");
+  pick.filter = QStringLiteral("Skin zip (*.zip)");
+  pick.kind = FilePickKind::openFile;
+  const QString path = pickFile(pick);
+  if (!path.isEmpty()) {
+    WaitCursorScope wait;
+    if (skins_.installZip(path, skinConflictPrompt())) {
+      schedulePersist();
+    }
+  }
+  refreshChrome();
+}
+
+void TrampSession::presentSkinFolderInstall() {
+  FilePick pick;
+  pick.parent = windowFor(WindowId::settings);
+  pick.title = QStringLiteral("Install skin folder");
+  pick.kind = FilePickKind::openDirectory;
+  const QString path = pickFile(pick);
+  if (!path.isEmpty()) {
+    WaitCursorScope wait;
+    if (skins_.installDirectory(path, skinConflictPrompt())) {
+      schedulePersist();
+    }
+  }
+  refreshChrome();
+}
+
+void TrampSession::presentSkinsDirectoryPick() {
+  FilePick pick;
+  pick.parent = windowFor(WindowId::settings);
+  pick.title = QStringLiteral("Skins folder");
+  pick.directory = skins_.skinsDirectory();
+  pick.kind = FilePickKind::openDirectory;
+  const QString path = pickFile(pick);
+  if (!path.isEmpty()) {
+    WaitCursorScope wait;
+    skins_.setSkinsDirectory(path, settings_);
+    schedulePersist();
+  }
+  refreshChrome();
+}
+
+void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical) {
+  dragOrigin_ = logical;
+  ChromeCommandRouter router(*playback_, playlist_, settings_, collection_, *engine_,
+                             layout_.docking());
+  presentChromeOutcome(router.handle(id, hit, mods, logical), id, hit, logical);
 }
 
 void TrampSession::showOptionsMenu(QRect logicalHit) {
@@ -1498,7 +1386,7 @@ void TrampSession::showOptionsMenu(QRect logicalHit) {
       ChromeMenuItem::action(QStringLiteral("Quit")),
   };
   if (logicalHit.isEmpty()) logicalHit = mainOptionsHit(kMainPlayer);
-  switch (execAnchoredMenu(items, main_, logicalHit, PopupAnchor::belowLeft)) {
+  switch (execAnchoredMenu(items, windowFor(WindowId::main), logicalHit, PopupAnchor::belowLeft)) {
     case kAlwaysOnTop:
       settings_.alwaysOnTop = !settings_.alwaysOnTop;
       applyAlwaysOnTop();
@@ -1546,13 +1434,13 @@ void TrampSession::showTrackInfo() {
     lines << QStringLiteral("Path: %1").arg(track->path);
     message = lines.join(QLatin1Char('\n'));
   }
-  QMessageBox::information(main_, QStringLiteral("Track info"), message);
+  QMessageBox::information(windowFor(WindowId::main), QStringLiteral("Track info"), message);
 }
 
 bool TrampSession::reportPlaylistWriteFailure(bool wrote, const QString& path) {
   if (wrote) return true;
   QMessageBox::warning(
-      main_, QStringLiteral("Playlist not saved"),
+      windowFor(WindowId::main), QStringLiteral("Playlist not saved"),
       QStringLiteral("Tramp could not write %1.\n\nThe playlist still has its "
                      "unsaved changes, and the file on disk is unchanged.")
           .arg(QDir::toNativeSeparators(path)));
@@ -1561,7 +1449,7 @@ bool TrampSession::reportPlaylistWriteFailure(bool wrote, const QString& path) {
 
 bool TrampSession::confirmReplaceAltered(const QString& consequence) {
   if (!playlist_.altered()) return true;
-  QMessageBox box(main_);
+  QMessageBox box(windowFor(WindowId::main));
   box.setWindowTitle(QStringLiteral("Save the current playlist?"));
   const QString follow = consequence.isEmpty()
                              ? QStringLiteral("Loading another playlist replaces it.")
@@ -1591,14 +1479,14 @@ bool TrampSession::confirmReplaceAltered(const QString& consequence) {
 }
 
 void TrampSession::quitFromMenu() {
-  if (main_) main_->close();
+  if (HostWindow* main = windowFor(WindowId::main)) main->close();
 }
 
 QString TrampSession::bundledSkinsDir() const { return tramp::bundledSkinsDir(); }
 
 SkinController::ConflictFn TrampSession::skinConflictPrompt() {
   return [this](const SkinConflict& conflict) {
-    QWidget* parent = settingsWin_ ? static_cast<QWidget*>(settingsWin_) : main_;
+    QWidget* parent = dialogParent(WindowId::settings);
     const QString text =
         QStringLiteral("A skin named \"%1\" is already installed%2.\nReplace it with \"%3\"%4?")
             .arg(conflict.installedName,
