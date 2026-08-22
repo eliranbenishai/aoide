@@ -139,7 +139,7 @@ _Premise_ (2026-08-21, accepted without evidence): that 75% is the right size to
 _Avoid_: DPI scale (OS setting), continuous zoom, maximize (as a window-size control), per-panel zoom (product model is global), stretching main/EQ via panel drag, 50% / 200% / 250% / 300% (retired steps), zoom menu row / zoom keyboard shortcut (never built — see Accessibility in the v1 spec)
 
 **Options cog**:
-The cog at the top of the gutter left of the main player's **display well**. Under it sit **Skins** (swatch glyph; latches while the Skins panel is up) and **Track info** (metadata-lines glyph; dead until a track is loaded). The cog opens overflow: always-on-top (a check, applied to the **host window**), Settings…, About Tramp, Open files… (the same enqueue as the eject glyph), Quit. One cog plus two named buttons — the mockup's clutterbar is not the product chrome.
+The cog at the top of the gutter left of the main player's **display well**. Under it sit **Skins** (swatch glyph; latches while the Skins panel is up) and **Track info** (metadata-lines glyph; dead until a track is loaded). The cog opens overflow: always-on-top (a check, applied to the **host window**), Open files… (the same enqueue as the eject glyph), Settings…, About Tramp, Quit. One cog plus two named buttons — the mockup's clutterbar is not the product chrome.
 _Avoid_: clutterbar, clutter rail, **O** / **A** / **I** as product controls (all retired — the mockup's vertical letter strip, replaced by the cog); toolbar (when this control is meant); doublesize button (**D**), viz button (**V**); always-on-top as a per-panel or per-group control; Track info as a cog-menu row
 
 **Skins panel**:

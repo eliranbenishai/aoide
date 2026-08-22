@@ -38,10 +38,10 @@ inline QVector<ChromeMenuItem> optionsMenuItems(const TrampSettings& settings) {
   return {
       ChromeMenuItem::check(QStringLiteral("Always on top"), settings.alwaysOnTop),
       ChromeMenuItem::separator(),
-      ChromeMenuItem::action(QStringLiteral("Settings…")),
-      ChromeMenuItem::action(QStringLiteral("About Tramp")),
       ChromeMenuItem::action(QStringLiteral("Open files…")),
+      ChromeMenuItem::action(QStringLiteral("Settings…")),
       ChromeMenuItem::separator(),
+      ChromeMenuItem::action(QStringLiteral("About Tramp")),
       ChromeMenuItem::action(QStringLiteral("Quit")),
   };
 }

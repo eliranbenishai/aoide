@@ -2311,7 +2311,7 @@ int main() {
 
   {
     // Overflow only: Skins and Track info are gutter buttons, not menu rows.
-    // Open files stays with the other openers, before Quit.
+    // Open files sits with Settings; About sits with Quit.
     tramp::TrampSettings settings;
     const auto items = tramp::optionsMenuItems(settings);
     QStringList labels;
@@ -2320,17 +2320,17 @@ int main() {
     }
     REQUIRE_EQ(labels, (QStringList{
                            QStringLiteral("Always on top"),
+                           QStringLiteral("Open files…"),
                            QStringLiteral("Settings…"),
                            QStringLiteral("About Tramp"),
-                           QStringLiteral("Open files…"),
                            QStringLiteral("Quit"),
                        }));
     REQUIRE(items.front().checkable);
     REQUIRE(!items.front().checked);
     settings.alwaysOnTop = true;
     REQUIRE(tramp::optionsMenuItems(settings).front().checked);
-    REQUIRE_EQ(items.at(items.size() - 2).kind, tramp::ChromeMenuKind::separator);
-    REQUIRE_EQ(items.at(items.size() - 3).label, QStringLiteral("Open files…"));
+    REQUIRE_EQ(items.at(4).kind, tramp::ChromeMenuKind::separator);
+    REQUIRE_EQ(items.at(2).label, QStringLiteral("Open files…"));
   }
 
   {

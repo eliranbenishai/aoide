@@ -1421,7 +1421,7 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
 void TrampSession::showOptionsMenu(QRect logicalHit) {
   // The rules keep the window toggle and the destructive row away from the
   // openers. Row indices count them, hence the members.
-  enum Row { kAlwaysOnTop, kRuleTop, kSettings, kAbout, kOpenFiles, kRuleQuit, kQuit };
+  enum Row { kAlwaysOnTop, kRuleTop, kOpenFiles, kSettings, kRuleAbout, kAbout, kQuit };
   const QVector<ChromeMenuItem> items = optionsMenuItems(settings_);
   if (logicalHit.isEmpty()) logicalHit = mainOptionsHit(kMainPlayer);
   switch (execAnchoredMenu(items, windowFor(WindowId::main), logicalHit, PopupAnchor::belowLeft)) {
