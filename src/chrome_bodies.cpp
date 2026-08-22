@@ -171,6 +171,25 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
   if (chassis) {
     drawScreenWell(p, well);
     drawGlyphBtn(p, display.options, MockupIcon::options, faceOf(phases, K::options, false), 16);
+    const QRectF marks = displayWellMarks(inner);
+    qreal markX = marks.left();
+    auto paintMark = [&](const QString& label) {
+      const QFont font = condensedFont(11, 0.2);
+      const qreal w = textWidth(font, label) + 2;
+      const QRectF box(markX, marks.top(), w, marks.height());
+      if (glow) {
+        drawStyledText(p, box, label, font, withAlpha(T().accent, 200),
+                       Qt::AlignLeft | Qt::AlignVCenter,
+                       {{withAlpha(T().accent, 0x40), QPointF(), 6}});
+      } else {
+        p.setFont(font);
+        p.setPen(T().accent);
+        p.drawText(box, Qt::AlignLeft | Qt::AlignVCenter, label);
+      }
+      markX += w + 12;
+    };
+    if (view.spectrumUnmeasured) paintMark(QStringLiteral("UNMEAS"));
+    if (view.noAudioEngine) paintMark(QStringLiteral("NO AUDIO"));
   }
 
   if (live) {
@@ -205,7 +224,7 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
       p.drawText(elBox, Qt::AlignLeft | Qt::AlignTop, timeLabel);
     }
 
-    const QRectF viz(inner.left(), inner.bottom() - 42, 248, 42);
+    const QRectF viz(inner.left(), inner.bottom() - kDisplayWellVizH, 248, kDisplayWellVizH);
     for (int i = 0; i < 20; ++i) {
       const qreal x = viz.left() + i * 12;
       const qreal h = viz.height() * bars[size_t(i)];
@@ -858,6 +877,13 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
     drawBtn(p, QRectF(sx, pane.top() + 194, 88, 28), faceOf(phases, segKinds[i], i == snap),
             QString::fromLatin1(segs[i]));
     sx += 96;
+  }
+  if (view.persistWriteFailed) {
+    const QRectF mark = settingsPersistMark(pane);
+    p.setFont(monoFont(10));
+    p.setPen(T().accent);
+    p.drawText(mark, Qt::AlignVCenter | Qt::AlignLeft,
+               QStringLiteral("Could not write settings"));
   }
   p.setFont(condensedFont(12, 0.1));
   p.setPen(T().accent);

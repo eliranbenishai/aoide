@@ -170,6 +170,7 @@ class TrampSession : public QObject, public PanelSurfaces {
   qint64 titleScrollMs() const;
 
   SupportStore store_;
+  PersistHealth persistHealth_;
   TrampSettings settings_;
   PlaylistController playlist_;
   PlaylistCollection collection_;
@@ -217,6 +218,8 @@ class TrampSession : public QObject, public PanelSurfaces {
   int skinsScroll_ = 0;
   /// A playlist is still taking on track data — what the Refresh lamp reports.
   bool ingesting_ = false;
+  /// True when the session installed `MissingAudioEngine`.
+  bool noAudioEngine_ = false;
   /// Set while a batch of probe answers is being applied: every answer touches
   /// the list, and every touch would otherwise rebuild the view and hand it to
   /// five panels. One batch is one change as far as the chrome is concerned.

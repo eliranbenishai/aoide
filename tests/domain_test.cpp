@@ -509,6 +509,18 @@ int main() {
   }
 
   {
+    // The display-well mark reads Spectrogram::synthetic, never the per-frame
+    // levels. Pause answers silent levels that are not synthetic, so a mark
+    // that followed levelsAt — or spectrumFrame while paused — would vanish
+    // the moment the listener stopped the needle.
+    const Spectrogram spec = Spectrogram::unmeasured();
+    REQUIRE(spec.synthetic);
+    REQUIRE(spec.levelsAt(0).synthetic);
+    const AudioLevels paused = spectrumFrame(spec, false, 250);
+    REQUIRE(!paused.synthetic);
+  }
+
+  {
     // A decode that failed has flat bands, which is what a quiet passage has
     // too, so the bands cannot be what tells them apart: the frames are marked
     // synthetic instead. A broken analyser that reads as silence is a lie the
@@ -1084,6 +1096,30 @@ int main() {
         tmp.path(), QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
     REQUIRE(!wrote);
     REQUIRE_EQ(store.readSettings().zoomPercent, 150);
+  }
+
+  {
+    // persistNow notices writeObject returning false through this seam. A
+    // failed file stays failed until that file writes; a later success is
+    // what clears the Settings mark.
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    tramp::SupportStore store(tmp.path());
+    tramp::PersistHealth health;
+    tramp::TrampSettings settings;
+    tramp::SessionResume resume;
+    tramp::UsageCounters usage;
+    tramp::writeSessionPersist(store, health, settings, resume, usage, {}, nullptr);
+    REQUIRE(!health.anyFailed());
+
+    REQUIRE(QFile::setPermissions(tmp.path(), QFile::ReadOwner | QFile::ExeOwner));
+    tramp::writeSessionPersist(store, health, settings, resume, usage, {}, nullptr);
+    REQUIRE(QFile::setPermissions(
+        tmp.path(), QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+    REQUIRE(health.anyFailed());
+
+    tramp::writeSessionPersist(store, health, settings, resume, usage, {}, nullptr);
+    REQUIRE(!health.anyFailed());
   }
 
   {

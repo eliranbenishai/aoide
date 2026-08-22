@@ -317,4 +317,19 @@ bool SupportStore::writeTrackSets(const CollectionTrackSets& sets) const {
   return writeObject(QStringLiteral("playlist_tracks.json"), root);
 }
 
+void writeSessionPersist(const SupportStore& store, PersistHealth& health,
+                         const TrampSettings& settings, const SessionResume& resume,
+                         const UsageCounters& usage, const QString& lastPlaylistPath,
+                         const AlteredPlaylist* altered) {
+  health.settingsOk = store.writeSettings(settings);
+  health.resumeOk = store.writeResume(resume);
+  health.usageOk = store.writeUsage(usage);
+  if (!lastPlaylistPath.isEmpty()) {
+    health.lastPlaylistOk = store.writeLastPlaylistPath(lastPlaylistPath);
+  }
+  if (altered) {
+    health.alteredOk = store.writeAltered(*altered);
+  }
+}
+
 }  // namespace tramp

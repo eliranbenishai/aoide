@@ -63,6 +63,10 @@ class HostWindowMoveTest : public QObject {
   void emptyStateCopyIsTheLockedCopy();
   void paintsSameFlipsWhenAnEmptyListGainsARow();
   void emptyWellsAreNotBlank();
+  void unmeasuredSpectrumMarkFollowsTheSpectrogram();
+  void missingEngineMarkStaysOnTheDisplayWell();
+  void persistFailureMarkStaysUntilAWriteSucceeds();
+  void skinsErrorStaysOnTheSkinsStrip();
 };
 
 void HostWindowMoveTest::parentedPanelMoveDoesNotEmitNativeMoved() {
@@ -695,6 +699,10 @@ std::vector<FieldChange> everyFieldOfTheSnapshot() {
       {"repeat", "main", [](tramp::SessionView& v) { v.repeat = tramp::RepeatMode::one; }},
       {"spectrum", "main", [](tramp::SessionView& v) { v.spectrum[4] = 0.11; }},
       {"spectrumPeaks", "main", [](tramp::SessionView& v) { v.spectrumPeaks[4] = 0.99; }},
+      {"spectrumUnmeasured", "main",
+       [](tramp::SessionView& v) { v.spectrumUnmeasured = !v.spectrumUnmeasured; }},
+      {"noAudioEngine", "main",
+       [](tramp::SessionView& v) { v.noAudioEngine = !v.noAudioEngine; }},
 
       // The marquee clock free-runs, so charging main for every value of it
       // would cost main its cache for as long as a track is loaded. It reaches
@@ -759,6 +767,8 @@ std::vector<FieldChange> everyFieldOfTheSnapshot() {
       {"skinsError", "settings",
        [](tramp::SessionView& v) { v.skinsError = QStringLiteral("no skin.json"); }},
       {"skinsScroll", "settings", [](tramp::SessionView& v) { v.skinsScroll = 12; }},
+      {"persistWriteFailed", "settings",
+       [](tramp::SessionView& v) { v.persistWriteFailed = !v.persistWriteFailed; }},
 
       // About: the four figures in the stats well.
       {"aboutPlaylists", "about", [](tramp::SessionView& v) { v.aboutPlaylists += 1; }},
@@ -871,6 +881,10 @@ void HostWindowMoveTest::refreshButtonLightsWhilePlaylistRefreshing() {
 void HostWindowMoveTest::goldenDemoPaintsTheStateItIsHanded() {
   const tramp::SessionView golden = tramp::goldenDemoView();
   QVERIFY2(golden.goldenDemo, "the demo state is still the fidelity reference");
+
+  QVERIFY2(!golden.spectrumUnmeasured, "the golden demo is a measured spectrum");
+  QVERIFY2(!golden.noAudioEngine, "the golden demo has a working engine");
+  QVERIFY2(!golden.persistWriteFailed, "the golden demo has writable settings");
 
   tramp::SessionView skins = golden;
   skins.settingsTab = 1;
@@ -1291,6 +1305,79 @@ void HostWindowMoveTest::emptyWellsAreNotBlank() {
   QVERIFY2(paintCachedPass(tramp::WindowId::main, mainLogical, golden) ==
                paintCachedPass(tramp::WindowId::main, mainLogical, spun),
            "the golden demo title must not follow aboutSpins");
+}
+
+void HostWindowMoveTest::unmeasuredSpectrumMarkFollowsTheSpectrogram() {
+  tramp::loadTrampFonts();
+  const tramp::SessionView measured = tramp::goldenDemoView();
+  tramp::SessionView unmeasured = measured;
+  unmeasured.spectrumUnmeasured = true;
+
+  QVERIFY2(!tramp::paintsSame(tramp::WindowId::main, measured, unmeasured),
+           "the main chassis must turn over for the unmeasured-spectrum mark");
+  QVERIFY2(tramp::paintsSame(tramp::WindowId::settings, measured, unmeasured),
+           "the mark is a display-well surface, not a second settings notice");
+
+  tramp::SessionView pausedMeasured = measured;
+  pausedMeasured.playing = false;
+  pausedMeasured.paused = true;
+  tramp::SessionView pausedUnmeasured = unmeasured;
+  pausedUnmeasured.playing = false;
+  pausedUnmeasured.paused = true;
+
+  const QSize main = tramp::kMainPlayer;
+  QVERIFY2(paintPanel(tramp::WindowId::main, main, unmeasured) !=
+               paintPanel(tramp::WindowId::main, main, measured),
+           "an unmeasured spectrum must paint a mark on the display well");
+  QVERIFY2(paintPanel(tramp::WindowId::main, main, pausedUnmeasured) !=
+               paintPanel(tramp::WindowId::main, main, pausedMeasured),
+           "pause must not clear the unmeasured mark");
+}
+
+void HostWindowMoveTest::missingEngineMarkStaysOnTheDisplayWell() {
+  tramp::loadTrampFonts();
+  const tramp::SessionView working = tramp::goldenDemoView();
+  tramp::SessionView missing = working;
+  missing.noAudioEngine = true;
+
+  QVERIFY2(!tramp::paintsSame(tramp::WindowId::main, working, missing),
+           "the main chassis must turn over for the missing-engine mark");
+  QVERIFY2(tramp::paintsSame(tramp::WindowId::settings, working, missing),
+           "the mark is a display-well surface, not a second settings notice");
+  QVERIFY2(paintPanel(tramp::WindowId::main, tramp::kMainPlayer, missing) !=
+               paintPanel(tramp::WindowId::main, tramp::kMainPlayer, working),
+           "a missing audio engine must paint a durable mark on the display well");
+}
+
+void HostWindowMoveTest::persistFailureMarkStaysUntilAWriteSucceeds() {
+  tramp::loadTrampFonts();
+  const tramp::SessionView ok = tramp::goldenDemoView();
+  tramp::SessionView failed = ok;
+  failed.persistWriteFailed = true;
+
+  QVERIFY2(!tramp::paintsSame(tramp::WindowId::settings, ok, failed),
+           "the settings chassis must turn over for a persist-write mark");
+  QVERIFY2(tramp::paintsSame(tramp::WindowId::main, ok, failed),
+           "the persist mark is a Settings-row surface, not a title-bar overlay");
+  QVERIFY2(paintPanel(tramp::WindowId::settings, tramp::kSettings, failed) !=
+               paintPanel(tramp::WindowId::settings, tramp::kSettings, ok),
+           "a failed state-file write must paint a Settings-row mark");
+}
+
+void HostWindowMoveTest::skinsErrorStaysOnTheSkinsStrip() {
+  tramp::loadTrampFonts();
+  tramp::SessionView clean = tramp::goldenDemoView();
+  clean.settingsTab = 1;
+  tramp::SessionView failed = clean;
+  failed.skinsError = QStringLiteral("no skin.json at the archive root");
+
+  QVERIFY2(tramp::paintsSame(tramp::WindowId::main, clean, failed),
+           "a skin install error is not a second display-well surface");
+  QVERIFY2(!tramp::paintsSame(tramp::WindowId::settings, clean, failed),
+           "the Skins-tab strip is the transient notice");
+  QVERIFY2(paintPanel(tramp::WindowId::settings, tramp::kSettings, failed) !=
+               paintPanel(tramp::WindowId::settings, tramp::kSettings, clean),
+           "the Skins strip must still paint skinsError");
 }
 
 QTEST_MAIN(HostWindowMoveTest)
