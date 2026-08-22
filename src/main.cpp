@@ -69,6 +69,15 @@ int dumpChrome(const QString& dirPath) {
 
   for (const tramp::WindowSpec& spec : tramp::windowSpecs()) {
     if (!shoot(spec, golden, dumpName(spec.id))) return 1;
+    if (spec.id == tramp::WindowId::main) {
+      // The pairing host withdraws zoom-in at the default three-panel stack.
+      // The golden dump keeps the buttons live so that picture stays the
+      // demo; this is the dead zoom-in face that dump has to watch.
+      tramp::SessionView zoomDisabled = golden;
+      zoomDisabled.zoomInEnabled = false;
+      if (!shoot(spec, zoomDisabled, dumpName(spec.id) + QStringLiteral("_zoom_disabled")))
+        return 1;
+    }
     // Collapsing the collection is persisted, so a listener can spend every
     // session in it, and it lays the panel out differently. Dumping only the
     // default state left that layout with nothing watching it.
@@ -94,6 +103,15 @@ int dumpChrome(const QString& dirPath) {
       clamped.playlistTrackCount = golden.playlistTrackCount - 1;
       clamped.playlistTotalMs = golden.playlistTotalMs - 243000;
       if (!shoot(smallest, clamped, dumpName(spec.id) + QStringLiteral("_clamped"))) return 1;
+
+      // The demo list fills both wells. Ticket 15's empty-state copy lives
+      // only when there are no tracks and no saved playlists, with the
+      // collection column still open — a different view, not the golden
+      // list with words painted over it.
+      tramp::SessionView empty;
+      empty.goldenDemo = true;
+      empty.collectionCollapsed = false;
+      if (!shoot(spec, empty, dumpName(spec.id) + QStringLiteral("_empty"))) return 1;
     }
     // The Skins tab shares no pixel with General: its list, scrollbar, four
     // buttons and error line are a pane of their own, so it needs a picture of
