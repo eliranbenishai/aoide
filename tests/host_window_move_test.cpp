@@ -1,7 +1,9 @@
 #include "chrome_bodies.h"
 #include "chrome_hits.h"
 #include "chrome_layout.h"
+#include "chrome_paint.h"
 #include "mockup_draw.h"
+#include "title_chrome.h"
 #include "host_shell_window.h"
 #include "host_window.h"
 #include "look.h"
@@ -55,6 +57,8 @@ class HostWindowMoveTest : public QObject {
   void refreshLampLightsOnTheLiveEventLoop();
   void goldenDemoPaintsTheStateItIsHanded();
   void mockupHelpersLeaveThePainterAsTheyFoundIt();
+  void panelPaintersLeaveThePainterAsTheyFoundIt();
+  void panelPaintersDrawWithWhatTheySet();
 };
 
 void HostWindowMoveTest::parentedPanelMoveDoesNotEmitNativeMoved() {
@@ -967,6 +971,176 @@ void HostWindowMoveTest::mockupHelpersLeaveThePainterAsTheyFoundIt() {
     QVERIFY2(p.brush() == brush, qPrintable(helper.first + QStringLiteral(" left a brush behind")));
     QVERIFY2(p.font().toString() == font.toString(),
              qPrintable(helper.first + QStringLiteral(" left a font behind")));
+  }
+}
+
+namespace {
+
+/// A panel and the state it is painted in. One picture of each panel is not
+/// enough: a leak that only happens once a list has rows, or once the Skins tab
+/// is open, is still a leak, and these are the states the fidelity dump
+/// photographs for the same reason.
+struct PanelState {
+  QString what;
+  tramp::WindowId id;
+  QSize logical;
+  tramp::SessionView view;
+};
+
+QVector<PanelState> panelStates() {
+  const auto specs = tramp::windowSpecs();
+  const tramp::SessionView golden = tramp::goldenDemoView();
+  tramp::SessionView collapsed = golden;
+  collapsed.collectionCollapsed = true;
+  tramp::SessionView skins = golden;
+  skins.settingsTab = 1;
+  skins.skins = {{QStringLiteral("builtin"), QStringLiteral("Built-in"), {}},
+                 {QStringLiteral("dusk"), QStringLiteral("Dusk"),
+                  QStringLiteral("Halogen Youth")}};
+  skins.activeSkinId = QStringLiteral("dusk");
+  skins.skinsError = QStringLiteral("dusk.zip: no skin.json at the archive root.");
+  return {
+      {QStringLiteral("the main player"), tramp::WindowId::main, specs[0].logicalSize, golden},
+      {QStringLiteral("an empty main player"), tramp::WindowId::main, specs[0].logicalSize, {}},
+      {QStringLiteral("the equaliser"), tramp::WindowId::equalizer, specs[1].logicalSize, golden},
+      {QStringLiteral("the playlist"), tramp::WindowId::playlist, specs[2].logicalSize, golden},
+      {QStringLiteral("the collapsed playlist"), tramp::WindowId::playlist, specs[2].logicalSize,
+       collapsed},
+      {QStringLiteral("an empty playlist"), tramp::WindowId::playlist, specs[2].logicalSize, {}},
+      {QStringLiteral("the settings pane"), tramp::WindowId::settings, specs[3].logicalSize,
+       golden},
+      {QStringLiteral("the Skins tab"), tramp::WindowId::settings, specs[3].logicalSize, skins},
+      {QStringLiteral("the about panel"), tramp::WindowId::about, specs[4].logicalSize, golden},
+  };
+}
+
+const char* passName(tramp::BodyPaint pass) {
+  switch (pass) {
+    case tramp::BodyPaint::full:
+      return "the full pass";
+    case tramp::BodyPaint::chassis:
+      return "the chassis pass";
+    case tramp::BodyPaint::live:
+      return "the live pass";
+  }
+  return "an unknown pass";
+}
+
+}  // namespace
+
+// Same contract as `mockupHelpersLeaveThePainterAsTheyFoundIt`, one layer up.
+// Every panel painter used to leave its last pen and font behind, and the About
+// plate left `QPainter::SmoothPixmapTransform` on top of that. Nothing showed,
+// because each readout sets what it draws with first — which was equally true
+// of the playlist footer right up until a status dot went in between two
+// readouts and the ones after it lost their pen.
+//
+// The reading is the whole of `PainterState` rather than the pen, brush and
+// font the helper pin above compares: the plate's render hint went straight
+// through a check that narrow, and a check that cannot see the last leak is not
+// going to see the next one.
+//
+// What this covers is the entry points, and only the entry points. From out
+// here the five panel painters are unreachable: `paintWindowBody` holds the
+// painter's state across the whole switch, so a painter that drops its own
+// `PainterStateScope` still hands the caller back what it was given and this
+// stays green — verified by taking one back out. So the net is the reason a
+// painter losing its scope would cost nothing, and the reason nothing would say
+// so: the same silence the three rounds of leaks sat in. Asserting one painter
+// on its own needs a translation unit that `#include`s `chrome_bodies.cpp` to
+// reach the file-local painters, which cannot be this binary — it already links
+// the real one, and a second `paintWindowBody` does not link. So read a pass
+// here as: the doors the chrome is drawn through are neutral, whatever happens
+// behind them.
+void HostWindowMoveTest::panelPaintersLeaveThePainterAsTheyFoundIt() {
+  const QImage logo = tramp::loadTrampLogo();
+  const QPen pen(QColor(11, 22, 33), 3);
+  const QBrush brush(QColor(44, 55, 66));
+  const QFont font = tramp::monoFont(17, 0.25);
+
+  for (const PanelState& panel : panelStates()) {
+    for (tramp::BodyPaint pass :
+         {tramp::BodyPaint::full, tramp::BodyPaint::chassis, tramp::BodyPaint::live}) {
+      QImage canvas(panel.logical, QImage::Format_ARGB32_Premultiplied);
+      canvas.fill(Qt::transparent);
+      QPainter p(&canvas);
+      p.setRenderHint(QPainter::Antialiasing);
+      p.setRenderHint(QPainter::TextAntialiasing);
+      // State nothing in the chrome paints with, so a painter that happens to
+      // leave behind what was already there is still caught.
+      p.setPen(pen);
+      p.setBrush(brush);
+      p.setFont(font);
+
+      const tramp::PainterState found = tramp::PainterState::of(p);
+      tramp::paintWindowBody(p, panel.id, panel.logical, &logo, panel.view, pass);
+      const QStringList moved = tramp::PainterState::of(p).differencesFrom(found);
+      QVERIFY2(moved.isEmpty(),
+               qPrintable(QStringLiteral("%1 left %2 behind on %3")
+                              .arg(panel.what, moved.join(QStringLiteral(", ")),
+                                   QLatin1String(passName(pass)))));
+
+      // The whole window through the front door, which is the title bar layer
+      // as well as the body, and the shell plate that is drawn before the
+      // module takes its own clip. Its helpers were the round before this one
+      // and have never had a pin of their own.
+      const tramp::TitleChromeLayout title =
+          tramp::TitleChromeLayout::forWindow(panel.id, panel.logical);
+      const tramp::PainterState atDoor = tramp::PainterState::of(p);
+      tramp::paintMockupWindow(p, panel.logical, panel.id, title, &logo, panel.view, pass);
+      const QStringList escaped = tramp::PainterState::of(p).differencesFrom(atDoor);
+      QVERIFY2(escaped.isEmpty(),
+               qPrintable(QStringLiteral("painting %1 whole left %2 behind on %3")
+                              .arg(panel.what, escaped.join(QStringLiteral(", ")),
+                                   QLatin1String(passName(pass)))));
+    }
+  }
+}
+
+// The other half of the same contract, and the only part of the inside of a
+// painter this can reach. `paintWindowBody` holds the painter's state across
+// the whole call, so a readout that quietly draws with what the readout before
+// it left is invisible from out here. What is visible is a readout that draws
+// with state it never set at all: hand the panel a pen, a brush and a font
+// nothing paints with, and if any of it reaches the canvas the picture changes.
+//
+// This one is green on the pre-fix painters too. It guards the opposite
+// failure, so passing it is not evidence that the scopes went in — the slot
+// above is where that is asserted. It is here so a readout cannot start
+// leaning on a caller's pen the day someone takes a scope back out.
+//
+// Render hints, opacity, clip and transform are deliberately not varied here.
+// A caller sets those to decide how the panel is drawn — the dump asks for
+// antialiasing, the host composites at a device ratio — so a difference in the
+// picture would be the painters honouring the request, not reading state they
+// should have set.
+void HostWindowMoveTest::panelPaintersDrawWithWhatTheySet() {
+  const QImage logo = tramp::loadTrampLogo();
+
+  auto shoot = [&](const PanelState& panel, tramp::BodyPaint pass, bool hostile) {
+    QImage canvas(panel.logical, QImage::Format_ARGB32_Premultiplied);
+    canvas.fill(Qt::transparent);
+    QPainter p(&canvas);
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setRenderHint(QPainter::TextAntialiasing);
+    if (hostile) {
+      p.setPen(QPen(QColor(255, 0, 255), 7));
+      p.setBrush(QBrush(QColor(0, 255, 0)));
+      p.setFont(tramp::monoFont(31, 0.4));
+    }
+    tramp::paintWindowBody(p, panel.id, panel.logical, &logo, panel.view, pass);
+    p.end();
+    return canvas;
+  };
+
+  for (const PanelState& panel : panelStates()) {
+    for (tramp::BodyPaint pass :
+         {tramp::BodyPaint::full, tramp::BodyPaint::chassis, tramp::BodyPaint::live}) {
+      QVERIFY2(shoot(panel, pass, false) == shoot(panel, pass, true),
+               qPrintable(QStringLiteral("%1 paints something with the pen, brush or font it "
+                                         "was handed on %2")
+                              .arg(panel.what, QLatin1String(passName(pass)))));
+    }
   }
 }
 
