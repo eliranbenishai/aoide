@@ -19,6 +19,9 @@ enum class ChromeIntent {
 struct ChromeCommandOutcome {
   bool handled = false;
   bool persist = false;
+  bool beginSlider = false;
+  ChromeHit::Kind sliderKind = ChromeHit::Kind::none;
+  int sliderIndex = -1;
   ChromeIntent intent = ChromeIntent::none;
 };
 

@@ -54,6 +54,15 @@ ChromeCommandOutcome ChromeCommandRouter::handle(WindowId id, const ChromeHit& h
       out.handled = true;
       out.intent = ChromeIntent::pickAudio;
       break;
+    case K::volume:
+    case K::seek:
+    case K::eqPreamp:
+    case K::eqBand:
+      out.handled = true;
+      out.beginSlider = true;
+      out.sliderKind = hit.kind;
+      out.sliderIndex = hit.index;
+      break;
     default:
       break;
   }

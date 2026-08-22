@@ -16,6 +16,8 @@ class ChromeCommandTest : public QObject {
   void playStartsPlaybackAndDoesNotAskToPersist();
   void playDoesNotPauseATrackThatIsAlreadyGoing();
   void ejectAsksForFilesAndLeavesTransportAndSettingsAlone();
+  void volumePressBeginsASliderAndDoesNotPersist();
+  void eqBandPressRemembersWhichBand();
 };
 
 namespace {
@@ -71,6 +73,32 @@ void ChromeCommandTest::ejectAsksForFilesAndLeavesTransportAndSettingsAlone() {
   QVERIFY(out.handled);
   QCOMPARE(out.intent, tramp::ChromeIntent::pickAudio);
   QVERIFY(!f.playback.playing());
+  QVERIFY(!out.persist);
+}
+
+void ChromeCommandTest::volumePressBeginsASliderAndDoesNotPersist() {
+  TransportFixture f;
+  tramp::ChromeCommandRouter router(f.playback);
+  const tramp::ChromeCommandOutcome out =
+      router.handle(tramp::WindowId::main, hit(tramp::ChromeHit::Kind::volume), Qt::NoModifier,
+                    QPoint(10, 10));
+  QVERIFY(out.handled);
+  QVERIFY(out.beginSlider);
+  QCOMPARE(out.sliderKind, tramp::ChromeHit::Kind::volume);
+  QVERIFY(!out.persist);
+}
+
+void ChromeCommandTest::eqBandPressRemembersWhichBand() {
+  TransportFixture f;
+  tramp::ChromeCommandRouter router(f.playback);
+  tramp::ChromeHit band = hit(tramp::ChromeHit::Kind::eqBand);
+  band.index = 3;
+  const tramp::ChromeCommandOutcome out =
+      router.handle(tramp::WindowId::equalizer, band, Qt::NoModifier, QPoint(8, 40));
+  QVERIFY(out.handled);
+  QVERIFY(out.beginSlider);
+  QCOMPARE(out.sliderKind, tramp::ChromeHit::Kind::eqBand);
+  QCOMPARE(out.sliderIndex, 3);
   QVERIFY(!out.persist);
 }
 

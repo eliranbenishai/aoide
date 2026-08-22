@@ -1065,7 +1065,13 @@ void TrampSession::handleDrag(WindowId id, ChromeHit hit, QPoint logical) {
   }
 }
 
-void TrampSession::presentChromeOutcome(const ChromeCommandOutcome& out) {
+void TrampSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowId id,
+                                        const ChromeHit& hit, QPoint logical) {
+  if (out.beginSlider) {
+    sliderKind_ = out.sliderKind;
+    sliderIndex_ = out.sliderIndex;
+    handleDrag(id, hit, sliderPressPoint(hit.rect, logical));
+  }
   if (out.persist) schedulePersist();
   switch (out.intent) {
     case ChromeIntent::pickAudio: {
@@ -1085,7 +1091,7 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
     ChromeCommandRouter router(*playback_);
     const ChromeCommandOutcome out = router.handle(id, hit, mods, logical);
     if (out.handled) {
-      presentChromeOutcome(out);
+      presentChromeOutcome(out, id, hit, logical);
       return;
     }
   }
@@ -1097,14 +1103,6 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       settings_.showElapsed = !settings_.showElapsed;
       schedulePersist();
       refreshChrome();
-      break;
-    case K::volume:
-    case K::seek:
-    case K::eqPreamp:
-    case K::eqBand:
-      sliderKind_ = hit.kind;
-      sliderIndex_ = hit.index;
-      handleDrag(id, hit, sliderPressPoint(hit.rect, logical));
       break;
     case K::mono:
       settings_.forceMono = !settings_.forceMono;
