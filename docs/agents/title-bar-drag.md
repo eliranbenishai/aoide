@@ -24,9 +24,9 @@ Offscreen QtTest is not that check. It honors `setGeometry` and often cannot set
 On each title-bar mouse-move:
 
 1. `HostWindow` emits `nativeMoved`.
-2. `TrampSession::windowMoved` runs docking + clamp/fit, then `applyDockToWindows` over all five panels.
+2. `TrampSession::windowMoved` runs docking + clamp/fit, then `applyDockToWindows` over all six panels.
 3. `HostShell::placePanels` `setGeometry`s whoever moved, builds the panel-union mask, and **punches every call** (`QWidget::setMask` and `QWindow::setMask`). There is no flag to skip it: the `updatePunch` parameter was deleted, and the constraint now lives on the `placePanels` declaration.
-4. Moved panels `paintEvent`. Main/EQ blit `chassis_` then a full **live** pass (clock, spectrum, overlay). `paintEvent` ignores the dirty rect. Playlist / settings / about have no chassis: full `BodyPaint::full`.
+4. Moved panels `paintEvent`. Main/EQ blit `chassis_` then a full **live** pass (clock, spectrum, overlay). `paintEvent` ignores the dirty rect. Playlist / settings / about / skins have no chassis: full `BodyPaint::full`.
 5. The host `update`s the old∪new widget rects and fills them transparent in its own `paintEvent`.
 
 `grabPointerIfAllowed` still exists. On `wayland` it returns without `grabMouse`. On other platforms it grabs so a drag can continue if the pointer leaves the widget.
@@ -103,7 +103,7 @@ Ranked by measured headroom. Prefer one seam per trial; restart `./build/tramp` 
 
    Most of that blur is `drawScreenWell`'s bloom, and it is *avoidable*: the bloom and inner shade are a blurred rounded rect keyed on well size, so a resize misses the cache on every step. A blurred rounded rect is translation-invariant along its straight edges, so it nine-slices **exactly** given margins above the blur support (bloom: image is well+146 px, safe margin ~120, so wells narrower than ~95 logical px need the per-size fallback; inner shade: pad 10, safe margin ~32). That would make well size free and remove the miss storm. Caching button faces would take the 3.1 ms too, but both carry the same risk: a cached raster blitted at a rounded device position can shift by a subpixel against crisp edges. Measure with `tool/fidelity-diff.sh` before believing either.
 
-2. **Skip work that a pure move cannot change.** `applyHitCursor` (with a full `hitTest`) runs on every drag move; `fitClusterToHost` walks all five ids. Small next to paint, but free to remove. Note `placePanels` re-pushes the mask deliberately — `setMask` early-returns when unchanged, and always pushing keeps the punch self-healing.
+2. **Skip work that a pure move cannot change.** `applyHitCursor` (with a full `hitTest`) runs on every drag move; `fitClusterToHost` walks all six ids. Small next to paint, but free to remove. Note `placePanels` re-pushes the mask deliberately — `setMask` early-returns when unchanged, and always pushing keeps the punch self-healing.
 
 3. **Cache what is re-derived per paint.** `QPixmap::fromImage(noiseTile())` allocates per shell paint; gradients and icon paths are rebuilt per call site. (`loadProximaMark()` used to decode a PNG from disk per about repaint — now cached.)
 

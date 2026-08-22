@@ -16,6 +16,8 @@ struct ChromeHit {
   enum class Kind {
     none,
     options,
+    skins,
+    trackInfo,
     timeToggle,
     mute,
     volume,
@@ -53,7 +55,7 @@ struct ChromeHit {
     plNext,
     plRefresh,
     settingsGeneral,
-    settingsSkins,
+    settingsAudio,
     settingsResume,
     settingsConfirm,
     settingsScroll,
@@ -105,6 +107,13 @@ struct SeekStamps {
 };
 
 SeekStamps mainSeekStamps(const SessionView& view);
+
+/// Track Info stays a hit so its tooltip can name why it is dead. Everything
+/// else that has a kind is live.
+inline bool chromeHitEnabled(const ChromeHit& hit, const SessionView& view) {
+  if (hit.kind == ChromeHit::Kind::trackInfo) return view.trackInfoEnabled;
+  return hit.kind != ChromeHit::Kind::none;
+}
 
 ChromeHit hitTest(WindowId id, QSize logical, QPoint pos, const SessionView& view);
 

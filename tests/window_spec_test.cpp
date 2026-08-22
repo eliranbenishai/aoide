@@ -6,19 +6,20 @@ class WindowSpecTest : public QObject {
   Q_OBJECT
 
 private slots:
-  void fivePanelsInProductOrder();
+  void sixPanelsInProductOrder();
   void extrasHaveDistinctTitles();
   void hostFlagsAreFramelessToplevelsNotTool();
 };
 
-void WindowSpecTest::fivePanelsInProductOrder() {
+void WindowSpecTest::sixPanelsInProductOrder() {
   const auto specs = tramp::windowSpecs();
-  QCOMPARE(specs.size(), 5);
+  QCOMPARE(specs.size(), 6);
   QCOMPARE(specs[0].id, tramp::WindowId::main);
   QCOMPARE(specs[1].id, tramp::WindowId::equalizer);
   QCOMPARE(specs[2].id, tramp::WindowId::playlist);
   QCOMPARE(specs[3].id, tramp::WindowId::settings);
   QCOMPARE(specs[4].id, tramp::WindowId::about);
+  QCOMPARE(specs[5].id, tramp::WindowId::skins);
 }
 
 void WindowSpecTest::extrasHaveDistinctTitles() {
@@ -28,6 +29,7 @@ void WindowSpecTest::extrasHaveDistinctTitles() {
   QCOMPARE(specs[2].title, QStringLiteral("Playlist"));
   QCOMPARE(specs[3].title, QStringLiteral("Settings"));
   QCOMPARE(specs[4].title, QStringLiteral("About"));
+  QCOMPARE(specs[5].title, QStringLiteral("Skins"));
 }
 
 void WindowSpecTest::hostFlagsAreFramelessToplevelsNotTool() {

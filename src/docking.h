@@ -19,6 +19,7 @@ struct DockLayout {
   WindowFrame playlist = WindowFrame::playlistDefault();
   WindowFrame settings = WindowFrame::settingsDefault();
   WindowFrame about = WindowFrame::aboutDefault();
+  WindowFrame skins = WindowFrame::skinsDefault();
   QVector<DockEdge> dockEdges;
 
   WindowFrame& frameOf(WindowId id);

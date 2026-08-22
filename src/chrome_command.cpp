@@ -142,6 +142,14 @@ ChromeCommandOutcome ChromeCommandRouter::handle(WindowId id, const ChromeHit& h
       out.handled = true;
       out.intent = ChromeIntent::showOptionsMenu;
       break;
+    case K::skins:
+      out.handled = true;
+      out.toggleVisible = WindowId::skins;
+      break;
+    case K::trackInfo:
+      out.handled = true;
+      if (playback_.currentTrack()) out.intent = ChromeIntent::showTrackInfo;
+      break;
     case K::timeToggle:
       settings_.showElapsed = !settings_.showElapsed;
       out.handled = true;
@@ -239,10 +247,10 @@ ChromeCommandOutcome ChromeCommandRouter::handle(WindowId id, const ChromeHit& h
       out.handled = true;
       out.intent = ChromeIntent::openWebsite;
       break;
-    case K::settingsSkins:
+    case K::settingsAudio:
       out.handled = true;
       out.settingsTab = 1;
-      out.intent = ChromeIntent::rescanSkins;
+      out.refreshChrome = true;
       break;
     case K::settingsSkinRow:
       out.handled = true;

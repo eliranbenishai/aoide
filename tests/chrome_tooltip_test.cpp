@@ -152,7 +152,15 @@ void ChromeTooltipTest::settingsAndAboutNameControls() {
   const tramp::SessionView view;
   using K = tramp::ChromeHit::Kind;
   QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsGeneral), view), QStringLiteral("General"));
-  QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsSkins), view), QStringLiteral("Skins"));
+  QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsAudio), view), QStringLiteral("Audio"));
+  QCOMPARE(tramp::chromeTooltip({}, kind(K::skins), view), QStringLiteral("Show Skins"));
+  tramp::SessionView skinsOpen = view;
+  skinsOpen.skinsOn = true;
+  QCOMPARE(tramp::chromeTooltip({}, kind(K::skins), skinsOpen), QStringLiteral("Hide Skins"));
+  QCOMPARE(tramp::chromeTooltip({}, kind(K::trackInfo), view), QStringLiteral("No track loaded."));
+  tramp::SessionView loaded = view;
+  loaded.trackInfoEnabled = true;
+  QCOMPARE(tramp::chromeTooltip({}, kind(K::trackInfo), loaded), QStringLiteral("Track info"));
   QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsResume), view),
            tramp::resumePlaybackLabel());
   QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsConfirm), view),

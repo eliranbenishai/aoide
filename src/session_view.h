@@ -51,6 +51,8 @@ struct SessionView {
   bool goldenDemo = false;
   bool eqOn = true;
   bool plOn = true;
+  bool skinsOn = false;
+  bool trackInfoEnabled = false;
   bool showElapsed = true;
   qint64 positionMs = 0;
   qint64 durationMs = 0;

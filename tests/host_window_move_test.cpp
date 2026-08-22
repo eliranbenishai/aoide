@@ -210,6 +210,10 @@ void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
   const tramp::MainDisplayRow display = tramp::layoutMainDisplay(tramp::panelBody(main));
   grabCoversPaint(tramp::WindowId::main, main, display.options, tramp::ChromeHit::Kind::options,
                   "the options cog");
+  grabCoversPaint(tramp::WindowId::main, main, display.skins, tramp::ChromeHit::Kind::skins,
+                  "the skins button");
+  grabCoversPaint(tramp::WindowId::main, main, display.trackInfo, tramp::ChromeHit::Kind::trackInfo,
+                  "the track info button");
   grabCoversPaint(tramp::WindowId::main, main, display.well, tramp::ChromeHit::Kind::timeToggle,
                   "the display well");
 
@@ -479,7 +483,9 @@ void HostWindowMoveTest::hitRegionsDoNotOverlap() {
   skins.skins = {{QStringLiteral("builtin"), QStringLiteral("Built-in"), {}},
                  {QStringLiteral("dusk"), QStringLiteral("Dusk"), {}}};
   panelHoldsItsRegionsApart(tramp::WindowId::settings, specs[3].logicalSize, skins,
-                            QStringLiteral("the skins settings'"));
+                            QStringLiteral("the audio settings'"));
+  panelHoldsItsRegionsApart(tramp::WindowId::skins, specs[5].logicalSize, skins,
+                            QStringLiteral("the skins panel's"));
 }
 
 // Dragging a panel used to re-run its whole procedural paint on every mouse
@@ -527,6 +533,7 @@ QString panelLabel(tramp::WindowId id) {
     case tramp::WindowId::playlist: return QStringLiteral("playlist");
     case tramp::WindowId::settings: return QStringLiteral("settings");
     case tramp::WindowId::about: return QStringLiteral("about");
+    case tramp::WindowId::skins: return QStringLiteral("skins");
   }
   return QStringLiteral("?");
 }
@@ -538,10 +545,10 @@ QSize panelLogicalSize(tramp::WindowId id) {
   return {};
 }
 
-const std::array<tramp::WindowId, 5>& everyPanel() {
-  static const std::array<tramp::WindowId, 5> ids = {
+const std::array<tramp::WindowId, 6>& everyPanel() {
+  static const std::array<tramp::WindowId, 6> ids = {
       tramp::WindowId::main, tramp::WindowId::equalizer, tramp::WindowId::playlist,
-      tramp::WindowId::settings, tramp::WindowId::about};
+      tramp::WindowId::settings, tramp::WindowId::about, tramp::WindowId::skins};
   return ids;
 }
 
@@ -629,9 +636,9 @@ QImage paintPanel(tramp::WindowId id, QSize logical, const tramp::SessionView& v
 }
 
 /// What a panel actually keeps in its raster. Main and the equaliser cache only
-/// their static chrome and redraw the live layer every frame; the other three
+/// their static chrome and redraw the live layer every frame; the other four
 /// have no live layer, so the whole paint is what sits in the cache. Comparing
-/// the full paint for all five would hold main to pixels its cache never held.
+/// the full paint for all six would hold main to pixels its cache never held.
 QImage paintCachedPass(tramp::WindowId id, QSize logical, const tramp::SessionView& view) {
   const bool live =
       id == tramp::WindowId::main || id == tramp::WindowId::equalizer;
@@ -671,9 +678,9 @@ struct FieldChange {
 /// point: a field missing from the list below is a field nobody has decided
 /// about, and `paintsSame` will not compile until someone has.
 std::vector<FieldChange> everyFieldOfTheSnapshot() {
-  const char* all = "main+eq+playlist+settings+about";
+  const char* all = "main+eq+playlist+settings+about+skins";
   return {
-      // The shell and the title bar, which all five wear.
+      // The shell and the title bar, which every panel wears.
       {"goldenDemo", all, [](tramp::SessionView& v) { v.goldenDemo = true; }},
       {"zoomPercent", all, [](tramp::SessionView& v) { v.zoomPercent = 100; }},
       {"look", all,
@@ -682,6 +689,9 @@ std::vector<FieldChange> everyFieldOfTheSnapshot() {
       // Main: the display well, the meta row, the clusters under it.
       {"eqOn", "main", [](tramp::SessionView& v) { v.eqOn = !v.eqOn; }},
       {"plOn", "main", [](tramp::SessionView& v) { v.plOn = !v.plOn; }},
+      {"skinsOn", "main", [](tramp::SessionView& v) { v.skinsOn = !v.skinsOn; }},
+      {"trackInfoEnabled", "main",
+       [](tramp::SessionView& v) { v.trackInfoEnabled = !v.trackInfoEnabled; }},
       {"showElapsed", "main", [](tramp::SessionView& v) { v.showElapsed = !v.showElapsed; }},
       {"positionMs", "main", [](tramp::SessionView& v) { v.positionMs += 4000; }},
       {"durationMs", "main", [](tramp::SessionView& v) { v.durationMs += 4000; }},
@@ -758,15 +768,15 @@ std::vector<FieldChange> everyFieldOfTheSnapshot() {
       {"minimizeHidesSecondaries", "settings",
        [](tramp::SessionView& v) { v.minimizeHidesSecondaries = !v.minimizeHidesSecondaries; }},
       {"dockSnap", "settings", [](tramp::SessionView& v) { v.dockSnap = 2; }},
-      {"skins", "settings",
+      {"skins", "skins",
        [](tramp::SessionView& v) {
          v.skins.push_back({QStringLiteral("dusk"), QStringLiteral("Dusk"), {}});
        }},
-      {"activeSkinId", "settings",
+      {"activeSkinId", "skins",
        [](tramp::SessionView& v) { v.activeSkinId = QStringLiteral("dusk"); }},
-      {"skinsError", "settings",
+      {"skinsError", "skins",
        [](tramp::SessionView& v) { v.skinsError = QStringLiteral("no skin.json"); }},
-      {"skinsScroll", "settings", [](tramp::SessionView& v) { v.skinsScroll = 12; }},
+      {"skinsScroll", "skins", [](tramp::SessionView& v) { v.skinsScroll = 12; }},
       {"persistWriteFailed", "settings",
        [](tramp::SessionView& v) { v.persistWriteFailed = !v.persistWriteFailed; }},
 
@@ -892,7 +902,10 @@ void HostWindowMoveTest::goldenDemoPaintsTheStateItIsHanded() {
                  {QStringLiteral("dusk"), QStringLiteral("Dusk"), {}}};
   QVERIFY2(paintPanel(tramp::WindowId::settings, tramp::kSettings, skins) !=
                paintPanel(tramp::WindowId::settings, tramp::kSettings, golden),
-           "the golden demo must be able to open the Skins tab");
+           "the golden demo must be able to open the Audio tab");
+  QVERIFY2(paintPanel(tramp::WindowId::skins, tramp::kSkins, skins) !=
+               paintPanel(tramp::WindowId::skins, tramp::kSkins, golden),
+           "the golden demo must be able to photograph a populated Skins panel");
 
   // The demo list fits the default well exactly, so the clamped panel is the
   // only picture the track scrollbar appears in.
@@ -940,6 +953,10 @@ void HostWindowMoveTest::mockupHelpersLeaveThePainterAsTheyFoundIt() {
        [&](QPainter& g) { tramp::drawIcon(g, glyph, tramp::MockupIcon::mute, Qt::white); }},
       {QStringLiteral("drawIcon options"),
        [&](QPainter& g) { tramp::drawIcon(g, glyph, tramp::MockupIcon::options, Qt::white); }},
+      {QStringLiteral("drawIcon skins"),
+       [&](QPainter& g) { tramp::drawIcon(g, glyph, tramp::MockupIcon::skins, Qt::white); }},
+      {QStringLiteral("drawIcon trackInfo"),
+       [&](QPainter& g) { tramp::drawIcon(g, glyph, tramp::MockupIcon::trackInfo, Qt::white); }},
       {QStringLiteral("drawGlyphBtn"),
        [&](QPainter& g) { tramp::drawGlyphBtn(g, box, tramp::MockupIcon::next, true); }},
       {QStringLiteral("drawSlider"), [&](QPainter& g) { tramp::drawSlider(g, slim, 0.4); }},
@@ -1033,8 +1050,9 @@ QVector<PanelState> panelStates() {
       {QStringLiteral("an empty playlist"), tramp::WindowId::playlist, specs[2].logicalSize, {}},
       {QStringLiteral("the settings pane"), tramp::WindowId::settings, specs[3].logicalSize,
        golden},
-      {QStringLiteral("the Skins tab"), tramp::WindowId::settings, specs[3].logicalSize, skins},
+      {QStringLiteral("the Audio tab"), tramp::WindowId::settings, specs[3].logicalSize, skins},
       {QStringLiteral("the about panel"), tramp::WindowId::about, specs[4].logicalSize, golden},
+      {QStringLiteral("the Skins panel"), tramp::WindowId::skins, specs[5].logicalSize, skins},
   };
 }
 
@@ -1065,7 +1083,7 @@ const char* passName(tramp::BodyPaint pass) {
 // going to see the next one.
 //
 // What this covers is the entry points, and only the entry points. From out
-// here the five panel painters are unreachable: `paintWindowBody` holds the
+// here the six panel painters are unreachable: `paintWindowBody` holds the
 // painter's state across the whole switch, so a painter that drops its own
 // `PainterStateScope` still hands the caller back what it was given and this
 // stays green — verified by taking one back out. So the net is the reason a
@@ -1373,10 +1391,12 @@ void HostWindowMoveTest::skinsErrorStaysOnTheSkinsStrip() {
 
   QVERIFY2(tramp::paintsSame(tramp::WindowId::main, clean, failed),
            "a skin install error is not a second display-well surface");
-  QVERIFY2(!tramp::paintsSame(tramp::WindowId::settings, clean, failed),
-           "the Skins-tab strip is the transient notice");
-  QVERIFY2(paintPanel(tramp::WindowId::settings, tramp::kSettings, failed) !=
-               paintPanel(tramp::WindowId::settings, tramp::kSettings, clean),
+  QVERIFY2(tramp::paintsSame(tramp::WindowId::settings, clean, failed),
+           "a skin install error is not a Settings surface");
+  QVERIFY2(!tramp::paintsSame(tramp::WindowId::skins, clean, failed),
+           "the Skins-panel strip is the transient notice");
+  QVERIFY2(paintPanel(tramp::WindowId::skins, tramp::kSkins, failed) !=
+               paintPanel(tramp::WindowId::skins, tramp::kSkins, clean),
            "the Skins strip must still paint skinsError");
 }
 

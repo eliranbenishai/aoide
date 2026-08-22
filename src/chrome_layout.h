@@ -66,6 +66,7 @@ inline constexpr qreal kBodySidePad = 22;
 
 inline constexpr qreal kMainOptionsTop = 18;
 inline constexpr qreal kMainOptionsSize = 26;
+inline constexpr qreal kMainGutterBtnGap = 8;
 inline constexpr qreal kDisplayWellLeft = 96;
 inline constexpr qreal kDisplayWellTop = 14;
 inline constexpr qreal kDisplayWellW = 705;
@@ -73,15 +74,21 @@ inline constexpr qreal kDisplayWellH = 132;
 
 struct MainDisplayRow {
   QRectF options;
+  QRectF skins;
+  QRectF trackInfo;
   QRectF well;
 };
 
-/// The options cog sits in the gutter left of the display well, which takes
-/// the rest of the row. The whole well toggles elapsed against remaining.
+/// The options cog sits in the gutter left of the display well; Skins and
+/// Track info stack under it. The well takes the rest of the row.
 inline MainDisplayRow layoutMainDisplay(const QRectF& body) {
   MainDisplayRow out;
   out.options = QRectF(body.left() + kBodySidePad, body.top() + kMainOptionsTop, kMainOptionsSize,
                        kMainOptionsSize);
+  out.skins = QRectF(out.options.left(), out.options.bottom() + kMainGutterBtnGap, kMainOptionsSize,
+                     kMainOptionsSize);
+  out.trackInfo = QRectF(out.skins.left(), out.skins.bottom() + kMainGutterBtnGap, kMainOptionsSize,
+                         kMainOptionsSize);
   out.well = QRectF(body.left() + kDisplayWellLeft, body.top() + kDisplayWellTop, kDisplayWellW,
                     kDisplayWellH);
   return out;
@@ -367,6 +374,13 @@ inline QRectF settingsPane(const QRectF& body) {
 }
 
 inline QRectF settingsPane(QSize logical) { return settingsPane(panelBody(logical)); }
+
+/// The dedicated Skins panel owns the whole body: no tab rail, no Reset footer.
+inline QRectF skinsPane(const QRectF& body) {
+  return QRectF(body.left(), body.top(), body.width(), body.height());
+}
+
+inline QRectF skinsPane(QSize logical) { return skinsPane(panelBody(logical)); }
 
 /// General-tab mark for a state-file write that has not yet succeeded.
 inline QRectF settingsPersistMark(const QRectF& pane) {

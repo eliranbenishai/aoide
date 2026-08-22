@@ -540,10 +540,12 @@ void LayoutSyncTest::everyPanelReachesTheSurfacesIncludingTheHiddenOnes() {
   layout.setSurfaces(&desktop);
 
   layout.place();
-  QCOMPARE(desktop.last.size(), 5);
+  QCOMPARE(desktop.last.size(), tramp::kPanelCount);
   QCOMPARE(desktop.placementOf(WindowId::main).screen, QRect(40, 40, 825, 348));
   QVERIFY(desktop.placementOf(WindowId::equalizer).visible);
   QVERIFY(!desktop.placementOf(WindowId::playlist).visible);
+  QCOMPARE(desktop.placementOf(WindowId::skins).id, WindowId::skins);
+  QVERIFY(!desktop.placementOf(WindowId::skins).visible);
 }
 
 void LayoutSyncTest::minimizingMainSuppressesThePanelsWithoutForgettingThem() {

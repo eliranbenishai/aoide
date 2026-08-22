@@ -113,13 +113,17 @@ int dumpChrome(const QString& dirPath) {
       empty.collectionCollapsed = false;
       if (!shoot(spec, empty, dumpName(spec.id) + QStringLiteral("_empty"))) return 1;
     }
-    // The Skins tab shares no pixel with General: its list, scrollbar, four
-    // buttons and error line are a pane of their own, so it needs a picture of
-    // its own. The list is longer than the viewport on purpose — a catalogue
-    // that fits would leave the scrollbar unphotographed a second time.
+    // Audio is an empty stake; it shares no pixel with General.
     if (spec.id == tramp::WindowId::settings) {
+      tramp::SessionView audio = golden;
+      audio.settingsTab = 1;
+      if (!shoot(spec, audio, dumpName(spec.id) + QStringLiteral("_audio"))) return 1;
+    }
+    // The Skins panel's list, scrollbar, four buttons and error line need a
+    // picture of their own. The list is longer than the viewport on purpose —
+    // a catalogue that fits would leave the scrollbar unphotographed.
+    if (spec.id == tramp::WindowId::skins) {
       tramp::SessionView skins = golden;
-      skins.settingsTab = 1;
       skins.skins = {
           {QStringLiteral("builtin"), QStringLiteral("Built-in"),
            QStringLiteral("Proxima Magnifica")},
@@ -144,7 +148,7 @@ int dumpChrome(const QString& dirPath) {
       skins.skinsError =
           QStringLiteral("nightbus-choir.zip: no skin.json at the archive root, so nothing "
                          "was installed.");
-      if (!shoot(spec, skins, dumpName(spec.id) + QStringLiteral("_skins"))) return 1;
+      if (!shoot(spec, skins, dumpName(spec.id))) return 1;
     }
   }
   return 0;
@@ -238,7 +242,7 @@ int benchChrome() {
   for (int i = 0; i < kLive; ++i) paintEqPass(tramp::BodyPaint::live);
   const double eqLiveMs = (timer.nsecsElapsed() / 1e6) / kLive;
   std::fprintf(stdout,
-               "chrome bench: eq %.2f ms/frame, eq-live %.2f ms/frame, all-five %.2f ms/frame\n",
+               "chrome bench: eq %.2f ms/frame, eq-live %.2f ms/frame, all-six %.2f ms/frame\n",
                eqMs, eqLiveMs, allMs);
 
   // The chrome is CPU-rasterised every frame, so an unoptimised build does not
@@ -276,7 +280,7 @@ const char* kValueFlags[] = {"--dump-chrome", "--bench-drag", "--bench-moves", "
                              "--bench-tracks"};
 
 /// What `chromeChanged` costs before a single pixel is drawn: one snapshot of
-/// the whole session, rebuilt from scratch and handed to all five panels. The
+/// the whole session, rebuilt from scratch and handed to all six panels. The
 /// counterpart to `HostWindow::PaintStats::chassisBuilds`, which counts what
 /// the panels then throw away.
 struct SnapshotMeter {
@@ -652,6 +656,7 @@ int main(int argc, char** argv) {
   }
   HostWindow* mainWindow = panels[tramp::WindowId::main];
   HostWindow* settingsWindow = panels[tramp::WindowId::settings];
+  HostWindow* skinsWindow = panels[tramp::WindowId::skins];
   session.setWindows(panels);
   hostShell.setPrimaryPanel(mainWindow);
   mainWindow->setQuitConfirmer([&]() {
@@ -696,6 +701,9 @@ int main(int argc, char** argv) {
     }
     if (id != tramp::WindowId::settings && settingsWindow->isVisible()) {
       settingsWindow->raise();
+    }
+    if (id != tramp::WindowId::skins && skinsWindow->isVisible()) {
+      skinsWindow->raise();
     }
     refresh();
   });

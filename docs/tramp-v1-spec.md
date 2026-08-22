@@ -23,15 +23,15 @@ Tramp is a multi-platform desktop music player — a spiritual successor to Wina
 
 | Locked | Preferred default (swappable for same job) | Not locked |
 |--------|--------------------------------------------|------------|
-| **Qt 6** (desktop, QWidget + QPainter) | One host window, five panels + docking coordinator — app chrome | State helpers inside `src/` |
+| **Qt 6** (desktop, QWidget + QPainter) | One host window, six panels + docking coordinator — app chrome | State helpers inside `src/` |
 | CMake; version in [`VERSION`](../VERSION) | **full libmpv** — playback / decode / EQ / mono | |
 
 **Not v1:** Flutter, Tauri, Electron, or a second UI toolkit. Qt 6 and full libmpv are the stack lock.
 
 ## Window and chrome
 
-- **Five panels, one host window** — Main Player, Equalizer, Playlist Manager, settings, and about are **panels** inside a single OS **host window**. Main/EQ/PL keep **Winamp-style docking**; settings and about are freestanding. EQ and playlist may both be open; main EQ/PL toggles show/hide those panels. Gaps between panels punch through so the desktop is clickable. The playlist panel holds the **playlist collection** beside the current playlist; its default canvas is 1073×696.
-- **Move / snap ownership** — dragging the main title bar translates every panel inside the host (cluster moves as a unit; host stays the virtual desktop). Dragging EQ, playlist, settings, or about moves only that panel; siblings stay put. Snap only from EQ/playlist: any side of any panel (both axes in one drop). Details: [`2026-08-09-ui-polish-docking-taskbar-design.md`](superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md).
+- **Six panels, one host window** — Main Player, Equalizer, Playlist Manager, settings, about, and skins are **panels** inside a single OS **host window**. Main/EQ/PL keep **Winamp-style docking**; settings, about, and skins are freestanding. EQ and playlist may both be open; main EQ/PL toggles show/hide those panels. Gaps between panels punch through so the desktop is clickable. The playlist panel holds the **playlist collection** beside the current playlist; its default canvas is 1073×696.
+- **Move / snap ownership** — dragging the main title bar translates every panel inside the host (cluster moves as a unit; host stays the virtual desktop). Dragging EQ, playlist, settings, about, or skins moves only that panel; siblings stay put. Snap only from EQ/playlist: any side of any panel (both axes in one drop). Details: [`2026-08-09-ui-polish-docking-taskbar-design.md`](superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md).
 - **App chrome** — no OS title bar or standard window frame; the visible UI is the app surface. Title-bar window buttons match mockup `.wbtn` bevel chrome. Main title bar shows logo + TRAMP wordmark; EQ/playlist title bars show **role title only**.
 - **No version in the title bar** — the mockup's `TRAMP<sup>1.0</sup>` superscript is dropped (approved delta). The version belongs to the About panel's readout, where it is real and comes from [`VERSION`](../VERSION).
 - **Main / equalizer never stretch** — permanent. On-screen size follows the global zoom step only (logical canvases: main **825×348**, EQ **825×348**). Playlist is freely resizable (default logical **1073×696**, as above); user size is stored in logical coordinates and scaled by zoom.
@@ -40,7 +40,7 @@ Tramp is a multi-platform desktop music player — a spiritual successor to Wina
 - **Zoom:** four discrete steps — 75%, 100%, 125%, 150% (default **75%**) — persisted across sessions; a saved factor that is no longer a step snaps to the nearest surviving one, and steps larger than the current display’s work area are disabled. Main title-bar zoom-in / zoom-out change the step for **all three** dockable panels, and are the only control that does: there is no zoom row in the options menu and no zoom shortcut (see Accessibility).
 - **Windowshade:** EQ and playlist title-bar collapse → title bar only; docking uses shaded height.
 - **EQ band faders:** bottom→thumb fill using the spectrum cyan→magenta gradient (product enhancement vs mockup HTML bands).
-- **Options cog** on main (top-left of body): opens Always on top / Settings… / Track info / About Tramp / Open files… / Quit. Replaces mockup clutter **O / A / I** (approved delta). Skins are a tab inside the settings panel, not a menu row — “look pack” is a retired term ([`CONTEXT.md`](../CONTEXT.md): **Skin**).
+- **Options cog** on main (gutter left of the display well), with **Skins** and **Track info** stacked under it. The cog opens Always on top / Settings… / About Tramp / Open files… / Quit. Replaces mockup clutter **O / A / I** (approved delta). Skins are their own freestanding panel — “look pack” is a retired term ([`CONTEXT.md`](../CONTEXT.md): **Skin**). Settings tabs are **General | Audio** (Audio empty).
 
 ## UI direction
 

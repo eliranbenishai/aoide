@@ -45,8 +45,8 @@ struct PanelSpec {
   /// and height on its frame mean anything. Only the playlist's do.
   bool resizable = false;
   /// Whether the panel belongs to the docked cluster: it snaps to its
-  /// neighbours, keeps dock edges, and travels when main is dragged. Settings
-  /// and About float free of all of that.
+  /// neighbours, keeps dock edges, and travels when main is dragged. Settings,
+  /// About and Skins float free of all of that.
   bool docks = false;
   /// Which side of main the panel is pushed out to when it would otherwise
   /// open stacked on top of it. Only read for a panel that [docks].
@@ -134,6 +134,20 @@ inline const std::array<PanelSpec, kPanelCount>& panelSpecs() {
           0,
           &TrampSettings::about,
           &DockLayout::about,
+      },
+      PanelSpec{
+          WindowId::skins,
+          QStringLiteral("Skins"),
+          QStringLiteral("skins"),
+          QStringLiteral("skins_window"),
+          {QStringLiteral("skins")},
+          kSkins,
+          false,
+          false,
+          DockSide::right,
+          1,
+          &TrampSettings::skins,
+          &DockLayout::skins,
       },
   }};
   return specs;

@@ -193,6 +193,7 @@ void HostWindow::syncLatchedPhases(bool snap) {
       aim(K::mono, view_.forceMono);
       aim(K::eqToggle, view_.eqOn);
       aim(K::plToggle, view_.plOn);
+      aim(K::skins, view_.skinsOn);
       aim(K::play, view_.playing);
       aim(K::pause, view_.paused);
       aim(K::shuffle, view_.shuffle);
@@ -212,7 +213,7 @@ void HostWindow::syncLatchedPhases(bool snap) {
       break;
     case tramp::WindowId::settings:
       aim(K::settingsGeneral, view_.settingsTab == 0);
-      aim(K::settingsSkins, view_.settingsTab == 1);
+      aim(K::settingsAudio, view_.settingsTab == 1);
       aim(K::settingsResume, view_.resumeLastSession);
       aim(K::settingsConfirm, view_.confirmBeforeQuit);
       aim(K::settingsScroll, view_.scrollTitle);
@@ -222,6 +223,8 @@ void HostWindow::syncLatchedPhases(bool snap) {
       aim(K::settingsSnapStrong, view_.dockSnap == 2);
       break;
     case tramp::WindowId::about:
+      break;
+    case tramp::WindowId::skins:
       break;
   }
   if (!snap) startButtonAnimation();
@@ -242,7 +245,7 @@ void HostWindow::trackPointer(std::optional<QPointF> widgetPos, bool pressed) {
       if (pressed) phases_.setTitleTarget(titleHit, BtnChannel::press, 1);
     } else if (titleHit == tramp::TitleChromeLayout::Hit::none) {
       const auto hit = tramp::hitTest(spec_.id, spec_.logicalSize, logical, view_);
-      if (tramp::takesPointerFeedback(hit.kind)) {
+      if (tramp::takesPointerFeedback(hit.kind) && tramp::chromeHitEnabled(hit, view_)) {
         phases_.setTarget(hit.kind, hit.index, BtnChannel::hover, 1);
         if (pressed) phases_.setTarget(hit.kind, hit.index, BtnChannel::press, 1);
       }
@@ -418,7 +421,8 @@ void HostWindow::applyHitCursor(const QPointF& widgetPos) {
                hit.kind == tramp::ChromeHit::Kind::eqPreamp ||
                hit.kind == tramp::ChromeHit::Kind::eqBand) {
       setCursor(Qt::ArrowCursor);
-    } else if (hit.kind != tramp::ChromeHit::Kind::none) {
+    } else if (hit.kind != tramp::ChromeHit::Kind::none &&
+               tramp::chromeHitEnabled(hit, view_)) {
       setCursor(Qt::PointingHandCursor);
     } else {
       setCursor(Qt::ArrowCursor);
@@ -553,7 +557,7 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
     event->accept();
     return;
   }
-  if (chrome.kind != tramp::ChromeHit::Kind::none) {
+  if (chrome.kind != tramp::ChromeHit::Kind::none && tramp::chromeHitEnabled(chrome, view_)) {
     draggingChrome_ = true;
     dragHit_ = chrome;
     emit chromePressed(chrome, event->modifiers(), logical);

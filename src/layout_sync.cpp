@@ -1,15 +1,21 @@
 #include "layout_sync.h"
 
 #include "host_shell.h"
+#include "panel_registry.h"
 
+#include <QVector>
 #include <cmath>
 #include <iterator>
 
 namespace tramp {
 namespace {
 
-constexpr WindowId kAllPanels[] = {WindowId::main, WindowId::equalizer, WindowId::playlist,
-                                   WindowId::settings, WindowId::about};
+QVector<WindowId> allPanelIds() {
+  QVector<WindowId> ids;
+  ids.reserve(kPanelCount);
+  for (const PanelSpec& panel : panelSpecs()) ids.push_back(panel.id);
+  return ids;
+}
 
 }  // namespace
 
@@ -109,7 +115,7 @@ void LayoutSync::fitClusterToHost() {
     // Only visible panels decide how far the cluster has to move, but a hidden
     // one still rides along: a main drag already carries it, and leaving it
     // behind here would walk it out of the cluster one correction at a time.
-    for (WindowId id : kAllPanels) {
+    for (WindowId id : allPanelIds()) {
       setNativeFrame(id, nativeFrameRect(id).translated(*delta));
     }
     return;
@@ -120,7 +126,7 @@ void LayoutSync::fitClusterToHost() {
 void LayoutSync::setMainMinimized(bool minimized) {
   suppressed_.clear();
   if (!minimized) return;
-  for (WindowId id : kAllPanels) {
+  for (WindowId id : allPanelIds()) {
     if (id != WindowId::main && docking_.layout().frameOf(id).visible) suppressed_.insert(id);
   }
 }
@@ -132,8 +138,9 @@ void LayoutSync::place() {
   const QRect host = surfaces_->hostRect();
 
   QVector<PanelPlacement> panels;
-  panels.reserve(int(std::size(kAllPanels)));
-  for (WindowId id : kAllPanels) {
+  const QVector<WindowId> ids = allPanelIds();
+  panels.reserve(ids.size());
+  for (WindowId id : ids) {
     PanelPlacement panel;
     panel.id = id;
     {

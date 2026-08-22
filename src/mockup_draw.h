@@ -20,7 +20,7 @@ namespace tramp {
 /// Holds everything a painter carries for a scope and puts it back. Pairing
 /// [QPainter::save] with [QPainter::restore] by hand is a footgun in any
 /// painter with more than one exit — the settings pane returns early out of the
-/// Skins tab — and this cannot be got wrong that way.
+/// Audio tab — and this cannot be got wrong that way.
 class PainterStateScope {
  public:
   explicit PainterStateScope(QPainter& painter) : painter_(painter) { painter_.save(); }
@@ -126,6 +126,8 @@ enum class MockupIcon {
   remove,
   sort,
   options,
+  skins,
+  trackInfo,
   minimize,
   zoomOut,
   zoomIn,
@@ -179,7 +181,7 @@ void drawBtn(QPainter& p, const QRectF& r, BtnFace face, const QString& label = 
 qreal labelBtnWidth(const QString& label, qreal padL = 16, qreal padR = 16);
 void drawIcon(QPainter& p, const QRectF& box, MockupIcon icon, const QColor& color);
 void drawGlyphBtn(QPainter& p, const QRectF& r, MockupIcon icon, BtnFace face,
-                  qreal iconSize = 22);
+                  qreal iconSize = 22, bool enabled = true);
 void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle = false,
                 bool glow = true);
 void drawVBand(QPainter& p, const QRectF& column, qreal gainDb);

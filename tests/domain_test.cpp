@@ -2310,8 +2310,8 @@ int main() {
   }
 
   {
-    // The options cog is the named home for the same open as eject. Labels are
-    // the product list; Open files sits with the other openers, before Quit.
+    // Overflow only: Skins and Track info are gutter buttons, not menu rows.
+    // Open files stays with the other openers, before Quit.
     tramp::TrampSettings settings;
     const auto items = tramp::optionsMenuItems(settings);
     QStringList labels;
@@ -2321,7 +2321,6 @@ int main() {
     REQUIRE_EQ(labels, (QStringList{
                            QStringLiteral("Always on top"),
                            QStringLiteral("Settings…"),
-                           QStringLiteral("Track info"),
                            QStringLiteral("About Tramp"),
                            QStringLiteral("Open files…"),
                            QStringLiteral("Quit"),
@@ -2332,6 +2331,19 @@ int main() {
     REQUIRE(tramp::optionsMenuItems(settings).front().checked);
     REQUIRE_EQ(items.at(items.size() - 2).kind, tramp::ChromeMenuKind::separator);
     REQUIRE_EQ(items.at(items.size() - 3).label, QStringLiteral("Open files…"));
+  }
+
+  {
+    tramp::TrampSettings settings;
+    settings.activeSkinId = QStringLiteral("gamma");
+    settings.skinsDirectory = QStringLiteral("/tmp/skins-keep");
+    settings.zoomPercent = 125;
+    settings.alwaysOnTop = true;
+    tramp::resetSettingsExceptSkins(settings);
+    REQUIRE_EQ(settings.activeSkinId, QStringLiteral("gamma"));
+    REQUIRE_EQ(settings.skinsDirectory, QStringLiteral("/tmp/skins-keep"));
+    REQUIRE_EQ(settings.zoomPercent, 75);
+    REQUIRE(!settings.alwaysOnTop);
   }
 
   if (gFails != 0) {

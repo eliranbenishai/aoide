@@ -52,11 +52,11 @@ _Premise_ (2026-08-21, cost evidenced, value unevidenced): that app-owned panel 
 _Avoid_: treating this as the main player canvas, extra toplevels, tight union of panels (retired host geometry)
 
 **Panel**:
-A product chrome surface (main, equalizer, playlist, settings, about) that Tramp draws and moves inside the host window.
-_Avoid_: OS window (for these surfaces), extra window, dialog (for settings/about as product surfaces)
+A product chrome surface (main, equalizer, playlist, settings, about, skins) that Tramp draws and moves inside the host window.
+_Avoid_: OS window (for these surfaces), extra window, dialog (for settings/about/skins as product surfaces)
 
 **App chrome**:
-Tramp's own decoration — no OS title bar or standard window frame; the visible UI is five **panels** inside one **host window**, with Winamp-style docking among main/EQ/PL. Settings and about are freestanding (not snappable). Main player and equalizer never stretch; on-screen size follows the global zoom step only. The playlist panel may be freely resized. Main title bar carries logo + wordmark; EQ/playlist/settings/about title bars show role title only. EQ band faders use a spectrum-gradient value fill.
+Tramp's own decoration — no OS title bar or standard window frame; the visible UI is six **panels** inside one **host window**, with Winamp-style docking among main/EQ/PL. Settings, about, and skins are freestanding (not snappable). Main player and equalizer never stretch; on-screen size follows the global zoom step only. The playlist panel may be freely resized. Main title bar carries logo + wordmark; EQ/playlist/settings/about/skins title bars show role title only. EQ band faders use a spectrum-gradient value fill.
 _Avoid_: borderless (alone), frameless window (implementation jargon in product talk), Scalable UI (retired as a whole-chrome free-resize mode), stretching the main or EQ canvas, single-window EQ/PL swap (retired product model), five OS windows (retired host shape)
 
 **Mockup chrome** / **code-constructed chrome**:
@@ -68,12 +68,12 @@ The retired PNG-first chrome look (panel faces under `assets/skin/graphite/`). K
 _Avoid_: using this term for the current product look
 
 **Session host**:
-The single process that owns shared controllers (playback, playlist, EQ, zoom, settings) and the docking coordinator; the five panels are views onto that session inside one host window.
+The single process that owns shared controllers (playback, playlist, EQ, zoom, settings) and the docking coordinator; the six panels are views onto that session inside one host window.
 _Avoid_: multi-process, separate apps per window, extra OS windows per panel
 
 **Docking** / **dock group**:
-Winamp-style edge snap between panels. Dragging the main title bar translates every panel inside the host so the cluster stays together; main never snaps and never creates dock edges. Dragging EQ, playlist, settings, or about moves only that panel on screen; siblings stay put. EQ or playlist peel their dock edges on drag; snap runs only on EQ/PL drag end. Settings and about never snap and are never snap targets. EQ and playlist may snap to any side, and on both axes at once (flush under main and against a neighbor in the same drop). Undock via peel or **Shift**: peel breaks the edges when a drag jumps far enough in one movement, and Shift breaks them however slowly the panel is dragged, leaving it where it was dropped instead of snapping back. A dock edge lives only as long as the contact it names: every placement re-checks each edge against the panels' rectangles and drops the ones that are no longer flush, so a crawl too slow to peel still ends up undocked, and a panel dropped back within snapping distance re-docks rather than being stranded claiming an edge it is nowhere near. A panel cannot hang off the virtual desktop. If a monitor is unplugged, the cluster is translated onto what remains when it still fits, otherwise each panel is clamped on its own and any dock edge that clamping breaks goes with it. Main minimize may hide/restore visible secondaries (including settings/about) when the preference is on; always-on-top and main-minimize apply to the host window. Settings stays raised among panels. The taskbar/pager shows Tramp (the host window).
-_Avoid_: tiling WM, snap layouts (OS), tabs; docking settings/about to main/EQ/PL; extra OS windows for docked surfaces; break-threshold undock (retired — never built, and Shift covers the slow drag peel misses)
+Winamp-style edge snap between panels. Dragging the main title bar translates every panel inside the host so the cluster stays together; main never snaps and never creates dock edges. Dragging EQ, playlist, settings, about, or skins moves only that panel on screen; siblings stay put. EQ or playlist peel their dock edges on drag; snap runs only on EQ/PL drag end. Settings, about, and skins never snap and are never snap targets. EQ and playlist may snap to any side, and on both axes at once (flush under main and against a neighbor in the same drop). Undock via peel or **Shift**: peel breaks the edges when a drag jumps far enough in one movement, and Shift breaks them however slowly the panel is dragged, leaving it where it was dropped instead of snapping back. A dock edge lives only as long as the contact it names: every placement re-checks each edge against the panels' rectangles and drops the ones that are no longer flush, so a crawl too slow to peel still ends up undocked, and a panel dropped back within snapping distance re-docks rather than being stranded claiming an edge it is nowhere near. A panel cannot hang off the virtual desktop. If a monitor is unplugged, the cluster is translated onto what remains when it still fits, otherwise each panel is clamped on its own and any dock edge that clamping breaks goes with it. Main minimize may hide/restore visible secondaries (including settings/about/skins) when the preference is on; always-on-top and main-minimize apply to the host window. Settings and skins stay raised among panels. The taskbar/pager shows Tramp (the host window).
+_Avoid_: tiling WM, snap layouts (OS), tabs; docking settings/about/skins to main/EQ/PL; extra OS windows for docked surfaces; break-threshold undock (retired — never built, and Shift covers the slow drag peel misses)
 
 **Playlist**:
 An ordered list of playable tracks the user can manage (add, remove, reorder, play from).
@@ -139,8 +139,16 @@ _Premise_ (2026-08-21, accepted without evidence): that 75% is the right size to
 _Avoid_: DPI scale (OS setting), continuous zoom, maximize (as a window-size control), per-panel zoom (product model is global), stretching main/EQ via panel drag, 50% / 200% / 250% / 300% (retired steps), zoom menu row / zoom keyboard shortcut (never built — see Accessibility in the v1 spec)
 
 **Options cog**:
-The cog in the gutter left of the main player's **display well**. It opens the main player's menu: always-on-top (a check, applied to the **host window**), Settings…, Track info, About Tramp, Open files… (the same enqueue as the eject glyph), Quit. One cog, not a strip of letters — the mockup's clutterbar is not the product chrome.
-_Avoid_: clutterbar, clutter rail, **O** / **A** / **I** as product controls (all retired — the mockup's vertical letter strip, replaced by the cog); toolbar (when this control is meant); doublesize button (**D**), viz button (**V**); always-on-top as a per-panel or per-group control
+The cog at the top of the gutter left of the main player's **display well**. Under it sit **Skins** (swatch glyph; latches while the Skins panel is up) and **Track info** (metadata-lines glyph; dead until a track is loaded). The cog opens overflow: always-on-top (a check, applied to the **host window**), Settings…, About Tramp, Open files… (the same enqueue as the eject glyph), Quit. One cog plus two named buttons — the mockup's clutterbar is not the product chrome.
+_Avoid_: clutterbar, clutter rail, **O** / **A** / **I** as product controls (all retired — the mockup's vertical letter strip, replaced by the cog); toolbar (when this control is meant); doublesize button (**D**), viz button (**V**); always-on-top as a per-panel or per-group control; Track info as a cog-menu row
+
+**Skins panel**:
+Freestanding panel (shade + close, no snap) that holds the skin catalog, install zip/folder, skins folder, reset folder, and the install-error strip. Opened from the gutter Skins button. Not a Settings tab.
+_Avoid_: Skins tab (retired home), look packs dialog
+
+**Settings**:
+Freestanding panel with side tabs **General** | **Audio**. Audio is an empty stake. **Reset Settings** restores factory `settings.json` except `activeSkinId` and `skinsDirectory`.
+_Avoid_: Skins as a Settings tab; Reset Settings as a skins-catalog action
 
 **Phosphor**:
 The **cyan** colour of the mockup chrome’s “screen glow” — used for lit LCD text, spectrum bars, and other live readouts (`#3de7ff` / hot variants). Not chartreuse.
@@ -163,7 +171,7 @@ The large recessed LCD glass area on the main player that holds spectrum, track 
 _Avoid_: LCD (alone), screen, display (when the inset glass region is meant)
 
 **Failure surface**:
-How Tramp tells the listener something went wrong — three tiers, and no queue. **modal** is a decision they must make now: the altered-playlist prompt and a playlist-save failure; nothing else joins that list without a choice they can only make in the dialog. **persistent indicator** is a condition that stays true: no audio engine keeps the panel subtitle and also a durable mark in the **display well**; a settings or state-file write that has not yet succeeded is a Settings-row mark that stays until that file writes. **transient notice** is something that failed once and they can carry on: a skin install error stays on the Skins-tab strip and nowhere else; an unmeasured spectrum — a failed decode or one that ran past its 120 s deadline — is a display-well mark read from `Spectrogram::synthetic` on the session spectrogram. An unplayable track or an engine `open()` failure already stops and puts the reason on the subtitle; that is the surface, not a fourth tier. The Wayland file-chooser greying is a platform hole, not a product surface.
+How Tramp tells the listener something went wrong — three tiers, and no queue. **modal** is a decision they must make now: the altered-playlist prompt and a playlist-save failure; nothing else joins that list without a choice they can only make in the dialog. **persistent indicator** is a condition that stays true: no audio engine keeps the panel subtitle and also a durable mark in the **display well**; a settings or state-file write that has not yet succeeded is a Settings-row mark that stays until that file writes. **transient notice** is something that failed once and they can carry on: a skin install error stays on the Skins-panel strip and nowhere else; an unmeasured spectrum — a failed decode or one that ran past its 120 s deadline — is a display-well mark read from `Spectrogram::synthetic` on the session spectrogram. An unplayable track or an engine `open()` failure already stops and puts the reason on the subtitle; that is the surface, not a fourth tier. The Wayland file-chooser greying is a platform hole, not a product surface.
 _Avoid_: a notification queue; painting a notice for an unmapped Wayland picker; reading per-frame `AudioLevels::synthetic` for the spectrum mark
 
 **Synthetic levels**:

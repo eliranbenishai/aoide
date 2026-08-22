@@ -57,6 +57,7 @@ inline constexpr QSize kEqualizer{825, 348};
 inline constexpr QSize kPlaylistDefault{1073, 696};
 inline constexpr QSize kSettings{520, 420};
 inline constexpr QSize kAbout{480, 360};
+inline constexpr QSize kSkins{520, 420};
 inline constexpr QSize kPlaylistMin{640, 280};
 inline constexpr int kPlaylistCollectionMinWidth = 180;
 inline constexpr int kPlaylistDividerWidth = 8;

@@ -49,8 +49,8 @@ bool paintsSame(WindowId id, const SessionView& a, const SessionView& b) {
   // the names: a field added to the snapshot arrives here as a build error
   // instead of as a panel quietly keeping a raster that has stopped being true.
   // Whoever adds one says which panels repaint for it — listing it under all
-  // five is the answer that cannot be wrong.
-  const auto& [goldenDemo, eqOn, plOn, showElapsed, positionMs, durationMs, title, subtitle,
+  // six is the answer that cannot be wrong.
+  const auto& [goldenDemo, eqOn, plOn, skinsOn, trackInfoEnabled, showElapsed, positionMs, durationMs, title, subtitle,
                bitrate, sampleRate, channels, formatChip, volume, muted, forceMono, playing,
                paused, shuffle, repeat, zoomPercent, zoomInEnabled, zoomOutEnabled, spectrum,
                spectrumPeaks, eq, tracks, selectedIndices, playingIndex, trackScroll, collection,
@@ -76,7 +76,7 @@ bool paintsSame(WindowId id, const SessionView& a, const SessionView& b) {
   // raster, so the frames are not main's to keep.
   (void)titleScrollMs;
 
-  // The shell, the title bar and its buttons belong to all five, so a skin
+  // The shell, the title bar and its buttons belong to all six, so a skin
   // change or a zoom step is the one thing that does re-rasterise everything.
   if (zoomPercent != b.zoomPercent || goldenDemo != b.goldenDemo || !sameLook(look, b.look)) {
     return false;
@@ -87,12 +87,13 @@ bool paintsSame(WindowId id, const SessionView& a, const SessionView& b) {
       // The display well, the meta row, and the volume and transport clusters —
       // and the zoom buttons, which are here rather than in the shared block
       // above because main is the only panel whose title bar carries them:
-      // `TitleChromeLayout::forWindow` gives the other four minimize and close
+      // `TitleChromeLayout::forWindow` gives the other five minimize and close
       // and nothing else, so a step going grey is invisible on them.
       // `mainEmptyTitle` is the empty-list swap: title can stay `No track`
       // while the list gains a row, and the chassis would otherwise keep
       // "Drop files to play".
       return zoomInEnabled == b.zoomInEnabled && zoomOutEnabled == b.zoomOutEnabled &&
+             skinsOn == b.skinsOn && trackInfoEnabled == b.trackInfoEnabled &&
              showElapsed == b.showElapsed && positionMs == b.positionMs &&
              durationMs == b.durationMs && title == b.title &&
              mainEmptyTitle(a) == mainEmptyTitle(b) && subtitle == b.subtitle &&
@@ -129,9 +130,10 @@ bool paintsSame(WindowId id, const SessionView& a, const SessionView& b) {
       return settingsTab == b.settingsTab && resumeLastSession == b.resumeLastSession &&
              confirmBeforeQuit == b.confirmBeforeQuit && scrollTitle == b.scrollTitle &&
              minimizeHidesSecondaries == b.minimizeHidesSecondaries && dockSnap == b.dockSnap &&
-             activeSkinId == b.activeSkinId && skinsScroll == b.skinsScroll &&
-             skinsError == b.skinsError && persistWriteFailed == b.persistWriteFailed &&
-             sameCatalog(skins, b.skins);
+             persistWriteFailed == b.persistWriteFailed;
+    case WindowId::skins:
+      return activeSkinId == b.activeSkinId && skinsScroll == b.skinsScroll &&
+             skinsError == b.skinsError && sameCatalog(skins, b.skins);
     case WindowId::about:
       return aboutPlaylists == b.aboutPlaylists && aboutTracks == b.aboutTracks &&
              aboutTimeMs == b.aboutTimeMs && aboutSpins == b.aboutSpins;
@@ -189,6 +191,7 @@ SessionView goldenDemoView() {
       {QStringLiteral("Long Wave Motel"), QStringLiteral("Untitled Sketch"), QStringLiteral("13:16"), false, false},
   };
   v.playingIndex = 2;
+  v.trackInfoEnabled = true;
   v.playlistName = QStringLiteral("Copper Rain — Night Set.m3u8");
   v.playlistTotalMs = 3934000;
   v.playlistTrackCount = v.tracks.size();

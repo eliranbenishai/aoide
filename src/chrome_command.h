@@ -28,6 +28,7 @@ enum class ChromeIntent {
   refreshCurrentPlaylist,
   loadCollectionRow,
   showOptionsMenu,
+  showTrackInfo,
   showEqPresets,
   openWebsite,
   resetSettings,

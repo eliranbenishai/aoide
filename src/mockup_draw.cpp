@@ -497,6 +497,31 @@ void drawCog(QPainter& p, const QRectF& box, const QColor& color) {
   p.restore();
 }
 
+void drawSkinsSwatches(QPainter& p, const QRectF& box, const QColor& color) {
+  p.save();
+  p.translate(box.center());
+  const qreal s = box.width() / 24.0;
+  p.scale(s, s);
+  p.setPen(Qt::NoPen);
+  p.setBrush(color);
+  p.drawRoundedRect(QRectF(-8.5, -6.5, 10, 8), 1.4, 1.4);
+  p.drawRoundedRect(QRectF(-4.0, -3.0, 10, 8), 1.4, 1.4);
+  p.drawRoundedRect(QRectF(0.5, 0.5, 10, 8), 1.4, 1.4);
+  p.restore();
+}
+
+void drawTrackInfoLines(QPainter& p, const QRectF& box, const QColor& color) {
+  p.save();
+  p.translate(box.center());
+  const qreal s = box.width() / 24.0;
+  p.scale(s, s);
+  p.setPen(QPen(color, 2.0, Qt::SolidLine, Qt::RoundCap));
+  p.drawLine(QPointF(-7, -5), QPointF(7, -5));
+  p.drawLine(QPointF(-7, 0), QPointF(7, 0));
+  p.drawLine(QPointF(-7, 5), QPointF(3, 5));
+  p.restore();
+}
+
 }  // namespace
 
 void paintBlurred(QPainter& p, const QRectF& bounds, qreal sigma,
@@ -805,6 +830,12 @@ void drawIcon(QPainter& p, const QRectF& box, MockupIcon icon, const QColor& col
     case MockupIcon::options:
       drawCog(p, box, color);
       return;
+    case MockupIcon::skins:
+      drawSkinsSwatches(p, box, color);
+      return;
+    case MockupIcon::trackInfo:
+      drawTrackInfoLines(p, box, color);
+      return;
     case MockupIcon::previous:
       paintIconPath(p, box, 24, pathPrev(), color);
       return;
@@ -847,11 +878,15 @@ void drawIcon(QPainter& p, const QRectF& box, MockupIcon icon, const QColor& col
   }
 }
 
-void drawGlyphBtn(QPainter& p, const QRectF& r, MockupIcon icon, BtnFace face, qreal iconSize) {
+void drawGlyphBtn(QPainter& p, const QRectF& r, MockupIcon icon, BtnFace face, qreal iconSize,
+                  bool enabled) {
+  if (!enabled) face = BtnFace{};
   drawBtn(p, r, face, {});
   const QRectF box(r.center().x() - iconSize / 2, r.center().y() - iconSize / 2, iconSize,
                    iconSize);
-  drawIcon(p, box, icon, mix(T().glyphInk, T().btnOnInk, face.on));
+  QColor ink = mix(T().glyphInk, T().btnOnInk, face.on);
+  if (!enabled) ink = withAlpha(T().glyphInk, 77);
+  drawIcon(p, box, icon, ink);
 }
 
 void drawSlider(QPainter& p, const QRectF& track, qreal t, bool seekStyle, bool glow) {

@@ -29,6 +29,8 @@ bool takesPointerFeedback(ChromeHit::Kind kind) {
       return false;
 
     case ChromeHit::Kind::options:
+    case ChromeHit::Kind::skins:
+    case ChromeHit::Kind::trackInfo:
     case ChromeHit::Kind::mute:
     case ChromeHit::Kind::mono:
     case ChromeHit::Kind::eqToggle:
@@ -58,7 +60,7 @@ bool takesPointerFeedback(ChromeHit::Kind kind) {
     case ChromeHit::Kind::plNext:
     case ChromeHit::Kind::plRefresh:
     case ChromeHit::Kind::settingsGeneral:
-    case ChromeHit::Kind::settingsSkins:
+    case ChromeHit::Kind::settingsAudio:
     case ChromeHit::Kind::settingsResume:
     case ChromeHit::Kind::settingsConfirm:
     case ChromeHit::Kind::settingsScroll:

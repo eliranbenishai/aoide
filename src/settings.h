@@ -38,6 +38,7 @@ struct WindowFrame {
   static WindowFrame playlistDefault() { return {true, false, 0, 696, {}, {}}; }
   static WindowFrame settingsDefault() { return {false, false, 860, 40, {}, {}}; }
   static WindowFrame aboutDefault() { return {false, false, 860, 480, {}, {}}; }
+  static WindowFrame skinsDefault() { return {false, false, 1340, 40, {}, {}}; }
 };
 
 struct DockEdge {
@@ -55,6 +56,7 @@ struct TrampSettings {
   WindowFrame playlist = WindowFrame::playlistDefault();
   WindowFrame settings = WindowFrame::settingsDefault();
   WindowFrame about = WindowFrame::aboutDefault();
+  WindowFrame skins = WindowFrame::skinsDefault();
   QVector<DockEdge> dockEdges;
   EqualizerSettings equalizerCurve;
   QString activeSkinId = QStringLiteral("builtin");
@@ -71,6 +73,14 @@ struct TrampSettings {
   QJsonObject toJson() const;
   static TrampSettings fromJson(const QJsonObject& json);
 };
+
+inline void resetSettingsExceptSkins(TrampSettings& s) {
+  const QString skin = s.activeSkinId;
+  const QString dir = s.skinsDirectory;
+  s = TrampSettings{};
+  s.activeSkinId = skin;
+  s.skinsDirectory = dir;
+}
 
 WindowFrame* frameFor(TrampSettings& s, WindowId id);
 const WindowFrame* frameFor(const TrampSettings& s, WindowId id);

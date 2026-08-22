@@ -26,6 +26,9 @@ class ChromeCommandTest : public QObject {
   void togglingElapsedTimePersistsAndAsksForARefresh();
   void monoPersistsAndDoesNotMarkThePlaylistAltered();
   void installingASkinAsksForAZipAndDoesNotPersistYet();
+  void skinsButtonTogglesTheSkinsPanel();
+  void trackInfoAsksToShowWhenATrackIsLoaded();
+  void trackInfoDoesNothingWhenNothingIsLoaded();
 };
 
 namespace {
@@ -163,11 +166,39 @@ void ChromeCommandTest::monoPersistsAndDoesNotMarkThePlaylistAltered() {
 void ChromeCommandTest::installingASkinAsksForAZipAndDoesNotPersistYet() {
   Fixture f;
   const tramp::ChromeCommandOutcome out = f.router().handle(
-      tramp::WindowId::settings, hit(tramp::ChromeHit::Kind::settingsInstallZip), Qt::NoModifier,
+      tramp::WindowId::skins, hit(tramp::ChromeHit::Kind::settingsInstallZip), Qt::NoModifier,
       {});
   QVERIFY(out.handled);
   QCOMPARE(out.intent, tramp::ChromeIntent::pickSkinZip);
   QVERIFY(!out.persist);
+}
+
+void ChromeCommandTest::skinsButtonTogglesTheSkinsPanel() {
+  Fixture f;
+  const tramp::ChromeCommandOutcome out =
+      f.router().handle(tramp::WindowId::main, hit(tramp::ChromeHit::Kind::skins), Qt::NoModifier,
+                        {});
+  QVERIFY(out.handled);
+  QCOMPARE(out.toggleVisible, tramp::WindowId::skins);
+}
+
+void ChromeCommandTest::trackInfoAsksToShowWhenATrackIsLoaded() {
+  Fixture f;
+  f.playback.playPause();
+  QVERIFY(f.playback.currentTrack());
+  const tramp::ChromeCommandOutcome out = f.router().handle(
+      tramp::WindowId::main, hit(tramp::ChromeHit::Kind::trackInfo), Qt::NoModifier, {});
+  QVERIFY(out.handled);
+  QCOMPARE(out.intent, tramp::ChromeIntent::showTrackInfo);
+}
+
+void ChromeCommandTest::trackInfoDoesNothingWhenNothingIsLoaded() {
+  Fixture f;
+  QVERIFY(!f.playback.currentTrack());
+  const tramp::ChromeCommandOutcome out = f.router().handle(
+      tramp::WindowId::main, hit(tramp::ChromeHit::Kind::trackInfo), Qt::NoModifier, {});
+  QVERIFY(out.handled);
+  QCOMPARE(out.intent, tramp::ChromeIntent::none);
 }
 
 QTEST_APPLESS_MAIN(ChromeCommandTest)

@@ -171,6 +171,9 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
   if (chassis) {
     drawScreenWell(p, well);
     drawGlyphBtn(p, display.options, MockupIcon::options, faceOf(phases, K::options, false), 16);
+    drawGlyphBtn(p, display.skins, MockupIcon::skins, faceOf(phases, K::skins, view.skinsOn), 16);
+    drawGlyphBtn(p, display.trackInfo, MockupIcon::trackInfo, faceOf(phases, K::trackInfo, false), 16,
+                 view.trackInfoEnabled);
     const QRectF marks = displayWellMarks(inner);
     qreal markX = marks.left();
     auto paintMark = [&](const QString& label) {
@@ -776,64 +779,17 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
     p.drawText(r.adjusted(12, 0, 0, 0), Qt::AlignVCenter, label);
   };
   tab(body.top(), QStringLiteral("General"), K::settingsGeneral, tabIndex == 0);
-  tab(body.top() + 42, QStringLiteral("Skins"), K::settingsSkins, tabIndex == 1);
+  tab(body.top() + 42, QStringLiteral("Audio"), K::settingsAudio, tabIndex == 1);
 
   const QRectF pane = settingsPane(body);
-  if (tabIndex == 1) {
-    const QVector<SkinCatalogEntry>& skins = view.skins;
-    const QString& active = view.activeSkinId;
-    const QRectF viewport = skinsListViewport(pane);
-    const int scroll = view.skinsScroll;
-    p.save();
-    p.setClipRect(viewport);
-    for (int i = 0; i < skins.size(); ++i) {
-      const QRectF row = skinsListRow(viewport, i, scroll);
-      if (row.bottom() < viewport.top() || row.top() > viewport.bottom()) continue;
-      const bool on = skins[i].id == active;
-      if (on) {
-        p.fillRect(row, QColor(T().shellHi.red(), T().shellHi.green(), T().shellHi.blue(), 115));
-      }
-      p.setFont(condensedFont(12, 0.08));
-      p.setPen(on ? T().phos : T().ink);
-      p.drawText(row.adjusted(10, 0, -10, 0), Qt::AlignVCenter | Qt::AlignLeft, skins[i].name);
-      if (!skins[i].author.isEmpty()) {
-        p.setFont(monoFont(10));
-        p.setPen(T().inkDim);
-        const qreal nameW = textWidth(condensedFont(12, 0.08), skins[i].name);
-        p.drawText(row.adjusted(14 + nameW, 0, -10, 0), Qt::AlignVCenter | Qt::AlignLeft,
-                   skins[i].author);
-      }
-    }
-    p.restore();
-    const int maxScroll = skinsListMaxScroll(skins.size(), viewport.height());
-    if (maxScroll > 0) {
-      const QRectF track = skinsListScrollTrack(viewport);
-      const QRectF thumb = skinsListThumb(track, skins.size(), scroll);
-      drawScrollbar(p, track, thumb.top() - track.top(), thumb.height());
-    }
-    if (!view.skinsError.isEmpty()) {
-      const QRectF strip = skinsErrorStrip(viewport);
-      p.save();
-      p.setClipRect(strip);
-      p.setFont(monoFont(10));
-      p.setPen(T().accent);
-      drawWrappedElided(p, strip, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextWordWrap,
-                        view.skinsError);
-      p.restore();
-    }
-    const qreal btnY = pane.bottom() - kSkinsBtnStackH;
-    drawBtn(p, QRectF(pane.left() + 12, btnY, 148, 26), faceOf(phases, K::settingsInstallZip, false),
-            QStringLiteral("Install zip"));
-    drawBtn(p, QRectF(pane.left() + 168, btnY, 160, 26),
-            faceOf(phases, K::settingsInstallFolder, false), QStringLiteral("Install folder"));
-    drawBtn(p, QRectF(pane.left() + 12, btnY + 30, 148, 26),
-            faceOf(phases, K::settingsSkinsFolder, false), QStringLiteral("Skins folder"));
-    drawBtn(p, QRectF(pane.left() + 168, btnY + 30, 160, 26),
-            faceOf(phases, K::settingsResetSkinsFolder, false), QStringLiteral("Reset folder"));
+  auto paintReset = [&]() {
     p.setFont(condensedFont(12, 0.1));
     p.setPen(T().accent);
     p.drawText(QRectF(body.left() + 12, body.bottom() - 36, 160, 24), Qt::AlignVCenter,
                QStringLiteral("Reset Settings"));
+  };
+  if (tabIndex == 1) {
+    paintReset();
     return;
   }
   struct Toggle {
@@ -885,10 +841,64 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
     p.drawText(mark, Qt::AlignVCenter | Qt::AlignLeft,
                QStringLiteral("Could not write settings"));
   }
-  p.setFont(condensedFont(12, 0.1));
-  p.setPen(T().accent);
-  p.drawText(QRectF(body.left() + 12, body.bottom() - 36, 160, 24), Qt::AlignVCenter,
-             QStringLiteral("Reset Settings"));
+  paintReset();
+}
+
+void paintSkins(QPainter& p, const QRectF& body, const SessionView& view,
+                const ChromePhases& phases) {
+  const PainterStateScope hold(p);
+  using K = ChromeHit::Kind;
+  const QRectF pane = skinsPane(body);
+  const QVector<SkinCatalogEntry>& skins = view.skins;
+  const QString& active = view.activeSkinId;
+  const QRectF viewport = skinsListViewport(pane);
+  const int scroll = view.skinsScroll;
+  p.save();
+  p.setClipRect(viewport);
+  for (int i = 0; i < skins.size(); ++i) {
+    const QRectF row = skinsListRow(viewport, i, scroll);
+    if (row.bottom() < viewport.top() || row.top() > viewport.bottom()) continue;
+    const bool on = skins[i].id == active;
+    if (on) {
+      p.fillRect(row, QColor(T().shellHi.red(), T().shellHi.green(), T().shellHi.blue(), 115));
+    }
+    p.setFont(condensedFont(12, 0.08));
+    p.setPen(on ? T().phos : T().ink);
+    p.drawText(row.adjusted(10, 0, -10, 0), Qt::AlignVCenter | Qt::AlignLeft, skins[i].name);
+    if (!skins[i].author.isEmpty()) {
+      p.setFont(monoFont(10));
+      p.setPen(T().inkDim);
+      const qreal nameW = textWidth(condensedFont(12, 0.08), skins[i].name);
+      p.drawText(row.adjusted(14 + nameW, 0, -10, 0), Qt::AlignVCenter | Qt::AlignLeft,
+                 skins[i].author);
+    }
+  }
+  p.restore();
+  const int maxScroll = skinsListMaxScroll(skins.size(), viewport.height());
+  if (maxScroll > 0) {
+    const QRectF track = skinsListScrollTrack(viewport);
+    const QRectF thumb = skinsListThumb(track, skins.size(), scroll);
+    drawScrollbar(p, track, thumb.top() - track.top(), thumb.height());
+  }
+  if (!view.skinsError.isEmpty()) {
+    const QRectF strip = skinsErrorStrip(viewport);
+    p.save();
+    p.setClipRect(strip);
+    p.setFont(monoFont(10));
+    p.setPen(T().accent);
+    drawWrappedElided(p, strip, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextWordWrap,
+                      view.skinsError);
+    p.restore();
+  }
+  const qreal btnY = pane.bottom() - kSkinsBtnStackH;
+  drawBtn(p, QRectF(pane.left() + 12, btnY, 148, 26), faceOf(phases, K::settingsInstallZip, false),
+          QStringLiteral("Install zip"));
+  drawBtn(p, QRectF(pane.left() + 168, btnY, 160, 26),
+          faceOf(phases, K::settingsInstallFolder, false), QStringLiteral("Install folder"));
+  drawBtn(p, QRectF(pane.left() + 12, btnY + 30, 148, 26),
+          faceOf(phases, K::settingsSkinsFolder, false), QStringLiteral("Skins folder"));
+  drawBtn(p, QRectF(pane.left() + 168, btnY + 30, 160, 26),
+          faceOf(phases, K::settingsResetSkinsFolder, false), QStringLiteral("Reset folder"));
 }
 
 void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const SessionView& view) {
@@ -1075,6 +1085,9 @@ void paintWindowBody(QPainter& painter, WindowId id, QSize logical, const QImage
       break;
     case WindowId::about:
       paintAbout(painter, body, logo, view);
+      break;
+    case WindowId::skins:
+      paintSkins(painter, body, view, phases);
       break;
   }
 }

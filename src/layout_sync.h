@@ -42,7 +42,7 @@ class PanelSurfaces {
   /// the desktop keeps for itself. What a zoom step has to fit inside. Empty
   /// when it is not known, which withdraws nothing.
   virtual QRect workAreaFor(QRect clusterNative) const = 0;
-  /// All five panels arrive every pass, hidden ones included, because hiding is
+  /// All panels arrive every pass, hidden ones included, because hiding is
   /// something this call has to do rather than something it can skip. A panel
   /// missing from the list would keep its pixels on the canvas while dropping
   /// out of the punch the shell builds from the visible ones.

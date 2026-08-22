@@ -9,11 +9,11 @@
 
 namespace tramp {
 
-enum class WindowId { main, equalizer, playlist, settings, about };
+enum class WindowId { main, equalizer, playlist, settings, about, skins };
 
 /// How many panels there are. `WindowId` is dense from zero, so this is also
 /// the length of every table keyed by one — see `panel_registry.h`.
-inline constexpr int kPanelCount = 5;
+inline constexpr int kPanelCount = 6;
 
 struct WindowSpec {
   WindowId id;

@@ -39,7 +39,6 @@ inline QVector<ChromeMenuItem> optionsMenuItems(const TrampSettings& settings) {
       ChromeMenuItem::check(QStringLiteral("Always on top"), settings.alwaysOnTop),
       ChromeMenuItem::separator(),
       ChromeMenuItem::action(QStringLiteral("Settings…")),
-      ChromeMenuItem::action(QStringLiteral("Track info")),
       ChromeMenuItem::action(QStringLiteral("About Tramp")),
       ChromeMenuItem::action(QStringLiteral("Open files…")),
       ChromeMenuItem::separator(),
@@ -222,7 +221,7 @@ class TrampSession : public QObject, public PanelSurfaces {
   bool noAudioEngine_ = false;
   /// Set while a batch of probe answers is being applied: every answer touches
   /// the list, and every touch would otherwise rebuild the view and hand it to
-  /// five panels. One batch is one change as far as the chrome is concerned.
+  /// panels. One batch is one change as far as the chrome is concerned.
   bool holdChrome_ = false;
   bool chromeHeld_ = false;
   /// Last, so that even a teardown path that forgets to stop the workers joins

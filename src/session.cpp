@@ -642,6 +642,8 @@ SessionView TrampSession::view() const {
   SessionView v;
   v.eqOn = layout_.layout().equalizer.visible;
   v.plOn = layout_.layout().playlist.visible;
+  v.skinsOn = layout_.layout().skins.visible;
+  v.trackInfoEnabled = playback_->currentTrack().has_value();
   v.showElapsed = settings_.showElapsed;
   v.titleScrollMs = titleScrollMs();
   v.positionMs = playback_->positionMs();
@@ -686,7 +688,7 @@ SessionView TrampSession::view() const {
   v.skins = skins_.catalog();
   v.activeSkinId = settings_.activeSkinId;
   v.skinsError = skins_.lastError();
-  const QRectF skinsViewport = skinsListViewport(settingsPane(kSettings));
+  const QRectF skinsViewport = skinsListViewport(skinsPane(kSkins));
   v.skinsScroll = std::max(0, std::min(skinsScroll_, skinsListMaxScroll(skins_.catalog().size(),
                                                                         skinsViewport.height())));
 
@@ -789,7 +791,11 @@ void TrampSession::setWindowVisible(WindowId id, bool visible) {
     emit requestShow(id);
     layout_.clampToHost(id);
     layout_.place();
-    if (id == WindowId::settings) emit requestRaise(WindowId::settings);
+    if (id == WindowId::settings || id == WindowId::skins) emit requestRaise(id);
+    if (id == WindowId::skins) {
+      WaitCursorScope wait;
+      skins_.rescan();
+    }
     if (id == WindowId::about) refreshAboutFigures();
   } else {
     emit requestHide(id);
@@ -829,6 +835,8 @@ void TrampSession::mainActivated() { raiseSettingsIfShowing(); }
 void TrampSession::raiseSettingsIfShowing() {
   HostWindow* settings = windowFor(WindowId::settings);
   if (settings && settings->isVisible()) settings->raise();
+  HostWindow* skins = windowFor(WindowId::skins);
+  if (skins && skins->isVisible()) skins->raise();
 }
 
 void TrampSession::playTrackAt(int index) {
@@ -1015,8 +1023,8 @@ void TrampSession::handleRelease(WindowId id) {
 }
 
 void TrampSession::handleWheel(WindowId id, int delta) {
-  if (id == WindowId::settings && settingsTab_ == 1) {
-    const QRectF viewport = skinsListViewport(settingsPane(kSettings));
+  if (id == WindowId::skins) {
+    const QRectF viewport = skinsListViewport(skinsPane(kSkins));
     const int maxScroll = skinsListMaxScroll(skins_.catalog().size(), viewport.height());
     const int step = delta > 0 ? -kSkinRowStride : kSkinRowStride;
     skinsScroll_ = std::max(0, std::min(skinsScroll_ + step, maxScroll));
@@ -1130,6 +1138,9 @@ void TrampSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
       break;
     case ChromeIntent::showOptionsMenu:
       showOptionsMenu(hit.rect);
+      break;
+    case ChromeIntent::showTrackInfo:
+      showTrackInfo();
       break;
     case ChromeIntent::showEqPresets:
       presentEqPresets(hit);
@@ -1318,15 +1329,11 @@ void TrampSession::presentEqPresets(const ChromeHit& hit) {
 }
 
 void TrampSession::presentResetSettings() {
-  settings_ = TrampSettings{};
+  resetSettingsExceptSkins(settings_);
   applyEq();
   engine_->setForceMono(false);
   layout_.docking().setSnapThreshold(snapPixels(settings_.dockSnapStrength));
   applyAlwaysOnTop();
-  {
-    WaitCursorScope wait;
-    skins_.setSkinsDirectory({}, settings_);
-  }
   syncTitleMarquee();
   schedulePersist();
   refreshChrome();
@@ -1334,7 +1341,7 @@ void TrampSession::presentResetSettings() {
 
 void TrampSession::presentSkinZipInstall() {
   FilePick pick;
-  pick.parent = windowFor(WindowId::settings);
+  pick.parent = windowFor(WindowId::skins);
   pick.title = QStringLiteral("Install skin");
   pick.filter = QStringLiteral("Skin zip (*.zip)");
   pick.kind = FilePickKind::openFile;
@@ -1350,7 +1357,7 @@ void TrampSession::presentSkinZipInstall() {
 
 void TrampSession::presentSkinFolderInstall() {
   FilePick pick;
-  pick.parent = windowFor(WindowId::settings);
+  pick.parent = windowFor(WindowId::skins);
   pick.title = QStringLiteral("Install skin folder");
   pick.kind = FilePickKind::openDirectory;
   const QString path = pickFile(pick);
@@ -1365,7 +1372,7 @@ void TrampSession::presentSkinFolderInstall() {
 
 void TrampSession::presentSkinsDirectoryPick() {
   FilePick pick;
-  pick.parent = windowFor(WindowId::settings);
+  pick.parent = windowFor(WindowId::skins);
   pick.title = QStringLiteral("Skins folder");
   pick.directory = skins_.skinsDirectory();
   pick.kind = FilePickKind::openDirectory;
@@ -1387,8 +1394,8 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
 
 void TrampSession::showOptionsMenu(QRect logicalHit) {
   // The rules keep the window toggle and the destructive row away from the
-  // four that just open something. Row indices count them, hence the members.
-  enum Row { kAlwaysOnTop, kRuleTop, kSettings, kTrackInfo, kAbout, kOpenFiles, kRuleQuit, kQuit };
+  // openers. Row indices count them, hence the members.
+  enum Row { kAlwaysOnTop, kRuleTop, kSettings, kAbout, kOpenFiles, kRuleQuit, kQuit };
   const QVector<ChromeMenuItem> items = optionsMenuItems(settings_);
   if (logicalHit.isEmpty()) logicalHit = mainOptionsHit(kMainPlayer);
   switch (execAnchoredMenu(items, windowFor(WindowId::main), logicalHit, PopupAnchor::belowLeft)) {
@@ -1399,9 +1406,6 @@ void TrampSession::showOptionsMenu(QRect logicalHit) {
       break;
     case kSettings:
       setWindowVisible(WindowId::settings, !windowShouldShow(WindowId::settings));
-      break;
-    case kTrackInfo:
-      showTrackInfo();
       break;
     case kAbout:
       if (windowShouldShow(WindowId::about)) emit requestRaise(WindowId::about);
@@ -1496,7 +1500,7 @@ QString TrampSession::bundledSkinsDir() const { return tramp::bundledSkinsDir();
 
 SkinController::ConflictFn TrampSession::skinConflictPrompt() {
   return [this](const SkinConflict& conflict) {
-    QWidget* parent = dialogParent(WindowId::settings);
+    QWidget* parent = dialogParent(WindowId::skins);
     const QString text =
         QStringLiteral("A skin named \"%1\" is already installed%2.\nReplace it with \"%3\"%4?")
             .arg(conflict.installedName,

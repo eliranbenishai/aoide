@@ -17,6 +17,7 @@ class ChromeSpecTest : public QObject {
   void titleBarStopsMatchMockupStylesheet();
   void nativeSeedIsRoundedSeventyFivePercent();
   void windowSpecsUseNativeSeeds();
+  void gutterStacksSkinsAndTrackInfoUnderTheCog();
   void mainTitleDragExcludesWindowButtons();
   void extrasOmitBrandAndZoomAndUseCollapse();
   void zoomStepsMoveAcrossTheDiscreteLadder();
@@ -73,6 +74,7 @@ void ChromeSpecTest::nativeSeedIsRoundedSeventyFivePercent() {
   QCOMPARE(tramp::nativeUnmappedSeed(tramp::kPlaylistDefault), QSize(805, 522));
   QCOMPARE(tramp::nativeUnmappedSeed(tramp::kSettings), QSize(390, 315));
   QCOMPARE(tramp::nativeUnmappedSeed(tramp::kAbout), QSize(360, 270));
+  QCOMPARE(tramp::nativeUnmappedSeed(tramp::kSkins), QSize(390, 315));
 }
 
 void ChromeSpecTest::windowSpecsUseNativeSeeds() {
@@ -82,9 +84,22 @@ void ChromeSpecTest::windowSpecsUseNativeSeeds() {
   QCOMPARE(specs[2].logicalSize, tramp::kPlaylistDefault);
   QCOMPARE(specs[3].logicalSize, tramp::kSettings);
   QCOMPARE(specs[4].logicalSize, tramp::kAbout);
+  QCOMPARE(specs[5].logicalSize, tramp::kSkins);
   for (const tramp::WindowSpec& spec : specs) {
     QCOMPARE(spec.size, tramp::nativeUnmappedSeed(spec.logicalSize));
   }
+}
+
+void ChromeSpecTest::gutterStacksSkinsAndTrackInfoUnderTheCog() {
+  const tramp::MainDisplayRow row = tramp::layoutMainDisplay(tramp::panelBody(tramp::kMainPlayer));
+  QCOMPARE(row.options.size(), QSizeF(26, 26));
+  QCOMPARE(row.skins.size(), QSizeF(26, 26));
+  QCOMPARE(row.trackInfo.size(), QSizeF(26, 26));
+  QCOMPARE(row.skins.left(), row.options.left());
+  QCOMPARE(row.trackInfo.left(), row.options.left());
+  QCOMPARE(row.skins.top(), row.options.bottom() + tramp::kMainGutterBtnGap);
+  QCOMPARE(row.trackInfo.top(), row.skins.bottom() + tramp::kMainGutterBtnGap);
+  QVERIFY(row.trackInfo.bottom() < row.well.bottom());
 }
 
 void ChromeSpecTest::mainTitleDragExcludesWindowButtons() {
@@ -123,6 +138,12 @@ void ChromeSpecTest::extrasOmitBrandAndZoomAndUseCollapse() {
       tramp::WindowId::playlist, tramp::kPlaylistDefault);
   QCOMPARE(pl.roleName, QStringLiteral("Playlist Manager"));
   QVERIFY(!pl.showBrand);
+
+  const auto skins = tramp::TitleChromeLayout::forWindow(tramp::WindowId::skins, tramp::kSkins);
+  QCOMPARE(skins.roleName, QStringLiteral("Skins"));
+  QVERIFY(!skins.showBrand);
+  QVERIFY(!skins.showZoom);
+  QCOMPARE(skins.hit(skins.minimize.center()), tramp::TitleChromeLayout::Hit::collapse);
 }
 
 void ChromeSpecTest::zoomStepsMoveAcrossTheDiscreteLadder() {
@@ -217,10 +238,10 @@ void ChromeSpecTest::stereoPlaylistGapHoldsForWideGlyphs() {
 }
 
 void ChromeSpecTest::skinsListScrollsLastRowIntoView() {
-  const auto pane = tramp::settingsPane(tramp::kSettings);
+  const auto pane = tramp::skinsPane(tramp::kSkins);
   const auto viewport = tramp::skinsListViewport(pane);
-  QCOMPARE(int(viewport.height()), 228);
-  QCOMPARE(tramp::skinsListMaxScroll(8, viewport.height()), 60);
+  QCOMPARE(int(viewport.height()), 268);
+  QCOMPARE(tramp::skinsListMaxScroll(8, viewport.height()), 20);
 
   const auto lastHidden = tramp::skinsListRow(viewport, 7, 0);
   QVERIFY(lastHidden.bottom() > viewport.bottom());
@@ -236,7 +257,7 @@ void ChromeSpecTest::skinsListScrollsLastRowIntoView() {
 // scroll and ran past the viewport into the scrollbar track. It now has a strip
 // of its own, and nothing the pane paints may be under it.
 void ChromeSpecTest::skinsErrorStripClearsTheListAndTheScrollbar() {
-  const auto pane = tramp::settingsPane(tramp::kSettings);
+  const auto pane = tramp::skinsPane(tramp::kSkins);
   const auto viewport = tramp::skinsListViewport(pane);
   const auto strip = tramp::skinsErrorStrip(viewport);
   const auto track = tramp::skinsListScrollTrack(viewport);
@@ -399,6 +420,8 @@ void ChromeSpecTest::inertPhaseStoreLeavesPaintersOnPlainSessionState() {
 void ChromeSpecTest::pointerFeedbackSkipsSlidersAndListRows() {
   using K = tramp::ChromeHit::Kind;
   QVERIFY(tramp::takesPointerFeedback(K::play));
+  QVERIFY(tramp::takesPointerFeedback(K::skins));
+  QVERIFY(tramp::takesPointerFeedback(K::trackInfo));
   QVERIFY(tramp::takesPointerFeedback(K::plSort));
   QVERIFY(tramp::takesPointerFeedback(K::eqPresets));
   // Hovering these would rebuild a whole panel chassis per mouse move.

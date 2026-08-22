@@ -62,6 +62,11 @@ QString chromeKindTip(const ChromeHit& chrome, const SessionView& view) {
   switch (chrome.kind) {
     case K::options:
       return QStringLiteral("Options");
+    case K::skins:
+      return view.skinsOn ? QStringLiteral("Hide Skins") : QStringLiteral("Show Skins");
+    case K::trackInfo:
+      return view.trackInfoEnabled ? QStringLiteral("Track info")
+                                   : QStringLiteral("No track loaded.");
     case K::mute:
       return view.muted ? QStringLiteral("Unmute") : QStringLiteral("Mute");
     case K::mono:
@@ -121,8 +126,8 @@ QString chromeKindTip(const ChromeHit& chrome, const SessionView& view) {
       return QStringLiteral("Refresh playlist");
     case K::settingsGeneral:
       return QStringLiteral("General");
-    case K::settingsSkins:
-      return QStringLiteral("Skins");
+    case K::settingsAudio:
+      return QStringLiteral("Audio");
     case K::settingsResume:
       return resumePlaybackLabel();
     case K::settingsConfirm:
