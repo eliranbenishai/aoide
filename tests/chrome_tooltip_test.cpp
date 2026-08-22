@@ -154,7 +154,7 @@ void ChromeTooltipTest::settingsAndAboutNameControls() {
   QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsGeneral), view), QStringLiteral("General"));
   QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsSkins), view), QStringLiteral("Skins"));
   QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsResume), view),
-           QStringLiteral("Resume last session"));
+           tramp::resumePlaybackLabel());
   QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsConfirm), view),
            QStringLiteral("Confirm before quit"));
   QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsScroll), view), QStringLiteral("Scroll title"));

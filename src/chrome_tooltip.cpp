@@ -124,7 +124,7 @@ QString chromeKindTip(const ChromeHit& chrome, const SessionView& view) {
     case K::settingsSkins:
       return QStringLiteral("Skins");
     case K::settingsResume:
-      return QStringLiteral("Resume last session");
+      return resumePlaybackLabel();
     case K::settingsConfirm:
       return QStringLiteral("Confirm before quit");
     case K::settingsScroll:
