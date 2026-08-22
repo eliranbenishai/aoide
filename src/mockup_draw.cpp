@@ -510,29 +510,35 @@ void drawCog(QPainter& p, const QRectF& box, const QColor& color) {
   p.restore();
 }
 
-void drawSkinsSwatches(QPainter& p, const QRectF& box, const QColor& color) {
-  p.save();
-  p.translate(box.center());
-  const qreal s = box.width() / 24.0;
-  p.scale(s, s);
-  p.setPen(Qt::NoPen);
-  p.setBrush(color);
-  p.drawRoundedRect(QRectF(-8.5, -6.5, 10, 8), 1.4, 1.4);
-  p.drawRoundedRect(QRectF(-4.0, -3.0, 10, 8), 1.4, 1.4);
-  p.drawRoundedRect(QRectF(0.5, 0.5, 10, 8), 1.4, 1.4);
-  p.restore();
+QPainterPath pathSkins() {
+  // Upper-face mask: brow, cheeks, nose. A full face with a smile is a
+  // smiley at 16px; an eye-bar is goggles. This silhouette is only a mask.
+  QPainterPath path;
+  path.setFillRule(Qt::OddEvenFill);
+  path.moveTo(3.0, 8.6);
+  path.cubicTo(3.0, 3.8, 7.0, 2.2, 12.0, 2.2);
+  path.cubicTo(17.0, 2.2, 21.0, 3.8, 21.0, 8.6);
+  path.cubicTo(21.0, 11.4, 18.8, 13.8, 16.4, 14.4);
+  path.lineTo(14.2, 15.0);
+  path.lineTo(12.0, 18.8);
+  path.lineTo(9.8, 15.0);
+  path.lineTo(7.6, 14.4);
+  path.cubicTo(5.2, 13.8, 3.0, 11.4, 3.0, 8.6);
+  path.closeSubpath();
+  path.addEllipse(QRectF(5.4, 6.4, 5.0, 4.2));
+  path.addEllipse(QRectF(13.6, 6.4, 5.0, 4.2));
+  return path;
 }
 
-void drawTrackInfoLines(QPainter& p, const QRectF& box, const QColor& color) {
-  p.save();
-  p.translate(box.center());
-  const qreal s = box.width() / 24.0;
-  p.scale(s, s);
-  p.setPen(QPen(color, 2.0, Qt::SolidLine, Qt::RoundCap));
-  p.drawLine(QPointF(-7, -5), QPointF(7, -5));
-  p.drawLine(QPointF(-7, 0), QPointF(7, 0));
-  p.drawLine(QPointF(-7, 5), QPointF(3, 5));
-  p.restore();
+QPainterPath pathTrackInfo() {
+  // Circled lowercase i — the information mark, not a font letter and not the
+  // retired clutterbar I. The cut-outs stay fat enough to open at 16px.
+  QPainterPath path;
+  path.setFillRule(Qt::OddEvenFill);
+  path.addEllipse(QRectF(2.2, 2.2, 19.6, 19.6));
+  path.addEllipse(QRectF(10.0, 4.8, 4.0, 3.4));
+  path.addRoundedRect(QRectF(10.0, 11.2, 4.0, 7.0), 1.8, 1.8);
+  return path;
 }
 
 }  // namespace
@@ -857,10 +863,10 @@ void drawIcon(QPainter& p, const QRectF& box, MockupIcon icon, const QColor& col
       drawCog(p, box, color);
       return;
     case MockupIcon::skins:
-      drawSkinsSwatches(p, box, color);
+      paintIconPath(p, box, 24, pathSkins(), color);
       return;
     case MockupIcon::trackInfo:
-      drawTrackInfoLines(p, box, color);
+      paintIconPath(p, box, 24, pathTrackInfo(), color);
       return;
     case MockupIcon::previous:
       paintIconPath(p, box, 24, pathPrev(), color);
