@@ -2,8 +2,10 @@
 #include "tramp_metrics.h"
 
 #include <QDir>
+#include <QFileInfo>
 #include <QFont>
 #include <QFontDatabase>
+#include <QFontInfo>
 #include <QFontMetricsF>
 #include <QGuiApplication>
 #include <QImage>
@@ -110,6 +112,20 @@ int main(int argc, char** argv) {
     const int px = tramp::pixelSizeFittingLineHeight(probe, tramp::kElapsedTimePx,
                                                      tramp::kElapsedTimeBoxH);
     REQUIRE(px == tramp::kElapsedTimePx);
+  }
+
+  {
+    REQUIRE(QFileInfo::exists(tramp::assetPath("fonts/Ultra-Regular.ttf")));
+    tramp::loadTrampFonts();
+    const QString brand = tramp::brandFamily();
+    REQUIRE(brand == QStringLiteral("Ultra"));
+    REQUIRE(QFontInfo(QFont(brand)).family() == QStringLiteral("Ultra"));
+    const QString chrome = tramp::chromeFamily();
+    tramp::setLookFamilies(tramp::lcdFamily(), tramp::lcdFamily());
+    REQUIRE(tramp::chromeFamily() == tramp::lcdFamily());
+    REQUIRE(tramp::brandFamily() == brand);
+    tramp::setLookFamilies({}, {});
+    REQUIRE(tramp::chromeFamily() == chrome);
   }
 
   if (gFails) {

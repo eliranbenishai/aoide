@@ -579,6 +579,19 @@ QFont monoFont(int px, qreal trackingEm) {
   return f;
 }
 
+QFont brandFont(int px, qreal trackingEm) {
+  FontAccount account;
+  QFont f(brandFamily());
+  f.setPixelSize(px);
+  f.setWeight(QFont::Normal);
+  f.setHintingPreference(QFont::PreferNoHinting);
+  f.setStyleStrategy(QFont::PreferAntialias);
+  if (trackingEm != 0) {
+    f.setLetterSpacing(QFont::AbsoluteSpacing, px * trackingEm);
+  }
+  return f;
+}
+
 qreal textWidth(const QFont& font, const QString& text) {
   return QFontMetricsF(font).horizontalAdvance(text);
 }

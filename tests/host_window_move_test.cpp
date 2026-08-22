@@ -67,6 +67,8 @@ class HostWindowMoveTest : public QObject {
   void missingEngineMarkStaysOnTheDisplayWell();
   void persistFailureMarkStaysUntilAWriteSucceeds();
   void skinsErrorStaysOnTheSkinsStrip();
+  void eqCurveWellIgnoresPreamp();
+  void wordmarkKeepsBrandFaceWhenChromeFontChanges();
 };
 
 void HostWindowMoveTest::parentedPanelMoveDoesNotEmitNativeMoved() {
@@ -1400,6 +1402,63 @@ void HostWindowMoveTest::skinsErrorStaysOnTheSkinsStrip() {
   QVERIFY2(paintPanel(tramp::WindowId::skins, tramp::kSkins, failed) !=
                paintPanel(tramp::WindowId::skins, tramp::kSkins, clean),
            "the Skins strip must still paint skinsError");
+}
+
+void HostWindowMoveTest::eqCurveWellIgnoresPreamp() {
+  tramp::SessionView a = tramp::goldenDemoView();
+  tramp::SessionView b = a;
+  b.eq.preamp = -8;
+  tramp::SessionView shaped = a;
+  shaped.eq.gains[0] = 12;
+
+  const QImage pa = paintPanel(tramp::WindowId::equalizer, tramp::kEqualizer, a);
+  const QImage pb = paintPanel(tramp::WindowId::equalizer, tramp::kEqualizer, b);
+  const QImage ps = paintPanel(tramp::WindowId::equalizer, tramp::kEqualizer, shaped);
+
+  const QRectF body = tramp::panelBody(tramp::kEqualizer);
+  const tramp::EqHeaderRow header =
+      tramp::layoutEqHeader(body, tramp::labelBtnWidth(QStringLiteral("ON")),
+                            tramp::labelBtnWidth(QStringLiteral("AUTO")),
+                            tramp::labelBtnWidth(QStringLiteral("PRESETS"), 16, 22));
+  const QRect curve = header.curveWell.toRect();
+  const QRect preampWell = tramp::eqBandColumn(tramp::eqBandRow(body), 0).well.toRect();
+
+  QVERIFY2(pa.copy(curve) != ps.copy(curve),
+           "the curve well must still follow the ten band gains");
+  QVERIFY2(pa.copy(preampWell) != pb.copy(preampWell),
+           "the preamp column must still move with preamp");
+  QCOMPARE(pa.copy(curve), pb.copy(curve));
+}
+
+void HostWindowMoveTest::wordmarkKeepsBrandFaceWhenChromeFontChanges() {
+  tramp::loadTrampFonts();
+  tramp::SessionView view = tramp::goldenDemoView();
+  const tramp::TitleChromeLayout title =
+      tramp::TitleChromeLayout::forWindow(tramp::WindowId::main, tramp::kMainPlayer);
+  const QImage logo = tramp::loadTrampLogo();
+
+  auto shoot = [&]() {
+    QImage img(tramp::kMainPlayer, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::black);
+    QPainter p(&img);
+    tramp::paintMockupWindow(p, tramp::kMainPlayer, tramp::WindowId::main, title, &logo, view);
+    p.end();
+    return img;
+  };
+
+  tramp::setLookFamilies({}, {});
+  const QImage builtin = shoot();
+  tramp::setLookFamilies(tramp::lcdFamily(), tramp::lcdFamily());
+  const QImage skinned = shoot();
+  tramp::setLookFamilies({}, {});
+
+  const int wmW =
+      QFontMetrics(tramp::brandFont(24)).horizontalAdvance(QStringLiteral("TRAMP"));
+  const QRect wordmark(54, 0, wmW, tramp::kTitleBar);
+  const QRect role(330, 0, 180, tramp::kTitleBar);
+  QVERIFY2(builtin.copy(role) != skinned.copy(role),
+           "a chrome-font override must still restyle the role title");
+  QCOMPARE(builtin.copy(wordmark), skinned.copy(wordmark));
 }
 
 QTEST_MAIN(HostWindowMoveTest)

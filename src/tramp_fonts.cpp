@@ -15,6 +15,7 @@ namespace {
 
 QString g_chromeFamily = QStringLiteral("TrampCondensed");
 QString g_lcdFamily = QStringLiteral("TrampMono");
+QString g_brandFamily = QStringLiteral("Ultra");
 QString g_lookChrome;
 QString g_lookLcd;
 
@@ -55,6 +56,7 @@ void loadTrampFonts() {
       QFontDatabase::addApplicationFont(assetPath("fonts/TrampCondensed-Bold.ttf"));
   const int mono =
       QFontDatabase::addApplicationFont(assetPath("fonts/TrampMono-Medium.ttf"));
+  const int brand = QFontDatabase::addApplicationFont(assetPath("fonts/Ultra-Regular.ttf"));
   const QStringList families = QFontDatabase::applicationFontFamilies(condensed);
   if (!families.isEmpty()) {
     g_chromeFamily = families.front();
@@ -62,6 +64,10 @@ void loadTrampFonts() {
   const QStringList lcd = QFontDatabase::applicationFontFamilies(mono);
   if (!lcd.isEmpty()) {
     g_lcdFamily = lcd.front();
+  }
+  const QStringList wordmark = QFontDatabase::applicationFontFamilies(brand);
+  if (!wordmark.isEmpty()) {
+    g_brandFamily = wordmark.front();
   }
 }
 
@@ -80,6 +86,8 @@ QString chromeFamily() {
 QString lcdFamily() {
   return g_lookLcd.isEmpty() ? g_lcdFamily : g_lookLcd;
 }
+
+QString brandFamily() { return g_brandFamily; }
 
 int pixelSizeFittingLineHeight(QFont font, int requestedPx, qreal maxLineHeight) {
   if (requestedPx <= 0) return 1;

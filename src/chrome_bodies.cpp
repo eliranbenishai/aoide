@@ -438,14 +438,13 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
 
   if (live) {
     QVector<QPointF> pts;
-    pts.reserve(11);
+    pts.reserve(10);
     auto yFor = [&](qreal g) {
       const qreal t = (12.0 - qBound(-12.0, g, 12.0)) / 24.0;
       return curveWell.top() + t * curveWell.height();
     };
-    pts.push_back(QPointF(curveWell.left(), yFor(preamp)));
     for (int i = 0; i < 10; ++i) {
-      pts.push_back(QPointF(curveWell.left() + curveWell.width() * (i + 1) / 10.0,
+      pts.push_back(QPointF(curveWell.left() + curveWell.width() * i / 9.0,
                             yFor(gains[i])));
     }
     p.setPen(QPen(withAlpha(T().coolSheen, 36), 1));
@@ -946,7 +945,7 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
 
   const qreal textLeft = badge.right() + 15;
   drawStyledText(p, QRectF(badge.right() + 18, inner.top() + 4, 220, 32), QStringLiteral("TRAMP"),
-                 condensedFont(28, 0.22), T().wordmark, Qt::AlignLeft | Qt::AlignVCenter,
+                 brandFont(28), T().wordmark, Qt::AlignLeft | Qt::AlignVCenter,
                  {
                      {withAlpha(T().hoverLift, 77), QPointF(0, -1), 0},
                      {QColor(0, 0, 0, 217), QPointF(0, 2), 0},
@@ -984,23 +983,11 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
   p.drawRoundedRect(verBox.adjusted(0.5, 0.5, -0.5, -0.5), 2, 2);
   drawGlowText(p, verBox, ver, verFont, T().phos, withAlpha(T().phos, 140), 7, Qt::AlignCenter);
 
-  const qreal taglineTop = inner.top() + 58 + 12;
-  {
-    constexpr qreal ts = 10.5 / 10.0;
-    p.save();
-    p.translate(inner.left(), taglineTop);
-    p.scale(ts, ts);
-    p.setFont(monoFont(10));
-    p.setPen(QColor(T().ink.red(), T().ink.green(), T().ink.blue(), 214));
-    p.drawText(QRectF(0, 0, inner.width() / ts, 16 / ts), Qt::AlignVCenter,
-               QStringLiteral("Local files, honest tags, and chrome you can feel."));
-    p.restore();
-  }
-
   constexpr qreal plateH = 48;
   constexpr qreal gap = 12;
-  const QRectF well(inner.left(), taglineTop + 16 + gap, inner.width(),
-                    inner.bottom() - plateH - gap - (taglineTop + 16 + gap));
+  const qreal wellTop = inner.top() + 58 + 12;
+  const QRectF well(inner.left(), wellTop, inner.width(),
+                    inner.bottom() - plateH - gap - wellTop);
   drawScreenWell(p, well);
   {
     QFont kicker = condensedFont(9, 0);

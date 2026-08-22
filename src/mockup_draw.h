@@ -149,6 +149,7 @@ struct TextShadow {
 /// appeared. Callers set state once and call these freely.
 QFont condensedFont(int px, qreal trackingEm = 0);
 QFont monoFont(int px, qreal trackingEm = 0);
+QFont brandFont(int px, qreal trackingEm = 0);
 qreal textWidth(const QFont& font, const QString& text);
 
 void fillRound(QPainter& p, const QRectF& r, qreal radius, const QBrush& brush);

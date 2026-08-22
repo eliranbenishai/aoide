@@ -14,6 +14,7 @@ QString bundledSkinsDir();
 QString assetPath(const char* relative);
 QString chromeFamily();
 QString lcdFamily();
+QString brandFamily();
 
 /// Largest pixel size ≤ requestedPx whose AlignTop line fits in maxLineHeight.
 /// LCD time is drawn AlignTop in a fixed slot; fonts with a taller line

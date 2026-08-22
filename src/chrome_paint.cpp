@@ -209,7 +209,7 @@ void drawLogo(QPainter& p, const QRectF& disc, const QImage* logo) {
 }
 
 void drawWordmark(QPainter& p, const QRectF& box) {
-  QFont font = condensedFont(24, 0.2);
+  QFont font = brandFont(24);
   const QString text = QStringLiteral("TRAMP");
   drawStyledText(p, box, text, font, T().wordmark, Qt::AlignVCenter | Qt::AlignLeft,
                  {
@@ -245,7 +245,7 @@ void drawTitleContents(QPainter& p, const TitleChromeLayout& title, const QImage
     const QRectF disc(x, (bar.height() - 30) / 2.0, 30, 30);
     drawLogo(p, disc, logo);
     x = disc.right() + 12;
-    const QFont wm = condensedFont(24, 0.2);
+    const QFont wm = brandFont(24);
     const QFontMetrics fm(wm);
     const int wmW = fm.horizontalAdvance(QStringLiteral("TRAMP"));
     drawWordmark(p, QRectF(x + 2, 0, wmW, bar.height()));

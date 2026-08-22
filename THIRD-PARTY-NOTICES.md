@@ -6,6 +6,8 @@ Tramp is **GPL-3.0-or-later**. This file lists other works shipped in the source
 
 `TrampCondensed` and `TrampMono` are modified versions of **Barlow** (The Barlow Project Authors) and **IBM Plex** (IBM Corp., reserved name “Plex”). The font software remains under the OFL; the full text is [`assets/fonts/OFL.txt`](assets/fonts/OFL.txt). Modified versions must not use the reserved names Barlow or Plex.
 
+**Ultra** (Brian J. Bonislawsky DBA Astigmatic (AOETI)) is the skin-immune TRAMP wordmark face. It is Apache-2.0; the full text is [`assets/fonts/Ultra-LICENSE.txt`](assets/fonts/Ultra-LICENSE.txt).
+
 ## Qt
 
 The UI is built with [Qt](https://www.qt.io/) 6 (LGPL-3.0 / GPL-3.0 / commercial, Copyright The Qt Company and Qt contributors). Tramp links Qt Widgets / Gui / Core / DBus.
