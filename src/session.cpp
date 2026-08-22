@@ -67,10 +67,12 @@ TrampSession::TrampSession(QObject* parent)
     delete mpv;
     engine_ = std::make_unique<MissingAudioEngine>(
         QStringLiteral("libmpv could not start, so playback is unavailable"));
+    noAudioEngine_ = true;
   }
 #else
   engine_ = std::make_unique<MissingAudioEngine>(
       QStringLiteral("this build has no audio engine"));
+  noAudioEngine_ = true;
 #endif
   playback_ = std::make_unique<PlaybackController>(&playlist_, engine_.get());
   playback_->setSpins(store_.readUsage().spins);
@@ -653,6 +655,7 @@ SessionView TrampSession::view() const {
   v.spectrum = spectrumHold_.bars;
   v.spectrumPeaks = spectrumHold_.peaks;
   v.spectrumUnmeasured = spectrogram_.synthetic;
+  v.noAudioEngine = noAudioEngine_;
   v.eq = settings_.equalizerCurve;
   v.playingIndex = playback_->playingIndex();
   v.selectedIndices = playlist_.selectedIndices();

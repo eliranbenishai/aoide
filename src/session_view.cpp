@@ -59,7 +59,7 @@ bool paintsSame(WindowId id, const SessionView& a, const SessionView& b) {
                playlistRefreshing, settingsTab, resumeLastSession, confirmBeforeQuit, scrollTitle,
                titleScrollMs, minimizeHidesSecondaries, dockSnap, aboutPlaylists, aboutTracks,
                aboutTimeMs, aboutSpins, aboutMeasured, look, skins, activeSkinId, skinsError,
-               skinsScroll, spectrumUnmeasured] = a;
+               skinsScroll, spectrumUnmeasured, noAudioEngine] = a;
 
   // No painter reads these three. The playlist rows carry their own `selected`
   // flag, so `selectedIndices` is the session's copy; `aboutMeasured` is read
@@ -103,6 +103,7 @@ bool paintsSame(WindowId id, const SessionView& a, const SessionView& b) {
              scrollTitle == b.scrollTitle && spectrum == b.spectrum &&
              spectrumPeaks == b.spectrumPeaks &&
              spectrumUnmeasured == b.spectrumUnmeasured &&
+             noAudioEngine == b.noAudioEngine &&
              titleMarqueeRunning(a) == titleMarqueeRunning(b);
     case WindowId::equalizer:
       return sameCurve(eq, b.eq);

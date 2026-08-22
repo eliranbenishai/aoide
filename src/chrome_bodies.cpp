@@ -189,6 +189,7 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
       markX += w + 12;
     };
     if (view.spectrumUnmeasured) paintMark(QStringLiteral("UNMEAS"));
+    if (view.noAudioEngine) paintMark(QStringLiteral("NO AUDIO"));
   }
 
   if (live) {

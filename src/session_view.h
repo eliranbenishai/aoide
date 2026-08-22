@@ -119,6 +119,9 @@ struct SessionView {
   /// `Spectrogram::synthetic`, never from the per-frame levels that go silent
   /// on pause. The 120 s decode timeout is the same mark.
   bool spectrumUnmeasured = false;
+  /// The session installed `MissingAudioEngine`. Durable display-well mark;
+  /// the panel subtitle still carries the reason when an open is refused.
+  bool noAudioEngine = false;
 };
 
 /// Whether the display well's marquee is moving rather than held at the start.

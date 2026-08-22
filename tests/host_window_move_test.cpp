@@ -64,6 +64,7 @@ class HostWindowMoveTest : public QObject {
   void paintsSameFlipsWhenAnEmptyListGainsARow();
   void emptyWellsAreNotBlank();
   void unmeasuredSpectrumMarkFollowsTheSpectrogram();
+  void missingEngineMarkStaysOnTheDisplayWell();
 };
 
 void HostWindowMoveTest::parentedPanelMoveDoesNotEmitNativeMoved() {
@@ -698,6 +699,8 @@ std::vector<FieldChange> everyFieldOfTheSnapshot() {
       {"spectrumPeaks", "main", [](tramp::SessionView& v) { v.spectrumPeaks[4] = 0.99; }},
       {"spectrumUnmeasured", "main",
        [](tramp::SessionView& v) { v.spectrumUnmeasured = !v.spectrumUnmeasured; }},
+      {"noAudioEngine", "main",
+       [](tramp::SessionView& v) { v.noAudioEngine = !v.noAudioEngine; }},
 
       // The marquee clock free-runs, so charging main for every value of it
       // would cost main its cache for as long as a track is loaded. It reaches
@@ -876,6 +879,7 @@ void HostWindowMoveTest::goldenDemoPaintsTheStateItIsHanded() {
   QVERIFY2(golden.goldenDemo, "the demo state is still the fidelity reference");
 
   QVERIFY2(!golden.spectrumUnmeasured, "the golden demo is a measured spectrum");
+  QVERIFY2(!golden.noAudioEngine, "the golden demo has a working engine");
 
   tramp::SessionView skins = golden;
   skins.settingsTab = 1;
@@ -1323,6 +1327,21 @@ void HostWindowMoveTest::unmeasuredSpectrumMarkFollowsTheSpectrogram() {
   QVERIFY2(paintPanel(tramp::WindowId::main, main, pausedUnmeasured) !=
                paintPanel(tramp::WindowId::main, main, pausedMeasured),
            "pause must not clear the unmeasured mark");
+}
+
+void HostWindowMoveTest::missingEngineMarkStaysOnTheDisplayWell() {
+  tramp::loadTrampFonts();
+  const tramp::SessionView working = tramp::goldenDemoView();
+  tramp::SessionView missing = working;
+  missing.noAudioEngine = true;
+
+  QVERIFY2(!tramp::paintsSame(tramp::WindowId::main, working, missing),
+           "the main chassis must turn over for the missing-engine mark");
+  QVERIFY2(tramp::paintsSame(tramp::WindowId::settings, working, missing),
+           "the mark is a display-well surface, not a second settings notice");
+  QVERIFY2(paintPanel(tramp::WindowId::main, tramp::kMainPlayer, missing) !=
+               paintPanel(tramp::WindowId::main, tramp::kMainPlayer, working),
+           "a missing audio engine must paint a durable mark on the display well");
 }
 
 QTEST_MAIN(HostWindowMoveTest)
