@@ -274,10 +274,25 @@ ChromeHit hitSkins(QSize logical, QPoint pos, const SessionView& view) {
     return h;
   }
   const QRectF viewport = skinsListViewport(pane);
+  const QRectF track = skinsListScrollTrack(viewport);
+  if (skinsListMaxScroll(view.skins.size(), viewport) > 0) {
+    if (auto h = hitIf(track.toRect(), pos, ChromeHit::Kind::settingsSkinScroll);
+        h.kind != ChromeHit::Kind::none) {
+      return h;
+    }
+  }
   if (viewport.contains(QPointF(pos))) {
     for (int i = 0; i < view.skins.size(); ++i) {
-      const QRectF row = skinsListRow(viewport, i, view.skinsScroll);
-      if (auto h = hitIf(row.toRect(), pos, ChromeHit::Kind::settingsSkinRow, i);
+      const QRectF cell = skinsGridCell(viewport, i, view.skinsScroll);
+      if (!cell.intersects(viewport)) continue;
+      if (view.skins[i].canRemove) {
+        if (auto h = hitIf(skinsGridTrashcan(cell).toRect(), pos, ChromeHit::Kind::settingsSkinRemove,
+                           i);
+            h.kind != ChromeHit::Kind::none) {
+          return h;
+        }
+      }
+      if (auto h = hitIf(cell.toRect(), pos, ChromeHit::Kind::settingsSkinRow, i);
           h.kind != ChromeHit::Kind::none) {
         return h;
       }

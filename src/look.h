@@ -75,7 +75,31 @@ struct SkinCatalogEntry {
   QString id;
   QString name;
   QString author;
+  QString previewPath;
+  bool canRemove = false;
+
+  SkinCatalogEntry() = default;
+  SkinCatalogEntry(QString id_, QString name_, QString author_ = {})
+      : id(id_), name(name_), author(author_) {}
 };
+
+/// Bump when the golden main shot or its paint path changes, so cached thumbs
+/// rebuild instead of showing a player Tramp no longer draws.
+inline constexpr int kSkinPreviewGeneration = 1;
+
+using SkinPreviewWriter = std::function<bool(const QString& id, const QString& path,
+                                             const QVector<LookManifest>& installed,
+                                             QString* error)>;
+
+struct LoadedSkinFonts {
+  QVector<int> ids;
+  QString chromeFamily;
+  QString lcdFamily;
+  void unload();
+};
+
+LoadedSkinFonts loadSkinFonts(const QString& id, const QVector<LookManifest>& installed);
+bool isBundledHomageId(const QString& id);
 
 struct ChromeTokens {
   QString id = QStringLiteral("builtin");
@@ -229,6 +253,9 @@ class SkinController {
   bool installZip(const QString& path, ConflictFn onConflict);
   void setSkinsDirectory(const QString& path, TrampSettings& settings);
   void rescan();
+  bool remove(const QString& id, const TrampSettings& settings);
+  void ensurePreviews(const SkinPreviewWriter& write);
+  QString previewPath(const QString& id) const;
 
   const ChromeTokens& tokens() const { return tokens_; }
   const ResolvedLook& resolved() const { return resolved_; }
@@ -242,6 +269,11 @@ class SkinController {
   void seedBundled();
   LookManifest* findInstalled(const QString& id);
   const LookManifest* findInstalled(const QString& id) const;
+  bool canRemoveId(const QString& id, const QString& activeId) const;
+  QString previewDir() const;
+  int readPreviewGeneration() const;
+  void writePreviewGeneration() const;
+  bool previewFileStale(const QString& id) const;
 
   QString supportDir_;
   QString bundledDir_;

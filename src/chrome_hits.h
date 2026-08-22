@@ -65,6 +65,8 @@ struct ChromeHit {
     settingsSnapStrong,
     settingsReset,
     settingsSkinRow,
+    settingsSkinRemove,
+    settingsSkinScroll,
     settingsInstallZip,
     settingsInstallFolder,
     settingsSkinsFolder,

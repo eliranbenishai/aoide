@@ -257,6 +257,16 @@ ChromeCommandOutcome ChromeCommandRouter::handle(WindowId id, const ChromeHit& h
       out.intent = ChromeIntent::activateSkin;
       out.collectionRow = hit.index;
       break;
+    case K::settingsSkinRemove:
+      out.handled = true;
+      out.intent = ChromeIntent::removeSkin;
+      out.collectionRow = hit.index;
+      break;
+    case K::settingsSkinScroll:
+      out.handled = true;
+      out.beginSlider = true;
+      out.sliderKind = K::settingsSkinScroll;
+      break;
     case K::settingsInstallZip:
       out.handled = true;
       out.intent = ChromeIntent::pickSkinZip;

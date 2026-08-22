@@ -143,7 +143,7 @@ The cog at the top of the gutter left of the main player's **display well**. Und
 _Avoid_: clutterbar, clutter rail, **O** / **A** / **I** as product controls (all retired — the mockup's vertical letter strip, replaced by the cog); toolbar (when this control is meant); doublesize button (**D**), viz button (**V**); always-on-top as a per-panel or per-group control; Track info as a cog-menu row
 
 **Skins panel**:
-Freestanding panel (shade + close, no snap) that holds the skin catalog, install zip/folder, skins folder, reset folder, and the install-error strip. Opened from the gutter Skins button. Not a Settings tab.
+Freestanding panel (shade + close, no snap) that holds a **2-column matrix** of main-player preview PNGs, install zip/folder, skins folder, reset folder, and the install-error strip. Opened from the gutter Skins button. Click a preview to apply it; a trashcan on a non-active, non-Tramp, non-extended pack confirms then deletes that pack's files. Not a Settings tab.
 _Avoid_: Skins tab (retired home), look packs dialog
 
 **Settings**:
@@ -171,7 +171,7 @@ The large recessed LCD glass area on the main player that holds spectrum, track 
 _Avoid_: LCD (alone), screen, display (when the inset glass region is meant)
 
 **Failure surface**:
-How Tramp tells the listener something went wrong — three tiers, and no queue. **modal** is a decision they must make now: the altered-playlist prompt and a playlist-save failure; nothing else joins that list without a choice they can only make in the dialog. **persistent indicator** is a condition that stays true: no audio engine keeps the panel subtitle and also a durable mark in the **display well**; a settings or state-file write that has not yet succeeded is a Settings-row mark that stays until that file writes. **transient notice** is something that failed once and they can carry on: a skin install error stays on the Skins-panel strip and nowhere else; an unmeasured spectrum — a failed decode or one that ran past its 120 s deadline — is a display-well mark read from `Spectrogram::synthetic` on the session spectrogram. An unplayable track or an engine `open()` failure already stops and puts the reason on the subtitle; that is the surface, not a fourth tier. The Wayland file-chooser greying is a platform hole, not a product surface.
+How Tramp tells the listener something went wrong — three tiers, and no queue. **modal** is a decision they must make now: the altered-playlist prompt, a playlist-save failure, and removing a skin; nothing else joins that list without a choice they can only make in the dialog. **persistent indicator** is a condition that stays true: no audio engine keeps the panel subtitle and also a durable mark in the **display well**; a settings or state-file write that has not yet succeeded is a Settings-row mark that stays until that file writes. **transient notice** is something that failed once and they can carry on: a skin install error stays on the Skins-panel strip and nowhere else; an unmeasured spectrum — a failed decode or one that ran past its 120 s deadline — is a display-well mark read from `Spectrogram::synthetic` on the session spectrogram. An unplayable track or an engine `open()` failure already stops and puts the reason on the subtitle; that is the surface, not a fourth tier. The Wayland file-chooser greying is a platform hole, not a product surface.
 _Avoid_: a notification queue; painting a notice for an unmapped Wayland picker; reading per-frame `AudioLevels::synthetic` for the spectrum mark
 
 **Synthetic levels**:

@@ -21,7 +21,7 @@ bool takesPointerFeedback(ChromeHit::Kind kind) {
     case ChromeHit::Kind::plResize:
     case ChromeHit::Kind::plTrackRow:
     case ChromeHit::Kind::plCollectionRow:
-    case ChromeHit::Kind::settingsSkinRow:
+    case ChromeHit::Kind::settingsSkinScroll:
     // Bare text and readouts: no face to light.
     case ChromeHit::Kind::timeToggle:
     case ChromeHit::Kind::settingsReset:
@@ -68,6 +68,8 @@ bool takesPointerFeedback(ChromeHit::Kind kind) {
     case ChromeHit::Kind::settingsSnapOff:
     case ChromeHit::Kind::settingsSnapNormal:
     case ChromeHit::Kind::settingsSnapStrong:
+    case ChromeHit::Kind::settingsSkinRow:
+    case ChromeHit::Kind::settingsSkinRemove:
     case ChromeHit::Kind::settingsInstallZip:
     case ChromeHit::Kind::settingsInstallFolder:
     case ChromeHit::Kind::settingsSkinsFolder:

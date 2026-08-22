@@ -3,6 +3,7 @@
 #include "mockup_tokens.h"
 #include "tramp_fonts.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -715,23 +716,9 @@ void SkinController::bootstrap(const QString& supportDir, const QString& bundled
 }
 
 void SkinController::rescan() {
-  QVector<LookManifest> merged;
-  auto addAll = [&](const LookCatalogResult& scan) {
-    for (const LookManifest& m : scan.manifests) {
-      bool exists = false;
-      for (LookManifest& have : merged) {
-        if (have.id == m.id) {
-          have = m;
-          exists = true;
-          break;
-        }
-      }
-      if (!exists) merged.push_back(m);
-    }
-  };
-  if (!bundledDir_.isEmpty()) addAll(scanLookCatalog(bundledDir_));
-  addAll(scanLookCatalog(skinsDir_));
-  installed_ = merged;
+  // The skins directory is the catalog. Bundled packs are a seed, not a live
+  // source — deleting a homage pack must not bring it back on the next open.
+  installed_ = scanLookCatalog(skinsDir_).manifests;
 }
 
 LookManifest* SkinController::findInstalled(const QString& id) {
@@ -783,14 +770,15 @@ bool SkinController::activateInternal(const QString& id, TrampSettings& settings
   }
 }
 
-void SkinController::applyFonts(const QString& id) {
-  for (int fontId : loadedFontIds_) {
+void LoadedSkinFonts::unload() {
+  for (int fontId : ids) {
     QFontDatabase::removeApplicationFont(fontId);
   }
-  loadedFontIds_.clear();
-  resolved_.chromeFamily.clear();
-  resolved_.lcdFamily.clear();
+  ids.clear();
+}
 
+LoadedSkinFonts loadSkinFonts(const QString& id, const QVector<LookManifest>& installed) {
+  LoadedSkinFonts out;
   QVector<LookManifest> chain;
   QString current = id;
   QStringList visited;
@@ -801,7 +789,13 @@ void SkinController::applyFonts(const QString& id) {
       chain.push_back(builtinLookManifest());
       break;
     }
-    const LookManifest* found = findInstalled(current);
+    const LookManifest* found = nullptr;
+    for (const LookManifest& m : installed) {
+      if (m.id == current) {
+        found = &m;
+        break;
+      }
+    }
     if (!found) break;
     chain.push_back(*found);
     current = found->extendsId;
@@ -827,29 +821,157 @@ void SkinController::applyFonts(const QString& id) {
     if (!QFileInfo::exists(canonical)) continue;
     const int fontId = QFontDatabase::addApplicationFont(canonical);
     if (fontId < 0) continue;
-    loadedFontIds_.push_back(fontId);
+    out.ids.push_back(fontId);
     const QStringList families = QFontDatabase::applicationFontFamilies(fontId);
     if (families.isEmpty()) continue;
-    if (role == QLatin1String("chrome")) resolved_.chromeFamily = families.front();
-    else resolved_.lcdFamily = families.front();
+    if (role == QLatin1String("chrome")) out.chromeFamily = families.front();
+    else out.lcdFamily = families.front();
   }
+  return out;
+}
+
+bool isBundledHomageId(const QString& id) { return kBundledCatalogOrder.contains(id); }
+
+void SkinController::applyFonts(const QString& id) {
+  for (int fontId : loadedFontIds_) {
+    QFontDatabase::removeApplicationFont(fontId);
+  }
+  loadedFontIds_.clear();
+  resolved_.chromeFamily.clear();
+  resolved_.lcdFamily.clear();
+  LoadedSkinFonts loaded = loadSkinFonts(id, installed_);
+  loadedFontIds_ = loaded.ids;
+  resolved_.chromeFamily = loaded.chromeFamily;
+  resolved_.lcdFamily = loaded.lcdFamily;
 }
 
 QVector<SkinCatalogEntry> SkinController::catalog() const {
   QVector<SkinCatalogEntry> entries;
   const LookManifest builtin = builtinLookManifest();
-  entries.push_back({builtin.id, builtin.name, builtin.author});
+  const QString active = resolved_.id.isEmpty() ? QStringLiteral("builtin") : resolved_.id;
+  auto make = [&](const LookManifest& m) {
+    SkinCatalogEntry e;
+    e.id = m.id;
+    e.name = m.name;
+    e.author = m.author;
+    const QString png = previewPath(m.id);
+    if (QFileInfo::exists(png)) e.previewPath = png;
+    e.canRemove = canRemoveId(m.id, active);
+    return e;
+  };
+  entries.push_back(make(builtin));
   QSet<QString> seen{builtin.id};
   auto add = [&](const LookManifest& m) {
     if (seen.contains(m.id) || kRetiredBundledIds.contains(m.id)) return;
     seen.insert(m.id);
-    entries.push_back({m.id, m.name, m.author});
+    entries.push_back(make(m));
   };
   for (const QString& id : kBundledCatalogOrder) {
     if (const LookManifest* m = findInstalled(id)) add(*m);
   }
   for (const LookManifest& m : installed_) add(m);
   return entries;
+}
+
+bool SkinController::canRemoveId(const QString& id, const QString& activeId) const {
+  if (id == QLatin1String("builtin")) return false;
+  if (id == activeId) return false;
+  if (!findInstalled(id)) return false;
+  for (const LookManifest& m : installed_) {
+    if (m.extendsId == id) return false;
+  }
+  return true;
+}
+
+QString SkinController::previewDir() const {
+  return QDir(skinsDir_).filePath(QStringLiteral(".previews"));
+}
+
+QString SkinController::previewPath(const QString& id) const {
+  return QDir(previewDir()).filePath(id + QStringLiteral(".png"));
+}
+
+int SkinController::readPreviewGeneration() const {
+  QFile f(QDir(previewDir()).filePath(QStringLiteral("generation")));
+  if (!f.open(QIODevice::ReadOnly)) return 0;
+  bool ok = false;
+  const int n = QString::fromUtf8(f.readAll().trimmed()).toInt(&ok);
+  return ok ? n : 0;
+}
+
+void SkinController::writePreviewGeneration() const {
+  QDir().mkpath(previewDir());
+  QFile f(QDir(previewDir()).filePath(QStringLiteral("generation")));
+  if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate)) return;
+  f.write(QByteArray::number(kSkinPreviewGeneration));
+  f.write("\n");
+}
+
+bool SkinController::previewFileStale(const QString& id) const {
+  const QString png = previewPath(id);
+  QFile f(png);
+  if (!f.open(QIODevice::ReadOnly)) return true;
+  static const char kPngSig[] = "\x89PNG\r\n\x1a\n";
+  if (f.read(8) != QByteArray::fromRawData(kPngSig, 8)) return true;
+  if (id == QLatin1String("builtin")) return false;
+  const LookManifest* pack = findInstalled(id);
+  if (!pack || pack->packRoot.isEmpty()) return true;
+  QDateTime latest = QFileInfo(lookManifestPath(pack->packRoot)).lastModified();
+  for (const QString& role : pack->fonts.keys()) {
+    const QJsonObject font = pack->fonts.value(role).toObject();
+    const QString rel = font.value(QStringLiteral("file")).toString();
+    if (rel.isEmpty()) continue;
+    const QFileInfo fi(QDir(pack->packRoot).filePath(rel));
+    if (fi.exists() && fi.lastModified() > latest) latest = fi.lastModified();
+  }
+  return latest.isValid() && latest > QFileInfo(png).lastModified();
+}
+
+void SkinController::ensurePreviews(const SkinPreviewWriter& write) {
+  if (!write || skinsDir_.isEmpty()) return;
+  QDir().mkpath(previewDir());
+  const bool genStale = readPreviewGeneration() != kSkinPreviewGeneration;
+  QStringList ids{QStringLiteral("builtin")};
+  for (const LookManifest& m : installed_) {
+    if (!kRetiredBundledIds.contains(m.id)) ids.push_back(m.id);
+  }
+  for (const QString& id : ids) {
+    if (!genStale && !previewFileStale(id)) continue;
+    QString err;
+    if (!write(id, previewPath(id), installed_, &err)) {
+      lastError_ = err.isEmpty()
+                       ? QStringLiteral("Could not render a preview for %1").arg(id)
+                       : err;
+    }
+  }
+  writePreviewGeneration();
+}
+
+bool SkinController::remove(const QString& id, const TrampSettings& settings) {
+  if (!canRemoveId(id, canonicalActiveSkinId(settings.activeSkinId))) {
+    if (id == QLatin1String("builtin")) {
+      lastError_ = QStringLiteral("Tramp cannot be removed.");
+    } else if (canonicalActiveSkinId(settings.activeSkinId) == id) {
+      lastError_ = QStringLiteral("The active skin cannot be removed.");
+    } else {
+      lastError_ = QStringLiteral("Another skin still extends this one.");
+    }
+    return false;
+  }
+  const LookManifest* pack = findInstalled(id);
+  if (!pack || pack->packRoot.isEmpty()) {
+    lastError_ = QStringLiteral("Skin \"%1\" is not in this folder.").arg(id);
+    return false;
+  }
+  const QString root = pack->packRoot;
+  QFile::remove(previewPath(id));
+  if (!QDir(root).removeRecursively()) {
+    lastError_ = QStringLiteral("Could not delete \"%1\".").arg(id);
+    return false;
+  }
+  lastError_.clear();
+  rescan();
+  return true;
 }
 
 void SkinController::setSkinsDirectory(const QString& path, TrampSettings& settings) {

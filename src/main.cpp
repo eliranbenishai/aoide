@@ -119,13 +119,13 @@ int dumpChrome(const QString& dirPath) {
       audio.settingsTab = 1;
       if (!shoot(spec, audio, dumpName(spec.id) + QStringLiteral("_audio"))) return 1;
     }
-    // The Skins panel's list, scrollbar, four buttons and error line need a
-    // picture of their own. The list is longer than the viewport on purpose —
-    // a catalogue that fits would leave the scrollbar unphotographed.
+    // The Skins panel's matrix, scrollbar, four buttons and error line need a
+    // picture of their own. The catalogue is longer than the viewport on purpose
+    // — a grid that fits would leave the scrollbar unphotographed.
     if (spec.id == tramp::WindowId::skins) {
       tramp::SessionView skins = golden;
       skins.skins = {
-          {QStringLiteral("builtin"), QStringLiteral("Built-in"),
+          {QStringLiteral("builtin"), QStringLiteral("Tramp"),
            QStringLiteral("Proxima Magnifica")},
           {QStringLiteral("copper-rain"), QStringLiteral("Copper Rain"),
            QStringLiteral("Velvet Static")},
@@ -144,6 +144,10 @@ int dumpChrome(const QString& dirPath) {
            QStringLiteral("The Brass Cassini")},
       };
       skins.activeSkinId = QStringLiteral("dusk-arcade");
+      for (auto& entry : skins.skins) {
+        entry.canRemove =
+            entry.id != skins.activeSkinId && entry.id != QLatin1String("builtin");
+      }
       skins.skinsScroll = 24;
       skins.skinsError =
           QStringLiteral("nightbus-choir.zip: no skin.json at the archive root, so nothing "

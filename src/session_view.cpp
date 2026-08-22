@@ -33,7 +33,10 @@ bool sameCurve(const EqualizerSettings& a, const EqualizerSettings& b) {
 bool sameCatalog(const QVector<SkinCatalogEntry>& a, const QVector<SkinCatalogEntry>& b) {
   if (a.size() != b.size()) return false;
   for (int i = 0; i < a.size(); ++i) {
-    if (a[i].id != b[i].id || a[i].name != b[i].name || a[i].author != b[i].author) return false;
+    if (a[i].id != b[i].id || a[i].name != b[i].name || a[i].author != b[i].author ||
+        a[i].previewPath != b[i].previewPath || a[i].canRemove != b[i].canRemove) {
+      return false;
+    }
   }
   return true;
 }

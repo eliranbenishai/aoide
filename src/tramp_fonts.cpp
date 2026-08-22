@@ -70,6 +70,9 @@ void setLookFamilies(const QString& chrome, const QString& lcd) {
   g_lookLcd = lcd;
 }
 
+QString lookChromeOverride() { return g_lookChrome; }
+QString lookLcdOverride() { return g_lookLcd; }
+
 QString chromeFamily() {
   return g_lookChrome.isEmpty() ? g_chromeFamily : g_lookChrome;
 }

@@ -2,8 +2,10 @@
 
 #include "mockup_tokens.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QFileDevice>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTemporaryDir>
@@ -519,6 +521,127 @@ int main() {
     REQUIRE(tokens.closeGlyph.hslHue() >= 0);
     const int dh = qAbs(tokens.closeGlyph.hslHue() - inkHue);
     REQUIRE(dh <= 25 || dh >= 335);
+  }
+
+  {
+    QTemporaryDir support;
+    QTemporaryDir bundled;
+    writePack(bundled.path(), QStringLiteral("arc"), QStringLiteral(R"({
+      "formatVersion": 1, "id": "arc", "name": "Arc", "extends": "builtin"
+    })"));
+    writePack(bundled.path(), QStringLiteral("gamma"), QStringLiteral(R"({
+      "formatVersion": 1, "id": "gamma", "name": "Gamma", "extends": "builtin"
+    })"));
+    TrampSettings settings;
+    SkinController skins;
+    skins.bootstrap(support.path(), bundled.path(), settings);
+    REQUIRE(skins.catalog().size() >= 3);
+    QDir(QDir(support.path()).filePath(QStringLiteral("skins/arc"))).removeRecursively();
+    skins.rescan();
+    QStringList ids;
+    for (const auto& e : skins.catalog()) ids.push_back(e.id);
+    REQUIRE(ids.contains(QStringLiteral("builtin")));
+    REQUIRE(ids.contains(QStringLiteral("gamma")));
+    REQUIRE(!ids.contains(QStringLiteral("arc")));
+  }
+
+  {
+    QTemporaryDir support;
+    QTemporaryDir incoming;
+    writePack(incoming.path(), QStringLiteral("neon-cyan"), QStringLiteral(R"({
+      "formatVersion": 1, "id": "neon-cyan", "name": "Neon Cyan", "extends": "builtin"
+    })"));
+    writePack(incoming.path(), QStringLiteral("dusk"), QStringLiteral(R"({
+      "formatVersion": 1, "id": "dusk", "name": "Dusk", "extends": "neon-cyan"
+    })"));
+    TrampSettings settings;
+    SkinController skins;
+    skins.bootstrap(support.path(), {}, settings);
+    REQUIRE(skins.installDirectory(QDir(incoming.path()).filePath(QStringLiteral("neon-cyan")),
+                                   [](const tramp::SkinConflict&) {
+                                     return SkinConflictChoice::cancel;
+                                   }));
+    REQUIRE(skins.installDirectory(QDir(incoming.path()).filePath(QStringLiteral("dusk")),
+                                   [](const tramp::SkinConflict&) {
+                                     return SkinConflictChoice::cancel;
+                                   }));
+    int writes = 0;
+    auto writeStub = [&](const QString&, const QString& path, const QVector<tramp::LookManifest>&,
+                         QString*) {
+      ++writes;
+      QDir().mkpath(QFileInfo(path).absolutePath());
+      QFile f(path);
+      if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate)) return false;
+      static const char kPng[] = "\x89PNG\r\n\x1a\nIHDR";
+      f.write(QByteArray::fromRawData(kPng, 12));
+      return true;
+    };
+    skins.ensurePreviews(writeStub);
+    REQUIRE(writes >= 3);
+    REQUIRE(QFileInfo::exists(skins.previewPath(QStringLiteral("builtin"))));
+    REQUIRE(QFileInfo::exists(skins.previewPath(QStringLiteral("neon-cyan"))));
+    writes = 0;
+    skins.ensurePreviews(writeStub);
+    REQUIRE_EQ(writes, 0);
+
+    QFile stamp(QDir(QFileInfo(skins.previewPath(QStringLiteral("builtin"))).absolutePath())
+                    .filePath(QStringLiteral("generation")));
+    REQUIRE(stamp.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    stamp.write("0\n");
+    stamp.close();
+    writes = 0;
+    skins.ensurePreviews(writeStub);
+    REQUIRE(writes >= 3);
+
+    QFile png(skins.previewPath(QStringLiteral("neon-cyan")));
+    REQUIRE(png.open(QIODevice::ReadWrite));
+    REQUIRE(png.setFileTime(QDateTime::currentDateTime().addSecs(-120),
+                            QFileDevice::FileModificationTime));
+    png.close();
+    writePack(QDir(support.path()).filePath(QStringLiteral("skins")), QStringLiteral("neon-cyan"),
+              QStringLiteral(R"({
+      "formatVersion": 1, "id": "neon-cyan", "name": "Neon Cyan", "extends": "builtin"
+    })"));
+    skins.rescan();
+    writes = 0;
+    skins.ensurePreviews(writeStub);
+    REQUIRE(writes >= 1);
+
+    {
+      QFile junk(skins.previewPath(QStringLiteral("neon-cyan")));
+      REQUIRE(junk.open(QIODevice::WriteOnly | QIODevice::Truncate));
+      junk.write("not a png");
+      junk.close();
+      writes = 0;
+      skins.ensurePreviews(writeStub);
+      REQUIRE(writes >= 1);
+    }
+    {
+      QFile::remove(skins.previewPath(QStringLiteral("builtin")));
+      auto failWrite = [&](const QString&, const QString&, const QVector<tramp::LookManifest>&,
+                           QString* error) {
+        if (error) *error = QStringLiteral("disk full");
+        return false;
+      };
+      skins.ensurePreviews(failWrite);
+      REQUIRE(skins.lastError() == QStringLiteral("disk full"));
+    }
+
+    REQUIRE(!skins.remove(QStringLiteral("builtin"), settings));
+    REQUIRE(skins.activate(QStringLiteral("neon-cyan"), settings));
+    REQUIRE(!skins.remove(QStringLiteral("neon-cyan"), settings));
+    REQUIRE(!skins.remove(QStringLiteral("neon-cyan"), settings));
+    REQUIRE(skins.activate(QStringLiteral("builtin"), settings));
+    REQUIRE(!skins.remove(QStringLiteral("neon-cyan"), settings));
+    REQUIRE(skins.remove(QStringLiteral("dusk"), settings));
+    REQUIRE(skins.remove(QStringLiteral("neon-cyan"), settings));
+    QStringList left;
+    for (const auto& e : skins.catalog()) left.push_back(e.id);
+    REQUIRE(!left.contains(QStringLiteral("neon-cyan")));
+    REQUIRE(!left.contains(QStringLiteral("dusk")));
+    REQUIRE(!QDir(QDir(support.path()).filePath(QStringLiteral("skins/neon-cyan"))).exists());
+    REQUIRE(!QFileInfo::exists(skins.previewPath(QStringLiteral("neon-cyan"))));
+    REQUIRE(!QFileInfo::exists(skins.previewPath(QStringLiteral("dusk"))));
   }
 
   if (gFails != 0) {

@@ -482,10 +482,12 @@ void HostWindowMoveTest::hitRegionsDoNotOverlap() {
   skins.settingsTab = 1;
   skins.skins = {{QStringLiteral("builtin"), QStringLiteral("Built-in"), {}},
                  {QStringLiteral("dusk"), QStringLiteral("Dusk"), {}}};
+  skins.skins[1].canRemove = true;
   panelHoldsItsRegionsApart(tramp::WindowId::settings, specs[3].logicalSize, skins,
                             QStringLiteral("the audio settings'"));
   panelHoldsItsRegionsApart(tramp::WindowId::skins, specs[5].logicalSize, skins,
-                            QStringLiteral("the skins panel's"));
+                            QStringLiteral("the skins panel's"),
+                            {int(tramp::ChromeHit::Kind::settingsSkinRow)});
 }
 
 // Dragging a panel used to re-run its whole procedural paint on every mouse

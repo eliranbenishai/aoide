@@ -110,6 +110,7 @@ SRCS=(
   "$ROOT/src/docking.cpp"
   "$ROOT/src/layout_sync.cpp"
   "$ROOT/src/look.cpp"
+  "$ROOT/src/skin_preview.cpp"
   "$ROOT/src/session.cpp"
   "$ROOT/src/host_window.cpp"
   "$ROOT/src/main.cpp"

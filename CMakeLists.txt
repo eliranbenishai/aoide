@@ -159,6 +159,7 @@ set(TRAMP_SOURCES
   src/layout_sync.cpp
   src/layout_sync.h
   src/look.cpp
+  src/skin_preview.cpp
   src/wav_reader.cpp
   src/stft.cpp
   src/spectrum.cpp

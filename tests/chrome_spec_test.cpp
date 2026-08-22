@@ -241,13 +241,13 @@ void ChromeSpecTest::skinsListScrollsLastRowIntoView() {
   const auto pane = tramp::skinsPane(tramp::kSkins);
   const auto viewport = tramp::skinsListViewport(pane);
   QCOMPARE(int(viewport.height()), 268);
-  QCOMPARE(tramp::skinsListMaxScroll(8, viewport.height()), 20);
+  QVERIFY(tramp::skinsListMaxScroll(8, viewport) > 0);
 
-  const auto lastHidden = tramp::skinsListRow(viewport, 7, 0);
+  const auto lastHidden = tramp::skinsGridCell(viewport, 7, 0);
   QVERIFY(lastHidden.bottom() > viewport.bottom());
 
-  const int scroll = tramp::skinsListMaxScroll(8, viewport.height());
-  const auto lastShown = tramp::skinsListRow(viewport, 7, scroll);
+  const int scroll = tramp::skinsListMaxScroll(8, viewport);
+  const auto lastShown = tramp::skinsGridCell(viewport, 7, scroll);
   QVERIFY(lastShown.top() >= viewport.top());
   QVERIFY(lastShown.bottom() <= viewport.bottom());
 }
@@ -276,8 +276,8 @@ void ChromeSpecTest::skinsErrorStripClearsTheListAndTheScrollbar() {
   // Every row the list can scroll to stays clear of the strip, however long the
   // catalogue is: the scroll domain is measured off the same shortened viewport.
   for (const int count : {1, 7, 8, 40}) {
-    const int scroll = tramp::skinsListMaxScroll(count, viewport.height());
-    const auto last = tramp::skinsListRow(viewport, count - 1, scroll);
+    const int scroll = tramp::skinsListMaxScroll(count, viewport);
+    const auto last = tramp::skinsGridCell(viewport, count - 1, scroll);
     QVERIFY(last.bottom() <= viewport.bottom());
     QVERIFY(!last.intersects(strip));
   }
@@ -427,7 +427,9 @@ void ChromeSpecTest::pointerFeedbackSkipsSlidersAndListRows() {
   // Hovering these would rebuild a whole panel chassis per mouse move.
   QVERIFY(!tramp::takesPointerFeedback(K::plTrackRow));
   QVERIFY(!tramp::takesPointerFeedback(K::plCollectionRow));
-  QVERIFY(!tramp::takesPointerFeedback(K::settingsSkinRow));
+  QVERIFY(!tramp::takesPointerFeedback(K::settingsSkinScroll));
+  QVERIFY(tramp::takesPointerFeedback(K::settingsSkinRow));
+  QVERIFY(tramp::takesPointerFeedback(K::settingsSkinRemove));
   QVERIFY(!tramp::takesPointerFeedback(K::volume));
   QVERIFY(!tramp::takesPointerFeedback(K::seek));
   QVERIFY(!tramp::takesPointerFeedback(K::eqBand));

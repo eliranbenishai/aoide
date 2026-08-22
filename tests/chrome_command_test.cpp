@@ -27,6 +27,9 @@ class ChromeCommandTest : public QObject {
   void monoPersistsAndDoesNotMarkThePlaylistAltered();
   void installingASkinAsksForAZipAndDoesNotPersistYet();
   void skinsButtonTogglesTheSkinsPanel();
+  void clickingASkinPreviewAsksToActivate();
+  void trashcanAsksToRemove();
+  void skinsScrollbarBeginsASlider();
   void trackInfoAsksToShowWhenATrackIsLoaded();
   void trackInfoDoesNothingWhenNothingIsLoaded();
 };
@@ -171,6 +174,37 @@ void ChromeCommandTest::installingASkinAsksForAZipAndDoesNotPersistYet() {
   QVERIFY(out.handled);
   QCOMPARE(out.intent, tramp::ChromeIntent::pickSkinZip);
   QVERIFY(!out.persist);
+}
+
+void ChromeCommandTest::clickingASkinPreviewAsksToActivate() {
+  Fixture f;
+  tramp::ChromeHit row = hit(tramp::ChromeHit::Kind::settingsSkinRow);
+  row.index = 2;
+  const tramp::ChromeCommandOutcome out =
+      f.router().handle(tramp::WindowId::skins, row, Qt::NoModifier, {});
+  QVERIFY(out.handled);
+  QCOMPARE(out.intent, tramp::ChromeIntent::activateSkin);
+  QCOMPARE(out.collectionRow, 2);
+}
+
+void ChromeCommandTest::trashcanAsksToRemove() {
+  Fixture f;
+  tramp::ChromeHit trash = hit(tramp::ChromeHit::Kind::settingsSkinRemove);
+  trash.index = 1;
+  const tramp::ChromeCommandOutcome out =
+      f.router().handle(tramp::WindowId::skins, trash, Qt::NoModifier, {});
+  QVERIFY(out.handled);
+  QCOMPARE(out.intent, tramp::ChromeIntent::removeSkin);
+  QCOMPARE(out.collectionRow, 1);
+}
+
+void ChromeCommandTest::skinsScrollbarBeginsASlider() {
+  Fixture f;
+  const tramp::ChromeCommandOutcome out = f.router().handle(
+      tramp::WindowId::skins, hit(tramp::ChromeHit::Kind::settingsSkinScroll), Qt::NoModifier, {});
+  QVERIFY(out.handled);
+  QVERIFY(out.beginSlider);
+  QCOMPARE(out.sliderKind, tramp::ChromeHit::Kind::settingsSkinScroll);
 }
 
 void ChromeCommandTest::skinsButtonTogglesTheSkinsPanel() {

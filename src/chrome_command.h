@@ -34,6 +34,7 @@ enum class ChromeIntent {
   resetSettings,
   rescanSkins,
   activateSkin,
+  removeSkin,
   pickSkinZip,
   pickSkinFolder,
   pickSkinsDirectory,

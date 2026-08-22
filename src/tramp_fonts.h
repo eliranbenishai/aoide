@@ -7,6 +7,8 @@ namespace tramp {
 
 void loadTrampFonts();
 void setLookFamilies(const QString& chrome, const QString& lcd);
+QString lookChromeOverride();
+QString lookLcdOverride();
 QString bundledDataDir(const char* leaf);
 QString bundledSkinsDir();
 QString assetPath(const char* relative);

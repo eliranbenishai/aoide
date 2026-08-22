@@ -353,9 +353,13 @@ inline QRectF aboutWebPill(const QRectF& plate, qreal textW) {
                 kAboutWebH);
 }
 
-inline constexpr int kSkinRowStride = 36;
-inline constexpr int kSkinRowH = 32;
 inline constexpr int kSkinRowTop = 10;
+inline constexpr int kSkinGridCols = 2;
+inline constexpr qreal kSkinGridGap = 8;
+inline constexpr qreal kSkinCellPad = 4;
+inline constexpr qreal kSkinTrash = 18;
+inline constexpr qreal kSkinTrashInset = 4;
+inline constexpr qreal kSkinPreviewAspect = 825.0 / 348.0;
 inline constexpr int kSkinsBtnStackH = 58;
 inline constexpr int kSkinsBtnGap = 8;
 inline constexpr int kSkinsScrollW = 14;
@@ -387,7 +391,7 @@ inline QRectF settingsPersistMark(const QRectF& pane) {
   return QRectF(pane.left() + 16, pane.top() + 230, pane.width() - 32, 20);
 }
 
-/// The catalogue's window onto its rows. It stops short of the button stack by
+/// The catalogue's window onto its preview matrix. It stops short of the button stack by
 /// the error strip below, whether or not an install has failed — see
 /// [skinsErrorStrip] for why the strip is not claimed only when it is needed.
 inline QRectF skinsListViewport(const QRectF& pane) {
@@ -418,21 +422,62 @@ inline QRectF skinsListScrollTrack(const QRectF& viewport) {
                 viewport.height());
 }
 
-inline int skinsListContentH(int count) { return count * kSkinRowStride; }
-
-inline int skinsListMaxScroll(int count, qreal viewportH) {
-  return std::max(0, skinsListContentH(count) - int(viewportH));
+inline QSizeF skinsGridCellSize(const QRectF& viewport) {
+  const qreal w = (viewport.width() - kSkinGridGap * (kSkinGridCols - 1)) / kSkinGridCols;
+  const qreal h = w / kSkinPreviewAspect;
+  return {qMax<qreal>(0, w), qMax<qreal>(0, h)};
 }
 
-inline QRectF skinsListRow(const QRectF& viewport, int index, int scroll) {
-  return QRectF(viewport.left(), viewport.top() + index * kSkinRowStride - scroll, viewport.width(),
-                kSkinRowH);
+inline int skinsGridRowCount(int count) {
+  if (count <= 0) return 0;
+  return (count + kSkinGridCols - 1) / kSkinGridCols;
 }
 
-inline QRectF skinsListThumb(const QRectF& track, int count, int scroll) {
-  const qreal content = qMax<qreal>(1, skinsListContentH(count));
+inline qreal skinsGridRowStride(const QRectF& viewport) {
+  return skinsGridCellSize(viewport).height() + kSkinGridGap;
+}
+
+inline int skinsListContentH(int count, const QRectF& viewport) {
+  const int rows = skinsGridRowCount(count);
+  if (rows <= 0) return 0;
+  const QSizeF cell = skinsGridCellSize(viewport);
+  return int(std::ceil(rows * cell.height() + (rows - 1) * kSkinGridGap));
+}
+
+inline int skinsListMaxScroll(int count, const QRectF& viewport) {
+  return std::max(0, skinsListContentH(count, viewport) - int(viewport.height()));
+}
+
+inline QRectF skinsGridCell(const QRectF& viewport, int index, int scroll) {
+  const QSizeF cell = skinsGridCellSize(viewport);
+  const int col = index % kSkinGridCols;
+  const int row = index / kSkinGridCols;
+  return QRectF(viewport.left() + col * (cell.width() + kSkinGridGap),
+                viewport.top() + row * (cell.height() + kSkinGridGap) - scroll, cell.width(),
+                cell.height());
+}
+
+inline QRectF skinsGridPhotoRect(const QRectF& cell) {
+  const QRectF box = cell.adjusted(kSkinCellPad, kSkinCellPad, -kSkinCellPad, -kSkinCellPad);
+  if (box.width() <= 0 || box.height() <= 0) return box;
+  const qreal boxAspect = box.width() / box.height();
+  if (boxAspect > kSkinPreviewAspect) {
+    const qreal w = box.height() * kSkinPreviewAspect;
+    return QRectF(box.center().x() - w / 2, box.top(), w, box.height());
+  }
+  const qreal h = box.width() / kSkinPreviewAspect;
+  return QRectF(box.left(), box.center().y() - h / 2, box.width(), h);
+}
+
+inline QRectF skinsGridTrashcan(const QRectF& cell) {
+  return QRectF(cell.right() - kSkinTrashInset - kSkinTrash,
+                cell.bottom() - kSkinTrashInset - kSkinTrash, kSkinTrash, kSkinTrash);
+}
+
+inline QRectF skinsListThumb(const QRectF& track, const QRectF& viewport, int count, int scroll) {
+  const qreal content = qMax<qreal>(1, skinsListContentH(count, viewport));
   const qreal thumbH = qMin(track.height(), track.height() * track.height() / content);
-  const int maxScroll = skinsListMaxScroll(count, track.height());
+  const int maxScroll = skinsListMaxScroll(count, viewport);
   const qreal t = maxScroll <= 0 ? 0 : qreal(scroll) / qreal(maxScroll);
   const qreal thumbTop = t * (track.height() - thumbH);
   return QRectF(track.left() + 1, track.top() + thumbTop, track.width() - 2, thumbH);

@@ -8,6 +8,7 @@
 #include "host_window.h"
 #include "look.h"
 #include "m3u.h"
+#include "skin_preview.h"
 #include "native_file_dialog.h"
 #ifdef TRAMP_HAVE_MPV
 #include "mpv_engine.h"
@@ -150,6 +151,7 @@ TrampSession::TrampSession(QObject* parent)
   {
     WaitCursorScope wait;
     skins_.bootstrap(trampSupportDirectory(), bundledSkinsDir(), settings_);
+    refreshSkinPreviews();
   }
   syncTitleMarquee();
 }
@@ -690,7 +692,7 @@ SessionView TrampSession::view() const {
   v.skinsError = skins_.lastError();
   const QRectF skinsViewport = skinsListViewport(skinsPane(kSkins));
   v.skinsScroll = std::max(0, std::min(skinsScroll_, skinsListMaxScroll(skins_.catalog().size(),
-                                                                        skinsViewport.height())));
+                                                                        skinsViewport)));
 
   const auto tracks = playlist_.tracks();
   qint64 total = 0;
@@ -795,6 +797,7 @@ void TrampSession::setWindowVisible(WindowId id, bool visible) {
     if (id == WindowId::skins) {
       WaitCursorScope wait;
       skins_.rescan();
+      refreshSkinPreviews();
     }
     if (id == WindowId::about) refreshAboutFigures();
   } else {
@@ -1025,8 +1028,9 @@ void TrampSession::handleRelease(WindowId id) {
 void TrampSession::handleWheel(WindowId id, int delta) {
   if (id == WindowId::skins) {
     const QRectF viewport = skinsListViewport(skinsPane(kSkins));
-    const int maxScroll = skinsListMaxScroll(skins_.catalog().size(), viewport.height());
-    const int step = delta > 0 ? -kSkinRowStride : kSkinRowStride;
+    const int maxScroll = skinsListMaxScroll(skins_.catalog().size(), viewport);
+    const int step = delta > 0 ? -int(qRound(skinsGridRowStride(viewport)))
+                               : int(qRound(skinsGridRowStride(viewport)));
     skinsScroll_ = std::max(0, std::min(skinsScroll_ + step, maxScroll));
     refreshChrome();
     return;
@@ -1072,6 +1076,19 @@ void TrampSession::handleDrag(WindowId id, ChromeHit hit, QPoint logical) {
     settings_.playlistCollectionWidth =
         std::clamp(double(x), double(kPlaylistCollectionMinWidth), 480.0);
     schedulePersist();
+    refreshChrome();
+  } else if (sliderKind_ == ChromeHit::Kind::settingsSkinScroll ||
+             hit.kind == ChromeHit::Kind::settingsSkinScroll) {
+    const QRectF viewport = skinsListViewport(skinsPane(kSkins));
+    const int maxScroll = skinsListMaxScroll(skins_.catalog().size(), viewport);
+    const QRectF track = skinsListScrollTrack(viewport);
+    const QRectF thumb = skinsListThumb(track, viewport, skins_.catalog().size(), skinsScroll_);
+    const qreal travel = track.height() - thumb.height();
+    const qreal t =
+        travel <= 0 ? 0 : std::clamp((logical.y() - track.top() - thumb.height() / 2) / travel,
+                                     qreal(0), qreal(1));
+    skinsScroll_ = int(qRound(t * maxScroll));
+    sliderKind_ = ChromeHit::Kind::settingsSkinScroll;
     refreshChrome();
   } else if (sliderKind_ == ChromeHit::Kind::plTrackRow) {
     const int from = sliderIndex_;
@@ -1154,6 +1171,7 @@ void TrampSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
     case ChromeIntent::rescanSkins: {
       WaitCursorScope wait;
       skins_.rescan();
+      refreshSkinPreviews();
       refreshChrome();
       break;
     }
@@ -1161,6 +1179,7 @@ void TrampSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
       const auto catalog = skins_.catalog();
       if (out.collectionRow < 0 || out.collectionRow >= catalog.size()) break;
       const QString id = catalog[out.collectionRow].id;
+      if (id == settings_.activeSkinId) break;
       withWaitCursor(this, [this, id]() {
         if (skins_.activate(id, settings_)) {
           schedulePersist();
@@ -1169,6 +1188,9 @@ void TrampSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
       });
       break;
     }
+    case ChromeIntent::removeSkin:
+      presentSkinRemove(out.collectionRow);
+      break;
     case ChromeIntent::pickSkinZip:
       presentSkinZipInstall();
       break;
@@ -1181,6 +1203,7 @@ void TrampSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
     case ChromeIntent::resetSkinsDirectory: {
       WaitCursorScope wait;
       skins_.setSkinsDirectory({}, settings_);
+      refreshSkinPreviews();
       schedulePersist();
       refreshChrome();
       break;
@@ -1349,6 +1372,7 @@ void TrampSession::presentSkinZipInstall() {
   if (!path.isEmpty()) {
     WaitCursorScope wait;
     if (skins_.installZip(path, skinConflictPrompt())) {
+      refreshSkinPreviews();
       schedulePersist();
     }
   }
@@ -1364,6 +1388,7 @@ void TrampSession::presentSkinFolderInstall() {
   if (!path.isEmpty()) {
     WaitCursorScope wait;
     if (skins_.installDirectory(path, skinConflictPrompt())) {
+      refreshSkinPreviews();
       schedulePersist();
     }
   }
@@ -1380,6 +1405,7 @@ void TrampSession::presentSkinsDirectoryPick() {
   if (!path.isEmpty()) {
     WaitCursorScope wait;
     skins_.setSkinsDirectory(path, settings_);
+    refreshSkinPreviews();
     schedulePersist();
   }
   refreshChrome();
@@ -1497,6 +1523,39 @@ void TrampSession::quitFromMenu() {
 }
 
 QString TrampSession::bundledSkinsDir() const { return tramp::bundledSkinsDir(); }
+
+void TrampSession::refreshSkinPreviews() {
+  skins_.ensurePreviews([](const QString& id, const QString& path,
+                           const QVector<LookManifest>& installed, QString* error) {
+    return writeSkinPreviewPng(id, installed, path, error);
+  });
+}
+
+void TrampSession::presentSkinRemove(int index) {
+  const auto catalog = skins_.catalog();
+  if (index < 0 || index >= catalog.size()) return;
+  const SkinCatalogEntry& entry = catalog[index];
+  if (!entry.canRemove) return;
+  QWidget* parent = dialogParent(WindowId::skins);
+  QString text = QStringLiteral("Remove “%1” from this folder? The skin’s files will be deleted.")
+                     .arg(entry.name);
+  if (isBundledHomageId(entry.id)) {
+    text += QStringLiteral("\n\nReset folder will install it again.");
+  }
+  QMessageBox box(parent);
+  box.setWindowTitle(QStringLiteral("Remove skin?"));
+  box.setText(text);
+  box.setIcon(QMessageBox::Question);
+  QPushButton* cancel = box.addButton(QStringLiteral("Cancel"), QMessageBox::RejectRole);
+  QPushButton* remove = box.addButton(QStringLiteral("Remove"), QMessageBox::DestructiveRole);
+  box.setDefaultButton(cancel);
+  WaitCursorPause pause;
+  box.exec();
+  if (box.clickedButton() != remove) return;
+  WaitCursorScope wait;
+  skins_.remove(entry.id, settings_);
+  refreshChrome();
+}
 
 SkinController::ConflictFn TrampSession::skinConflictPrompt() {
   return [this](const SkinConflict& conflict) {

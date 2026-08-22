@@ -7,7 +7,10 @@
 #include "tramp_metrics.h"
 #include "tramp_version.h"
 
+#include <QDateTime>
+#include <QFileInfo>
 #include <QFontMetrics>
+#include <QHash>
 #include <QImage>
 #include <QPainterPath>
 #include <QVector>
@@ -33,6 +36,24 @@ const ChromeTokens& T() { return currentLook(); }
 /// live store and takes plain session state.
 BtnFace faceOf(const ChromePhases& phases, ChromeHit::Kind kind, bool latched, int index = -1) {
   return phases.live() ? phases.face(kind, index) : BtnFace(latched);
+}
+
+QImage loadCachedSkinPreview(const QString& path) {
+  struct Slot {
+    QDateTime mtime;
+    QImage img;
+  };
+  static QHash<QString, Slot> cache;
+  if (path.isEmpty()) return {};
+  const QFileInfo fi(path);
+  if (!fi.exists()) return {};
+  const QDateTime mtime = fi.lastModified();
+  const auto it = cache.constFind(path);
+  if (it != cache.cend() && it->mtime == mtime && !it->img.isNull()) return it->img;
+  QImage img;
+  if (!img.load(path) || img.isNull()) return {};
+  cache.insert(path, Slot{mtime, img});
+  return img;
 }
 
 QString formatGain(qreal gain) {
@@ -856,28 +877,44 @@ void paintSkins(QPainter& p, const QRectF& body, const SessionView& view,
   p.save();
   p.setClipRect(viewport);
   for (int i = 0; i < skins.size(); ++i) {
-    const QRectF row = skinsListRow(viewport, i, scroll);
-    if (row.bottom() < viewport.top() || row.top() > viewport.bottom()) continue;
+    const QRectF cell = skinsGridCell(viewport, i, scroll);
+    if (cell.bottom() < viewport.top() || cell.top() > viewport.bottom()) continue;
     const bool on = skins[i].id == active;
+    const BtnFace hover = on ? BtnFace() : faceOf(phases, K::settingsSkinRow, false, i);
+    p.fillRect(cell, T().shell);
     if (on) {
-      p.fillRect(row, QColor(T().shellHi.red(), T().shellHi.green(), T().shellHi.blue(), 115));
+      p.setPen(QPen(T().phos, 2));
+      p.setBrush(Qt::NoBrush);
+      p.drawRoundedRect(cell.adjusted(1, 1, -1, -1), 3, 3);
+    } else if (hover.hover > 0) {
+      p.fillRect(cell, mix(T().shell, T().hoverLift, 0.16 * hover.hover));
     }
-    p.setFont(condensedFont(12, 0.08));
-    p.setPen(on ? T().phos : T().ink);
-    p.drawText(row.adjusted(10, 0, -10, 0), Qt::AlignVCenter | Qt::AlignLeft, skins[i].name);
-    if (!skins[i].author.isEmpty()) {
-      p.setFont(monoFont(10));
-      p.setPen(T().inkDim);
-      const qreal nameW = textWidth(condensedFont(12, 0.08), skins[i].name);
-      p.drawText(row.adjusted(14 + nameW, 0, -10, 0), Qt::AlignVCenter | Qt::AlignLeft,
-                 skins[i].author);
+    const QRectF photo = skinsGridPhotoRect(cell);
+    const QImage preview = loadCachedSkinPreview(skins[i].previewPath);
+    if (!preview.isNull()) {
+      p.drawImage(photo, preview);
+    } else {
+      p.fillRect(photo, T().shellMid);
+    }
+    if (skins[i].canRemove) {
+      const QRectF trash = skinsGridTrashcan(cell);
+      const BtnFace face = faceOf(phases, K::settingsSkinRemove, false, i);
+      fillRound(p, trash, 3, mix(T().shell, T().shellHi, 0.35 + 0.25 * face.hover));
+      p.setPen(QPen(T().ink, 1.15));
+      p.setBrush(Qt::NoBrush);
+      const QRectF can = trash.adjusted(5, 6, -5, -3);
+      p.drawRoundedRect(can, 1.2, 1.2);
+      p.drawLine(QPointF(trash.left() + 4, trash.top() + 6),
+                 QPointF(trash.right() - 4, trash.top() + 6));
+      p.drawLine(QPointF(trash.center().x() - 2, trash.top() + 4),
+                 QPointF(trash.center().x() + 2, trash.top() + 4));
     }
   }
   p.restore();
-  const int maxScroll = skinsListMaxScroll(skins.size(), viewport.height());
+  const int maxScroll = skinsListMaxScroll(skins.size(), viewport);
   if (maxScroll > 0) {
     const QRectF track = skinsListScrollTrack(viewport);
-    const QRectF thumb = skinsListThumb(track, skins.size(), scroll);
+    const QRectF thumb = skinsListThumb(track, viewport, skins.size(), scroll);
     drawScrollbar(p, track, thumb.top() - track.top(), thumb.height());
   }
   if (!view.skinsError.isEmpty()) {

@@ -13,6 +13,7 @@ class ChromeTooltipTest : public QObject {
   void slidersAndListsStayQuiet();
   void playlistButtonsKeepFlutterNames();
   void settingsAndAboutNameControls();
+  void skinsCellsNameThePack();
   void hoverMotionHidesWhenBusyOrEmpty();
   void hoverMotionRestartsWhenTheNameChanges();
 };
@@ -112,7 +113,21 @@ void ChromeTooltipTest::slidersAndListsStayQuiet() {
   QCOMPARE(tramp::chromeTooltip({}, kind(K::plTrackRow, 2), view), QString());
   QCOMPARE(tramp::chromeTooltip({}, kind(K::plDivider), view), QString());
   QCOMPARE(tramp::chromeTooltip({}, kind(K::plResize), view), QString());
-  QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsSkinRow, 1), view), QString());
+  QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsSkinScroll), view), QString());
+}
+
+void ChromeTooltipTest::skinsCellsNameThePack() {
+  tramp::SessionView view;
+  using K = tramp::ChromeHit::Kind;
+  view.skins = {{QStringLiteral("builtin"), QStringLiteral("Tramp"),
+                 QStringLiteral("Proxima Magnifica")},
+                {QStringLiteral("arc"), QStringLiteral("Arc"), QStringLiteral("Proxima Magnifica")}};
+  QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsSkinRow, 0), view),
+           QStringLiteral("Tramp — Proxima Magnifica"));
+  QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsSkinRow, 1), view),
+           QStringLiteral("Arc — Proxima Magnifica"));
+  QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsSkinRemove, 1), view),
+           QStringLiteral("Remove Arc"));
 }
 
 void ChromeTooltipTest::playlistButtonsKeepFlutterNames() {
