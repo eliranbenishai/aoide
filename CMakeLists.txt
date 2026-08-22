@@ -282,6 +282,7 @@ qt_add_executable(chrome_command_test
   src/settings.cpp
   src/equalizer.cpp
   src/collection.cpp
+  src/docking.cpp
 )
 target_include_directories(chrome_command_test PRIVATE src)
 target_link_libraries(chrome_command_test PRIVATE tramp_window_spec Qt6::Test)

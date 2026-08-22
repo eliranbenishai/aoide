@@ -3,8 +3,14 @@
 namespace tramp {
 
 ChromeCommandRouter::ChromeCommandRouter(PlaybackController& playback, PlaylistController& playlist,
-                                         TrampSettings& settings, PlaylistCollection& collection)
-    : playback_(playback), playlist_(playlist), settings_(settings), collection_(collection) {}
+                                         TrampSettings& settings, PlaylistCollection& collection,
+                                         PlayerEngine& engine, DockingCoordinator& docking)
+    : playback_(playback),
+      playlist_(playlist),
+      settings_(settings),
+      collection_(collection),
+      engine_(engine),
+      docking_(docking) {}
 
 ChromeCommandOutcome ChromeCommandRouter::handle(WindowId id, const ChromeHit& hit,
                                                  Qt::KeyboardModifiers mods, QPoint logical) {
@@ -131,6 +137,107 @@ ChromeCommandOutcome ChromeCommandRouter::handle(WindowId id, const ChromeHit& h
     case K::plRefresh:
       out.handled = true;
       out.intent = ChromeIntent::refreshCurrentPlaylist;
+      break;
+    case K::options:
+      out.handled = true;
+      out.intent = ChromeIntent::showOptionsMenu;
+      break;
+    case K::timeToggle:
+      settings_.showElapsed = !settings_.showElapsed;
+      out.handled = true;
+      out.persist = true;
+      out.refreshChrome = true;
+      break;
+    case K::mono:
+      settings_.forceMono = !settings_.forceMono;
+      engine_.setForceMono(settings_.forceMono);
+      out.handled = true;
+      out.persist = true;
+      out.refreshChrome = true;
+      break;
+    case K::eqToggle:
+      out.handled = true;
+      out.toggleVisible = WindowId::equalizer;
+      break;
+    case K::plToggle:
+      out.handled = true;
+      out.toggleVisible = WindowId::playlist;
+      break;
+    case K::eqOn:
+      settings_.equalizerCurve.enabled = !settings_.equalizerCurve.enabled;
+      out.handled = true;
+      out.applyEq = true;
+      out.persist = true;
+      out.refreshEq = true;
+      break;
+    case K::eqAuto:
+      settings_.equalizerCurve.auto_ = !settings_.equalizerCurve.auto_;
+      out.handled = true;
+      out.persist = true;
+      out.refreshEq = true;
+      break;
+    case K::eqPresets:
+      out.handled = true;
+      out.intent = ChromeIntent::showEqPresets;
+      break;
+    case K::settingsGeneral:
+      out.handled = true;
+      out.settingsTab = 0;
+      out.refreshChrome = true;
+      break;
+    case K::settingsResume:
+      settings_.resumeLastSession = !settings_.resumeLastSession;
+      out.handled = true;
+      out.persist = true;
+      out.refreshChrome = true;
+      break;
+    case K::settingsConfirm:
+      settings_.confirmBeforeQuit = !settings_.confirmBeforeQuit;
+      out.handled = true;
+      out.persist = true;
+      out.refreshChrome = true;
+      break;
+    case K::settingsScroll:
+      settings_.scrollTitle = !settings_.scrollTitle;
+      out.handled = true;
+      out.syncTitleMarquee = true;
+      out.persist = true;
+      out.refreshChrome = true;
+      break;
+    case K::settingsMinimize:
+      settings_.minimizeHidesSecondaries = !settings_.minimizeHidesSecondaries;
+      out.handled = true;
+      out.persist = true;
+      out.refreshChrome = true;
+      break;
+    case K::settingsSnapOff:
+      settings_.dockSnapStrength = DockSnapStrength::off;
+      docking_.setSnapThreshold(snapPixels(settings_.dockSnapStrength));
+      out.handled = true;
+      out.persist = true;
+      out.refreshChrome = true;
+      break;
+    case K::settingsSnapNormal:
+      settings_.dockSnapStrength = DockSnapStrength::normal;
+      docking_.setSnapThreshold(snapPixels(settings_.dockSnapStrength));
+      out.handled = true;
+      out.persist = true;
+      out.refreshChrome = true;
+      break;
+    case K::settingsSnapStrong:
+      settings_.dockSnapStrength = DockSnapStrength::strong;
+      docking_.setSnapThreshold(snapPixels(settings_.dockSnapStrength));
+      out.handled = true;
+      out.persist = true;
+      out.refreshChrome = true;
+      break;
+    case K::settingsReset:
+      out.handled = true;
+      out.intent = ChromeIntent::resetSettings;
+      break;
+    case K::aboutWeb:
+      out.handled = true;
+      out.intent = ChromeIntent::openWebsite;
       break;
     default:
       break;

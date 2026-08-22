@@ -1,6 +1,7 @@
 #include "chrome_command.h"
 
 #include "collection.h"
+#include "docking.h"
 #include "player_engine.h"
 #include "playlist.h"
 #include "settings.h"
@@ -22,6 +23,8 @@ class ChromeCommandTest : public QObject {
   void eqBandPressRemembersWhichBand();
   void removingATrackMarksThePlaylistAlteredAndDoesNotPersistSettings();
   void collapsingTheCollectionPersistsAndAsksForARefresh();
+  void togglingElapsedTimePersistsAndAsksForARefresh();
+  void monoPersistsAndDoesNotMarkThePlaylistAltered();
 };
 
 namespace {
@@ -32,6 +35,7 @@ struct Fixture {
   tramp::PlaybackController playback;
   tramp::TrampSettings settings;
   tramp::PlaylistCollection collection;
+  tramp::DockingCoordinator docking;
 
   Fixture() : playback(&playlist, &engine) {
     tramp::Track track;
@@ -39,7 +43,9 @@ struct Fixture {
     playlist.setTracks({track});
   }
 
-  tramp::ChromeCommandRouter router() { return {playback, playlist, settings, collection}; }
+  tramp::ChromeCommandRouter router() {
+    return {playback, playlist, settings, collection, engine, docking};
+  }
 };
 
 tramp::ChromeHit hit(tramp::ChromeHit::Kind kind) {
@@ -125,6 +131,29 @@ void ChromeCommandTest::collapsingTheCollectionPersistsAndAsksForARefresh() {
       tramp::WindowId::playlist, hit(tramp::ChromeHit::Kind::plCollapse), Qt::NoModifier, {});
   QVERIFY(out.handled);
   QVERIFY(f.settings.playlistCollectionCollapsed);
+  QVERIFY(out.persist);
+  QVERIFY(out.refreshChrome);
+  QVERIFY(!f.playlist.altered());
+}
+
+void ChromeCommandTest::togglingElapsedTimePersistsAndAsksForARefresh() {
+  Fixture f;
+  QVERIFY(f.settings.showElapsed);
+  const tramp::ChromeCommandOutcome out = f.router().handle(
+      tramp::WindowId::main, hit(tramp::ChromeHit::Kind::timeToggle), Qt::NoModifier, {});
+  QVERIFY(out.handled);
+  QVERIFY(!f.settings.showElapsed);
+  QVERIFY(out.persist);
+  QVERIFY(out.refreshChrome);
+}
+
+void ChromeCommandTest::monoPersistsAndDoesNotMarkThePlaylistAltered() {
+  Fixture f;
+  QVERIFY(!f.settings.forceMono);
+  const tramp::ChromeCommandOutcome out =
+      f.router().handle(tramp::WindowId::main, hit(tramp::ChromeHit::Kind::mono), Qt::NoModifier, {});
+  QVERIFY(out.handled);
+  QVERIFY(f.settings.forceMono);
   QVERIFY(out.persist);
   QVERIFY(out.refreshChrome);
   QVERIFY(!f.playlist.altered());

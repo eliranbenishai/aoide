@@ -1072,8 +1072,16 @@ void TrampSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
     sliderIndex_ = out.sliderIndex;
     handleDrag(id, hit, sliderPressPoint(hit.rect, logical));
   }
+  if (out.toggleVisible) {
+    setWindowVisible(*out.toggleVisible, !windowShouldShow(*out.toggleVisible));
+  }
+  if (out.settingsTab) settingsTab_ = *out.settingsTab;
+  if (out.applyEq) applyEq();
+  if (out.applyAlwaysOnTop) applyAlwaysOnTop();
+  if (out.syncTitleMarquee) syncTitleMarquee();
   if (out.persist) schedulePersist();
   if (out.persistCollection) persistCollectionCache();
+  if (out.refreshEq) refreshEqChrome();
   if (out.refreshChrome) refreshChrome();
   switch (out.intent) {
     case ChromeIntent::pickAudio: {
@@ -1106,6 +1114,18 @@ void TrampSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
       break;
     case ChromeIntent::loadCollectionRow:
       loadCollectionRow(out.collectionRow);
+      break;
+    case ChromeIntent::showOptionsMenu:
+      showOptionsMenu(hit.rect);
+      break;
+    case ChromeIntent::showEqPresets:
+      presentEqPresets(hit);
+      break;
+    case ChromeIntent::openWebsite:
+      QDesktopServices::openUrl(QUrl(QStringLiteral("https://tramp.music")));
+      break;
+    case ChromeIntent::resetSettings:
+      presentResetSettings();
       break;
     case ChromeIntent::none:
       break;
@@ -1234,11 +1254,43 @@ void TrampSession::presentPlOptionsMenu(const ChromeHit& hit) {
   }
 }
 
+void TrampSession::presentEqPresets(const ChromeHit& hit) {
+  const auto& presets = EqualizerPresets::builtIn();
+  QVector<ChromeMenuItem> items;
+  items.reserve(presets.size());
+  for (const auto& preset : presets) items.push_back(ChromeMenuItem::action(preset.first));
+  const int chosen =
+      execAnchoredMenu(items, windowFor(WindowId::equalizer), hit.rect, PopupAnchor::belowLeft);
+  if (chosen == kChromeMenuNone) return;
+  settings_.equalizerCurve =
+      settings_.equalizerCurve.withPreset(presets[chosen].first, presets[chosen].second);
+  settings_.equalizerCurve.enabled = true;
+  applyEq();
+  schedulePersist();
+  refreshEqChrome();
+}
+
+void TrampSession::presentResetSettings() {
+  settings_ = TrampSettings{};
+  applyEq();
+  engine_->setForceMono(false);
+  layout_.docking().setSnapThreshold(snapPixels(settings_.dockSnapStrength));
+  applyAlwaysOnTop();
+  {
+    WaitCursorScope wait;
+    skins_.setSkinsDirectory({}, settings_);
+  }
+  syncTitleMarquee();
+  schedulePersist();
+  refreshChrome();
+}
+
 void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical) {
   using K = ChromeHit::Kind;
   dragOrigin_ = logical;
   {
-    ChromeCommandRouter router(*playback_, playlist_, settings_, collection_);
+    ChromeCommandRouter router(*playback_, playlist_, settings_, collection_, *engine_,
+                               layout_.docking());
     const ChromeCommandOutcome out = router.handle(id, hit, mods, logical);
     if (out.handled) {
       presentChromeOutcome(out, id, hit, logical);
@@ -1246,56 +1298,6 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
     }
   }
   switch (hit.kind) {
-    case K::options:
-      showOptionsMenu(hit.rect);
-      break;
-    case K::timeToggle:
-      settings_.showElapsed = !settings_.showElapsed;
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::mono:
-      settings_.forceMono = !settings_.forceMono;
-      engine_->setForceMono(settings_.forceMono);
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::eqToggle:
-      setWindowVisible(WindowId::equalizer, !layout_.layout().equalizer.visible);
-      break;
-    case K::plToggle:
-      setWindowVisible(WindowId::playlist, !layout_.layout().playlist.visible);
-      break;
-    case K::eqOn:
-      settings_.equalizerCurve.enabled = !settings_.equalizerCurve.enabled;
-      applyEq();
-      schedulePersist();
-      refreshEqChrome();
-      break;
-    case K::eqAuto:
-      settings_.equalizerCurve.auto_ = !settings_.equalizerCurve.auto_;
-      schedulePersist();
-      refreshEqChrome();
-      break;
-    case K::eqPresets: {
-      const auto& presets = EqualizerPresets::builtIn();
-      QVector<ChromeMenuItem> items;
-      items.reserve(presets.size());
-      for (const auto& preset : presets) items.push_back(ChromeMenuItem::action(preset.first));
-      const int chosen = execAnchoredMenu(items, windowFor(WindowId::equalizer), hit.rect, PopupAnchor::belowLeft);
-      if (chosen == kChromeMenuNone) break;
-      settings_.equalizerCurve =
-          settings_.equalizerCurve.withPreset(presets[chosen].first, presets[chosen].second);
-      settings_.equalizerCurve.enabled = true;
-      applyEq();
-      schedulePersist();
-      refreshEqChrome();
-      break;
-    }
-    case K::settingsGeneral:
-      settingsTab_ = 0;
-      refreshChrome();
-      break;
     case K::settingsSkins:
       settingsTab_ = 1;
       {
@@ -1369,62 +1371,6 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       }
       schedulePersist();
       refreshChrome();
-      break;
-    case K::settingsResume:
-      settings_.resumeLastSession = !settings_.resumeLastSession;
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::settingsConfirm:
-      settings_.confirmBeforeQuit = !settings_.confirmBeforeQuit;
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::settingsScroll:
-      settings_.scrollTitle = !settings_.scrollTitle;
-      syncTitleMarquee();
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::settingsMinimize:
-      settings_.minimizeHidesSecondaries = !settings_.minimizeHidesSecondaries;
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::settingsSnapOff:
-      settings_.dockSnapStrength = DockSnapStrength::off;
-      layout_.docking().setSnapThreshold(0);
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::settingsSnapNormal:
-      settings_.dockSnapStrength = DockSnapStrength::normal;
-      layout_.docking().setSnapThreshold(20);
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::settingsSnapStrong:
-      settings_.dockSnapStrength = DockSnapStrength::strong;
-      layout_.docking().setSnapThreshold(40);
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::settingsReset:
-      settings_ = TrampSettings{};
-      applyEq();
-      engine_->setForceMono(false);
-      layout_.docking().setSnapThreshold(20);
-      applyAlwaysOnTop();
-      {
-        WaitCursorScope wait;
-        skins_.setSkinsDirectory({}, settings_);
-      }
-      syncTitleMarquee();
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::aboutWeb:
-      QDesktopServices::openUrl(QUrl(QStringLiteral("https://tramp.music")));
       break;
     case K::plResize:
     case K::plDivider:

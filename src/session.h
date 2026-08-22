@@ -136,6 +136,8 @@ class TrampSession : public QObject, public PanelSurfaces {
   void presentPlRename();
   void presentPlSortMenu(const ChromeHit& hit);
   void presentPlOptionsMenu(const ChromeHit& hit);
+  void presentEqPresets(const ChromeHit& hit);
+  void presentResetSettings();
   void showOptionsMenu(QRect logicalHit);
   int execAnchoredMenu(const QVector<ChromeMenuItem>& items, HostWindow* host, QRect logicalHit,
                        PopupAnchor anchor);
