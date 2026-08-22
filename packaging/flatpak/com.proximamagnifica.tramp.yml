@@ -12,6 +12,7 @@ finish-args:
   - --share=network
   - --socket=fallback-x11
   - --socket=wayland
+  - --talk-name=org.kde.KWin
   - --socket=pulseaudio
   - --device=dri
   - --filesystem=host

@@ -161,7 +161,8 @@ inline QString resumePlaybackLabel() { return QStringLiteral("Resume playback");
 /// `nowPlayingDisplay` stays about a track: it still answers `No track` when
 /// nothing is open. The painter applies this swap from the view it is handed,
 /// because the session snapshot is not rewritten for a first-run flag that
-/// does not exist. Once there are rows, a stopped transport stays `No track`.
+/// does not exist. A stopped current track still shows its title; `No track`
+/// is only when nothing is loaded.
 inline QString mainEmptyTitle(const SessionView& view) {
   if (view.tracks.isEmpty() && view.title == QStringLiteral("No track")) {
     return QStringLiteral("Drop files to play");

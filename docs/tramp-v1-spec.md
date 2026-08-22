@@ -70,7 +70,7 @@ Must decode and play: **MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus**.
 - Repeat: off / all / one
 - Show current-track title / artist / album from tags when present
 - **Media keys** — play/pause, stop, next and previous, while Tramp is the focused application. They are application shortcuts, not a system-wide registration: there is no MPRIS or SMTC surface, so a media key pressed while another app has focus does nothing for Tramp.
-- **Session resume** (*Resume playback*, on by default): the transport reopens the track the last session was left on and seeks back to where it stopped, paused if it was paused and playing if it was playing. A session quit from **stop** launches with the playlist and an empty transport. The current playlist itself comes back either way. Vocabulary: [`CONTEXT.md`](../CONTEXT.md): **Session resume**, **Resume playback**.
+- **Session resume** (*Resume playback*, on by default): the transport reopens the track the last session was left on and seeks back to where it stopped, paused if it was paused and playing if it was playing. A session quit from **stop** keeps that track (rewound, not playing) and Resume playback reopens it paused at the start. The current playlist itself comes back either way. Vocabulary: [`CONTEXT.md`](../CONTEXT.md): **Session resume**, **Resume playback**.
 
 ### How music enters
 

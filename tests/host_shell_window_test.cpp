@@ -1,3 +1,4 @@
+#include "compositor_keep_above.h"
 #include "host_shell.h"
 #include "host_shell_window.h"
 
@@ -21,6 +22,8 @@ class HostShellWindowTest : public QObject {
   void movingOnePanelDoesNotResizeTheHost();
   void expandingPastTopLeftKeepsSiblingOnScreen();
   void punchFollowsEveryPlacementWhileMapped();
+  void alwaysOnTopSetsWindowStaysOnTopHint();
+  void kwinKeepAboveScriptNamesTheHost();
 };
 
 void HostShellWindowTest::shellIsFramelessToplevelNotTool() {
@@ -207,6 +210,29 @@ void HostShellWindowTest::punchFollowsEveryPlacementWhileMapped() {
   shell.placePanels({{&panel, end}});
   QVERIFY(shell.mask().contains(panel.geometry().center()));
   QVERIFY(!shell.mask().contains(QPoint(10, 10)));
+}
+
+void HostShellWindowTest::alwaysOnTopSetsWindowStaysOnTopHint() {
+  HostShell shell;
+  QVERIFY(!shell.windowFlags().testFlag(Qt::WindowStaysOnTopHint));
+  shell.setAlwaysOnTop(true);
+  QVERIFY2(shell.windowFlags().testFlag(Qt::WindowStaysOnTopHint),
+           "the cog check is settings; the host flag is what X11/Win/macOS stack on");
+  shell.setAlwaysOnTop(false);
+  QVERIFY(!shell.windowFlags().testFlag(Qt::WindowStaysOnTopHint));
+}
+
+void HostShellWindowTest::kwinKeepAboveScriptNamesTheHost() {
+  const QString on = tramp::kwinKeepAboveScript(4242, QStringLiteral("Tramp"),
+                                               QStringLiteral("com.proximamagnifica.tramp"), true);
+  QVERIFY(on.contains(QStringLiteral("const pid = 4242")));
+  QVERIFY(on.contains(QStringLiteral("\"Tramp\"")));
+  QVERIFY(on.contains(QStringLiteral("com.proximamagnifica.tramp")));
+  QVERIFY(on.contains(QStringLiteral("const want = true")));
+  QVERIFY(on.contains(QStringLiteral("w.keepAbove = want")));
+  const QString off = tramp::kwinKeepAboveScript(1, QStringLiteral("Tramp"),
+                                                QStringLiteral("com.proximamagnifica.tramp"), false);
+  QVERIFY(off.contains(QStringLiteral("const want = false")));
 }
 
 QTEST_MAIN(HostShellWindowTest)

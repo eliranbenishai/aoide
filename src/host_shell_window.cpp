@@ -1,12 +1,14 @@
 #include "host_shell_window.h"
 
 #include "app_icon.h"
+#include "compositor_keep_above.h"
 #include "window_spec.h"
 
 #include <QGuiApplication>
 #include <QPainter>
 #include <QRegion>
 #include <QScreen>
+#include <QTimer>
 #include <QWindow>
 
 HostShell::HostShell(QWidget* parent) : QWidget(parent) {
@@ -95,12 +97,27 @@ QRect HostShell::virtualDesktop() const {
 }
 
 void HostShell::setAlwaysOnTop(bool on) {
+  alwaysOnTop_ = on;
   const bool have = windowFlags().testFlag(Qt::WindowStaysOnTopHint);
-  if (have == on) return;
-  const bool vis = isVisible();
-  setWindowFlag(Qt::WindowStaysOnTopHint, on);
-  if (vis) show();
-  applyStoredMask();
+  if (have != on) {
+    const bool vis = isVisible();
+    setWindowFlag(Qt::WindowStaysOnTopHint, on);
+    if (vis) show();
+    applyStoredMask();
+  }
+  scheduleCompositorKeepAbove();
+}
+
+void HostShell::scheduleCompositorKeepAbove() {
+  tramp::applyCompositorKeepAbove(windowHandle(), alwaysOnTop_);
+  // setWindowFlag recreates the native window. KWin only sees the new
+  // xdg_toplevel after the map, so the keep-above request has to follow.
+  QTimer::singleShot(0, this, [this]() {
+    tramp::applyCompositorKeepAbove(windowHandle(), alwaysOnTop_);
+  });
+  QTimer::singleShot(150, this, [this]() {
+    tramp::applyCompositorKeepAbove(windowHandle(), alwaysOnTop_);
+  });
 }
 
 void HostShell::setPrimaryPanel(QWidget* panel) { primaryPanel_ = panel; }
@@ -128,6 +145,7 @@ void HostShell::showEvent(QShowEvent* event) {
   QWidget::showEvent(event);
   if (QWindow* native = windowHandle()) native->setIcon(windowIcon());
   applyStoredMask();
+  scheduleCompositorKeepAbove();
 }
 
 void HostShell::changeEvent(QEvent* event) {

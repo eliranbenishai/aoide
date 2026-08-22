@@ -898,6 +898,45 @@ int main() {
   }
 
   {
+    // Stop silences and rewinds. The current track stays on the transport so
+    // the display and Play still know what they were on. Unloading was how
+    // Stop painted "No track" with rows still in the list.
+    class StopEngine : public NullEngine {
+     public:
+      void play() override { played = true; }
+      void stop() override {
+        stopped = true;
+        NullEngine::stop();
+      }
+      bool played = false;
+      bool stopped = false;
+    };
+    PlaylistController playlist;
+    Track track;
+    track.path = QStringLiteral("/tmp/keep.mp3");
+    track.title = QStringLiteral("Keep Me");
+    playlist.setTracks({track});
+    StopEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.playIndex(0);
+    REQUIRE(playback.playing());
+    playback.seekMs(1234);
+    REQUIRE_EQ(playback.positionMs(), qint64(1234));
+    playback.stop();
+    REQUIRE(engine.stopped);
+    REQUIRE(!playback.playing());
+    REQUIRE(!playback.paused());
+    REQUIRE_EQ(playback.positionMs(), qint64(0));
+    REQUIRE(playback.currentTrack().has_value());
+    REQUIRE_EQ(playback.currentTrack()->path, QStringLiteral("/tmp/keep.mp3"));
+    REQUIRE_EQ(playback.playingIndex().value_or(-1), 0);
+    REQUIRE_EQ(playlist.tracks().size(), 1);
+    playback.playPause();
+    REQUIRE(playback.playing());
+    REQUIRE_EQ(playback.playingIndex().value_or(-1), 0);
+  }
+
+  {
     // loadfile reports pause=yes until the file is ready. That echo must not
     // undo the optimistic play/pause the chrome already showed.
     class LagEngine : public NullEngine {
@@ -929,8 +968,8 @@ int main() {
     // MpvEngine reports a loadfile failure synchronously from open(). playIndex
     // used to set playing_ = true immediately afterwards, so a file that never
     // opened still read as playing and the chrome showed the pause face.
-    // The refused file also has to be let go: stop is what unloads media, and
-    // without it mpv keeps the errored load attached.
+    // The refused file also has to be let go of the engine: onEngineError
+    // is what unloads mpv, and without it the errored load stays attached.
     class RefusingEngine : public NullEngine {
      public:
       void open(const Track&) override {
@@ -958,18 +997,16 @@ int main() {
     REQUIRE_EQ(playback.failureMessage(), QStringLiteral("cannot open"));
     REQUIRE_EQ(playback.durationMs(), qint64(200000));
 
-    // Stop unloads media, and the readouts let go with it. They used to
-    // survive: the subtitle still carried the error and the clock still showed
-    // the length of a track nothing was playing.
+    // Stop clears the spent error and rewinds. The track stays current so
+    // Play retries the same row instead of painting "No track".
     playback.stop();
     REQUIRE(playback.failureMessage().isEmpty());
-    REQUIRE_EQ(playback.durationMs(), qint64(0));
+    REQUIRE_EQ(playback.durationMs(), qint64(200000));
     REQUIRE_EQ(playback.positionMs(), qint64(0));
-    REQUIRE(!playback.currentTrack().has_value());
-    REQUIRE(!playback.playingIndex().has_value());
+    REQUIRE(playback.currentTrack().has_value());
+    REQUIRE_EQ(playback.playingIndex().value_or(-1), 0);
     REQUIRE(!playback.playing());
     REQUIRE(!playback.paused());
-    // Play picks the list back up from the row still selected.
     playback.playPause();
     REQUIRE_EQ(playback.playingIndex().value_or(-1), 0);
   }

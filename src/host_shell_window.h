@@ -47,8 +47,10 @@ class HostShell : public QWidget {
   void applyStoredMask();
   void applyPunch(const QRegion& mask);
   void bindDesktopScreens();
+  void scheduleCompositorKeepAbove();
 
   tramp::HostShellLayout lastLayout_{};
   QRect lastRequestedVirtual_{};
   QWidget* primaryPanel_ = nullptr;
+  bool alwaysOnTop_ = false;
 };

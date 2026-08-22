@@ -122,6 +122,8 @@ set(TRAMP_SOURCES
   src/app_icon.h
   src/host_shell_window.cpp
   src/host_shell_window.h
+  src/compositor_keep_above.cpp
+  src/compositor_keep_above.h
   src/host_window.cpp
   src/host_window.h
   src/session.cpp
@@ -230,6 +232,7 @@ qt_add_executable(host_shell_window_test
   tests/host_shell_window_test.cpp
   src/host_shell_window.cpp
   src/host_shell_window.h
+  src/compositor_keep_above.cpp
   src/app_icon.cpp
   src/tramp_fonts.cpp
 )
@@ -244,6 +247,7 @@ qt_add_executable(host_window_move_test
   tests/host_window_move_test.cpp
   src/host_shell_window.cpp
   src/host_shell_window.h
+  src/compositor_keep_above.cpp
   src/app_icon.cpp
   src/host_window.cpp
   src/host_window.h

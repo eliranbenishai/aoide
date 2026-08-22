@@ -166,14 +166,10 @@ void PlaybackController::stop() {
   mediaOpen_ = false;
   playing_ = false;
   positionMs_ = 0;
-  // Stop unloads media, so nothing about that media survives on the readouts:
-  // not the error that ended it, not the title, not the length.
-  durationMs_ = 0;
+  // Stop is rewind-and-silence, not eject. The current track stays on the
+  // transport so the display and Play still know what they were on. The
+  // failure that ended a load is spent; title, length and format are not.
   failureMessage_.clear();
-  playingPath_.clear();
-  playingTrack_.reset();
-  playingIndex_.reset();
-  format_ = {};
   resetListenTally();
   notify();
 }
