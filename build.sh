@@ -86,6 +86,7 @@ SRCS=(
   "$ROOT/src/chrome_hits.cpp"
   "$ROOT/src/chrome_tooltip.cpp"
   "$ROOT/src/chrome_menu.cpp"
+  "$ROOT/src/chrome_command.cpp"
   "$ROOT/src/session_view.cpp"
   "$ROOT/src/m3u.cpp"
   "$ROOT/src/equalizer.cpp"
@@ -263,5 +264,17 @@ QT_QPA_PLATFORM=offscreen "$BUILD/chrome_tooltip_test"
   -L"$QT/lib" -lQt6Test -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
   -o "$BUILD/chrome_spec_test"
 "$BUILD/chrome_spec_test"
+
+"$MOC" "$ROOT/tests/chrome_command_test.cpp" -o "$BUILD/chrome_command_test.moc"
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
+  "$ROOT/src/window_spec.cpp" \
+  "$ROOT/src/chrome_command.cpp" \
+  "$ROOT/src/playback.cpp" "$ROOT/src/playlist.cpp" "$ROOT/src/transport.cpp" \
+  "$ROOT/src/persist.cpp" "$ROOT/src/m3u.cpp" "$ROOT/src/settings.cpp" \
+  "$ROOT/src/equalizer.cpp" "$ROOT/src/collection.cpp" "$ROOT/src/docking.cpp" \
+  "$ROOT/tests/chrome_command_test.cpp" \
+  -L"$QT/lib" -lQt6Test -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
+  -o "$BUILD/chrome_command_test"
+"$BUILD/chrome_command_test"
 
 echo "built $BUILD/tramp"
