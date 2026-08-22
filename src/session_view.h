@@ -122,6 +122,9 @@ struct SessionView {
   /// The session installed `MissingAudioEngine`. Durable display-well mark;
   /// the panel subtitle still carries the reason when an open is refused.
   bool noAudioEngine = false;
+  /// A settings or state-file write has not yet succeeded. Settings-row mark
+  /// that stays until that file writes.
+  bool persistWriteFailed = false;
 };
 
 /// Whether the display well's marquee is moving rather than held at the start.

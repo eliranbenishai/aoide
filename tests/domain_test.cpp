@@ -1099,6 +1099,30 @@ int main() {
   }
 
   {
+    // persistNow notices writeObject returning false through this seam. A
+    // failed file stays failed until that file writes; a later success is
+    // what clears the Settings mark.
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    tramp::SupportStore store(tmp.path());
+    tramp::PersistHealth health;
+    tramp::TrampSettings settings;
+    tramp::SessionResume resume;
+    tramp::UsageCounters usage;
+    tramp::writeSessionPersist(store, health, settings, resume, usage, {}, nullptr);
+    REQUIRE(!health.anyFailed());
+
+    REQUIRE(QFile::setPermissions(tmp.path(), QFile::ReadOwner | QFile::ExeOwner));
+    tramp::writeSessionPersist(store, health, settings, resume, usage, {}, nullptr);
+    REQUIRE(QFile::setPermissions(
+        tmp.path(), QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+    REQUIRE(health.anyFailed());
+
+    tramp::writeSessionPersist(store, health, settings, resume, usage, {}, nullptr);
+    REQUIRE(!health.anyFailed());
+  }
+
+  {
     // A listener who ran the eight-step ladder has 200% or 50% saved. Restoring
     // a percent the ladder no longer carries would leave the readout on a number
     // the zoom buttons cannot get back to, so it snaps to the nearest surviving

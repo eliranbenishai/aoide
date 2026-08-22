@@ -65,6 +65,8 @@ class HostWindowMoveTest : public QObject {
   void emptyWellsAreNotBlank();
   void unmeasuredSpectrumMarkFollowsTheSpectrogram();
   void missingEngineMarkStaysOnTheDisplayWell();
+  void persistFailureMarkStaysUntilAWriteSucceeds();
+  void skinsErrorStaysOnTheSkinsStrip();
 };
 
 void HostWindowMoveTest::parentedPanelMoveDoesNotEmitNativeMoved() {
@@ -765,6 +767,8 @@ std::vector<FieldChange> everyFieldOfTheSnapshot() {
       {"skinsError", "settings",
        [](tramp::SessionView& v) { v.skinsError = QStringLiteral("no skin.json"); }},
       {"skinsScroll", "settings", [](tramp::SessionView& v) { v.skinsScroll = 12; }},
+      {"persistWriteFailed", "settings",
+       [](tramp::SessionView& v) { v.persistWriteFailed = !v.persistWriteFailed; }},
 
       // About: the four figures in the stats well.
       {"aboutPlaylists", "about", [](tramp::SessionView& v) { v.aboutPlaylists += 1; }},
@@ -880,6 +884,7 @@ void HostWindowMoveTest::goldenDemoPaintsTheStateItIsHanded() {
 
   QVERIFY2(!golden.spectrumUnmeasured, "the golden demo is a measured spectrum");
   QVERIFY2(!golden.noAudioEngine, "the golden demo has a working engine");
+  QVERIFY2(!golden.persistWriteFailed, "the golden demo has writable settings");
 
   tramp::SessionView skins = golden;
   skins.settingsTab = 1;
@@ -1342,6 +1347,37 @@ void HostWindowMoveTest::missingEngineMarkStaysOnTheDisplayWell() {
   QVERIFY2(paintPanel(tramp::WindowId::main, tramp::kMainPlayer, missing) !=
                paintPanel(tramp::WindowId::main, tramp::kMainPlayer, working),
            "a missing audio engine must paint a durable mark on the display well");
+}
+
+void HostWindowMoveTest::persistFailureMarkStaysUntilAWriteSucceeds() {
+  tramp::loadTrampFonts();
+  const tramp::SessionView ok = tramp::goldenDemoView();
+  tramp::SessionView failed = ok;
+  failed.persistWriteFailed = true;
+
+  QVERIFY2(!tramp::paintsSame(tramp::WindowId::settings, ok, failed),
+           "the settings chassis must turn over for a persist-write mark");
+  QVERIFY2(tramp::paintsSame(tramp::WindowId::main, ok, failed),
+           "the persist mark is a Settings-row surface, not a title-bar overlay");
+  QVERIFY2(paintPanel(tramp::WindowId::settings, tramp::kSettings, failed) !=
+               paintPanel(tramp::WindowId::settings, tramp::kSettings, ok),
+           "a failed state-file write must paint a Settings-row mark");
+}
+
+void HostWindowMoveTest::skinsErrorStaysOnTheSkinsStrip() {
+  tramp::loadTrampFonts();
+  tramp::SessionView clean = tramp::goldenDemoView();
+  clean.settingsTab = 1;
+  tramp::SessionView failed = clean;
+  failed.skinsError = QStringLiteral("no skin.json at the archive root");
+
+  QVERIFY2(tramp::paintsSame(tramp::WindowId::main, clean, failed),
+           "a skin install error is not a second display-well surface");
+  QVERIFY2(!tramp::paintsSame(tramp::WindowId::settings, clean, failed),
+           "the Skins-tab strip is the transient notice");
+  QVERIFY2(paintPanel(tramp::WindowId::settings, tramp::kSettings, failed) !=
+               paintPanel(tramp::WindowId::settings, tramp::kSettings, clean),
+           "the Skins strip must still paint skinsError");
 }
 
 QTEST_MAIN(HostWindowMoveTest)

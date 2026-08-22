@@ -105,16 +105,21 @@ TrampSession::TrampSession(QObject* parent)
   alteredTimer_.setSingleShot(true);
   alteredTimer_.setInterval(2000);
   QObject::connect(&alteredTimer_, &QTimer::timeout, this, [this]() {
+    const bool wasFailed = persistHealth_.anyFailed();
     if (playlist_.altered()) {
-      store_.writeAltered({playlist_.tracks(), playlist_.sourcePath()});
+      persistHealth_.alteredOk =
+          store_.writeAltered({playlist_.tracks(), playlist_.sourcePath()});
     } else {
       store_.clearAltered();
     }
+    if (persistHealth_.anyFailed() != wasFailed) refreshChrome();
   });
   usageTimer_.setSingleShot(true);
   usageTimer_.setInterval(2000);
   QObject::connect(&usageTimer_, &QTimer::timeout, this, [this]() {
-    store_.writeUsage({playback_->spins()});
+    const bool wasFailed = persistHealth_.anyFailed();
+    persistHealth_.usageOk = store_.writeUsage({playback_->spins()});
+    if (persistHealth_.anyFailed() != wasFailed) refreshChrome();
     HostWindow* about = windowFor(WindowId::about);
     if (about && about->isVisible()) refreshAboutFigures();
   });
@@ -588,23 +593,22 @@ void TrampSession::persistNow() {
   settings_.zoomPercent = layout_.zoomPercent();
   // Main cannot be hidden, and a file saying otherwise launches with no player.
   settings_.main.visible = true;
-  store_.writeSettings(settings_);
-  if (!playlist_.sourcePath().isEmpty()) {
-    store_.writeLastPlaylistPath(playlist_.sourcePath());
-  }
   SessionResume resume;
   resume.playingIndex = playback_->playingIndex();
   resume.positionMs = playback_->positionMs();
   resume.wasPlaying = playback_->playing();
-  store_.writeResume(resume);
-  store_.writeUsage({playback_->spins()});
+  AlteredPlaylist altered;
+  if (playlist_.altered()) {
+    altered = {playlist_.tracks(), playlist_.sourcePath()};
+  }
+  const bool wasFailed = persistHealth_.anyFailed();
+  writeSessionPersist(store_, persistHealth_, settings_, resume, {playback_->spins()},
+                      playlist_.sourcePath(), playlist_.altered() ? &altered : nullptr);
   if (collectionPersistTimer_.isActive()) {
     collectionPersistTimer_.stop();
     persistCollectionCache();
   }
-  if (playlist_.altered()) {
-    store_.writeAltered({playlist_.tracks(), playlist_.sourcePath()});
-  }
+  if (persistHealth_.anyFailed() != wasFailed) refreshChrome();
 }
 
 void TrampSession::schedulePersist() { persistTimer_.start(); }
@@ -656,6 +660,7 @@ SessionView TrampSession::view() const {
   v.spectrumPeaks = spectrumHold_.peaks;
   v.spectrumUnmeasured = spectrogram_.synthetic;
   v.noAudioEngine = noAudioEngine_;
+  v.persistWriteFailed = persistHealth_.anyFailed();
   v.eq = settings_.equalizerCurve;
   v.playingIndex = playback_->playingIndex();
   v.selectedIndices = playlist_.selectedIndices();

@@ -368,6 +368,11 @@ inline QRectF settingsPane(const QRectF& body) {
 
 inline QRectF settingsPane(QSize logical) { return settingsPane(panelBody(logical)); }
 
+/// General-tab mark for a state-file write that has not yet succeeded.
+inline QRectF settingsPersistMark(const QRectF& pane) {
+  return QRectF(pane.left() + 16, pane.top() + 230, pane.width() - 32, 20);
+}
+
 /// The catalogue's window onto its rows. It stops short of the button stack by
 /// the error strip below, whether or not an install has failed — see
 /// [skinsErrorStrip] for why the strip is not claimed only when it is needed.

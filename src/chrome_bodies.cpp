@@ -878,6 +878,13 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
             QString::fromLatin1(segs[i]));
     sx += 96;
   }
+  if (view.persistWriteFailed) {
+    const QRectF mark = settingsPersistMark(pane);
+    p.setFont(monoFont(10));
+    p.setPen(T().accent);
+    p.drawText(mark, Qt::AlignVCenter | Qt::AlignLeft,
+               QStringLiteral("Could not write settings"));
+  }
   p.setFont(condensedFont(12, 0.1));
   p.setPen(T().accent);
   p.drawText(QRectF(body.left() + 12, body.bottom() - 36, 160, 24), Qt::AlignVCenter,

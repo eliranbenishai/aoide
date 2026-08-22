@@ -170,6 +170,7 @@ class TrampSession : public QObject, public PanelSurfaces {
   qint64 titleScrollMs() const;
 
   SupportStore store_;
+  PersistHealth persistHealth_;
   TrampSettings settings_;
   PlaylistController playlist_;
   PlaylistCollection collection_;

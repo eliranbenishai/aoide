@@ -91,6 +91,26 @@ class SupportStore {
   QString dir_;
 };
 
+/// Last write of each session state file. A failure stays until that file lands.
+struct PersistHealth {
+  bool settingsOk = true;
+  bool resumeOk = true;
+  bool usageOk = true;
+  bool alteredOk = true;
+  bool lastPlaylistOk = true;
+
+  bool anyFailed() const {
+    return !settingsOk || !resumeOk || !usageOk || !alteredOk || !lastPlaylistOk;
+  }
+};
+
+/// The write path `persistNow` uses. Each attempted file updates only its own
+/// slot, so a later success on that file is what clears the mark.
+void writeSessionPersist(const SupportStore& store, PersistHealth& health,
+                         const TrampSettings& settings, const SessionResume& resume,
+                         const UsageCounters& usage, const QString& lastPlaylistPath,
+                         const AlteredPlaylist* altered);
+
 QString normalizePlaylistPath(const QString& path);
 
 inline bool samePlaylistFile(const QString& a, const QString& b) {
