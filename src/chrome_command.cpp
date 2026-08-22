@@ -239,6 +239,37 @@ ChromeCommandOutcome ChromeCommandRouter::handle(WindowId id, const ChromeHit& h
       out.handled = true;
       out.intent = ChromeIntent::openWebsite;
       break;
+    case K::settingsSkins:
+      out.handled = true;
+      out.settingsTab = 1;
+      out.intent = ChromeIntent::rescanSkins;
+      break;
+    case K::settingsSkinRow:
+      out.handled = true;
+      out.intent = ChromeIntent::activateSkin;
+      out.collectionRow = hit.index;
+      break;
+    case K::settingsInstallZip:
+      out.handled = true;
+      out.intent = ChromeIntent::pickSkinZip;
+      break;
+    case K::settingsInstallFolder:
+      out.handled = true;
+      out.intent = ChromeIntent::pickSkinFolder;
+      break;
+    case K::settingsSkinsFolder:
+      out.handled = true;
+      out.intent = ChromeIntent::pickSkinsDirectory;
+      break;
+    case K::settingsResetSkinsFolder:
+      out.handled = true;
+      out.intent = ChromeIntent::resetSkinsDirectory;
+      break;
+    case K::plResize:
+    case K::plDivider:
+    case K::none:
+      out.handled = true;
+      break;
     default:
       break;
   }

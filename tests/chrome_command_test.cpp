@@ -25,6 +25,7 @@ class ChromeCommandTest : public QObject {
   void collapsingTheCollectionPersistsAndAsksForARefresh();
   void togglingElapsedTimePersistsAndAsksForARefresh();
   void monoPersistsAndDoesNotMarkThePlaylistAltered();
+  void installingASkinAsksForAZipAndDoesNotPersistYet();
 };
 
 namespace {
@@ -157,6 +158,16 @@ void ChromeCommandTest::monoPersistsAndDoesNotMarkThePlaylistAltered() {
   QVERIFY(out.persist);
   QVERIFY(out.refreshChrome);
   QVERIFY(!f.playlist.altered());
+}
+
+void ChromeCommandTest::installingASkinAsksForAZipAndDoesNotPersistYet() {
+  Fixture f;
+  const tramp::ChromeCommandOutcome out = f.router().handle(
+      tramp::WindowId::settings, hit(tramp::ChromeHit::Kind::settingsInstallZip), Qt::NoModifier,
+      {});
+  QVERIFY(out.handled);
+  QCOMPARE(out.intent, tramp::ChromeIntent::pickSkinZip);
+  QVERIFY(!out.persist);
 }
 
 QTEST_APPLESS_MAIN(ChromeCommandTest)

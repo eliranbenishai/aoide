@@ -31,6 +31,12 @@ enum class ChromeIntent {
   showEqPresets,
   openWebsite,
   resetSettings,
+  rescanSkins,
+  activateSkin,
+  pickSkinZip,
+  pickSkinFolder,
+  pickSkinsDirectory,
+  resetSkinsDirectory,
 };
 
 struct ChromeCommandOutcome {

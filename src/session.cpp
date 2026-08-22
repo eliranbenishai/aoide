@@ -1127,6 +1127,40 @@ void TrampSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
     case ChromeIntent::resetSettings:
       presentResetSettings();
       break;
+    case ChromeIntent::rescanSkins: {
+      WaitCursorScope wait;
+      skins_.rescan();
+      refreshChrome();
+      break;
+    }
+    case ChromeIntent::activateSkin: {
+      const auto catalog = skins_.catalog();
+      if (out.collectionRow < 0 || out.collectionRow >= catalog.size()) break;
+      const QString id = catalog[out.collectionRow].id;
+      withWaitCursor(this, [this, id]() {
+        if (skins_.activate(id, settings_)) {
+          schedulePersist();
+        }
+        refreshChrome();
+      });
+      break;
+    }
+    case ChromeIntent::pickSkinZip:
+      presentSkinZipInstall();
+      break;
+    case ChromeIntent::pickSkinFolder:
+      presentSkinFolderInstall();
+      break;
+    case ChromeIntent::pickSkinsDirectory:
+      presentSkinsDirectoryPick();
+      break;
+    case ChromeIntent::resetSkinsDirectory: {
+      WaitCursorScope wait;
+      skins_.setSkinsDirectory({}, settings_);
+      schedulePersist();
+      refreshChrome();
+      break;
+    }
     case ChromeIntent::none:
       break;
   }
@@ -1285,99 +1319,57 @@ void TrampSession::presentResetSettings() {
   refreshChrome();
 }
 
-void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical) {
-  using K = ChromeHit::Kind;
-  dragOrigin_ = logical;
-  {
-    ChromeCommandRouter router(*playback_, playlist_, settings_, collection_, *engine_,
-                               layout_.docking());
-    const ChromeCommandOutcome out = router.handle(id, hit, mods, logical);
-    if (out.handled) {
-      presentChromeOutcome(out, id, hit, logical);
-      return;
-    }
-  }
-  switch (hit.kind) {
-    case K::settingsSkins:
-      settingsTab_ = 1;
-      {
-        WaitCursorScope wait;
-        skins_.rescan();
-      }
-      refreshChrome();
-      break;
-    case K::settingsSkinRow: {
-      const auto catalog = skins_.catalog();
-      if (hit.index < 0 || hit.index >= catalog.size()) break;
-      const QString id = catalog[hit.index].id;
-      withWaitCursor(this, [this, id]() {
-        if (skins_.activate(id, settings_)) {
-          schedulePersist();
-        }
-        refreshChrome();
-      });
-      break;
-    }
-    case K::settingsInstallZip: {
-      FilePick pick;
-      pick.parent = windowFor(WindowId::settings);
-      pick.title = QStringLiteral("Install skin");
-      pick.filter = QStringLiteral("Skin zip (*.zip)");
-      pick.kind = FilePickKind::openFile;
-      const QString path = pickFile(pick);
-      if (!path.isEmpty()) {
-        WaitCursorScope wait;
-        if (skins_.installZip(path, skinConflictPrompt())) {
-          schedulePersist();
-        }
-      }
-      refreshChrome();
-      break;
-    }
-    case K::settingsInstallFolder: {
-      FilePick pick;
-      pick.parent = windowFor(WindowId::settings);
-      pick.title = QStringLiteral("Install skin folder");
-      pick.kind = FilePickKind::openDirectory;
-      const QString path = pickFile(pick);
-      if (!path.isEmpty()) {
-        WaitCursorScope wait;
-        if (skins_.installDirectory(path, skinConflictPrompt())) {
-          schedulePersist();
-        }
-      }
-      refreshChrome();
-      break;
-    }
-    case K::settingsSkinsFolder: {
-      FilePick pick;
-      pick.parent = windowFor(WindowId::settings);
-      pick.title = QStringLiteral("Skins folder");
-      pick.directory = skins_.skinsDirectory();
-      pick.kind = FilePickKind::openDirectory;
-      const QString path = pickFile(pick);
-      if (!path.isEmpty()) {
-        WaitCursorScope wait;
-        skins_.setSkinsDirectory(path, settings_);
-        schedulePersist();
-      }
-      refreshChrome();
-      break;
-    }
-    case K::settingsResetSkinsFolder:
-      {
-        WaitCursorScope wait;
-        skins_.setSkinsDirectory({}, settings_);
-      }
+void TrampSession::presentSkinZipInstall() {
+  FilePick pick;
+  pick.parent = windowFor(WindowId::settings);
+  pick.title = QStringLiteral("Install skin");
+  pick.filter = QStringLiteral("Skin zip (*.zip)");
+  pick.kind = FilePickKind::openFile;
+  const QString path = pickFile(pick);
+  if (!path.isEmpty()) {
+    WaitCursorScope wait;
+    if (skins_.installZip(path, skinConflictPrompt())) {
       schedulePersist();
-      refreshChrome();
-      break;
-    case K::plResize:
-    case K::plDivider:
-    case K::none:
-    default:
-      break;
+    }
   }
+  refreshChrome();
+}
+
+void TrampSession::presentSkinFolderInstall() {
+  FilePick pick;
+  pick.parent = windowFor(WindowId::settings);
+  pick.title = QStringLiteral("Install skin folder");
+  pick.kind = FilePickKind::openDirectory;
+  const QString path = pickFile(pick);
+  if (!path.isEmpty()) {
+    WaitCursorScope wait;
+    if (skins_.installDirectory(path, skinConflictPrompt())) {
+      schedulePersist();
+    }
+  }
+  refreshChrome();
+}
+
+void TrampSession::presentSkinsDirectoryPick() {
+  FilePick pick;
+  pick.parent = windowFor(WindowId::settings);
+  pick.title = QStringLiteral("Skins folder");
+  pick.directory = skins_.skinsDirectory();
+  pick.kind = FilePickKind::openDirectory;
+  const QString path = pickFile(pick);
+  if (!path.isEmpty()) {
+    WaitCursorScope wait;
+    skins_.setSkinsDirectory(path, settings_);
+    schedulePersist();
+  }
+  refreshChrome();
+}
+
+void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical) {
+  dragOrigin_ = logical;
+  ChromeCommandRouter router(*playback_, playlist_, settings_, collection_, *engine_,
+                             layout_.docking());
+  presentChromeOutcome(router.handle(id, hit, mods, logical), id, hit, logical);
 }
 
 void TrampSession::showOptionsMenu(QRect logicalHit) {
