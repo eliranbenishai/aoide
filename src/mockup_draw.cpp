@@ -3,6 +3,7 @@
 #include "chrome_layout.h"
 #include "look.h"
 #include "tramp_fonts.h"
+#include "tramp_metrics.h"
 
 #include <QElapsedTimer>
 #include <QFontMetrics>
@@ -662,13 +663,14 @@ struct CachedWell {
   int w = 0;
   int h = 0;
   QString lookId;
+  qreal radius = 0;
   QImage bloom;
   int bloomPad = 0;
   QImage inner;
   int innerPad = 0;
 };
 
-const CachedWell& cachedWell(int w, int h) {
+const CachedWell& cachedWell(int w, int h, qreal radius) {
   // Bounded, most-recent-first. Every distinct well size costs two blurred
   // ARGB images, and a playlist resize drag walks a new size per pixel of
   // travel — unbounded this grew by megabytes per gesture.
@@ -677,7 +679,7 @@ const CachedWell& cachedWell(int w, int h) {
   const QString lookId = T().id;
   for (size_t i = 0; i < cache.size(); ++i) {
     const CachedWell& c = cache[i];
-    if (c.w == w && c.h == h && c.lookId == lookId) {
+    if (c.w == w && c.h == h && c.lookId == lookId && c.radius == radius) {
       if (i > 0) std::swap(cache[0], cache[i]);
       return cache.front();
     }
@@ -686,6 +688,7 @@ const CachedWell& cachedWell(int w, int h) {
   c.w = w;
   c.h = h;
   c.lookId = lookId;
+  c.radius = radius;
   const QRectF well(0, 0, w, h);
   {
     constexpr qreal sigma = 12;
@@ -701,7 +704,8 @@ const CachedWell& cachedWell(int w, int h) {
     bp.translate(pad - bounds.left(), pad - bounds.top());
     bp.setPen(Qt::NoPen);
     bp.setBrush(withAlpha(T().phos, 13));
-    bp.drawRoundedRect(well.adjusted(0.5, 0.5, -0.5, -0.5), kWellRadius - 0.5, kWellRadius - 0.5);
+    bp.drawRoundedRect(well.adjusted(0.5, 0.5, -0.5, -0.5), insetCornerRadius(radius, 0.5),
+                       insetCornerRadius(radius, 0.5));
     bp.end();
     c.bloom = gaussianBlur(buf, sigma);
   }
@@ -715,7 +719,8 @@ const CachedWell& cachedWell(int w, int h) {
     bp.setRenderHint(QPainter::Antialiasing);
     bp.setPen(Qt::NoPen);
     bp.setBrush(QColor(0, 0, 0, 0xE6));
-    bp.drawRoundedRect(QRectF(pad + 1, pad + 1, w - 2, h - 2), kWellRadius - 1, kWellRadius - 1);
+    bp.drawRoundedRect(QRectF(pad + 1, pad + 1, w - 2, h - 2), insetCornerRadius(radius, 1),
+                       insetCornerRadius(radius, 1));
     bp.end();
     QImage blurred = gaussianBlur(buf, sigma);
     QImage mask(buf.size(), QImage::Format_ARGB32_Premultiplied);
@@ -724,7 +729,7 @@ const CachedWell& cachedWell(int w, int h) {
     mp.setRenderHint(QPainter::Antialiasing);
     mp.setPen(Qt::NoPen);
     mp.setBrush(Qt::white);
-    mp.drawRoundedRect(QRectF(pad, pad, w, h), kWellRadius, kWellRadius);
+    mp.drawRoundedRect(QRectF(pad, pad, w, h), radius, radius);
     mp.end();
     QPainter cut(&blurred);
     cut.setCompositionMode(QPainter::CompositionMode_DestinationIn);
@@ -741,7 +746,8 @@ const CachedWell& cachedWell(int w, int h) {
 
 void drawScreenWell(QPainter& p, const QRectF& well) {
   QPainterPath path;
-  path.addRoundedRect(well, kWellRadius, kWellRadius);
+  const qreal radius = T().surfaceRadius(well);
+  path.addRoundedRect(well, radius, radius);
   p.save();
   p.setClipPath(path);
   QRadialGradient wash(QPointF(well.left() + well.width() * 0.18,
@@ -756,18 +762,20 @@ void drawScreenWell(QPainter& p, const QRectF& well) {
              QPointF(well.right(), well.top() + 0.5));
   p.setPen(QPen(withAlpha(T().phos, 26), 1));
   p.setBrush(Qt::NoBrush);
-  p.drawRoundedRect(well.adjusted(0.5, 0.5, -0.5, -0.5), kWellRadius - 0.5, kWellRadius - 0.5);
+  p.drawRoundedRect(well.adjusted(0.5, 0.5, -0.5, -0.5), insetCornerRadius(radius, 0.5),
+                    insetCornerRadius(radius, 0.5));
   p.restore();
 
   const CachedWell& fx =
-      cachedWell(int(std::lround(well.width())), int(std::lround(well.height())));
+      cachedWell(int(std::lround(well.width())), int(std::lround(well.height())), radius);
   p.drawImage(well.topLeft() - QPointF(36 + fx.bloomPad, 36 + fx.bloomPad), fx.bloom);
   p.drawImage(well.topLeft() - QPointF(fx.innerPad, fx.innerPad), fx.inner);
 }
 
 void drawScreenOverlay(QPainter& p, const QRectF& well, QColor scan, bool glass) {
   QPainterPath path;
-  path.addRoundedRect(well, kWellRadius, kWellRadius);
+  const qreal radius = T().surfaceRadius(well);
+  path.addRoundedRect(well, radius, radius);
   p.save();
   p.setClipPath(path);
   for (qreal y = well.top(); y < well.bottom(); y += 3) {
@@ -790,7 +798,8 @@ void drawScreen(QPainter& p, const QRectF& well) {
 
 void drawListWell(QPainter& p, const QRectF& well) {
   QPainterPath path;
-  path.addRoundedRect(well, kWellRadius, kWellRadius);
+  const qreal radius = T().surfaceRadius(well);
+  path.addRoundedRect(well, radius, radius);
   p.save();
   p.setClipPath(path);
   QRadialGradient wash(QPointF(well.left() + well.width() * 0.2,
@@ -808,7 +817,8 @@ void drawListWell(QPainter& p, const QRectF& well) {
   p.setClipping(false);
   p.setPen(QPen(withAlpha(T().phos, 20), 1));
   p.setBrush(Qt::NoBrush);
-  p.drawRoundedRect(well.adjusted(0.5, 0.5, -0.5, -0.5), kWellRadius - 0.5, kWellRadius - 0.5);
+  p.drawRoundedRect(well.adjusted(0.5, 0.5, -0.5, -0.5), insetCornerRadius(radius, 0.5),
+                    insetCornerRadius(radius, 0.5));
   p.restore();
 }
 
@@ -816,13 +826,14 @@ void drawBtn(QPainter& p, const QRectF& r, BtnFace face, const QString& label) {
   const qreal on = std::clamp(face.on, qreal(0), qreal(1));
   const qreal hover = std::clamp(face.hover, qreal(0), qreal(1));
   const qreal press = std::clamp(face.press, qreal(0), qreal(1));
+  const qreal radius = T().buttonRadius(r);
   QPainterPath path;
-  path.addRoundedRect(r, 4, 4);
+  path.addRoundedRect(r, radius, radius);
   if (on > 0.004) {
     paintBlurred(p, r.adjusted(-18, -18, 18, 18), 4, [&](QPainter& bp) {
       bp.setPen(Qt::NoPen);
       bp.setBrush(withAlpha(T().phos, int(std::lround(77 * on))));
-      bp.drawRoundedRect(r.adjusted(-3, -3, 3, 3), 7, 7);
+      bp.drawRoundedRect(r.adjusted(-3, -3, 3, 3), radius + 3, radius + 3);
     });
   }
   // The lit and idle faces are different gradients, not one gradient with a
@@ -855,7 +866,7 @@ void drawBtn(QPainter& p, const QRectF& r, BtnFace face, const QString& label) {
     rim.setColorAt(1, QColor(0, 0, 0, int(std::lround(128 * idle))));
     p.setPen(QPen(QBrush(rim), 1));
     p.setBrush(Qt::NoBrush);
-    p.drawRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), 4, 4);
+    p.drawRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
   }
   QLinearGradient gloss(r.topLeft(), QPointF(r.left(), r.top() + r.height() * 0.55));
   const qreal glossTop = (31 + 40 * on + 55 * hover) * (1 - 0.7 * press);
@@ -874,7 +885,7 @@ void drawBtn(QPainter& p, const QRectF& r, BtnFace face, const QString& label) {
   paintBlurred(p, r.adjusted(-4, -2, 4, 6), 1.2, [&](QPainter& bp) {
     bp.setPen(QPen(QColor(0, 0, 0, 153), 0.5));
     bp.setBrush(Qt::NoBrush);
-    bp.drawRoundedRect(r.translated(0, 1), 4, 4);
+    bp.drawRoundedRect(r.translated(0, 1), radius, radius);
   });
   if (!label.isEmpty()) {
     p.save();

@@ -104,10 +104,11 @@ class ChromeMenuWindow : public QWidget {
     p.setRenderHint(QPainter::Antialiasing);
     p.setRenderHint(QPainter::TextAntialiasing);
 
-    const qreal radius = kShellRadius * zoom_;
+    const QRectF box = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
+    const qreal radius = rectangularCornerRadius(box.size(), look_.radii.window * zoom_);
     p.setBrush(look_.shellMid);
     p.setPen(QPen(withAlpha(look_.coolSheen, 0x33), 1));
-    p.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
+    p.drawRoundedRect(box, radius, radius);
 
     const QFont font = labelFont();
     // Rows stop short of the chassis edge so a full-width highlight cannot

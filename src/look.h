@@ -1,11 +1,13 @@
 #pragma once
 
 #include "settings.h"
+#include "tramp_metrics.h"
 
 #include <QColor>
 #include <QJsonObject>
 #include <QLinearGradient>
 #include <QPointF>
+#include <QRectF>
 #include <QString>
 #include <QStringList>
 #include <QVector>
@@ -33,6 +35,7 @@ struct LookManifest {
   QJsonObject colors;
   QJsonObject materials;
   QJsonObject fonts;
+  QJsonObject radii;
   QString packRoot;
 };
 
@@ -61,12 +64,19 @@ struct LookMaterials {
   QVector<QColor> railStops;
 };
 
+struct LookRadii {
+  qreal window = kShellRadius;
+  qreal surface = kWellRadius;
+  qreal button = kButtonRadius;
+};
+
 struct ResolvedLook {
   QString id;
   QString name;
   QString author;
   LookPalette palette;
   LookMaterials materials;
+  LookRadii radii;
   QString chromeFamily;
   QString lcdFamily;
 };
@@ -85,7 +95,7 @@ struct SkinCatalogEntry {
 
 /// Bump when the golden main shot or its paint path changes, so cached thumbs
 /// rebuild instead of showing a player Tramp no longer draws.
-inline constexpr int kSkinPreviewGeneration = 5;
+inline constexpr int kSkinPreviewGeneration = 6;
 
 using SkinPreviewWriter = std::function<bool(const QString& id, const QString& path,
                                              const QVector<LookManifest>& installed,
@@ -105,8 +115,13 @@ struct ChromeTokens {
   QString id = QStringLiteral("builtin");
   LookPalette palette{};
   LookMaterials materials{};
+  LookRadii radii{};
   QString chromeFamily;
   QString lcdFamily;
+
+  qreal windowRadius(const QRectF& r) const;
+  qreal surfaceRadius(const QRectF& r) const;
+  qreal buttonRadius(const QRectF& r) const;
 
   QColor shellHi;
   QColor shell;
@@ -222,6 +237,7 @@ ResolvedLook resolveLook(const QString& activeId,
                          const QVector<LookManifest>& installed);
 LookPalette paletteFromColors(const QJsonObject& colors);
 LookMaterials materialsFromJson(const QJsonObject& materials);
+LookRadii radiiFromJson(const QJsonObject& radii);
 
 struct LookCatalogResult {
   QVector<LookManifest> manifests;

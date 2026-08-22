@@ -28,7 +28,8 @@ const ChromeTokens& T() { return currentLook(); }
 
 void drawShell(QPainter& p, const QRectF& rect) {
   QPainterPath path;
-  path.addRoundedRect(rect, kShellRadius, kShellRadius);
+  const qreal radius = T().windowRadius(rect);
+  path.addRoundedRect(rect, radius, radius);
   QLinearGradient face(rect.topLeft(), rect.bottomLeft());
   face.setColorAt(0, T().shellHi);
   face.setColorAt(0.03, T().shell);
@@ -72,12 +73,12 @@ void drawRivet(QPainter& p, QPointF center) {
   p.restore();
 }
 
-void drawTitleFace(QPainter& p, const QRectF& bar) {
+void drawTitleFace(QPainter& p, const QRectF& bar, qreal shellRadius) {
   p.save();
   p.setClipRect(bar, Qt::IntersectClip);
   QPainterPath facePath;
-  facePath.addRoundedRect(QRectF(bar.left(), bar.top(), bar.width(), bar.height() + kShellRadius),
-                          kShellRadius, kShellRadius);
+  facePath.addRoundedRect(QRectF(bar.left(), bar.top(), bar.width(), bar.height() + shellRadius),
+                          shellRadius, shellRadius);
   p.setClipPath(facePath, Qt::IntersectClip);
   QLinearGradient face(bar.topLeft(), bar.bottomLeft());
   face.setColorAt(0, T().titleBar0);
@@ -171,7 +172,8 @@ void drawWinBtn(QPainter& p, const QRect& btn, bool close, TitleChromeLayout::Hi
   const WinBtnFace face = winBtnFace(state, close, enabled);
   const QRectF r = btn;
   QPainterPath path;
-  path.addRoundedRect(r, 3, 3);
+  const qreal radius = T().buttonRadius(r);
+  path.addRoundedRect(r, radius, radius);
   paintBlurred(p, r.adjusted(-4, -2, 4, 6), 1.2, [&](QPainter& bp) {
     bp.setPen(Qt::NoPen);
     bp.setBrush(QColor(0, 0, 0, 140));
@@ -315,12 +317,13 @@ void paintMockupWindow(QPainter& painter,
   }
   const QRectF rect(0, 0, logical.width(), logical.height());
   QPainterPath shell;
-  shell.addRoundedRect(rect, kShellRadius, kShellRadius);
+  const qreal shellRadius = T().windowRadius(rect);
+  shell.addRoundedRect(rect, shellRadius, shellRadius);
   drawShell(painter, rect);
   painter.save();
   painter.setClipPath(shell);
-  drawNoiseOverlay(painter, rect, kShellRadius);
-  drawTitleFace(painter, QRectF(title.titleBar));
+  drawNoiseOverlay(painter, rect, shellRadius);
+  drawTitleFace(painter, QRectF(title.titleBar), shellRadius);
   drawTitleContents(painter, title, logo, view, phases);
   if (logical.height() > kTitleBar) {
     paintWindowBody(painter, id, logical, logo, view, pass, phases);

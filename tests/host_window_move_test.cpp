@@ -62,6 +62,7 @@ class HostWindowMoveTest : public QObject {
   void panelPaintersDrawWithWhatTheySet();
   void emptyStateCopyIsTheLockedCopy();
   void paintsSameFlipsWhenAnEmptyListGainsARow();
+  void paintsSameFlipsWhenSkinRadiiChange();
   void emptyWellsAreNotBlank();
   void unmeasuredSpectrumMarkFollowsTheSpectrogram();
   void missingEngineMarkStaysOnTheDisplayWell();
@@ -1249,6 +1250,14 @@ void HostWindowMoveTest::paintsSameFlipsWhenAnEmptyListGainsARow() {
       {QStringLiteral("Artist"), QStringLiteral("Track"), QStringLiteral("3:20")});
   QVERIFY2(tramp::paintsSame(tramp::WindowId::main, titled, titledOne),
            "a named title must not rebuild main just because the list gained a row");
+}
+
+void HostWindowMoveTest::paintsSameFlipsWhenSkinRadiiChange() {
+  tramp::SessionView base;
+  tramp::SessionView rounded = base;
+  rounded.look.radii.window = 0;
+  QVERIFY2(!tramp::paintsSame(tramp::WindowId::main, base, rounded),
+           "a skin that sharpens window corners must rebuild every chassis");
 }
 
 namespace {

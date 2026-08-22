@@ -1,6 +1,7 @@
 #include "look.h"
 
 #include "mockup_tokens.h"
+#include "tramp_metrics.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -8,6 +9,8 @@
 #include <QFileDevice>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRectF>
+#include <QSizeF>
 #include <QTemporaryDir>
 #include <QVariant>
 #include <cstdio>
@@ -151,6 +154,78 @@ int main() {
   }
 
   {
+    REQUIRE_EQ(tramp::rectangularCornerRadius(QSizeF(100, 100), 0), 0);
+    REQUIRE_EQ(tramp::rectangularCornerRadius(QSizeF(100, 100), 10), 10);
+    REQUIRE_EQ(tramp::rectangularCornerRadius(QSizeF(100, 100), 40), 25);
+    REQUIRE_EQ(tramp::rectangularCornerRadius(QSizeF(200, 80), 40), 20);
+    REQUIRE_EQ(tramp::rectangularCornerRadius(QSizeF(825, 348), 200), 87);
+    REQUIRE_EQ(tramp::rectangularCornerRadius(QSizeF(0, 80), 10), 0);
+  }
+
+  {
+    const auto m = parseLookManifest(obj(QStringLiteral(R"({
+      "formatVersion": 1, "id": "round-pack", "name": "Round", "extends": "builtin",
+      "radii": { "window": 12, "surface": 8, "button": 2 }
+    })")));
+    REQUIRE_EQ(m.radii.value(QStringLiteral("window")).toDouble(), 12);
+    REQUIRE_EQ(m.radii.value(QStringLiteral("surface")).toDouble(), 8);
+    REQUIRE_EQ(m.radii.value(QStringLiteral("button")).toDouble(), 2);
+  }
+
+  {
+    bool threw = false;
+    try {
+      parseLookManifest(obj(QStringLiteral(R"({
+        "formatVersion": 1, "id": "round-pack", "name": "X", "extends": "builtin",
+        "radii": { "window": -1 }
+      })")));
+    } catch (const LookError& e) {
+      threw = e.message().contains(QStringLiteral("radii.window"));
+    }
+    REQUIRE(threw);
+  }
+
+  {
+    bool threw = false;
+    try {
+      parseLookManifest(obj(QStringLiteral(R"({
+        "formatVersion": 1, "id": "round-pack", "name": "X", "extends": "builtin",
+        "radii": { "pill": 4 }
+      })")));
+    } catch (const LookError& e) {
+      threw = e.message().contains(QStringLiteral("unknown radii key"));
+    }
+    REQUIRE(threw);
+  }
+
+  {
+    const auto overlay = parseLookManifest(obj(QStringLiteral(R"({
+      "formatVersion": 1, "id": "sharp", "name": "Sharp", "extends": "builtin",
+      "radii": { "window": 0, "button": 0 }
+    })")));
+    const auto resolved = resolveLook(QStringLiteral("sharp"), {overlay});
+    REQUIRE_EQ(resolved.radii.window, 0);
+    REQUIRE_EQ(resolved.radii.surface, 6);
+    REQUIRE_EQ(resolved.radii.button, 0);
+    const auto tokens = ChromeTokens::from(resolved);
+    REQUIRE_EQ(tokens.windowRadius(QRectF(0, 0, 825, 348)), 0);
+    REQUIRE_EQ(tokens.surfaceRadius(QRectF(0, 0, 705, 132)), 6);
+    REQUIRE_EQ(tokens.buttonRadius(QRectF(0, 0, 52, 38)), 0);
+  }
+
+  {
+    const auto overlay = parseLookManifest(obj(QStringLiteral(R"({
+      "formatVersion": 1, "id": "huge", "name": "Huge", "extends": "builtin",
+      "radii": { "window": 200, "surface": 80, "button": 40 }
+    })")));
+    const auto tokens = ChromeTokens::from(resolveLook(QStringLiteral("huge"), {overlay}));
+    REQUIRE_EQ(tokens.radii.window, 200);
+    REQUIRE_EQ(tokens.windowRadius(QRectF(0, 0, 825, 348)), 87);
+    REQUIRE_EQ(tokens.surfaceRadius(QRectF(0, 0, 705, 132)), 33);
+    REQUIRE_EQ(tokens.buttonRadius(QRectF(0, 0, 52, 38)), 19);
+  }
+
+  {
     tramp::LookManifest a;
     a.id = QStringLiteral("a");
     a.name = QStringLiteral("A");
@@ -229,6 +304,11 @@ int main() {
     REQUIRE_EQ(hex(t.scrollThumbHi), QStringLiteral("#7d8496"));
     REQUIRE(t.spectrumStops.size() == 4);
     REQUIRE_EQ(hex(t.phos), hex(tramp::kPhos));
+    REQUIRE_EQ(t.radii.window, 6);
+    REQUIRE_EQ(t.radii.surface, 6);
+    REQUIRE_EQ(t.radii.button, 4);
+    REQUIRE_EQ(t.windowRadius(QRectF(0, 0, 825, 348)), 6);
+    REQUIRE_EQ(t.buttonRadius(QRectF(0, 0, 52, 38)), 4);
   }
 
   {

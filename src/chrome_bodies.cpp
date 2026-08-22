@@ -470,7 +470,8 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
     wash.setColorAt(1, withAlpha(T().phos, 0));
     p.save();
     QPainterPath wellClip;
-    wellClip.addRoundedRect(curveWell, kWellRadius, kWellRadius);
+    const qreal wellR = T().surfaceRadius(curveWell);
+    wellClip.addRoundedRect(curveWell, wellR, wellR);
     p.setClipPath(wellClip);
     p.fillPath(fill, wash);
     if (glow) {
@@ -553,7 +554,8 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   drawScreenWell(p, colWell);
   p.save();
   QPainterPath colClip;
-  colClip.addRoundedRect(colWell, kWellRadius, kWellRadius);
+  const qreal colR = T().surfaceRadius(colWell);
+  colClip.addRoundedRect(colWell, colR, colR);
   p.setClipPath(colClip);
   if (lists.isEmpty()) {
     paintEmptyWellCopy(p, colWell, collectionEmptyCopy());
@@ -618,7 +620,8 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   drawListWell(p, listWell);
   p.save();
   QPainterPath clip;
-  clip.addRoundedRect(listWell, kWellRadius, kWellRadius);
+  const qreal listR = T().surfaceRadius(listWell);
+  clip.addRoundedRect(listWell, listR, listR);
   p.setClipPath(clip);
   const int scrollRows = view.trackScroll;
   const int visible = playlistVisibleRows(listWell.height()) + 1;
@@ -899,7 +902,8 @@ void paintSkins(QPainter& p, const QRectF& body, const SessionView& view,
     if (skins[i].canRemove) {
       const QRectF trash = skinsGridTrashcan(cell);
       const BtnFace face = faceOf(phases, K::settingsSkinRemove, false, i);
-      fillRound(p, trash, 3, mix(T().shell, T().shellHi, 0.35 + 0.25 * face.hover));
+      fillRound(p, trash, T().buttonRadius(trash),
+                mix(T().shell, T().shellHi, 0.35 + 0.25 * face.hover));
       p.setPen(QPen(T().ink, 1.15));
       p.setBrush(Qt::NoBrush);
       const QRectF can = trash.adjusted(5, 6, -5, -3);

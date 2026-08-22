@@ -6,14 +6,16 @@ namespace tramp {
 namespace {
 
 /// Two token sets paint alike when the look they were resolved from is alike:
-/// `ChromeTokens::from` derives all sixty-odd colours from exactly these five
-/// fields and stores them verbatim, so comparing its inputs settles every one
-/// of its outputs.
+/// `ChromeTokens::from` derives all sixty-odd colours from palette and
+/// materials, and painters also read the resolved radii, so comparing those
+/// inputs settles every output.
 bool sameLook(const ChromeTokens& a, const ChromeTokens& b) {
   const LookPalette& p = a.palette;
   const LookPalette& q = b.palette;
   const LookMaterials& m = a.materials;
   const LookMaterials& n = b.materials;
+  const LookRadii& ra = a.radii;
+  const LookRadii& rb = b.radii;
   return a.id == b.id && a.chromeFamily == b.chromeFamily && a.lcdFamily == b.lcdFamily &&
          p.shellHi == q.shellHi && p.shell == q.shell && p.shellMid == q.shellMid &&
          p.shellLo == q.shellLo && p.shellDeep == q.shellDeep && p.ink == q.ink &&
@@ -22,7 +24,8 @@ bool sameLook(const ChromeTokens& a, const ChromeTokens& b) {
          p.accent == q.accent && p.accentDim == q.accentDim && p.well == q.well &&
          m.bevelLightOpacity == n.bevelLightOpacity &&
          m.bevelSoftOpacity == n.bevelSoftOpacity && m.spectrumStops == n.spectrumStops &&
-         m.railStops == n.railStops;
+         m.railStops == n.railStops && ra.window == rb.window && ra.surface == rb.surface &&
+         ra.button == rb.button;
 }
 
 bool sameCurve(const EqualizerSettings& a, const EqualizerSettings& b) {

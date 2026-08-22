@@ -47,6 +47,25 @@ inline constexpr int kShellRadius = 6;
 /// Dark wells (display, track list, saved playlists, EQ curve) carry the panel
 /// corner, not the tighter 3px the mockup used.
 inline constexpr qreal kWellRadius = kShellRadius;
+inline constexpr qreal kButtonRadius = 4;
+
+/// Requested radius, or a fraction of the shorter side, whichever is smaller.
+/// Zero and empty rects stay sharp.
+inline qreal cappedCornerRadius(QSizeF size, qreal requested, qreal maxFraction) {
+  if (requested <= 0 || size.width() <= 0 || size.height() <= 0) return 0;
+  return qMin(requested, qMin(size.width(), size.height()) * maxFraction);
+}
+
+/// Windows and dark wells stay rectangular: at most a quarter of the shorter
+/// side, so at least half of that side remains a straight edge. The cap scales
+/// with the element's current size.
+inline qreal rectangularCornerRadius(QSizeF size, qreal requested) {
+  return cappedCornerRadius(size, requested, 0.25);
+}
+
+inline qreal insetCornerRadius(qreal radius, qreal inset) {
+  return qMax(qreal(0), radius - inset);
+}
 
 /// Mockup `.time b` is 46px in a 50px slot (`player-mockup-2.html`).
 inline constexpr int kElapsedTimePx = 46;

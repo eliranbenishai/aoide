@@ -206,6 +206,34 @@ QJsonObject parseMaterials(const QJsonValue& value) {
   return result;
 }
 
+qreal parseRadius(const QJsonValue& value, const QString& path) {
+  if (!value.isDouble()) {
+    fail(path + QStringLiteral(" must be a number 0 or greater"));
+  }
+  const qreal n = value.toDouble();
+  if (n < 0) {
+    fail(path + QStringLiteral(" must be a number 0 or greater"));
+  }
+  return n;
+}
+
+QJsonObject parseRadii(const QJsonValue& value) {
+  if (value.isUndefined() || value.isNull()) return {};
+  if (!value.isObject()) fail(QStringLiteral("radii must be an object"));
+  QJsonObject result;
+  const QJsonObject obj = value.toObject();
+  const QStringList known = {QStringLiteral("window"), QStringLiteral("surface"),
+                             QStringLiteral("button")};
+  for (auto it = obj.begin(); it != obj.end(); ++it) {
+    if (!known.contains(it.key())) {
+      fail(QStringLiteral("unknown radii key: ") + it.key());
+    }
+    const QString path = QStringLiteral("radii.") + it.key();
+    result.insert(it.key(), parseRadius(it.value(), path));
+  }
+  return result;
+}
+
 QJsonObject parseFonts(const QJsonValue& value) {
   if (value.isUndefined() || value.isNull()) return {};
   if (!value.isObject()) fail(QStringLiteral("fonts must be an object"));
@@ -403,6 +431,7 @@ LookManifest parseLookManifest(const QJsonObject& json, bool allowBuiltin) {
   m.colors = parseColors(json.value(QStringLiteral("colors")));
   m.materials = parseMaterials(json.value(QStringLiteral("materials")));
   m.fonts = parseFonts(json.value(QStringLiteral("fonts")));
+  m.radii = parseRadii(json.value(QStringLiteral("radii")));
   return m;
 }
 
@@ -442,7 +471,8 @@ LookManifest builtinLookManifest() {
       "bevel": { "lightOpacity": 0.15, "softOpacity": 0.06 },
       "spectrum": { "stops": ["#cbf9ff", "#3de7ff", "#1b9ec4", "#ff3d9a"] },
       "rail": { "stops": ["#1a7a88", "#8a2258", "#1a7a88"] }
-    }
+    },
+    "radii": { "window": 6, "surface": 6, "button": 4 }
   })";
   static const LookManifest cached = [] {
     const auto doc = QJsonDocument::fromJson(kJson);
@@ -498,6 +528,20 @@ LookMaterials materialsFromJson(const QJsonObject& materials) {
   return m;
 }
 
+LookRadii radiiFromJson(const QJsonObject& radii) {
+  LookRadii r;
+  auto require = [&](const QString& key) {
+    if (!radii.contains(key) || !radii.value(key).isDouble()) {
+      fail(QStringLiteral("missing radii: ") + key);
+    }
+    return radii.value(key).toDouble();
+  };
+  r.window = require(QStringLiteral("window"));
+  r.surface = require(QStringLiteral("surface"));
+  r.button = require(QStringLiteral("button"));
+  return r;
+}
+
 ResolvedLook resolveLook(const QString& activeId, const QVector<LookManifest>& installed) {
   QVector<LookManifest> chain;
   QStringList visited;
@@ -532,9 +576,11 @@ ResolvedLook resolveLook(const QString& activeId, const QVector<LookManifest>& i
 
   QJsonObject mergedColors;
   QJsonObject mergedMaterials;
+  QJsonObject mergedRadii;
   for (int i = chain.size() - 1; i >= 0; --i) {
     mergedColors = deepMerge(mergedColors, chain[i].colors);
     mergedMaterials = deepMerge(mergedMaterials, chain[i].materials);
+    mergedRadii = deepMerge(mergedRadii, chain[i].radii);
   }
 
   const LookManifest& active = chain.front();
@@ -544,6 +590,7 @@ ResolvedLook resolveLook(const QString& activeId, const QVector<LookManifest>& i
   look.author = active.author;
   look.palette = paletteFromColors(mergedColors);
   look.materials = materialsFromJson(mergedMaterials);
+  look.radii = radiiFromJson(mergedRadii);
   return look;
 }
 
@@ -552,6 +599,7 @@ ChromeTokens ChromeTokens::from(const ResolvedLook& look) {
   t.id = look.id;
   t.palette = look.palette;
   t.materials = look.materials;
+  t.radii = look.radii;
   t.chromeFamily = look.chromeFamily;
   t.lcdFamily = look.lcdFamily;
   const LookPalette& p = look.palette;
@@ -634,6 +682,18 @@ ChromeTokens ChromeTokens::from(const ResolvedLook& look) {
 const ChromeTokens& ChromeTokens::builtin() {
   static const ChromeTokens cached = ChromeTokens::from(resolveLook(QStringLiteral("builtin"), {}));
   return cached;
+}
+
+qreal ChromeTokens::windowRadius(const QRectF& r) const {
+  return rectangularCornerRadius(r.size(), radii.window);
+}
+
+qreal ChromeTokens::surfaceRadius(const QRectF& r) const {
+  return rectangularCornerRadius(r.size(), radii.surface);
+}
+
+qreal ChromeTokens::buttonRadius(const QRectF& r) const {
+  return cappedCornerRadius(r.size(), radii.button, 0.5);
 }
 
 QLinearGradient ChromeTokens::spectrumGradient(QPointF from, QPointF to) const {
