@@ -15,7 +15,7 @@ namespace {
 
 QString g_chromeFamily = QStringLiteral("TrampCondensed");
 QString g_lcdFamily = QStringLiteral("TrampMono");
-QString g_brandFamily = QStringLiteral("Ultra");
+QString g_brandFamily = QStringLiteral("Anton");
 QString g_lookChrome;
 QString g_lookLcd;
 
@@ -56,7 +56,7 @@ void loadTrampFonts() {
       QFontDatabase::addApplicationFont(assetPath("fonts/TrampCondensed-Bold.ttf"));
   const int mono =
       QFontDatabase::addApplicationFont(assetPath("fonts/TrampMono-Medium.ttf"));
-  const int brand = QFontDatabase::addApplicationFont(assetPath("fonts/Ultra-Regular.ttf"));
+  const int brand = QFontDatabase::addApplicationFont(assetPath("fonts/Anton-Regular.ttf"));
   const QStringList families = QFontDatabase::applicationFontFamilies(condensed);
   if (!families.isEmpty()) {
     g_chromeFamily = families.front();

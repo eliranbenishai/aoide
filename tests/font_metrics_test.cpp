@@ -115,11 +115,11 @@ int main(int argc, char** argv) {
   }
 
   {
-    REQUIRE(QFileInfo::exists(tramp::assetPath("fonts/Ultra-Regular.ttf")));
+    REQUIRE(QFileInfo::exists(tramp::assetPath("fonts/Anton-Regular.ttf")));
     tramp::loadTrampFonts();
     const QString brand = tramp::brandFamily();
-    REQUIRE(brand == QStringLiteral("Ultra"));
-    REQUIRE(QFontInfo(QFont(brand)).family() == QStringLiteral("Ultra"));
+    REQUIRE(brand == QStringLiteral("Anton"));
+    REQUIRE(QFontInfo(QFont(brand)).family() == QStringLiteral("Anton"));
     const QString chrome = tramp::chromeFamily();
     tramp::setLookFamilies(tramp::lcdFamily(), tramp::lcdFamily());
     REQUIRE(tramp::chromeFamily() == tramp::lcdFamily());

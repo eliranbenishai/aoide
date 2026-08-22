@@ -85,7 +85,7 @@ struct SkinCatalogEntry {
 
 /// Bump when the golden main shot or its paint path changes, so cached thumbs
 /// rebuild instead of showing a player Tramp no longer draws.
-inline constexpr int kSkinPreviewGeneration = 2;
+inline constexpr int kSkinPreviewGeneration = 3;
 
 using SkinPreviewWriter = std::function<bool(const QString& id, const QString& path,
                                              const QVector<LookManifest>& installed,
