@@ -125,6 +125,38 @@ struct SessionView {
 /// ends and on none of the frames either side of it.
 bool titleMarqueeRunning(const SessionView& view);
 
+/// Locked empty-state copy (decision 9). Two centred lines in a well that has
+/// no rows — never a third line that repeats the playlist footer's drop hint.
+struct EmptyWellCopy {
+  QString heading;
+  QString body;
+};
+
+inline EmptyWellCopy playlistEmptyCopy() {
+  return {QStringLiteral("THIS LIST IS EMPTY"),
+          QStringLiteral("Drop files here, or open one from PLAYLISTS.")};
+}
+
+inline EmptyWellCopy collectionEmptyCopy() {
+  return {QStringLiteral("NO SAVED PLAYLISTS"),
+          QStringLiteral("A playlist is a file you keep. Tramp does not scan a library.")};
+}
+
+inline QString resumePlaybackLabel() { return QStringLiteral("Resume playback"); }
+
+/// What the main display well paints for the title.
+///
+/// `nowPlayingDisplay` stays about a track: it still answers `No track` when
+/// nothing is open. The painter applies this swap from the view it is handed,
+/// because the session snapshot is not rewritten for a first-run flag that
+/// does not exist. Once there are rows, a stopped transport stays `No track`.
+inline QString mainEmptyTitle(const SessionView& view) {
+  if (view.tracks.isEmpty() && view.title == QStringLiteral("No track")) {
+    return QStringLiteral("Drop files to play");
+  }
+  return view.title;
+}
+
 /// Whether [a] and [b] would put the same pixels on [id].
 ///
 /// Deliberately not one comparison over the whole snapshot: the point of asking

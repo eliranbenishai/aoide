@@ -70,12 +70,13 @@ Must decode and play: **MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus**.
 - Repeat: off / all / one
 - Show current-track title / artist / album from tags when present
 - **Media keys** — play/pause, stop, next and previous, while Tramp is the focused application. They are application shortcuts, not a system-wide registration: there is no MPRIS or SMTC surface, so a media key pressed while another app has focus does nothing for Tramp.
-- **Session resume** (*Resume last session*, on by default): the transport reopens the track the last session was left on and seeks back to where it stopped, paused if it was paused and playing if it was playing. A session quit from **stop** launches with the playlist and an empty transport. The current playlist itself comes back either way. Vocabulary: [`CONTEXT.md`](../CONTEXT.md): **Session resume**.
+- **Session resume** (*Resume playback*, on by default): the transport reopens the track the last session was left on and seeks back to where it stopped, paused if it was paused and playing if it was playing. A session quit from **stop** launches with the playlist and an empty transport. The current playlist itself comes back either way. Vocabulary: [`CONTEXT.md`](../CONTEXT.md): **Session resume**, **Resume playback**.
 
 ### How music enters
 
 - Open files/folders, drag-and-drop, and playlists only.
 - **No media library** (no scanned catalog / database) in v1.
+- **Empty states** (no first-run flag, no tour): an empty track well paints `THIS LIST IS EMPTY` / `Drop files here, or open one from PLAYLISTS.`; an empty collection well paints `NO SAVED PLAYLISTS` / `A playlist is a file you keep. Tramp does not scan a library.`; the main title is `Drop files to play` while it would otherwise be `No track` and the current list has no rows. The footer drop hint is chrome, not a third well line.
 
 ## Playlist manager
 
