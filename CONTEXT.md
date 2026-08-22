@@ -162,6 +162,10 @@ _Avoid_: minimize (window chrome), collapse (alone when shade is meant)
 The large recessed LCD glass area on the main player that holds spectrum, track title, times, and format metadata.
 _Avoid_: LCD (alone), screen, display (when the inset glass region is meant)
 
+**Failure surface**:
+How Tramp tells the listener something went wrong — three tiers, and no queue. **modal** is a decision they must make now: the altered-playlist prompt and a playlist-save failure; nothing else joins that list without a choice they can only make in the dialog. **persistent indicator** is a condition that stays true: no audio engine keeps the panel subtitle and also a durable mark in the **display well**; a settings or state-file write that has not yet succeeded is a Settings-row mark that stays until that file writes. **transient notice** is something that failed once and they can carry on: a skin install error stays on the Skins-tab strip and nowhere else; an unmeasured spectrum — a failed decode or one that ran past its 120 s deadline — is a display-well mark read from `Spectrogram::synthetic` on the session spectrogram. An unplayable track or an engine `open()` failure already stops and puts the reason on the subtitle; that is the surface, not a fourth tier. The Wayland file-chooser greying is a platform hole, not a product surface.
+_Avoid_: a notification queue; painting a notice for an unmapped Wayland picker; reading per-frame `AudioLevels::synthetic` for the spectrum mark
+
 **Synthetic levels**:
 `AudioLevels` frames marked `synthetic: true` — a hard-fail / development signal when real spectrum cannot be measured. Not the product end-state; normal play must use real analyser levels.
 _Avoid_: treating synthetic levels as the shipped spectrum design, fake levels (pejorative), mock levels, placeholder spectrum (as a planned deliverable)
