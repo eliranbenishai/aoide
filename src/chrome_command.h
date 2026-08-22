@@ -1,7 +1,10 @@
 #pragma once
 
 #include "chrome_hits.h"
+#include "collection.h"
 #include "playback.h"
+#include "playlist.h"
+#include "settings.h"
 
 #include <QPoint>
 #include <Qt>
@@ -14,14 +17,24 @@ namespace tramp {
 enum class ChromeIntent {
   none,
   pickAudio,
+  pickPlaylistFile,
+  showPlCreateMenu,
+  renameCollectionEntry,
+  showPlSortMenu,
+  showPlOptionsMenu,
+  refreshCurrentPlaylist,
+  loadCollectionRow,
 };
 
 struct ChromeCommandOutcome {
   bool handled = false;
   bool persist = false;
+  bool refreshChrome = false;
+  bool persistCollection = false;
   bool beginSlider = false;
   ChromeHit::Kind sliderKind = ChromeHit::Kind::none;
   int sliderIndex = -1;
+  int collectionRow = -1;
   ChromeIntent intent = ChromeIntent::none;
 };
 
@@ -30,13 +43,17 @@ struct ChromeCommandOutcome {
 /// not the controllers.
 class ChromeCommandRouter {
  public:
-  explicit ChromeCommandRouter(PlaybackController& playback);
+  ChromeCommandRouter(PlaybackController& playback, PlaylistController& playlist,
+                      TrampSettings& settings, PlaylistCollection& collection);
 
   ChromeCommandOutcome handle(WindowId id, const ChromeHit& hit, Qt::KeyboardModifiers mods,
                               QPoint logical);
 
  private:
   PlaybackController& playback_;
+  PlaylistController& playlist_;
+  TrampSettings& settings_;
+  PlaylistCollection& collection_;
 };
 
 }  // namespace tramp

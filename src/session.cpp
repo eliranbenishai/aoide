@@ -1073,13 +1073,163 @@ void TrampSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
     handleDrag(id, hit, sliderPressPoint(hit.rect, logical));
   }
   if (out.persist) schedulePersist();
+  if (out.persistCollection) persistCollectionCache();
+  if (out.refreshChrome) refreshChrome();
   switch (out.intent) {
     case ChromeIntent::pickAudio: {
       const QString picked = pickAudio(true);
       if (!picked.isEmpty()) openPaths(picked.split(QLatin1Char('\n')), true);
       break;
     }
+    case ChromeIntent::pickPlaylistFile: {
+      const QString path = pickPlaylist(false);
+      if (!path.isEmpty()) {
+        startDurationProbe(ingestPlaylistFile(path));
+        refreshChrome();
+      }
+      break;
+    }
+    case ChromeIntent::showPlCreateMenu:
+      presentPlCreateMenu(hit);
+      break;
+    case ChromeIntent::renameCollectionEntry:
+      presentPlRename();
+      break;
+    case ChromeIntent::showPlSortMenu:
+      presentPlSortMenu(hit);
+      break;
+    case ChromeIntent::showPlOptionsMenu:
+      presentPlOptionsMenu(hit);
+      break;
+    case ChromeIntent::refreshCurrentPlaylist:
+      refreshCurrentPlaylist();
+      break;
+    case ChromeIntent::loadCollectionRow:
+      loadCollectionRow(out.collectionRow);
+      break;
     case ChromeIntent::none:
+      break;
+  }
+}
+
+void TrampSession::presentPlCreateMenu(const ChromeHit& hit) {
+  enum Row { kFromCurrent, kFromSelection };
+  const QVector<ChromeMenuItem> items{
+      ChromeMenuItem::action(QStringLiteral("From current playlist"),
+                             !playlist_.tracks().isEmpty()),
+      ChromeMenuItem::action(QStringLiteral("From selection"),
+                             !playlist_.selectedIndices().isEmpty()),
+  };
+  const int chosen = execAnchoredMenu(items, windowFor(WindowId::playlist), hit.rect, PopupAnchor::aboveLeft);
+  if (chosen == kFromCurrent) {
+    const QString path = pickPlaylist(true);
+    if (!path.isEmpty()) {
+      if (reportPlaylistWriteFailure(playlist_.savePlaylistFile(path), path)) {
+        collection_.addWritten(path, playlist_.tracks());
+        persistCollectionCache();
+        startDurationProbe(playlist_.tracks());
+      }
+    }
+  } else if (chosen == kFromSelection) {
+    const QString path = pickPlaylist(true);
+    if (!path.isEmpty()) {
+      QVector<Track> selected;
+      QList<int> idx = playlist_.selectedIndices().values();
+      std::sort(idx.begin(), idx.end());
+      for (int i : idx) selected.push_back(playlist_.tracks()[i]);
+      // Whatever the cache already knows goes into the file; the rest is
+      // asked for behind the save, the same as every other ingest. Saving
+      // from the current list has always written it this way.
+      collection_.hydrateDurations(selected);
+      if (reportPlaylistWriteFailure(writeM3uFile(path, selected), path)) {
+        collection_.addWritten(path, selected);
+        persistCollectionCache();
+        startDurationProbe(selected);
+      }
+    }
+  }
+  refreshChrome();
+}
+
+void TrampSession::presentPlRename() {
+  if (collection_.selectedPath().isEmpty()) return;
+  QString current;
+  for (const SavedPlaylist& e : collection_.entries()) {
+    if (e.path == collection_.selectedPath()) {
+      current = e.displayName();
+      break;
+    }
+  }
+  bool ok = false;
+  const QString name = QInputDialog::getText(
+      dialogParent(WindowId::playlist), QStringLiteral("Rename playlist"), QStringLiteral("Name"),
+      QLineEdit::Normal, current, &ok);
+  if (!ok) return;
+  collection_.rename(collection_.selectedPath(), name);
+  persistCollectionCache();
+  refreshChrome();
+}
+
+void TrampSession::presentPlSortMenu(const ChromeHit& hit) {
+  enum Row { kTitle, kArtist, kDuration, kPath, kReverse };
+  const QVector<ChromeMenuItem> items{
+      ChromeMenuItem::action(QStringLiteral("Title")),
+      ChromeMenuItem::action(QStringLiteral("Artist")),
+      ChromeMenuItem::action(QStringLiteral("Duration")),
+      ChromeMenuItem::action(QStringLiteral("Path")),
+      ChromeMenuItem::action(QStringLiteral("Reverse")),
+  };
+  switch (execAnchoredMenu(items, windowFor(WindowId::playlist), hit.rect, PopupAnchor::aboveLeft)) {
+    case kTitle:
+      playlist_.sortBy(PlaylistSortKey::title);
+      break;
+    case kArtist:
+      playlist_.sortBy(PlaylistSortKey::artist);
+      break;
+    case kDuration:
+      playlist_.sortBy(PlaylistSortKey::duration);
+      break;
+    case kPath:
+      playlist_.sortBy(PlaylistSortKey::path);
+      break;
+    case kReverse:
+      playlist_.reverseTracks();
+      break;
+    default:
+      break;
+  }
+}
+
+void TrampSession::presentPlOptionsMenu(const ChromeHit& hit) {
+  enum Row { kSelectAll, kInvertSelection, kSave, kClear };
+  const QVector<ChromeMenuItem> items{
+      ChromeMenuItem::action(QStringLiteral("Select all")),
+      ChromeMenuItem::action(QStringLiteral("Invert selection")),
+      ChromeMenuItem::action(QStringLiteral("Save playlist…")),
+      ChromeMenuItem::action(QStringLiteral("Clear")),
+  };
+  switch (execAnchoredMenu(items, windowFor(WindowId::playlist), hit.rect, PopupAnchor::aboveLeft)) {
+    case kSelectAll:
+      playlist_.selectAll();
+      break;
+    case kInvertSelection:
+      playlist_.invertSelection();
+      break;
+    case kSave: {
+      const QString path = pickPlaylist(true);
+      if (!path.isEmpty() &&
+          reportPlaylistWriteFailure(playlist_.savePlaylistFile(path), path) &&
+          collection_.contains(path)) {
+        collection_.addWritten(path, playlist_.tracks());
+        persistCollectionCache();
+        startDurationProbe(playlist_.tracks());
+      }
+      break;
+    }
+    case kClear:
+      playlist_.clear();
+      break;
+    default:
       break;
   }
 }
@@ -1088,7 +1238,7 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
   using K = ChromeHit::Kind;
   dragOrigin_ = logical;
   {
-    ChromeCommandRouter router(*playback_);
+    ChromeCommandRouter router(*playback_, playlist_, settings_, collection_);
     const ChromeCommandOutcome out = router.handle(id, hit, mods, logical);
     if (out.handled) {
       presentChromeOutcome(out, id, hit, logical);
@@ -1116,14 +1266,6 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
     case K::plToggle:
       setWindowVisible(WindowId::playlist, !layout_.layout().playlist.visible);
       break;
-    case K::plRefresh:
-      refreshCurrentPlaylist();
-      break;
-    case K::plAdd: {
-      const QString picked = pickAudio(true);
-      if (!picked.isEmpty()) openPaths(picked.split(QLatin1Char('\n')), true);
-      break;
-    }
     case K::eqOn:
       settings_.equalizerCurve.enabled = !settings_.equalizerCurve.enabled;
       applyEq();
@@ -1148,171 +1290,6 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       applyEq();
       schedulePersist();
       refreshEqChrome();
-      break;
-    }
-    case K::plCollapse:
-      settings_.playlistCollectionCollapsed = !settings_.playlistCollectionCollapsed;
-      schedulePersist();
-      refreshChrome();
-      break;
-    case K::plCollectionRow: {
-      const auto entries = collection_.entries();
-      if (hit.index < 0 || hit.index >= entries.size()) break;
-      if (mods & Qt::ControlModifier) {
-        collection_.select(entries[hit.index].path);
-        refreshChrome();
-      } else {
-        loadCollectionRow(hit.index);
-      }
-      break;
-    }
-    case K::plAddCollection: {
-      const QString path = pickPlaylist(false);
-      if (!path.isEmpty()) {
-        startDurationProbe(ingestPlaylistFile(path));
-        refreshChrome();
-      }
-      break;
-    }
-    case K::plCreate: {
-      enum Row { kFromCurrent, kFromSelection };
-      const QVector<ChromeMenuItem> items{
-          ChromeMenuItem::action(QStringLiteral("From current playlist"),
-                                 !playlist_.tracks().isEmpty()),
-          ChromeMenuItem::action(QStringLiteral("From selection"),
-                                 !playlist_.selectedIndices().isEmpty()),
-      };
-      const int chosen = execAnchoredMenu(items, windowFor(WindowId::playlist), hit.rect, PopupAnchor::aboveLeft);
-      if (chosen == kFromCurrent) {
-        const QString path = pickPlaylist(true);
-        if (!path.isEmpty()) {
-          if (reportPlaylistWriteFailure(playlist_.savePlaylistFile(path), path)) {
-            collection_.addWritten(path, playlist_.tracks());
-            persistCollectionCache();
-            startDurationProbe(playlist_.tracks());
-          }
-        }
-      } else if (chosen == kFromSelection) {
-        const QString path = pickPlaylist(true);
-        if (!path.isEmpty()) {
-          QVector<Track> selected;
-          QList<int> idx = playlist_.selectedIndices().values();
-          std::sort(idx.begin(), idx.end());
-          for (int i : idx) selected.push_back(playlist_.tracks()[i]);
-          // Whatever the cache already knows goes into the file; the rest is
-          // asked for behind the save, the same as every other ingest. Saving
-          // from the current list has always written it this way.
-          collection_.hydrateDurations(selected);
-          if (reportPlaylistWriteFailure(writeM3uFile(path, selected), path)) {
-            collection_.addWritten(path, selected);
-            persistCollectionCache();
-            startDurationProbe(selected);
-          }
-        }
-      }
-      refreshChrome();
-      break;
-    }
-    case K::plRename: {
-      if (collection_.selectedPath().isEmpty()) break;
-      QString current;
-      for (const SavedPlaylist& e : collection_.entries()) {
-        if (e.path == collection_.selectedPath()) {
-          current = e.displayName();
-          break;
-        }
-      }
-      bool ok = false;
-      const QString name = QInputDialog::getText(
-          dialogParent(WindowId::playlist),
-          QStringLiteral("Rename playlist"), QStringLiteral("Name"), QLineEdit::Normal, current,
-          &ok);
-      if (!ok) break;
-      collection_.rename(collection_.selectedPath(), name);
-      persistCollectionCache();
-      refreshChrome();
-      break;
-    }
-    case K::plRemoveCollection:
-      if (!collection_.selectedPath().isEmpty()) {
-        collection_.remove(collection_.selectedPath());
-        persistCollectionCache();
-        refreshChrome();
-      }
-      break;
-    case K::plTrackRow: {
-      sliderKind_ = K::plTrackRow;
-      sliderIndex_ = hit.index;
-      if (mods & Qt::ShiftModifier) playlist_.selectRange(hit.index);
-      else if (mods & Qt::ControlModifier) playlist_.toggleSelection(hit.index);
-      else playlist_.select(hit.index);
-      break;
-    }
-    case K::plRemove:
-      playlist_.removeSelected();
-      break;
-    case K::plSort: {
-      enum Row { kTitle, kArtist, kDuration, kPath, kReverse };
-      const QVector<ChromeMenuItem> items{
-          ChromeMenuItem::action(QStringLiteral("Title")),
-          ChromeMenuItem::action(QStringLiteral("Artist")),
-          ChromeMenuItem::action(QStringLiteral("Duration")),
-          ChromeMenuItem::action(QStringLiteral("Path")),
-          ChromeMenuItem::action(QStringLiteral("Reverse")),
-      };
-      switch (execAnchoredMenu(items, windowFor(WindowId::playlist), hit.rect, PopupAnchor::aboveLeft)) {
-        case kTitle:
-          playlist_.sortBy(PlaylistSortKey::title);
-          break;
-        case kArtist:
-          playlist_.sortBy(PlaylistSortKey::artist);
-          break;
-        case kDuration:
-          playlist_.sortBy(PlaylistSortKey::duration);
-          break;
-        case kPath:
-          playlist_.sortBy(PlaylistSortKey::path);
-          break;
-        case kReverse:
-          playlist_.reverseTracks();
-          break;
-        default:
-          break;
-      }
-      break;
-    }
-    case K::plOptions: {
-      enum Row { kSelectAll, kInvertSelection, kSave, kClear };
-      const QVector<ChromeMenuItem> items{
-          ChromeMenuItem::action(QStringLiteral("Select all")),
-          ChromeMenuItem::action(QStringLiteral("Invert selection")),
-          ChromeMenuItem::action(QStringLiteral("Save playlist…")),
-          ChromeMenuItem::action(QStringLiteral("Clear")),
-      };
-      switch (execAnchoredMenu(items, windowFor(WindowId::playlist), hit.rect, PopupAnchor::aboveLeft)) {
-        case kSelectAll:
-          playlist_.selectAll();
-          break;
-        case kInvertSelection:
-          playlist_.invertSelection();
-          break;
-        case kSave: {
-          const QString path = pickPlaylist(true);
-          if (!path.isEmpty() &&
-              reportPlaylistWriteFailure(playlist_.savePlaylistFile(path), path) &&
-              collection_.contains(path)) {
-            collection_.addWritten(path, playlist_.tracks());
-            persistCollectionCache();
-            startDurationProbe(playlist_.tracks());
-          }
-          break;
-        }
-        case kClear:
-          playlist_.clear();
-          break;
-        default:
-          break;
-      }
       break;
     }
     case K::settingsGeneral:

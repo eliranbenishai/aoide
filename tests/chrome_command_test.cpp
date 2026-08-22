@@ -1,7 +1,9 @@
 #include "chrome_command.h"
 
+#include "collection.h"
 #include "player_engine.h"
 #include "playlist.h"
+#include "settings.h"
 
 #include <QTest>
 
@@ -18,20 +20,26 @@ class ChromeCommandTest : public QObject {
   void ejectAsksForFilesAndLeavesTransportAndSettingsAlone();
   void volumePressBeginsASliderAndDoesNotPersist();
   void eqBandPressRemembersWhichBand();
+  void removingATrackMarksThePlaylistAlteredAndDoesNotPersistSettings();
+  void collapsingTheCollectionPersistsAndAsksForARefresh();
 };
 
 namespace {
 
-struct TransportFixture {
+struct Fixture {
   tramp::PlaylistController playlist;
   tramp::NullEngine engine;
   tramp::PlaybackController playback;
+  tramp::TrampSettings settings;
+  tramp::PlaylistCollection collection;
 
-  TransportFixture() : playback(&playlist, &engine) {
+  Fixture() : playback(&playlist, &engine) {
     tramp::Track track;
     track.path = QStringLiteral("/tmp/router-track.mp3");
     playlist.setTracks({track});
   }
+
+  tramp::ChromeCommandRouter router() { return {playback, playlist, settings, collection}; }
 };
 
 tramp::ChromeHit hit(tramp::ChromeHit::Kind kind) {
@@ -43,10 +51,9 @@ tramp::ChromeHit hit(tramp::ChromeHit::Kind kind) {
 }  // namespace
 
 void ChromeCommandTest::playStartsPlaybackAndDoesNotAskToPersist() {
-  TransportFixture f;
-  tramp::ChromeCommandRouter router(f.playback);
+  Fixture f;
   const tramp::ChromeCommandOutcome out =
-      router.handle(tramp::WindowId::main, hit(tramp::ChromeHit::Kind::play), Qt::NoModifier, {});
+      f.router().handle(tramp::WindowId::main, hit(tramp::ChromeHit::Kind::play), Qt::NoModifier, {});
   QVERIFY(out.handled);
   QVERIFY(f.playback.playing());
   QVERIFY(!out.persist);
@@ -54,22 +61,21 @@ void ChromeCommandTest::playStartsPlaybackAndDoesNotAskToPersist() {
 }
 
 void ChromeCommandTest::playDoesNotPauseATrackThatIsAlreadyGoing() {
-  TransportFixture f;
+  Fixture f;
   f.playback.playPause();
   QVERIFY(f.playback.playing());
-  tramp::ChromeCommandRouter router(f.playback);
   const tramp::ChromeCommandOutcome out =
-      router.handle(tramp::WindowId::main, hit(tramp::ChromeHit::Kind::play), Qt::NoModifier, {});
+      f.router().handle(tramp::WindowId::main, hit(tramp::ChromeHit::Kind::play), Qt::NoModifier, {});
   QVERIFY(out.handled);
   QVERIFY(f.playback.playing());
   QVERIFY(!out.persist);
 }
 
 void ChromeCommandTest::ejectAsksForFilesAndLeavesTransportAndSettingsAlone() {
-  TransportFixture f;
-  tramp::ChromeCommandRouter router(f.playback);
+  Fixture f;
   const tramp::ChromeCommandOutcome out =
-      router.handle(tramp::WindowId::main, hit(tramp::ChromeHit::Kind::eject), Qt::NoModifier, {});
+      f.router().handle(tramp::WindowId::main, hit(tramp::ChromeHit::Kind::eject), Qt::NoModifier,
+                        {});
   QVERIFY(out.handled);
   QCOMPARE(out.intent, tramp::ChromeIntent::pickAudio);
   QVERIFY(!f.playback.playing());
@@ -77,11 +83,9 @@ void ChromeCommandTest::ejectAsksForFilesAndLeavesTransportAndSettingsAlone() {
 }
 
 void ChromeCommandTest::volumePressBeginsASliderAndDoesNotPersist() {
-  TransportFixture f;
-  tramp::ChromeCommandRouter router(f.playback);
-  const tramp::ChromeCommandOutcome out =
-      router.handle(tramp::WindowId::main, hit(tramp::ChromeHit::Kind::volume), Qt::NoModifier,
-                    QPoint(10, 10));
+  Fixture f;
+  const tramp::ChromeCommandOutcome out = f.router().handle(
+      tramp::WindowId::main, hit(tramp::ChromeHit::Kind::volume), Qt::NoModifier, QPoint(10, 10));
   QVERIFY(out.handled);
   QVERIFY(out.beginSlider);
   QCOMPARE(out.sliderKind, tramp::ChromeHit::Kind::volume);
@@ -89,17 +93,41 @@ void ChromeCommandTest::volumePressBeginsASliderAndDoesNotPersist() {
 }
 
 void ChromeCommandTest::eqBandPressRemembersWhichBand() {
-  TransportFixture f;
-  tramp::ChromeCommandRouter router(f.playback);
+  Fixture f;
   tramp::ChromeHit band = hit(tramp::ChromeHit::Kind::eqBand);
   band.index = 3;
   const tramp::ChromeCommandOutcome out =
-      router.handle(tramp::WindowId::equalizer, band, Qt::NoModifier, QPoint(8, 40));
+      f.router().handle(tramp::WindowId::equalizer, band, Qt::NoModifier, QPoint(8, 40));
   QVERIFY(out.handled);
   QVERIFY(out.beginSlider);
   QCOMPARE(out.sliderKind, tramp::ChromeHit::Kind::eqBand);
   QCOMPARE(out.sliderIndex, 3);
   QVERIFY(!out.persist);
+}
+
+void ChromeCommandTest::removingATrackMarksThePlaylistAlteredAndDoesNotPersistSettings() {
+  Fixture f;
+  QVERIFY(!f.playlist.altered());
+  f.playlist.select(0);
+  const tramp::ChromeCommandOutcome out = f.router().handle(
+      tramp::WindowId::playlist, hit(tramp::ChromeHit::Kind::plRemove), Qt::NoModifier, {});
+  QVERIFY(out.handled);
+  QVERIFY(f.playlist.tracks().isEmpty());
+  QVERIFY(f.playlist.altered());
+  QVERIFY(!out.persist);
+  QVERIFY(!out.refreshChrome);
+}
+
+void ChromeCommandTest::collapsingTheCollectionPersistsAndAsksForARefresh() {
+  Fixture f;
+  QVERIFY(!f.settings.playlistCollectionCollapsed);
+  const tramp::ChromeCommandOutcome out = f.router().handle(
+      tramp::WindowId::playlist, hit(tramp::ChromeHit::Kind::plCollapse), Qt::NoModifier, {});
+  QVERIFY(out.handled);
+  QVERIFY(f.settings.playlistCollectionCollapsed);
+  QVERIFY(out.persist);
+  QVERIFY(out.refreshChrome);
+  QVERIFY(!f.playlist.altered());
 }
 
 QTEST_APPLESS_MAIN(ChromeCommandTest)
