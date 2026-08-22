@@ -32,6 +32,7 @@ class ChromeSpecTest : public QObject {
   void collapsedCollectionKeepsTheColumnItsReopenTabPaintsIn();
   void playlistStripKeepsGapBeforeLengthWell();
   void playlistStripRefreshSitsRightOfTotal();
+  void playlistStripSaveSitsLeftOfAdd();
   void longPlaylistNameGivesWayBeforeTheFooterStripDoes();
   void buttonPhaseTakesTheWholeTransitionWhateverTheFrameRate();
   void inertPhaseStoreLeavesPaintersOnPlainSessionState();
@@ -336,6 +337,15 @@ void ChromeSpecTest::playlistStripRefreshSitsRightOfTotal() {
   QVERIFY(!strip.total.intersects(strip.refresh));
 }
 
+void ChromeSpecTest::playlistStripSaveSitsLeftOfAdd() {
+  const QRectF deckInner(0, 0, 800, 54);
+  const auto strip = tramp::layoutPlaylistStrip(deckInner, 140);
+  QCOMPARE(strip.save.left(), deckInner.left());
+  QCOMPARE(strip.add.left() - strip.save.right(), tramp::kPlaylistStripGap);
+  QVERIFY(!strip.save.intersects(strip.add));
+  QVERIFY(!strip.options.intersects(strip.prev));
+}
+
 // The footer's status run flowed from the left at its measured width with
 // nothing clipping it to the strip, so a long enough playlist name painted past
 // the strip's right edge and off the panel. The narrowest photographed state
@@ -423,6 +433,7 @@ void ChromeSpecTest::pointerFeedbackSkipsSlidersAndListRows() {
   QVERIFY(tramp::takesPointerFeedback(K::skins));
   QVERIFY(tramp::takesPointerFeedback(K::trackInfo));
   QVERIFY(tramp::takesPointerFeedback(K::plSort));
+  QVERIFY(tramp::takesPointerFeedback(K::plSave));
   QVERIFY(tramp::takesPointerFeedback(K::eqPresets));
   // Hovering these would rebuild a whole panel chassis per mouse move.
   QVERIFY(!tramp::takesPointerFeedback(K::plTrackRow));

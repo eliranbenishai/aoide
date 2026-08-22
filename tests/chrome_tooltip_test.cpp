@@ -12,6 +12,7 @@ class ChromeTooltipTest : public QObject {
   void muteAndTogglesSayWhichWay();
   void slidersAndListsStayQuiet();
   void playlistButtonsKeepFlutterNames();
+  void saveButtonIsDeadUntilTheListIsAltered();
   void settingsAndAboutNameControls();
   void skinsCellsNameThePack();
   void hoverMotionHidesWhenBusyOrEmpty();
@@ -150,6 +151,10 @@ void ChromeTooltipTest::playlistButtonsKeepFlutterNames() {
            QStringLiteral("Remove selected tracks"));
   QCOMPARE(tramp::chromeTooltip({}, kind(K::plSort), view), QStringLiteral("Sort playlist"));
   QCOMPARE(tramp::chromeTooltip({}, kind(K::plOptions), view), QStringLiteral("Playlist options"));
+  QCOMPARE(tramp::chromeTooltip({}, kind(K::plSave), view), QStringLiteral("No changes to save"));
+  view.playlistAltered = true;
+  QCOMPARE(tramp::chromeTooltip({}, kind(K::plSave), view), QStringLiteral("Save playlist"));
+  view.playlistAltered = false;
   QCOMPARE(tramp::chromeTooltip({}, kind(K::plPrev), view), QStringLiteral("Previous"));
   QCOMPARE(tramp::chromeTooltip({}, kind(K::plNext), view), QStringLiteral("Next"));
   view.playing = false;
@@ -161,6 +166,15 @@ void ChromeTooltipTest::playlistButtonsKeepFlutterNames() {
   QCOMPARE(tramp::chromeTooltip({}, kind(K::eqOn), view), QStringLiteral("Equalizer on"));
   QCOMPARE(tramp::chromeTooltip({}, kind(K::eqAuto), view), QStringLiteral("Auto"));
   QCOMPARE(tramp::chromeTooltip({}, kind(K::eqPresets), view), QStringLiteral("Presets"));
+}
+
+void ChromeTooltipTest::saveButtonIsDeadUntilTheListIsAltered() {
+  tramp::ChromeHit hit;
+  hit.kind = tramp::ChromeHit::Kind::plSave;
+  tramp::SessionView view;
+  QVERIFY(!tramp::chromeHitEnabled(hit, view));
+  view.playlistAltered = true;
+  QVERIFY(tramp::chromeHitEnabled(hit, view));
 }
 
 void ChromeTooltipTest::settingsAndAboutNameControls() {

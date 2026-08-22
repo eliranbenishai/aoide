@@ -112,6 +112,9 @@ QString chromeKindTip(const ChromeHit& chrome, const SessionView& view) {
       return QStringLiteral("Rename playlist");
     case K::plRemoveCollection:
       return QStringLiteral("Remove playlist from collection");
+    case K::plSave:
+      return view.playlistAltered ? QStringLiteral("Save playlist")
+                                  : QStringLiteral("No changes to save");
     case K::plAdd:
       return QStringLiteral("Add tracks");
     case K::plRemove:

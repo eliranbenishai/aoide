@@ -396,6 +396,19 @@ QPainterPath pathRemove() {
   return path;
 }
 
+QPainterPath pathSave() {
+  QPainterPath path;
+  path.addRect(10.9, 3.5, 2.2, 9.4);
+  path.moveTo(12, 16.4);
+  path.lineTo(6.4, 10.6);
+  path.lineTo(17.6, 10.6);
+  path.closeSubpath();
+  path.addRect(4.5, 17.8, 15, 2.2);
+  path.addRect(4.5, 17.8, 2.2, 4.4);
+  path.addRect(17.3, 17.8, 2.2, 4.4);
+  return path;
+}
+
 QPainterPath pathSort() {
   QPainterPath path;
   path.addRoundedRect(2.6, 5.4, 11, 2.2, 1.1, 1.1);
@@ -872,6 +885,9 @@ void drawIcon(QPainter& p, const QRectF& box, MockupIcon icon, const QColor& col
       return;
     case MockupIcon::remove:
       paintIconPath(p, box, 24, pathRemove(), color);
+      return;
+    case MockupIcon::save:
+      paintIconPath(p, box, 24, pathSave(), color);
       return;
     case MockupIcon::sort:
       paintIconPath(p, box, 24, pathSort(), color);

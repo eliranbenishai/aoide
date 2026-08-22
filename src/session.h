@@ -147,6 +147,8 @@ class TrampSession : public QObject, public PanelSurfaces {
   void presentChromeOutcome(const ChromeCommandOutcome& out, WindowId id, const ChromeHit& hit,
                             QPoint logical);
   void presentPlCreateMenu(const ChromeHit& hit);
+  void createPlaylistFromCurrent();
+  void saveCurrentPlaylist();
   void presentPlRename();
   void presentPlSortMenu(const ChromeHit& hit);
   void presentPlOptionsMenu(const ChromeHit& hit);

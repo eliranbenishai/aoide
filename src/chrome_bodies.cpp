@@ -704,12 +704,13 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
                                               textWidth(totalValue, totalText));
   const auto strip = layoutPlaylistStrip(deckInner, totalW);
   auto paintBtn = [&](const QRectF& r, MockupIcon icon, ChromeHit::Kind kind, bool menu,
-                      qreal iconSize, bool on = false) {
-    drawGlyphBtn(p, r, icon, faceOf(phases, kind, on), iconSize);
+                      qreal iconSize, bool on = false, bool enabled = true) {
+    drawGlyphBtn(p, r, icon, faceOf(phases, kind, on), iconSize, enabled);
     if (menu) {
       drawMenuCaret(p, r);
     }
   };
+  paintBtn(strip.save, MockupIcon::save, K::plSave, false, 21, false, view.playlistAltered);
   paintBtn(strip.add, MockupIcon::add, K::plAdd, false, 21);
   paintBtn(strip.remove, MockupIcon::remove, K::plRemove, false, 21);
   drawFooterSep(p, strip.sep);

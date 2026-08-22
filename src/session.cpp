@@ -1147,6 +1147,9 @@ void TrampSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
     case ChromeIntent::showPlOptionsMenu:
       presentPlOptionsMenu(hit);
       break;
+    case ChromeIntent::saveCurrentPlaylist:
+      saveCurrentPlaylist();
+      break;
     case ChromeIntent::refreshCurrentPlaylist:
       refreshCurrentPlaylist();
       break;
@@ -1223,14 +1226,7 @@ void TrampSession::presentPlCreateMenu(const ChromeHit& hit) {
   };
   const int chosen = execAnchoredMenu(items, windowFor(WindowId::playlist), hit.rect, PopupAnchor::aboveLeft);
   if (chosen == kFromCurrent) {
-    const QString path = pickPlaylist(true);
-    if (!path.isEmpty()) {
-      if (reportPlaylistWriteFailure(playlist_.savePlaylistFile(path), path)) {
-        collection_.addWritten(path, playlist_.tracks());
-        persistCollectionCache();
-        startDurationProbe(playlist_.tracks());
-      }
-    }
+    createPlaylistFromCurrent();
   } else if (chosen == kFromSelection) {
     const QString path = pickPlaylist(true);
     if (!path.isEmpty()) {
@@ -1249,6 +1245,33 @@ void TrampSession::presentPlCreateMenu(const ChromeHit& hit) {
       }
     }
   }
+  refreshChrome();
+}
+
+void TrampSession::createPlaylistFromCurrent() {
+  const QString path = pickPlaylist(true);
+  if (path.isEmpty()) return;
+  if (reportPlaylistWriteFailure(playlist_.savePlaylistFile(path), path)) {
+    collection_.addWritten(path, playlist_.tracks());
+    persistCollectionCache();
+    startDurationProbe(playlist_.tracks());
+    refreshChrome();
+  }
+}
+
+void TrampSession::saveCurrentPlaylist() {
+  if (!playlist_.altered()) return;
+  if (playlist_.sourcePath().isEmpty()) {
+    createPlaylistFromCurrent();
+    return;
+  }
+  const QString path = playlist_.sourcePath();
+  if (!reportPlaylistWriteFailure(playlist_.savePlaylistFile(path), path)) return;
+  if (collection_.contains(path)) {
+    collection_.addWritten(path, playlist_.tracks());
+    persistCollectionCache();
+  }
+  startDurationProbe(playlist_.tracks());
   refreshChrome();
 }
 

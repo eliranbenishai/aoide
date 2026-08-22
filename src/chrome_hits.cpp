@@ -183,6 +183,9 @@ ChromeHit hitPlaylist(QSize logical, QPoint pos, const SessionView& view) {
   auto hitBtn = [&](const QRectF& r, ChromeHit::Kind kind) {
     return hitIf(r.toRect(), pos, kind);
   };
+  if (auto h = hitBtn(strip.save, ChromeHit::Kind::plSave); h.kind != ChromeHit::Kind::none) {
+    return h;
+  }
   if (auto h = hitBtn(strip.add, ChromeHit::Kind::plAdd); h.kind != ChromeHit::Kind::none) {
     return h;
   }

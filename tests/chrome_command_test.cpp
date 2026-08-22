@@ -32,6 +32,8 @@ class ChromeCommandTest : public QObject {
   void skinsScrollbarBeginsASlider();
   void trackInfoAsksToShowWhenATrackIsLoaded();
   void trackInfoDoesNothingWhenNothingIsLoaded();
+  void savingAnAlteredListAsksTheSessionToWriteIt();
+  void savingAnUnalteredListDoesNothing();
 };
 
 namespace {
@@ -231,6 +233,28 @@ void ChromeCommandTest::trackInfoDoesNothingWhenNothingIsLoaded() {
   QVERIFY(!f.playback.currentTrack());
   const tramp::ChromeCommandOutcome out = f.router().handle(
       tramp::WindowId::main, hit(tramp::ChromeHit::Kind::trackInfo), Qt::NoModifier, {});
+  QVERIFY(out.handled);
+  QCOMPARE(out.intent, tramp::ChromeIntent::none);
+}
+
+void ChromeCommandTest::savingAnAlteredListAsksTheSessionToWriteIt() {
+  Fixture f;
+  tramp::Track extra;
+  extra.path = QStringLiteral("/tmp/router-extra.mp3");
+  f.playlist.addTracks({extra});
+  QVERIFY(f.playlist.altered());
+  const tramp::ChromeCommandOutcome out = f.router().handle(
+      tramp::WindowId::playlist, hit(tramp::ChromeHit::Kind::plSave), Qt::NoModifier, {});
+  QVERIFY(out.handled);
+  QCOMPARE(out.intent, tramp::ChromeIntent::saveCurrentPlaylist);
+  QVERIFY(!out.persist);
+}
+
+void ChromeCommandTest::savingAnUnalteredListDoesNothing() {
+  Fixture f;
+  QVERIFY(!f.playlist.altered());
+  const tramp::ChromeCommandOutcome out = f.router().handle(
+      tramp::WindowId::playlist, hit(tramp::ChromeHit::Kind::plSave), Qt::NoModifier, {});
   QVERIFY(out.handled);
   QCOMPARE(out.intent, tramp::ChromeIntent::none);
 }

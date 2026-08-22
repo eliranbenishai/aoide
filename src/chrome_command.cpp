@@ -126,6 +126,10 @@ ChromeCommandOutcome ChromeCommandRouter::handle(WindowId id, const ChromeHit& h
       playlist_.removeSelected();
       out.handled = true;
       break;
+    case K::plSave:
+      out.handled = true;
+      if (playlist_.altered()) out.intent = ChromeIntent::saveCurrentPlaylist;
+      break;
     case K::plSort:
       out.handled = true;
       out.intent = ChromeIntent::showPlSortMenu;

@@ -53,6 +53,7 @@ bool takesPointerFeedback(ChromeHit::Kind kind) {
     case ChromeHit::Kind::plRemoveCollection:
     case ChromeHit::Kind::plAdd:
     case ChromeHit::Kind::plRemove:
+    case ChromeHit::Kind::plSave:
     case ChromeHit::Kind::plSort:
     case ChromeHit::Kind::plOptions:
     case ChromeHit::Kind::plPrev:

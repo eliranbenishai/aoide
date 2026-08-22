@@ -124,6 +124,7 @@ enum class MockupIcon {
   mute,
   add,
   remove,
+  save,
   sort,
   options,
   skins,

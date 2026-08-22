@@ -527,6 +527,7 @@ inline constexpr qreal kPlaylistStripSepW = 1;
 inline constexpr qreal kPlaylistStripSepAfter = 14;
 
 struct PlaylistStripLayout {
+  QRectF save;
   QRectF add;
   QRectF remove;
   QRectF sep;
@@ -544,10 +545,10 @@ inline qreal playlistStripTotalWidth(qreal labelW, qreal valueW) {
   return 18 + labelW + 12 + valueW + 18;
 }
 
-/// Playlist Manager button row under the track list. Refresh sits on the
-/// right edge; TOTAL sits to its left; the transport cluster is packed from
-/// the right against TOTAL, with [kPlaylistStripGap] between Next and TOTAL
-/// (mockup `.pl-strip` flex gap).
+/// Playlist Manager button row under the track list. Save sits on the left
+/// edge; Refresh sits on the right; TOTAL sits to its left; the transport
+/// cluster is packed from the right against TOTAL, with [kPlaylistStripGap]
+/// between Next and TOTAL (mockup `.pl-strip` flex gap).
 inline PlaylistStripLayout layoutPlaylistStrip(const QRectF& deckInner, qreal totalW) {
   PlaylistStripLayout out;
   const qreal y = deckInner.top();
@@ -559,6 +560,7 @@ inline PlaylistStripLayout layoutPlaylistStrip(const QRectF& deckInner, qreal to
     r = QRectF(x, y, w, h);
     x += w + gap;
   };
+  place(out.save);
   place(out.add);
   place(out.remove);
   x += kPlaylistStripSepExtra;
