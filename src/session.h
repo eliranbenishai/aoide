@@ -1,5 +1,6 @@
 #pragma once
 
+#include "chrome_command.h"
 #include "chrome_hits.h"
 #include "chrome_menu.h"
 #include "collection.h"
@@ -129,6 +130,7 @@ class TrampSession : public QObject, public PanelSurfaces {
   QRect hostRect() const override;
   QRect workAreaFor(QRect clusterNative) const override;
   void placePanels(const QVector<PanelPlacement>& panels) override;
+  void presentChromeOutcome(const ChromeCommandOutcome& out);
   void showOptionsMenu(QRect logicalHit);
   int execAnchoredMenu(const QVector<ChromeMenuItem>& items, HostWindow* host, QRect logicalHit,
                        PopupAnchor anchor);

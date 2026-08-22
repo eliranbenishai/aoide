@@ -1,5 +1,6 @@
 #include "session.h"
 
+#include "chrome_command.h"
 #include "chrome_layout.h"
 #include "files.h"
 #include "host_shell.h"
@@ -1064,9 +1065,30 @@ void TrampSession::handleDrag(WindowId id, ChromeHit hit, QPoint logical) {
   }
 }
 
+void TrampSession::presentChromeOutcome(const ChromeCommandOutcome& out) {
+  if (out.persist) schedulePersist();
+  switch (out.intent) {
+    case ChromeIntent::pickAudio: {
+      const QString picked = pickAudio(true);
+      if (!picked.isEmpty()) openPaths(picked.split(QLatin1Char('\n')), true);
+      break;
+    }
+    case ChromeIntent::none:
+      break;
+  }
+}
+
 void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical) {
   using K = ChromeHit::Kind;
   dragOrigin_ = logical;
+  {
+    ChromeCommandRouter router(*playback_);
+    const ChromeCommandOutcome out = router.handle(id, hit, mods, logical);
+    if (out.handled) {
+      presentChromeOutcome(out);
+      return;
+    }
+  }
   switch (hit.kind) {
     case K::options:
       showOptionsMenu(hit.rect);
@@ -1075,9 +1097,6 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
       settings_.showElapsed = !settings_.showElapsed;
       schedulePersist();
       refreshChrome();
-      break;
-    case K::mute:
-      playback_->toggleMute();
       break;
     case K::volume:
     case K::seek:
@@ -1099,41 +1118,14 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
     case K::plToggle:
       setWindowVisible(WindowId::playlist, !layout_.layout().playlist.visible);
       break;
-    case K::prev:
-    case K::plPrev:
-      playback_->previous();
-      break;
-    case K::play:
-      if (!playback_->playing()) playback_->playPause();
-      break;
-    case K::pause:
-      if (playback_->playing()) playback_->playPause();
-      break;
-    case K::plPlay:
-      playback_->playPause();
-      break;
-    case K::stop:
-      playback_->stop();
-      break;
-    case K::next:
-    case K::plNext:
-      playback_->next();
-      break;
     case K::plRefresh:
       refreshCurrentPlaylist();
       break;
-    case K::eject:
     case K::plAdd: {
       const QString picked = pickAudio(true);
       if (!picked.isEmpty()) openPaths(picked.split(QLatin1Char('\n')), true);
       break;
     }
-    case K::shuffle:
-      playback_->toggleShuffle();
-      break;
-    case K::repeat:
-      playback_->cycleRepeatMode();
-      break;
     case K::eqOn:
       settings_.equalizerCurve.enabled = !settings_.equalizerCurve.enabled;
       applyEq();
@@ -1462,6 +1454,7 @@ void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
     case K::plResize:
     case K::plDivider:
     case K::none:
+    default:
       break;
   }
 }
