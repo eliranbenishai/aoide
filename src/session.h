@@ -5,6 +5,7 @@
 #include "collection.h"
 #include "layout_sync.h"
 #include "look.h"
+#include "panel_registry.h"
 #include "persist.h"
 #include "playback.h"
 #include "player_engine.h"
@@ -37,8 +38,7 @@ class TrampSession : public QObject, public PanelSurfaces {
   explicit TrampSession(QObject* parent = nullptr);
   ~TrampSession() override;
 
-  void setWindows(HostWindow* main, HostWindow* eq, HostWindow* pl, HostWindow* settings,
-                  HostWindow* about);
+  void setWindows(const PanelWindows& windows);
   void setShell(HostShell* shell);
   void bootstrap(const QStringList& argvFiles);
   SessionView view() const;
@@ -120,6 +120,8 @@ class TrampSession : public QObject, public PanelSurfaces {
   void probeFinished(int gen);
   void setIngesting(bool ingesting);
   HostWindow* windowFor(WindowId id) const;
+  QWidget* dialogParent(WindowId id) const;
+  void raiseSettingsIfShowing();
   QString pickAudio(bool multiple);
   QString pickPlaylist(bool save);
   void openPaths(const QStringList& paths, bool enqueue);
@@ -160,11 +162,7 @@ class TrampSession : public QObject, public PanelSurfaces {
   bool spectrumReady_ = false;
   LayoutSync layout_;
   SkinController skins_;
-  HostWindow* main_ = nullptr;
-  HostWindow* eq_ = nullptr;
-  HostWindow* pl_ = nullptr;
-  HostWindow* settingsWin_ = nullptr;
-  HostWindow* about_ = nullptr;
+  PanelWindows windows_;
   HostShell* shell_ = nullptr;
   int settingsTab_ = 0;
   int trackScroll_ = 0;

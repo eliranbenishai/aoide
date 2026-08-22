@@ -1,36 +1,12 @@
 #include "settings.h"
 
+#include "panel_registry.h"
 #include "tramp_metrics.h"
 
 #include <QJsonArray>
 
 namespace tramp {
 namespace {
-
-QString windowName(WindowId id) {
-  switch (id) {
-    case WindowId::main:
-      return QStringLiteral("main");
-    case WindowId::equalizer:
-      return QStringLiteral("equalizer");
-    case WindowId::playlist:
-      return QStringLiteral("playlist");
-    case WindowId::settings:
-      return QStringLiteral("settings");
-    case WindowId::about:
-      return QStringLiteral("about");
-  }
-  return QStringLiteral("main");
-}
-
-std::optional<WindowId> parseWindowId(const QString& name) {
-  if (name == QLatin1String("main")) return WindowId::main;
-  if (name == QLatin1String("equalizer")) return WindowId::equalizer;
-  if (name == QLatin1String("playlist")) return WindowId::playlist;
-  if (name == QLatin1String("settings")) return WindowId::settings;
-  if (name == QLatin1String("about")) return WindowId::about;
-  return std::nullopt;
-}
 
 QString sideName(DockSide side) {
   switch (side) {
@@ -137,19 +113,7 @@ QJsonObject curveToJson(const EqualizerSettings& s) {
 }  // namespace
 
 WindowFrame* frameFor(TrampSettings& s, WindowId id) {
-  switch (id) {
-    case WindowId::main:
-      return &s.main;
-    case WindowId::equalizer:
-      return &s.equalizer;
-    case WindowId::playlist:
-      return &s.playlist;
-    case WindowId::settings:
-      return &s.settings;
-    case WindowId::about:
-      return &s.about;
-  }
-  return &s.main;
+  return &(s.*panelSpec(id).settingsFrame);
 }
 
 const WindowFrame* frameFor(const TrampSettings& s, WindowId id) {
@@ -161,16 +125,14 @@ QJsonObject TrampSettings::toJson() const {
   o.insert(QStringLiteral("zoomPercent"), zoomPercent);
   o.insert(QStringLiteral("alwaysOnTop"), alwaysOnTop);
   o.insert(QStringLiteral("forceMono"), forceMono);
-  o.insert(QStringLiteral("main"), frameToJson(main));
-  o.insert(QStringLiteral("equalizer"), frameToJson(equalizer));
-  o.insert(QStringLiteral("playlist"), frameToJson(playlist));
-  o.insert(QStringLiteral("settings"), frameToJson(settings));
-  o.insert(QStringLiteral("about"), frameToJson(about));
+  for (const PanelSpec& panel : panelSpecs()) {
+    o.insert(panel.persistKey, frameToJson(this->*panel.settingsFrame));
+  }
   QJsonArray edges;
   for (const DockEdge& e : dockEdges) {
     QJsonObject edge;
-    edge.insert(QStringLiteral("a"), windowName(e.a));
-    edge.insert(QStringLiteral("b"), windowName(e.b));
+    edge.insert(QStringLiteral("a"), panelSpec(e.a).persistKey);
+    edge.insert(QStringLiteral("b"), panelSpec(e.b).persistKey);
     edge.insert(QStringLiteral("side"), sideName(e.side));
     edges.append(edge);
   }
@@ -206,21 +168,16 @@ TrampSettings TrampSettings::fromJson(const QJsonObject& json) {
   if (json.value(QStringLiteral("forceMono")).isBool()) {
     s.forceMono = json.value(QStringLiteral("forceMono")).toBool();
   }
-  if (json.value(QStringLiteral("main")).isObject()) {
-    s.main = frameFromJson(json.value(QStringLiteral("main")).toObject(), s.main);
-  }
   const QJsonObject eq = json.value(QStringLiteral("equalizer")).toObject();
-  if (!eq.isEmpty() && looksLikeFrame(eq)) {
-    s.equalizer = frameFromJson(eq, s.equalizer);
-  }
-  if (json.value(QStringLiteral("playlist")).isObject()) {
-    s.playlist = frameFromJson(json.value(QStringLiteral("playlist")).toObject(), s.playlist);
-  }
-  if (json.value(QStringLiteral("settings")).isObject()) {
-    s.settings = frameFromJson(json.value(QStringLiteral("settings")).toObject(), s.settings);
-  }
-  if (json.value(QStringLiteral("about")).isObject()) {
-    s.about = frameFromJson(json.value(QStringLiteral("about")).toObject(), s.about);
+  for (const PanelSpec& panel : panelSpecs()) {
+    const QJsonObject record = json.value(panel.persistKey).toObject();
+    if (record.isEmpty()) continue;
+    // A file written before the curve had a key of its own kept it under
+    // "equalizer" — the key the equalizer's frame now uses. A record with
+    // neither a position nor a visibility is that curve, and reading it as a
+    // frame would park the panel at the origin.
+    if (panel.id == WindowId::equalizer && !looksLikeFrame(record)) continue;
+    s.*panel.settingsFrame = frameFromJson(record, s.*panel.settingsFrame);
   }
   const QJsonObject namedCurve = json.value(QStringLiteral("equalizerCurve")).toObject();
   if (!namedCurve.isEmpty()) {
@@ -264,8 +221,8 @@ TrampSettings TrampSettings::fromJson(const QJsonObject& json) {
   for (const QJsonValue& v : edges) {
     if (!v.isObject()) continue;
     const QJsonObject o = v.toObject();
-    const auto a = parseWindowId(o.value(QStringLiteral("a")).toString());
-    const auto b = parseWindowId(o.value(QStringLiteral("b")).toString());
+    const auto a = panelForPersistKey(o.value(QStringLiteral("a")).toString());
+    const auto b = panelForPersistKey(o.value(QStringLiteral("b")).toString());
     const auto side = parseSide(o.value(QStringLiteral("side")).toString());
     if (!a || !b || !side) continue;
     s.dockEdges.push_back({*a, *b, *side});

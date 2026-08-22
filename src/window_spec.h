@@ -11,6 +11,10 @@ namespace tramp {
 
 enum class WindowId { main, equalizer, playlist, settings, about };
 
+/// How many panels there are. `WindowId` is dense from zero, so this is also
+/// the length of every table keyed by one — see `panel_registry.h`.
+inline constexpr int kPanelCount = 5;
+
 struct WindowSpec {
   WindowId id;
   QString title;
@@ -19,7 +23,7 @@ struct WindowSpec {
   QPoint origin;
 };
 
-std::array<WindowSpec, 5> windowSpecs();
+std::array<WindowSpec, kPanelCount> windowSpecs();
 
 /// Frameless host shell. Qt::Window only — never Tool, Dialog, or Popup.
 Qt::WindowFlags hostWindowFlags();

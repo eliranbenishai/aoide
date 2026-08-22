@@ -1,5 +1,7 @@
 #include "docking.h"
 
+#include "panel_registry.h"
+
 #include <cmath>
 
 namespace tramp {
@@ -21,21 +23,7 @@ bool touching(const QRectF& a, const QRectF& b, double slack) {
 
 }  // namespace
 
-WindowFrame& DockLayout::frameOf(WindowId id) {
-  switch (id) {
-    case WindowId::main:
-      return main;
-    case WindowId::equalizer:
-      return equalizer;
-    case WindowId::playlist:
-      return playlist;
-    case WindowId::settings:
-      return settings;
-    case WindowId::about:
-      return about;
-  }
-  return main;
-}
+WindowFrame& DockLayout::frameOf(WindowId id) { return this->*panelSpec(id).layoutFrame; }
 
 const WindowFrame& DockLayout::frameOf(WindowId id) const {
   return const_cast<DockLayout*>(this)->frameOf(id);
@@ -44,27 +32,14 @@ const WindowFrame& DockLayout::frameOf(WindowId id) const {
 DockingCoordinator::DockingCoordinator(DockLayout layout) : layout_(std::move(layout)) {}
 
 QSizeF DockingCoordinator::canvasSize(WindowId id) const {
+  const PanelSpec& panel = panelSpec(id);
+  // A panel the listener cannot resize takes its canvas from the registry
+  // whatever its frame says, so a width left in a settings file by an older
+  // build, or by hand, cannot stretch a fixed panel.
+  if (!panel.resizable) return QSizeF(panel.logicalSize);
   const WindowFrame& frame = layout_.frameOf(id);
-  QSizeF base;
-  switch (id) {
-    case WindowId::main:
-      base = QSizeF(kMainPlayer);
-      break;
-    case WindowId::equalizer:
-      base = QSizeF(kEqualizer);
-      break;
-    case WindowId::playlist:
-      base = QSizeF(frame.width.value_or(kPlaylistDefault.width()),
-                    frame.height.value_or(kPlaylistDefault.height()));
-      break;
-    case WindowId::settings:
-      base = QSizeF(kSettings);
-      break;
-    case WindowId::about:
-      base = QSizeF(kAbout);
-      break;
-  }
-  return base;
+  return QSizeF(frame.width.value_or(panel.logicalSize.width()),
+                frame.height.value_or(panel.logicalSize.height()));
 }
 
 QSizeF DockingCoordinator::logicalSize(WindowId id) const {
@@ -131,9 +106,8 @@ bool DockingCoordinator::overlapsOrNear1D(double a0, double a1, double b0, doubl
 
 QVector<WindowId> visibleClusterMembers(const DockLayout& layout) {
   QVector<WindowId> members;
-  for (WindowId id : {WindowId::main, WindowId::equalizer, WindowId::playlist, WindowId::settings,
-                      WindowId::about}) {
-    if (id == WindowId::main || layout.frameOf(id).visible) members.push_back(id);
+  for (const PanelSpec& panel : panelSpecs()) {
+    if (panel.id == WindowId::main || layout.frameOf(panel.id).visible) members.push_back(panel.id);
   }
   return members;
 }
@@ -169,7 +143,8 @@ void DockingCoordinator::resizePlaylist(QSizeF logical) {
 }
 
 void DockingCoordinator::nudgeOffMainIfStacked(WindowId id) {
-  if (id == WindowId::main || id == WindowId::settings || id == WindowId::about) return;
+  const PanelSpec& panel = panelSpec(id);
+  if (id == WindowId::main || !panel.docks) return;
   const QRectF mainR = rectFor(WindowId::main);
   const QRectF r = rectFor(id);
   const QRectF inter = mainR.intersected(r);
@@ -178,12 +153,23 @@ void DockingCoordinator::nudgeOffMainIfStacked(WindowId id) {
   const bool sameOrigin = std::abs(r.left() - mainR.left()) <= 8 && std::abs(r.top() - mainR.top()) <= 8;
   if (!sameOrigin && cover < 0.6 * otherArea) return;
   WindowFrame& frame = layout_.frameOf(id);
-  frame.left = mainR.left();
-  if (id == WindowId::equalizer) {
-    frame.top = mainR.bottom();
-  } else {
-    frame.left = mainR.right();
-    frame.top = mainR.top();
+  switch (panel.parkSide) {
+    case DockSide::bottom:
+      frame.left = mainR.left();
+      frame.top = mainR.bottom();
+      break;
+    case DockSide::top:
+      frame.left = mainR.left();
+      frame.top = mainR.top() - r.height();
+      break;
+    case DockSide::left:
+      frame.left = mainR.left() - r.width();
+      frame.top = mainR.top();
+      break;
+    case DockSide::right:
+      frame.left = mainR.right();
+      frame.top = mainR.top();
+      break;
   }
 }
 
@@ -204,7 +190,7 @@ bool DockingCoordinator::validateEdges() {
 }
 
 void DockingCoordinator::move(WindowId id, QPointF topLeft, bool shiftUndock, bool snap) {
-  if (id == WindowId::settings || id == WindowId::about) {
+  if (!panelSpec(id).docks) {
     layout_.frameOf(id).left = topLeft.x();
     layout_.frameOf(id).top = topLeft.y();
     return;
@@ -212,9 +198,10 @@ void DockingCoordinator::move(WindowId id, QPointF topLeft, bool shiftUndock, bo
   const QPointF current(layout_.frameOf(id).left, layout_.frameOf(id).top);
   const QPointF delta = topLeft - current;
   if (id == WindowId::main) {
-    for (WindowId w : {WindowId::main, WindowId::equalizer, WindowId::playlist, WindowId::settings,
-                       WindowId::about}) {
-      WindowFrame& frame = layout_.frameOf(w);
+    // Main carries the whole desktop, floating panels included: dragging the
+    // player moves everything the listener has arranged around it.
+    for (const PanelSpec& panel : panelSpecs()) {
+      WindowFrame& frame = layout_.frameOf(panel.id);
       frame.left += delta.x();
       frame.top += delta.y();
     }
@@ -240,7 +227,7 @@ void DockingCoordinator::move(WindowId id, QPointF topLeft, bool shiftUndock, bo
 }
 
 void DockingCoordinator::trySnap(WindowId id) {
-  if (id == WindowId::settings || id == WindowId::about || snapThreshold_ <= 0) return;
+  if (!panelSpec(id).docks || snapThreshold_ <= 0) return;
   const QSet<WindowId> group = groupOf(id);
   const QRectF moving = rectFor(id);
 
@@ -258,8 +245,12 @@ void DockingCoordinator::trySnap(WindowId id) {
     if (!slot || next.distance < slot->distance) slot = next;
   };
 
-  for (WindowId otherId : {WindowId::main, WindowId::equalizer, WindowId::playlist}) {
-    if (otherId == id || group.contains(otherId) || !layout_.frameOf(otherId).visible) continue;
+  for (const PanelSpec& candidate : panelSpecs()) {
+    const WindowId otherId = candidate.id;
+    if (!candidate.docks || otherId == id || group.contains(otherId) ||
+        !layout_.frameOf(otherId).visible) {
+      continue;
+    }
     const QRectF other = rectFor(otherId);
     consider(bestV,
              {otherId, DockSide::bottom, std::abs(moving.bottom() - other.top()),
