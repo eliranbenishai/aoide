@@ -4,6 +4,7 @@
 #include "chrome_paint.h"
 #include "chrome_tooltip.h"
 #include "mockup_draw.h"
+#include "track.h"
 #include "tramp_fonts.h"
 #include "tramp_metrics.h"
 #include "wait_cursor.h"
@@ -17,6 +18,18 @@
 #include <QUrl>
 #include <cmath>
 #include <utility>
+
+namespace {
+
+QSize playlistMinNative(const tramp::SessionView& view, int zoomPercent) {
+  const qreal totalW = tramp::playlistStripTotalWidth(
+      tramp::textWidth(tramp::condensedFont(11, 0.2), QStringLiteral("TOTAL")),
+      tramp::textWidth(tramp::monoFont(18), tramp::formatClock(view.playlistTotalMs)));
+  const qreal col = view.collectionCollapsed ? 0 : view.collectionWidth;
+  return tramp::zoomed(tramp::playlistMinLogical(col, totalW), zoomPercent);
+}
+
+}  // namespace
 
 HostWindow::HostWindow(const tramp::WindowSpec& spec, QWidget* parent)
     : QWidget(parent),
@@ -59,9 +72,7 @@ void HostWindow::applyNativeSize() {
   title_ = tramp::TitleChromeLayout::forWindow(spec_.id, paintLogical());
   const QSize native = tramp::zoomed(paintLogical(), zoomPercent_);
   if (spec_.id == tramp::WindowId::playlist && !shaded_) {
-    const QSize min = tramp::zoomed(view_.collectionCollapsed ? tramp::kPlaylistMin
-                                                              : tramp::kPlaylistMinWithCollection,
-                                    zoomPercent_);
+    const QSize min = playlistMinNative(view_, zoomPercent_);
     setMinimumSize(min);
     setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
     const QSize target = native.expandedTo(min);
@@ -89,8 +100,11 @@ void HostWindow::setShaded(bool shaded) {
 }
 
 void HostWindow::setSessionView(const tramp::SessionView& view) {
-  const bool collectionChanged =
-      spec_.id == tramp::WindowId::playlist && view_.collectionCollapsed != view.collectionCollapsed;
+  const bool playlistMinDirty =
+      spec_.id == tramp::WindowId::playlist &&
+      (view_.collectionCollapsed != view.collectionCollapsed ||
+       view_.collectionWidth != view.collectionWidth ||
+       view_.playlistTotalMs != view.playlistTotalMs);
   // Every snapshot goes to every panel, so most of what arrives here is a
   // change some other panel asked for. Keep the cached raster when this one
   // paints the same either way — the raster only. The view, the latched phases
@@ -109,7 +123,7 @@ void HostWindow::setSessionView(const tramp::SessionView& view) {
   syncLatchedPhases(!sawFirstView_);
   sawFirstView_ = true;
   if (rerasterise) invalidateChassis();
-  if (collectionChanged) applyNativeSize();
+  if (playlistMinDirty) applyNativeSize();
   // A wait cursor means a blocking load is about to start and this is the last
   // chance the chrome has to reach the screen before it does. Synchronous
   // whether or not the raster was kept: the point is the pixels arriving now,

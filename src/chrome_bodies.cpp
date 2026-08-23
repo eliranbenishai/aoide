@@ -697,10 +697,8 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
     drawScrollbar(p, scroll, thumb.top() - scroll.top(), thumb.height());
   }
 
-  const QRectF footer(trackInner.left(), trackInner.bottom() - kPlaylistFooterH, trackInner.width(),
-                      kPlaylistFooterH);
-  const QRectF deck(footer.left(), footer.top(), footer.width(), 74);
-  const QRectF deckInner = deck.adjusted(12, 10, -12, -10);
+  const QRectF footer = playlistFooter(trackInner);
+  const QRectF deckInner = playlistDeckInner(footer);
   const QFont totalLabel = condensedFont(11, 0.2);
   const QFont totalValue = monoFont(18);
   const qreal totalW = playlistStripTotalWidth(textWidth(totalLabel, QStringLiteral("TOTAL")),
@@ -713,16 +711,18 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
       drawMenuCaret(p, r);
     }
   };
-  paintBtn(strip.save, MockupIcon::save, K::plSave, false, 21, false, view.playlistAltered);
-  paintBtn(strip.add, MockupIcon::add, K::plAdd, false, 21);
-  paintBtn(strip.remove, MockupIcon::remove, K::plRemove, false, 21);
+  const qreal toolIcon = strip.save.width() >= kPlaylistStripBtn ? 21 : 16;
+  const qreal transportIcon = strip.save.width() >= kPlaylistStripBtn ? 18 : 16;
+  paintBtn(strip.save, MockupIcon::save, K::plSave, false, toolIcon, false, view.playlistAltered);
+  paintBtn(strip.add, MockupIcon::add, K::plAdd, false, toolIcon);
+  paintBtn(strip.remove, MockupIcon::remove, K::plRemove, false, toolIcon);
   drawFooterSep(p, strip.sep);
-  paintBtn(strip.sort, MockupIcon::sort, K::plSort, true, 21);
-  paintBtn(strip.options, MockupIcon::options, K::plOptions, true, 21);
-  paintBtn(strip.prev, MockupIcon::previous, K::plPrev, false, 18);
-  paintBtn(strip.play, view.playing ? MockupIcon::pause : MockupIcon::play, K::plPlay, false, 18,
-           view.playing);
-  paintBtn(strip.next, MockupIcon::next, K::plNext, false, 18);
+  paintBtn(strip.sort, MockupIcon::sort, K::plSort, true, toolIcon);
+  paintBtn(strip.options, MockupIcon::options, K::plOptions, true, toolIcon);
+  paintBtn(strip.prev, MockupIcon::previous, K::plPrev, false, transportIcon);
+  paintBtn(strip.play, view.playing ? MockupIcon::pause : MockupIcon::play, K::plPlay, false,
+           transportIcon, view.playing);
+  paintBtn(strip.next, MockupIcon::next, K::plNext, false, transportIcon);
   drawScreenWell(p, strip.total);
   p.setFont(totalLabel);
   p.setPen(T().phosDim);

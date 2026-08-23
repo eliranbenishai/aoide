@@ -517,14 +517,23 @@ inline constexpr qreal kPlaylistScrollGap = 10;
 inline constexpr qreal kPlaylistFooterH = 110;
 inline constexpr qreal kPlaylistFooterGap = 10;
 inline constexpr qreal kPlaylistPanePad = 12;
+inline constexpr qreal kPlaylistDeckH = 74;
+inline constexpr qreal kPlaylistDeckPadX = 12;
+inline constexpr qreal kPlaylistDeckPadY = 10;
 inline constexpr qreal kPlaylistStripGap = 8;
 inline constexpr qreal kPlaylistStripBtn = 52;
 inline constexpr qreal kPlaylistStripBtnH = 52;
+/// Same face as the main player's gutter buttons (Options / Skins / Track info).
+inline constexpr qreal kPlaylistStripBtnCompact = kMainOptionsSize;
 inline constexpr qreal kPlaylistStripTotalH = 34;
 inline constexpr qreal kPlaylistStripRefresh = 34;
 inline constexpr qreal kPlaylistStripSepExtra = 6;
 inline constexpr qreal kPlaylistStripSepW = 1;
 inline constexpr qreal kPlaylistStripSepAfter = 14;
+inline constexpr qreal kPlaylistStripSepH = 40;
+inline constexpr qreal kPlaylistStripSepInset = 6;
+/// TOTAL well the compiled [kPlaylistMin] constants budget for.
+inline constexpr qreal kPlaylistStripTotalReserve = 180;
 
 struct PlaylistStripLayout {
   QRectF save;
@@ -545,16 +554,52 @@ inline qreal playlistStripTotalWidth(qreal labelW, qreal valueW) {
   return 18 + labelW + 12 + valueW + 18;
 }
 
+inline QRectF playlistFooter(const QRectF& trackInner) {
+  return QRectF(trackInner.left(), trackInner.bottom() - kPlaylistFooterH, trackInner.width(),
+                kPlaylistFooterH);
+}
+
+inline QRectF playlistDeckInner(const QRectF& footer) {
+  return QRectF(footer.left(), footer.top(), footer.width(), kPlaylistDeckH)
+      .adjusted(kPlaylistDeckPadX, kPlaylistDeckPadY, -kPlaylistDeckPadX, -kPlaylistDeckPadY);
+}
+
+/// Save / Add / Rem + sep + Sort / Options, packed from the left.
+inline qreal playlistStripLeftClusterWidth(qreal btn) {
+  return btn * 5 + kPlaylistStripGap * 4 + kPlaylistStripSepExtra + kPlaylistStripSepW +
+         kPlaylistStripSepAfter;
+}
+
+/// Prev / Play / Next + TOTAL + Refresh, packed from the right.
+inline qreal playlistStripRightClusterWidth(qreal btn, qreal totalW) {
+  return btn * 3 + kPlaylistStripGap * 2 + kPlaylistStripGap + totalW + kPlaylistStripGap +
+         kPlaylistStripRefresh;
+}
+
+/// Narrowest deck that keeps [btn] faces a [kPlaylistStripGap] apart.
+inline qreal playlistStripMinWidth(qreal btn, qreal totalW) {
+  return playlistStripLeftClusterWidth(btn) + kPlaylistStripGap +
+         playlistStripRightClusterWidth(btn, totalW);
+}
+
+/// Large faces while they still fit; the player's 26px gutter face after that.
+inline qreal playlistStripButtonSize(qreal deckInnerW, qreal totalW) {
+  return deckInnerW >= playlistStripMinWidth(kPlaylistStripBtn, totalW) ? kPlaylistStripBtn
+                                                                       : kPlaylistStripBtnCompact;
+}
+
 /// Playlist Manager button row under the track list. Save sits on the left
 /// edge; Refresh sits on the right; TOTAL sits to its left; the transport
 /// cluster is packed from the right against TOTAL, with [kPlaylistStripGap]
-/// between Next and TOTAL (mockup `.pl-strip` flex gap).
+/// between Next and TOTAL (mockup `.pl-strip` flex gap). Faces drop to
+/// [kPlaylistStripBtnCompact] when the large ones would close that gap.
 inline PlaylistStripLayout layoutPlaylistStrip(const QRectF& deckInner, qreal totalW) {
   PlaylistStripLayout out;
-  const qreal y = deckInner.top();
-  const qreal w = kPlaylistStripBtn;
-  const qreal h = kPlaylistStripBtnH;
+  const qreal w = playlistStripButtonSize(deckInner.width(), totalW);
+  const qreal h = w;
   const qreal gap = kPlaylistStripGap;
+  const qreal slotY = deckInner.top();
+  const qreal y = slotY + (kPlaylistStripBtnH - h) / 2;
   qreal x = deckInner.left();
   auto place = [&](QRectF& r) {
     r = QRectF(x, y, w, h);
@@ -564,15 +609,17 @@ inline PlaylistStripLayout layoutPlaylistStrip(const QRectF& deckInner, qreal to
   place(out.add);
   place(out.remove);
   x += kPlaylistStripSepExtra;
-  out.sep = QRectF(x, y + 6, kPlaylistStripSepW, 40);
+  const qreal sepScale = h / kPlaylistStripBtnH;
+  out.sep = QRectF(x, y + kPlaylistStripSepInset * sepScale, kPlaylistStripSepW,
+                   kPlaylistStripSepH * sepScale);
   x += kPlaylistStripSepW + kPlaylistStripSepAfter;
   place(out.sort);
   place(out.options);
 
   const qreal refreshW = kPlaylistStripRefresh;
   const qreal refreshH = kPlaylistStripTotalH;
-  out.refresh =
-      QRectF(deckInner.right() - refreshW, y + (h - refreshH) / 2, refreshW, refreshH);
+  out.refresh = QRectF(deckInner.right() - refreshW, slotY + (kPlaylistStripBtnH - refreshH) / 2,
+                       refreshW, refreshH);
   const qreal totalLeft = out.refresh.left() - gap - totalW;
   const qreal cluster = w * 3 + gap * 2;
   const qreal nextRight = totalLeft - gap;
@@ -580,7 +627,8 @@ inline PlaylistStripLayout layoutPlaylistStrip(const QRectF& deckInner, qreal to
   out.prev = QRectF(prevLeft, y, w, h);
   out.play = QRectF(prevLeft + w + gap, y, w, h);
   out.next = QRectF(prevLeft + 2 * (w + gap), y, w, h);
-  out.total = QRectF(totalLeft, y + (h - kPlaylistStripTotalH) / 2, totalW, kPlaylistStripTotalH);
+  out.total = QRectF(totalLeft, slotY + (kPlaylistStripBtnH - kPlaylistStripTotalH) / 2, totalW,
+                     kPlaylistStripTotalH);
   return out;
 }
 
@@ -673,10 +721,20 @@ inline QRectF playlistReopenTab(const QRectF& body) {
 /// The track pane takes what the collection leaves. Collapsed, the collection
 /// is down to its reopen tab and keeps that tab's column — the tracks running
 /// underneath it is what cost the first rows their left edge.
+inline qreal playlistChromeGutter(qreal collectionW) {
+  return collectionW > 0 ? collectionW + kPlaylistDividerW : kPlaylistReopenColumn;
+}
+
 inline QRectF playlistTracksPane(const QRectF& body, qreal collectionW) {
-  const qreal gutter =
-      collectionW > 0 ? collectionW + kPlaylistDividerW : kPlaylistReopenColumn;
+  const qreal gutter = playlistChromeGutter(collectionW);
   return QRectF(body.left() + gutter, body.top(), body.width() - gutter, body.height());
+}
+
+/// Narrowest logical playlist that still keeps compact strip faces a gap apart.
+inline QSize playlistMinLogical(qreal collectionW, qreal totalW) {
+  const qreal w = playlistStripMinWidth(kPlaylistStripBtnCompact, totalW) +
+                  playlistChromeGutter(collectionW) + 2 * kPlaylistPanePad + 2 * kPlaylistDeckPadX;
+  return QSize(int(std::ceil(w)), kPlaylistMin.height());
 }
 
 inline constexpr qreal kPlaylistCollectionPadL = 12;

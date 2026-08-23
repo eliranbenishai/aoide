@@ -33,6 +33,8 @@ class ChromeSpecTest : public QObject {
   void playlistStripKeepsGapBeforeLengthWell();
   void playlistStripRefreshSitsRightOfTotal();
   void playlistStripSaveSitsLeftOfAdd();
+  void playlistStripShrinksToThePlayerGutterOnceLargeButtonsWouldOverlap();
+  void playlistMinWidthIsWhereTheCompactStripWouldOverlap();
   void longPlaylistNameGivesWayBeforeTheFooterStripDoes();
   void buttonPhaseTakesTheWholeTransitionWhateverTheFrameRate();
   void inertPhaseStoreLeavesPaintersOnPlainSessionState();
@@ -344,6 +346,47 @@ void ChromeSpecTest::playlistStripSaveSitsLeftOfAdd() {
   QCOMPARE(strip.add.left() - strip.save.right(), tramp::kPlaylistStripGap);
   QVERIFY(!strip.save.intersects(strip.add));
   QVERIFY(!strip.options.intersects(strip.prev));
+}
+
+void ChromeSpecTest::playlistStripShrinksToThePlayerGutterOnceLargeButtonsWouldOverlap() {
+  const qreal totalW = 140;
+  // 5 tool faces + 4 gaps + sep run + cluster gap + 3 transport + 2 gaps + TOTAL + Refresh.
+  const qreal largeNeed = 5 * 52 + 4 * 8 + 6 + 1 + 14 + 8 + 3 * 52 + 2 * 8 + 8 + totalW + 8 + 34;
+
+  const auto wide = tramp::layoutPlaylistStrip(QRectF(0, 0, largeNeed, 54), totalW);
+  QCOMPARE(wide.save.width(), 52.0);
+  QCOMPARE(wide.save.height(), 52.0);
+  QCOMPARE(wide.prev.left() - wide.options.right(), tramp::kPlaylistStripGap);
+
+  const auto squeezed = tramp::layoutPlaylistStrip(QRectF(0, 0, largeNeed - 1, 54), totalW);
+  QCOMPARE(squeezed.save.width(), tramp::kMainOptionsSize);
+  QCOMPARE(squeezed.save.height(), tramp::kMainOptionsSize);
+  QCOMPARE(squeezed.prev.width(), tramp::kMainOptionsSize);
+  QVERIFY(!squeezed.options.intersects(squeezed.prev));
+  QVERIFY(squeezed.prev.left() - squeezed.options.right() >= tramp::kPlaylistStripGap);
+}
+
+void ChromeSpecTest::playlistMinWidthIsWhereTheCompactStripWouldOverlap() {
+  const qreal totalW = 140;
+  const QSize min = tramp::playlistMinLogical(0, totalW);
+  const QRectF body = tramp::panelBody(min);
+  const QRectF deck = tramp::playlistDeckInner(
+      tramp::playlistFooter(tramp::playlistTrackInner(tramp::playlistTracksPane(body, 0))));
+  const auto strip = tramp::layoutPlaylistStrip(deck, totalW);
+  QCOMPARE(strip.save.width(), tramp::kMainOptionsSize);
+  QCOMPARE(strip.prev.left() - strip.options.right(), tramp::kPlaylistStripGap);
+  QVERIFY(!strip.options.intersects(strip.prev));
+
+  const QSize under(min.width() - 1, min.height());
+  const QRectF underDeck = tramp::playlistDeckInner(tramp::playlistFooter(
+      tramp::playlistTrackInner(tramp::playlistTracksPane(tramp::panelBody(under), 0))));
+  const auto tight = tramp::layoutPlaylistStrip(underDeck, totalW);
+  QVERIFY(tight.prev.left() - tight.options.right() < tramp::kPlaylistStripGap);
+
+  QCOMPARE(tramp::kPlaylistMin, tramp::playlistMinLogical(0, tramp::kPlaylistStripTotalReserve));
+  QCOMPARE(tramp::kPlaylistMinWithCollection,
+           tramp::playlistMinLogical(tramp::kPlaylistCollectionMinWidth,
+                                     tramp::kPlaylistStripTotalReserve));
 }
 
 // The footer's status run flowed from the left at its measured width with
