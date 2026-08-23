@@ -22,6 +22,10 @@ env:
   #
   # build.sh deliberately does not pin: it uses whatever Qt the developer has and
   # prints it, so a local-vs-release difference is visible rather than silent.
+  #
+  # Linux aqt archives are qtbase + qtwayland + icu. qtwayland is a base
+  # archive (the client QPA plugin), not a module — the only Wayland *module*
+  # is qtwaylandcompositor, which we do not ship.
   QT_VERSION: "6.8.3"
   QT_RUNTIME: "6.8"
 
@@ -44,8 +48,7 @@ jobs:
         with:
           version: ${{ env.QT_VERSION }}
           cache: true
-          archives: qtbase
-          modules: qtwayland
+          archives: qtbase qtwayland icu
       - name: Tag matches VERSION
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
@@ -153,8 +156,7 @@ jobs:
         with:
           version: ${{ env.QT_VERSION }}
           cache: true
-          archives: qtbase
-          modules: qtwayland
+          archives: qtbase qtwayland icu
       - name: Stage full libmpv into the tree
         run: |
           chmod +x tool/*.sh packaging/linux/*.sh
@@ -226,8 +228,7 @@ jobs:
         with:
           version: ${{ env.QT_VERSION }}
           cache: true
-          archives: qtbase
-          modules: qtwayland
+          archives: qtbase qtwayland icu
       - name: Configure and build
         run: |
           chmod +x tool/*.sh packaging/linux/*.sh

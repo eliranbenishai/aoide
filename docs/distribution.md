@@ -32,6 +32,11 @@ say `6.8` and the rest follows.
 
 Linux installs that Qt through `install-qt-action` rather than apt: the runner's
 `qt6-base-dev` is 6.4.2 and does not have `QEvent::DevicePixelRatioChange`.
+The install is the official desktop base sliced to `qtbase`, `qtwayland`, and
+`icu`. `qtwayland` is a base *archive* (the client QPA plugin the AppImage
+stages); it is not an aqt module. The module of that name does not exist on
+6.8.3 — `qtwaylandcompositor` does, and that is a compositor SDK, not the
+plugin. `icu` is the bundled ICU the official Linux `qtbase` links against.
 
 [`build.sh`](../build.sh) is deliberately **not** pinned. It uses whatever Qt the
 developer has — Homebrew's, currently newer — and prints the version it used, so

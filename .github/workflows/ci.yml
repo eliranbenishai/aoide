@@ -46,8 +46,10 @@ jobs:
         with:
           version: ${{ env.QT_VERSION }}
           cache: true
-          archives: qtbase
-          modules: qtwayland
+          # Base archives, not modules: 6.8.3 has no qtwayland module (the
+          # addon is qtwaylandcompositor). qtwayland is the client QPA plugin;
+          # icu is what official Linux Qt links against.
+          archives: qtbase qtwayland icu
 
       - name: Qt (Windows)
         if: runner.os == 'Windows'
