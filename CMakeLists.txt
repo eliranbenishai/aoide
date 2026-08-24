@@ -451,6 +451,11 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/skins" DESTINATION .)
 if(UNIX AND NOT APPLE)
   install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/packaging/linux/com.proximamagnifica.tramp.desktop"
     DESTINATION share/applications)
+  # The name and summary every Linux installer shows. A .desktop file's Name= does
+  # not reach flatpak, GNOME Software or Discover; this is the file they read, and
+  # without it they fall back to printing the app ID.
+  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/packaging/linux/com.proximamagnifica.tramp.metainfo.xml"
+    DESTINATION share/metainfo)
   install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/packaging/linux/icons/hicolor"
     DESTINATION share/icons)
   file(GLOB TRAMP_LINUX_MPV "${TRAMP_MPV_ROOT}/linux/x86_64/libmpv.so*")

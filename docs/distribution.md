@@ -40,6 +40,42 @@ job and a release short one platform. Assembling runs on **every** release run,
 not only on a tag, so the download and the completeness check are exercised by
 **Run workflow** rather than first attempted during a real release.
 
+## Desktop metadata
+
+Three files describe the app to a Linux desktop, all under `packaging/linux/`
+and all installed by `CMakeLists.txt`, which makes `cmake --install` — and so
+`stage_bundle.sh` — the single place that decides what ships. The tarball, the
+AppImage and the Flatpak therefore carry the same metadata without three lists
+agreeing to.
+
+| File | Installs to | Supplies |
+|---|---|---|
+| `com.proximamagnifica.tramp.desktop` | `share/applications` | Launcher entry, `MimeType=` associations, `Exec=tramp %F` |
+| `com.proximamagnifica.tramp.metainfo.xml` | `share/metainfo` | The **name**, summary and description an installer shows |
+| `icons/hicolor/*/apps/com.proximamagnifica.tramp.png` | `share/icons` | Eight sizes, 16 through 512 |
+
+The metainfo file is not optional decoration. A `.desktop` file's `Name=` never
+reaches `flatpak`, GNOME Software or KDE Discover; AppStream data is what they
+read, and without it they fall back to printing the app ID — so the app
+installed as `com.proximamagnifica.tramp` rather than `Tramp`. Nothing in the
+build said so: `flatpak-builder` only composes AppStream data when it finds
+`/app/share/metainfo/<app-id>.metainfo.xml`, and when it does not it skips the
+step silently, after which `flatpak build-bundle` embeds neither the name nor
+the icon. The Flatpak manifest copies `share/` **whole** for the same reason —
+it used to name `share/applications` and `share/icons` one by one, which is how
+`share/metainfo` came to be dropped without an error.
+
+Two gates hold it: `tool/check-metainfo.sh` runs `appstreamcli validate` and
+checks the newest `<release>` against `VERSION` (in `ci.yml` and in the release
+`test` job that fronts every packaging job), and the Flatpak smoke test asserts
+that the *installed* app's name is `Tramp`. The validation runs `--no-net`, so a
+moved screenshot host cannot fail a build over an input that is not in the repo.
+
+`--socket=pulseaudio` in the manifest is why installers warn about microphone
+access. Flatpak has exactly one audio permission and it covers capture and
+playback together, so there is nothing to narrow; every music player on Flathub
+carries it. Tramp has no recording path.
+
 ## Qt version
 
 The [`QT_VERSION`](../QT_VERSION) file is the authority: one official desktop

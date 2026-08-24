@@ -29,14 +29,21 @@ modules:
           'exec /app/tramp/tramp "$@"' > /app/bin/tramp
       - chmod +x /app/bin/tramp
       - |
-        if [ -d share/applications ]; then
-          install -d /app/share/applications
-          cp -a share/applications/. /app/share/applications/
-          sed -i 's|^Exec=.*|Exec=tramp %F|' /app/share/applications/com.proximamagnifica.tramp.desktop || true
+        # The whole tree, not a list of subdirectories. CMake decides what ships,
+        # and a manifest that enumerates share/ silently drops whatever is added
+        # next -- which is how share/metainfo went missing, leaving flatpak with no
+        # name to show and the app installing as com.proximamagnifica.tramp.
+        # flatpak-builder only composes AppStream data from /app/share/metainfo, so
+        # the depth matters as much as the presence.
+        if [ -d share ]; then
+          install -d /app/share
+          cp -a share/. /app/share/
         fi
-        if [ -d share/icons ]; then
-          install -d /app/share/icons
-          cp -a share/icons/. /app/share/icons/
+        # Exec must name the /app/bin wrapper, whatever the shared desktop file says
+        # for the tarball and the AppImage.
+        if [ -f /app/share/applications/com.proximamagnifica.tramp.desktop ]; then
+          sed -i 's|^Exec=.*|Exec=tramp %F|' \
+            /app/share/applications/com.proximamagnifica.tramp.desktop
         fi
     sources:
       # Staged by packaging/linux/make_flatpak.sh with stage_bundle.sh --no-qt,

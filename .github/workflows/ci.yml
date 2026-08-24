@@ -34,11 +34,15 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build g++ pkg-config \
+            cmake ninja-build g++ pkg-config appstream \
             libgl1-mesa-dev libx11-dev libmpv-dev \
             libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
             libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xkb1 \
             libxkbcommon-x11-0 libwayland-client0 libwayland-cursor0 libwayland-egl1
+
+      - name: AppStream metainfo (Linux)
+        if: runner.os == 'Linux'
+        run: bash tool/check-metainfo.sh
 
       - name: Qt (Linux)
         if: runner.os == 'Linux'

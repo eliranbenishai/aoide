@@ -47,6 +47,8 @@ One Qt for everything that ships **and** for the local tree — the `QT_VERSION`
 
 The Flatpak is the exception, and it is the same script with `--no-qt` into its own staging path: it runs on `org.kde.Platform`, whose job is to provide Qt, so a bundled Qt would be dead weight that can shadow the runtime's. The switch lives in `stage_bundle.sh` because that script is the only thing in the repo that knows what the Qt deployment consists of — a second list somewhere else is how the two start disagreeing. libmpv and its closure still travel, because full libmpv is not something a runtime supplies.
 
+What the **desktop** sees of the app — launcher entry, icons, and the AppStream metainfo that supplies its *name* — is `install()` rules in `CMakeLists.txt`, so `cmake --install` inside `stage_bundle.sh` carries it into all three Linux artifacts and no packaging script keeps its own list. The metainfo is load-bearing rather than cosmetic: `.desktop` `Name=` is invisible to `flatpak` and the software centres, and its absence is silent, so `tool/check-metainfo.sh` validates it and the Flatpak smoke test asserts the installed name. Details in [`distribution.md`](distribution.md).
+
 ## System
 
 ```mermaid

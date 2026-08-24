@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The display name every Linux installer shows. Without this file flatpak,
+     GNOME Software and Discover have no name to read and fall back to the app
+     ID, so the app installs as "com.proximamagnifica.tramp". -->
+<component type="desktop-application">
+  <id>com.proximamagnifica.tramp</id>
+
+  <name>Tramp</name>
+  <summary>Play your local music files</summary>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <developer id="com.proximamagnifica">
+    <name>Proxima Magnifica</name>
+  </developer>
+
+  <description>
+    <p>
+      Tramp is a music player for the files you already have. Open tracks and
+      playlists from the file picker, drop them on the window, or hand them over
+      from a file manager. There is no library to import and no account to make.
+    </p>
+    <p>
+      The playlist is the whole model: add, remove and reorder tracks, save them
+      as M3U or M3U8, and pick up where you left off next time. Transport chrome
+      shows the tags a file carries, a twenty-bar spectrum analyser follows what
+      is playing, and a ten-band equaliser with presets sits beside it.
+    </p>
+    <p>
+      The window is Tramp's own, painted rather than themed, and it comes with
+      several skins.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">com.proximamagnifica.tramp.desktop</launchable>
+
+  <!-- Empty means checked and nothing to declare, which is not the same as absent. -->
+  <content_rating type="oars-1.1" />
+
+  <url type="homepage">https://tramp.music</url>
+
+  <!-- Newest first: out-of-order entries fail validation. tool/version.sh and the
+       release workflow check the top version against the VERSION file. -->
+  <releases>
+    <release version="0.1.0" date="2026-08-24">
+      <description>
+        <p>First release.</p>
+      </description>
+    </release>
+  </releases>
+</component>
