@@ -64,6 +64,29 @@ void require(bool cond, const char* file, int line, const char* expr) {
     }                                                                                    \
   } while (0)
 
+/// Unix can replace a read-only file if the directory is writable, so the
+/// refuse has to be on the directory. Windows ignores those directory bits;
+/// FILE_ATTRIBUTE_READONLY on the target is what QSaveFile cannot replace.
+bool refuseStoreWrites(const QString& dir, const QString& fileName) {
+#ifdef Q_OS_WIN
+  return QFile::setPermissions(QDir(dir).filePath(fileName), QFileDevice::ReadOwner);
+#else
+  Q_UNUSED(fileName);
+  return QFile::setPermissions(dir, QFileDevice::ReadOwner | QFileDevice::ExeOwner);
+#endif
+}
+
+bool allowStoreWrites(const QString& dir, const QString& fileName) {
+#ifdef Q_OS_WIN
+  return QFile::setPermissions(QDir(dir).filePath(fileName),
+                               QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+#else
+  Q_UNUSED(fileName);
+  return QFile::setPermissions(
+      dir, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+#endif
+}
+
 }  // namespace
 
 using tramp::AudioLevels;
@@ -864,8 +887,10 @@ int main() {
   }
 
   {
+    // Leading '/' is absolute on both OS, but Windows drive-qualifies it
+    // (D:/music/...). cleanPath does not; normalizePlaylistPath does.
     REQUIRE_EQ(tramp::collectionHighlightPath(QStringLiteral("/music/set.m3u"), QString()),
-               QDir::cleanPath(QStringLiteral("/music/set.m3u")));
+               tramp::normalizePlaylistPath(QStringLiteral("/music/set.m3u")));
     REQUIRE_EQ(tramp::collectionHighlightPath(QString(), QStringLiteral("/music/other.m3u")),
                QStringLiteral("/music/other.m3u"));
     REQUIRE_EQ(tramp::collectionHighlightPath(QString(), QString()), QString());
@@ -1124,13 +1149,12 @@ int main() {
     REQUIRE_EQ(store.readSettings().zoomPercent, 150);
     REQUIRE(!QFile::exists(tmp.filePath(QStringLiteral("settings.json.tmp"))));
 
-    // An unwritable directory must fail loudly and leave the old file intact.
-    REQUIRE(QFile::setPermissions(tmp.path(), QFile::ReadOwner | QFile::ExeOwner));
+    // A refused write must fail loudly and leave the old file intact.
+    REQUIRE(refuseStoreWrites(tmp.path(), QStringLiteral("settings.json")));
     tramp::TrampSettings second;
     second.zoomPercent = 50;
     const bool wrote = store.writeSettings(second);
-    REQUIRE(QFile::setPermissions(
-        tmp.path(), QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+    REQUIRE(allowStoreWrites(tmp.path(), QStringLiteral("settings.json")));
     REQUIRE(!wrote);
     REQUIRE_EQ(store.readSettings().zoomPercent, 150);
   }
@@ -1149,10 +1173,9 @@ int main() {
     tramp::writeSessionPersist(store, health, settings, resume, usage, {}, nullptr);
     REQUIRE(!health.anyFailed());
 
-    REQUIRE(QFile::setPermissions(tmp.path(), QFile::ReadOwner | QFile::ExeOwner));
+    REQUIRE(refuseStoreWrites(tmp.path(), QStringLiteral("settings.json")));
     tramp::writeSessionPersist(store, health, settings, resume, usage, {}, nullptr);
-    REQUIRE(QFile::setPermissions(
-        tmp.path(), QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+    REQUIRE(allowStoreWrites(tmp.path(), QStringLiteral("settings.json")));
     REQUIRE(health.anyFailed());
 
     tramp::writeSessionPersist(store, health, settings, resume, usage, {}, nullptr);
