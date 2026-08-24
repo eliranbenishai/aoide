@@ -13,6 +13,12 @@ finish-args:
   - --socket=fallback-x11
   - --socket=wayland
   - --talk-name=org.kde.KWin
+  # Always-on-top is a KWin script, and KWin opens it by path from its own
+  # process. The sandbox's $XDG_RUNTIME_DIR is a private mount the host cannot
+  # see, so the file has to live in a directory shared at one absolute path on
+  # both sides; this shares that one directory and nothing else. Without it
+  # loadScript succeeds on a path KWin cannot read and the window never rises.
+  - --filesystem=xdg-run/tramp:create
   - --socket=pulseaudio
   - --device=dri
   - --filesystem=host

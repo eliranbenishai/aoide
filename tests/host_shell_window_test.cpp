@@ -2,6 +2,7 @@
 #include "host_shell.h"
 #include "host_shell_window.h"
 
+#include <QFileInfo>
 #include <QIcon>
 #include <QImage>
 #include <QPixmap>
@@ -24,6 +25,7 @@ class HostShellWindowTest : public QObject {
   void punchFollowsEveryPlacementWhileMapped();
   void alwaysOnTopSetsWindowStaysOnTopHint();
   void kwinKeepAboveScriptNamesTheHost();
+  void kwinKeepAboveScriptLivesInASharedSubdirectory();
 };
 
 void HostShellWindowTest::shellIsFramelessToplevelNotTool() {
@@ -233,6 +235,20 @@ void HostShellWindowTest::kwinKeepAboveScriptNamesTheHost() {
   const QString off = tramp::kwinKeepAboveScript(1, QStringLiteral("Tramp"),
                                                 QStringLiteral("com.proximamagnifica.tramp"), false);
   QVERIFY(off.contains(QStringLiteral("const want = false")));
+}
+
+void HostShellWindowTest::kwinKeepAboveScriptLivesInASharedSubdirectory() {
+  const QString path = tramp::kwinKeepAboveScriptPath(QStringLiteral("/run/user/1000"));
+  // Not the runtime root. KWin opens this path from its own process, and a
+  // Flatpak's $XDG_RUNTIME_DIR is a private mount the host cannot see, so a file
+  // at the root is unreadable to the reader while looking correct to the writer
+  // — loadScript still returns success. The subdirectory is what
+  // --filesystem=xdg-run/tramp:create shares at one path on both sides, so the
+  // manifest entry and this prefix have to keep agreeing.
+  QCOMPARE(path, QStringLiteral("/run/user/1000/tramp/keep-above.js"));
+  QVERIFY2(QFileInfo(path).path() != QStringLiteral("/run/user/1000"),
+           "a script in the runtime root is invisible to KWin under Flatpak");
+  QVERIFY(tramp::kwinKeepAboveScriptPath(QString()).isEmpty());
 }
 
 QTEST_MAIN(HostShellWindowTest)

@@ -101,6 +101,25 @@ access. Flatpak has exactly one audio permission and it covers capture and
 playback together, so there is nothing to narrow; every music player on Flathub
 carries it. Tramp has no recording path.
 
+`--filesystem=host` is the permission actually worth removing — it is what rates
+the app *potentially unsafe*, where the microphone row is only *probably safe*.
+It stays for now because drag-and-drop needs it: Qt has never implemented the
+receiving half of the FileTransfer portal ([QTBUG-91357][qtbug]), so a dropped
+file arrives as a bare host path. Portal *picks* are fine — those are registered
+persistently and directories are exported too — so the blocker is drops, plus
+migrating the absolute paths already in the state files.
+
+[qtbug]: https://bugreports.qt.io/browse/QTBUG-91357
+
+`--filesystem=xdg-run/tramp:create` exists for one file: the KWin script behind
+always-on-top. KWin opens it by path from its own process, and a sandbox's
+`$XDG_RUNTIME_DIR` is a private mount the host cannot see, so the script has to
+live in a directory shared at the same absolute path on both sides. This shares
+that one directory. It was found by reproducing the failure against a live KWin
+from inside a sandbox: without it, `loadScript` returns a valid id and `run()`
+answers `org.kde.kwin.Scripting.FileError: Could not open …`; with it, `run()`
+returns cleanly.
+
 ## Qt version
 
 The [`QT_VERSION`](../QT_VERSION) file is the authority: one official desktop

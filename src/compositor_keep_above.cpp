@@ -1,5 +1,6 @@
 #include "compositor_keep_above.h"
 
+#include <QDir>
 #include <QGuiApplication>
 #include <QWindow>
 
@@ -7,10 +8,11 @@
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusInterface>
+#include <QDBusMessage>
 #include <QDBusReply>
 #include <QCoreApplication>
-#include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QStandardPaths>
 #endif
 
@@ -38,8 +40,8 @@ void applyKWinKeepAbove(QWindow* window, bool on) {
   if (!iface || !iface->isServiceRegistered(QStringLiteral("org.kde.KWin"))) return;
 
   const QString runtime = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation);
-  if (runtime.isEmpty() || !QDir().mkpath(runtime)) return;
-  const QString path = runtime + QStringLiteral("/tramp-keep-above.js");
+  const QString path = kwinKeepAboveScriptPath(runtime);
+  if (path.isEmpty() || !QDir().mkpath(QFileInfo(path).path())) return;
   QFile file(path);
   if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) return;
   const QString caption = window && !window->title().isEmpty() ? window->title() : QStringLiteral("Tramp");
@@ -58,7 +60,15 @@ void applyKWinKeepAbove(QWindow* window, bool on) {
                         QStringLiteral("/Scripting/Script%1").arg(id.value()),
                         QStringLiteral("org.kde.kwin.Script"), bus);
   if (script.isValid()) {
-    script.call(QStringLiteral("run"));
+    // loadScript above allocates an id without opening the file, so it returns
+    // success for a path KWin cannot read. This reply is the only place that
+    // surfaces, and discarding it is what let the Flatpak write to a private
+    // runtime dir and believe the window had been raised.
+    const QDBusMessage ran = script.call(QStringLiteral("run"));
+    if (ran.type() == QDBusMessage::ErrorMessage) {
+      qWarning("keep-above: KWin refused %s: %s", qUtf8Printable(path),
+               qUtf8Printable(ran.errorMessage()));
+    }
   } else {
     scripting.call(QStringLiteral("start"));
   }
@@ -67,6 +77,17 @@ void applyKWinKeepAbove(QWindow* window, bool on) {
 #endif
 
 }  // namespace
+
+QString kwinKeepAboveScriptPath(const QString& runtimeDir) {
+  if (runtimeDir.isEmpty()) return {};
+  // The subdirectory is the whole point, not tidiness. KWin opens this path in
+  // its own process; a Flatpak's $XDG_RUNTIME_DIR is a private mount, so a file
+  // written at its root is invisible to the host and loadScript fails on a path
+  // that looks right. `--filesystem=xdg-run/tramp:create` shares this directory
+  // at one absolute path on both sides, so the file KWin reads is the file the
+  // app just wrote.
+  return QDir(runtimeDir).filePath(QStringLiteral("tramp/keep-above.js"));
+}
 
 QString kwinKeepAboveScript(qint64 pid, QStringView caption, QStringView desktopFile, bool on) {
   return QStringLiteral(
