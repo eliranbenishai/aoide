@@ -101,13 +101,27 @@ access. Flatpak has exactly one audio permission and it covers capture and
 playback together, so there is nothing to narrow; every music player on Flathub
 carries it. Tramp has no recording path.
 
-`--filesystem=host` is the permission actually worth removing — it is what rates
-the app *potentially unsafe*, where the microphone row is only *probably safe*.
-It stays for now because drag-and-drop needs it: Qt has never implemented the
-receiving half of the FileTransfer portal ([QTBUG-91357][qtbug]), so a dropped
-file arrives as a bare host path. Portal *picks* are fine — those are registered
-persistently and directories are exported too — so the blocker is drops, plus
-migrating the absolute paths already in the state files.
+`--filesystem=host` **stays**, decided rather than deferred. It is what rates the
+app *potentially unsafe*, where the microphone row is only *probably safe*, so
+the temptation to narrow it is real — but the label is the whole of what removing
+it buys, and the cost is reach.
+
+Narrowing means naming directories, and every path outside them becomes a dead
+row until the user re-grants it through a picker. `xdg-music` is not where music
+actually is: a download sits in `~/Downloads`, a collection often sits on an
+external drive under `/run/media`. Tramp opens the files you already have, which
+is the whole premise, so a permission that assumes they are filed tidily is the
+wrong trade.
+
+Drops are the part that *could* be fixed and is not the reason: Qt has never
+implemented the receiving half of the FileTransfer portal ([QTBUG-91357][qtbug]),
+so a dropped file arrives as a bare host path, and the D-Bus `RetrieveFiles` call
+would have to be written by hand. Portal *picks* need nothing — they are
+registered persistently and directories are exported too.
+
+Revisit if Flathub starts gating on the rating, or if Qt ships the drop half. The
+export fix below stands either way: it is a prerequisite for narrowing, not
+something narrowing would undo.
 
 [qtbug]: https://bugreports.qt.io/browse/QTBUG-91357
 
