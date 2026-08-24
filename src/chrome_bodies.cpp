@@ -503,14 +503,21 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
 /// the sentence reads as chrome, not as a phosphor track. The heading is
 /// fitted to the box: at the collection min width several skin faces
 /// (Shield's Oswald, Thunder's Cinzel) overshoot and [QPainter::drawText]
-/// clips both sides of the locked copy.
-void paintEmptyWellCopy(QPainter& p, const QRectF& well, const EmptyWellCopy& copy) {
-  const QFont body = condensedFont(11, 0.08);
+/// clips both sides of the locked copy. Collection body can ask for a larger
+/// face — it is a paragraph in a narrow well, not a one-line hint.
+void paintEmptyWellCopy(QPainter& p, const QRectF& well, const EmptyWellCopy& copy,
+                        int bodyPx = 11) {
+  const QFont body = condensedFont(bodyPx, 0.08);
   const qreal pad = kPlaylistEmptyWellPad;
   const qreal headH = 20;
-  const qreal bodyH = 40;
-  const qreal top = well.center().y() - (headH + bodyH) / 2;
+  const qreal designedBodyH = 40;
+  const qreal top = well.center().y() - (headH + designedBodyH) / 2;
   const QRectF headBox(well.left() + pad, top, well.width() - 2 * pad, headH);
+  const qreal bodyMaxH = qMax(designedBodyH, well.bottom() - pad - (top + headH));
+  const QRectF wrapped =
+      QFontMetricsF(body).boundingRect(QRectF(0, 0, headBox.width(), bodyMaxH),
+                                       Qt::TextWordWrap, copy.body);
+  const qreal bodyH = qBound(designedBodyH, std::ceil(wrapped.height()) + 4, bodyMaxH);
   const QRectF bodyBox(well.left() + pad, top + headH, well.width() - 2 * pad, bodyH);
   QFont head = condensedFont(12, 0.18);
   fitFontToWidth(head, copy.heading, headBox.width());
@@ -562,7 +569,7 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   colClip.addRoundedRect(colWell, colR, colR);
   p.setClipPath(colClip);
   if (lists.isEmpty()) {
-    paintEmptyWellCopy(p, colWell, collectionEmptyCopy());
+    paintEmptyWellCopy(p, colWell, collectionEmptyCopy(), 15);
   }
   for (int i = 0; i < lists.size(); ++i) {
     QRectF row(colWell.left(), colWell.top() + 4 + i * 26, colWell.width(), 26);
