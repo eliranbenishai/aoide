@@ -944,7 +944,7 @@ void paintSkins(QPainter& p, const QRectF& body, const SessionView& view,
 
 void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const SessionView& view) {
   const PainterStateScope hold(p);
-  const QRectF inner = body.adjusted(16, 14, -16, -14);
+  const QRectF inner = aboutInner(body);
   const QRectF badge(inner.left(), inner.top(), 58, 58);
   drawDiscLogo(p, badge, logo, false);
 
@@ -1042,7 +1042,7 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
   }
   drawScreenOverlay(p, well);
 
-  const QRectF plate(inner.left(), inner.bottom() - 48, inner.width(), 48);
+  const QRectF plate = aboutMakerPlate(inner);
   QLinearGradient pg(plate.topLeft(), plate.bottomLeft());
   pg.setColorAt(0, T().plateFace);
   pg.setColorAt(1, T().shellLo);

@@ -303,11 +303,9 @@ ChromeHit hitSkins(QSize logical, QPoint pos, const SessionView& view) {
 }
 
 ChromeHit hitAbout(QSize logical, QPoint pos) {
-  const QRectF body = panelBody(logical);
-  const QRectF inner = body.adjusted(16, 14, -16, -14);
-  const QRectF plate(inner.left(), inner.bottom() - 48, inner.width(), 48);
+  const QRectF plate = aboutMakerPlate(aboutInner(panelBody(logical)));
   const QRect web =
-      aboutWebPill(plate, textWidth(monoFont(10), QStringLiteral("tramp.music"))).toRect();
+      toHitRect(aboutWebPill(plate, textWidth(monoFont(10), QStringLiteral("tramp.music"))));
   if (auto h = hitIf(web, pos, ChromeHit::Kind::aboutWeb); h.kind != ChromeHit::Kind::none) return h;
   return {};
 }

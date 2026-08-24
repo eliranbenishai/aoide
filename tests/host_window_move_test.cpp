@@ -357,17 +357,17 @@ void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
 
   const QSize about = specs[4].logicalSize;
   const qreal textW = tramp::textWidth(tramp::monoFont(10), QStringLiteral("tramp.music"));
-  tramp::ChromeHit web;
-  for (int x = about.width() - 1; x >= 0; --x) {
-    const auto hit =
-        tramp::hitTest(tramp::WindowId::about, about, QPoint(x, about.height() - 38), view);
-    if (hit.kind == tramp::ChromeHit::Kind::aboutWeb) {
-      web = hit;
-      break;
-    }
-  }
+  const QRectF pill = tramp::aboutWebPill(
+      tramp::aboutMakerPlate(tramp::aboutInner(tramp::panelBody(about))), textW);
+  grabCoversPaint(tramp::WindowId::about, about, pill, tramp::ChromeHit::Kind::aboutWeb,
+                  "the tramp.music pill");
+  const tramp::ChromeHit web =
+      tramp::hitTest(tramp::WindowId::about, about, pill.center().toPoint(), view);
   QCOMPARE(web.kind, tramp::ChromeHit::Kind::aboutWeb);
-  QCOMPARE(web.rect.width(), int(tramp::kAboutWebPadX * 2 + textW));
+  // Official 6.8.3 (CI) gives a fractional advance; int(pad*2+textW) then
+  // disagrees with the hit by a pixel. The region is the outward-rounded paint
+  // rect, same as the equaliser wells above.
+  QCOMPARE(web.rect, pill.toAlignedRect());
 }
 
 // Covering the paint means rounding hit regions outwards, which grows them, and

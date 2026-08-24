@@ -342,10 +342,25 @@ inline QRect bandHitRect(const EqBandColumn& column, qreal thumbH) {
 
 /// The maker's-plate web pill is sized to its own text, so a fixed-width hit box
 /// drifts from it as soon as a skin changes the LCD face. Callers pass the
-/// measured text width; layout stays independent of the font machinery.
+/// measured text width; layout stays independent of the font machinery. The
+/// width is a qreal — hit regions must `toAlignedRect()` it, because `int(w)`
+/// truncates and `toRect()` can miss a painted pixel when the advance is not
+/// an integer.
+inline constexpr qreal kAboutInnerPadX = 16;
+inline constexpr qreal kAboutInnerPadTop = 14;
+inline constexpr qreal kAboutInnerPadBottom = 14;
+inline constexpr qreal kAboutPlateH = 48;
 inline constexpr qreal kAboutWebPadX = 9;
 inline constexpr qreal kAboutWebRightInset = 13;
 inline constexpr qreal kAboutWebH = 24;
+
+inline QRectF aboutInner(const QRectF& body) {
+  return body.adjusted(kAboutInnerPadX, kAboutInnerPadTop, -kAboutInnerPadX, -kAboutInnerPadBottom);
+}
+
+inline QRectF aboutMakerPlate(const QRectF& inner) {
+  return QRectF(inner.left(), inner.bottom() - kAboutPlateH, inner.width(), kAboutPlateH);
+}
 
 inline QRectF aboutWebPill(const QRectF& plate, qreal textW) {
   const qreal w = kAboutWebPadX * 2 + textW;
