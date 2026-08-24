@@ -19,7 +19,9 @@ still resolves Qt and libmpv from the runner — only these runs prove the
 artifact carries its own, so they clear the runner's Qt out of the environment
 first. Deleting one library from the staging directory fails the job. The
 Flatpak run proves the opposite property, that it can get Qt from its runtime,
-and the job also asserts no `libQt6*` reached its staging directory.
+and the job also asserts no `libQt6*` reached its staging directory. That run
+is `flatpak run`, not `sudo flatpak run`: newer flatpak refuses the sudo form
+so the sandbox does not inherit root's environment.
 
 ## Qt version
 

@@ -265,9 +265,11 @@ jobs:
           set -euo pipefail
           sudo flatpak install -y --noninteractive \
             "$(ls build/linux/Tramp-*-linux-x86_64.flatpak)"
-          sudo flatpak run --env=QT_QPA_PLATFORM=offscreen \
+          # System install is fine; `sudo flatpak run` is not. Newer flatpak
+          # refuses that form so the sandbox does not inherit sudo's env.
+          flatpak run --env=QT_QPA_PLATFORM=offscreen \
             com.proximamagnifica.tramp --bench-chrome
-          sudo flatpak run --env=QT_QPA_PLATFORM=offscreen --env=TRAMP_AUTO_QUIT=1 \
+          flatpak run --env=QT_QPA_PLATFORM=offscreen --env=TRAMP_AUTO_QUIT=1 \
             com.proximamagnifica.tramp
       - uses: actions/upload-artifact@v6
         with:
