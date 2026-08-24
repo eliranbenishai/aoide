@@ -53,7 +53,7 @@ tramp_resolve_qt() {
       exit 1
     fi
     echo "build: fetching Qt $TRAMP_QT_VERSION into .local/qt" >&2
-    "$ROOT/tool/fetch_qt.sh"
+    bash "$ROOT/tool/fetch_qt.sh"
     QT="$(tramp_qt_prefix)"
   fi
   local got
