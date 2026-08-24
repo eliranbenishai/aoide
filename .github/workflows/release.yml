@@ -92,6 +92,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Plugins are not found through PATH, so stripping Qt's bin below does
+          # nothing for them: install-qt-action exports QT_PLUGIN_PATH, and with it
+          # set the staged tree loads the runner's platform plugins and a stage
+          # carrying none of its own still starts. Same reason the Linux job does
+          # this — see stage.ps1 for what makes the stage self-sufficient.
+          unset QT_PLUGIN_PATH QML2_IMPORT_PATH
           # Windows searches the exe's own directory first but PATH after it, and
           # install-qt-action puts Qt's bin on PATH. Drop that entry, or a stage
           # windeployqt left a DLL out of would still start.
@@ -127,6 +133,10 @@ jobs:
       - uses: actions/upload-artifact@v6
         with:
           name: windows
+          # Default is to warn on an empty glob, which turns a packaging step that
+          # silently produced nothing into a green job and a release missing an
+          # installer.
+          if-no-files-found: error
           path: |
             build/windows/installer/*.exe
             build/windows/msix/*.msix
@@ -199,6 +209,7 @@ jobs:
       - uses: actions/upload-artifact@v6
         with:
           name: linux
+          if-no-files-found: error
           path: |
             build/linux/Tramp-*-linux-x86_64.AppImage
             build/linux/Tramp-*-linux-x86_64.tar.gz
@@ -274,12 +285,24 @@ jobs:
       - uses: actions/upload-artifact@v6
         with:
           name: linux-flatpak
+          if-no-files-found: error
           path: build/linux/Tramp-*-linux-x86_64.flatpak
 
   github-release:
-    name: Attach to GitHub Release
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [windows, linux]
+    name: Assemble downloads
+    # Not gated on the tag as a whole. Every run of this workflow so far has been a
+    # workflow_dispatch, so a tag-gated job meant the download, the flatten glob and
+    # the completeness check below had never run once — the first real tag would have
+    # been their first execution. Assembling is now unconditional and only the publish
+    # step is tag-only.
+    #
+    # flatpak is in needs so the flatten glob can actually see a .flatpak. That job is
+    # continue-on-error, so waiting on it does not make it required.
+    needs: [windows, linux, flatpak]
+    if: >
+      !cancelled() &&
+      needs.windows.result == 'success' &&
+      needs.linux.result == 'success'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v7
@@ -287,12 +310,28 @@ jobs:
           path: dist
       - name: Flatten artifacts
         run: |
+          set -euo pipefail
           mkdir -p upload
           find dist -type f \( -name '*.exe' -o -name '*.msix' -o -name '*.AppImage' \
             -o -name '*.tar.gz' -o -name '*.flatpak' -o -name '*.dmg' \) \
             -exec cp -v {} upload/ \;
           ls -la upload
+      - name: Every promised download is here
+        run: |
+          set -euo pipefail
+          # A release that is short one asset ships fewer platforms than the download
+          # page offers, and nothing upstream of here says so. The Flatpak is absent
+          # from this list on purpose: its job is allowed to fail.
+          missing=0
+          for pattern in '*.exe' '*.msix' '*.AppImage' '*.tar.gz'; do
+            if ! ls upload/$pattern >/dev/null 2>&1; then
+              echo "nothing matching $pattern in upload/" >&2
+              missing=1
+            fi
+          done
+          exit "$missing"
       - uses: softprops/action-gh-release@v3
+        if: startsWith(github.ref, 'refs/tags/v')
         with:
           files: upload/*
           generate_release_notes: true

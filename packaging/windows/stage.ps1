@@ -42,9 +42,23 @@ if ($Windeploy) {
   } else {
     $Windeploy.FullName
   }
-  & $deployBin (Join-Path $Stage "tramp.exe") --release --no-translations
+  # qoffscreen is not a dependency windeployqt can see: it is what the release
+  # smoke test runs the staged tree under, and that test clears QT_PLUGIN_PATH so
+  # a stage missing its plugins cannot borrow the runner's. Same reason
+  # stage_bundle.sh takes the whole platforms group on Linux.
+  & $deployBin (Join-Path $Stage "tramp.exe") --release --no-translations `
+    --include-plugins qoffscreen
 } else {
   throw "stage: windeployqt not found; refusing to ship tramp.exe without Qt DLLs"
+}
+
+# Assert rather than trust the flag above: a stage with no platform plugin starts
+# nowhere, and windeployqt reports success either way.
+foreach ($plugin in "qwindows.dll", "qoffscreen.dll") {
+  $path = Join-Path $Stage "platforms\$plugin"
+  if (-not (Test-Path $path)) {
+    throw "stage: windeployqt did not deploy platforms\$plugin"
+  }
 }
 
 Write-Host "Staged $Stage"

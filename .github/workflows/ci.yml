@@ -9,9 +9,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Read-only by default now that merging lives in merge-if-green.yml; the one job
+# that comments on a pull request asks for that scope itself.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   test:
@@ -117,29 +118,7 @@ jobs:
         if: needs.test.result != 'success'
         run: exit 1
 
-  merge:
-    name: Squash-merge if green
-    needs: passed
-    if: >
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.draft == false &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      needs.passed.result == 'success'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - name: Merge unless do-not-merge
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          NUMBER="${{ github.event.pull_request.number }}"
-          REPO="${{ github.repository }}"
-          BLOCKED="$(gh api "repos/$REPO/issues/$NUMBER/labels" --jq '[.[].name] | index("do-not-merge")')"
-          if [ "$BLOCKED" != "null" ]; then
-            echo "do-not-merge is set; leaving PR open"
-            exit 0
-          fi
-          gh pr merge "$NUMBER" --repo "$REPO" --squash --delete-branch
+# Merging lives in merge-if-green.yml, not here. A `merge` job in this file runs
+# from the pull request's own copy of it, so a PR could edit its way past the
+# do-not-merge label; merge-if-green.yml runs from the default branch on
+# workflow_run and cannot be rewritten by the branch it is deciding about.

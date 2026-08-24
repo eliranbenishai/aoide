@@ -30,7 +30,9 @@ while read -r dep; do
       ;;
   esac
   if [[ -f "$dep" ]]; then
-    cp -a "$dep" "$OUT/" || true
+    # No `|| true` here: a dependency that fails to copy is a bundle one .so
+    # short of FFmpeg, and the walk exists specifically to prevent that.
+    cp -a "$dep" "$OUT/"
   fi
 done < <(ldd "$primary" | awk '/=>/ { print $3 }' | grep -v '^$')
 

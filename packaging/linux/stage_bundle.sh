@@ -257,5 +257,12 @@ if ((${#skipped[@]})); then
   echo "  skipped (foreign UI stack): ${skipped[*]}"
 fi
 if [[ -n "$unresolved" ]]; then
-  echo "  unresolved on this machine: $(echo "$unresolved" | tr '\n' ' ')" >&2
+  # Fatal, not a warning. Every soname here is one the bundle asks the host for
+  # and host_provided does not vouch for, which is precisely the archive that
+  # runs on the machine that staged it and nowhere else. It is also invisible
+  # downstream: the smoke tests run on a runner that still has these libraries
+  # installed, so they pass and the user is the one who finds out.
+  echo "stage_bundle: unresolved: $(echo "$unresolved" | tr '\n' ' ')" >&2
+  echo "  stage them, or add them to host_provided if the host really does own them" >&2
+  exit 1
 fi

@@ -9,7 +9,12 @@ How Tramp is built and handed to listeners. Product page: `https://tramp.music`.
 | [`.github/workflows/open-pr.yml`](../.github/workflows/open-pr.yml) | Push to a feature branch | Opens a PR against `main` if one is missing (`research/*`, `spike/*`, `wip/*` skipped) |
 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PR and `main` | CMake build + `ctest` on Ubuntu and Windows; PR review comment with the result |
 | [`.github/workflows/merge-if-green.yml`](../.github/workflows/merge-if-green.yml) | CI completed | Squash-merges a same-repo, non-draft PR at that SHA when CI is green. Skips forks, drafts, and `do-not-merge` |
-| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Tag `v*` or **Run workflow** | Test, then Windows / Linux packages; tags also attach a GitHub Release |
+| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Tag `v*` or **Run workflow** | Test, then Windows / Linux packages, then assemble the downloads; a tag also publishes them as a GitHub Release |
+
+Merging happens **only** in `merge-if-green.yml`. It runs from the default branch
+on `workflow_run`, so the branch being judged cannot rewrite the gate that judges
+it — which is exactly what a `merge` job inside `ci.yml` would allow, so there
+isn't one.
 
 Every packaging job **runs the thing it packaged** before it is published: the
 staged binary, the AppImage, the extracted tarball and the installed `.flatpak`
@@ -17,11 +22,23 @@ each get `--bench-chrome` (links, finds its assets and fonts, is optimised) and
 a `TRAMP_AUTO_QUIT=1` session start. `ctest` runs against the build tree, which
 still resolves Qt and libmpv from the runner — only these runs prove the
 artifact carries its own, so they clear the runner's Qt out of the environment
-first. Deleting one library from the staging directory fails the job. The
-Flatpak run proves the opposite property, that it can get Qt from its runtime,
-and the job also asserts no `libQt6*` reached its staging directory. That run
-is `flatpak run`, not `sudo flatpak run`: newer flatpak refuses the sudo form
-so the sandbox does not inherit root's environment.
+first. Libraries and **plugins** are found by different mechanisms, so both have
+to go: Linux unsets `LD_LIBRARY_PATH` and `QT_PLUGIN_PATH`, and Windows drops
+Qt's `bin` from `PATH` *and* unsets `QT_PLUGIN_PATH`. Deleting one library or one
+platform plugin from the staging directory fails the job. That is why
+`stage.ps1` deploys `qoffscreen` alongside `qwindows` and asserts both landed:
+the smoke test runs the stage headless, and it is no longer allowed to borrow the
+runner's copy. The Flatpak run proves the opposite property, that it can get Qt
+from its runtime, and the job also asserts no `libQt6*` reached its staging
+directory. That run is `flatpak run`, not `sudo flatpak run`: newer flatpak
+refuses the sudo form so the sandbox does not inherit root's environment.
+
+Uploads use `if-no-files-found: error`, and the assemble job then requires an
+EXE, an MSIX, an AppImage and a tarball to be present before anything is
+published — a packaging step that quietly produced nothing used to make a green
+job and a release short one platform. Assembling runs on **every** release run,
+not only on a tag, so the download and the completeness check are exercised by
+**Run workflow** rather than first attempted during a real release.
 
 ## Qt version
 
@@ -34,6 +51,12 @@ and `org.kde.Platform` use. KDE's 6.8 runtime is end-of-life; 6.10 is the
 supported line that still matches a current official `6.10.x` kit (the
 runtime currently ships 6.10.3). Workflows read the file via
 [`tool/export-qt-pin.sh`](../tool/export-qt-pin.sh).
+
+The Flatpak manifest is the one file that must repeat the pin as a literal,
+because it is also what a human PRs to Flathub. `make_flatpak.sh` therefore
+compares its `runtime-version` against `QT_VERSION` and refuses to build on a
+mismatch, so a Qt bump surfaces there instead of as a `flatpak-builder` error
+about a runtime nobody installed.
 
 Linux installs that Qt through `install-qt-action` / `./tool/fetch_qt.sh`
 rather than apt or Homebrew: the runner's `qt6-base-dev` is 6.4.2, and
@@ -119,7 +142,10 @@ cmake --build build
 machine that has never installed one. It deploys the Qt the binary was **linked
 against**, so build and package on the same machine, and on the oldest glibc you
 intend to support — the host still supplies the loader, the C/C++ runtimes and
-the GL driver.
+the GL driver. Any `DT_NEEDED` soname left neither staged nor on the
+host-provided list **fails** the script: the smoke tests run on a machine that
+still has that library installed, so they would pass and the listener would be
+the one to find out.
 
 The Flatpak is built from the same tree by the same script, and is the one
 artifact that must **not** carry Qt — `org.kde.Platform` is a Qt runtime, so a

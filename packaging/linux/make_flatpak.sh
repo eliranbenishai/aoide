@@ -26,6 +26,20 @@ if ! command -v eu-strip >/dev/null; then
   exit 1
 fi
 
+# The manifest has to name its runtime literally, because it is also the file a
+# human PRs to Flathub. That makes it the one place the Qt pin is written twice,
+# so check it here rather than letting a Qt bump be discovered as a
+# flatpak-builder error about a runtime nobody installed.
+MANIFEST="$ROOT/packaging/flatpak/com.proximamagnifica.tramp.yml"
+qt_runtime="$(tr -d '\r[:space:]' < "$ROOT/QT_VERSION")"
+qt_runtime="${qt_runtime%.*}"
+manifest_runtime="$(sed -n 's/^runtime-version:[[:space:]]*"\{0,1\}\([0-9.]*\)"\{0,1\}[[:space:]]*$/\1/p' "$MANIFEST")"
+if [[ "$manifest_runtime" != "$qt_runtime" ]]; then
+  echo "make_flatpak: $MANIFEST says runtime-version '$manifest_runtime'," \
+       "but QT_VERSION pins '$qt_runtime'" >&2
+  exit 1
+fi
+
 TRAMP_BUNDLE_DIR="$BUNDLE" "$ROOT/packaging/linux/stage_bundle.sh" --no-qt
 
 flatpak-builder --force-clean --repo="$STATE/repo" "$STATE/build" \
