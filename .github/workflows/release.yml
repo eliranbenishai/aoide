@@ -42,8 +42,12 @@ jobs:
           archives: qtbase qtwayland icu
       # This job fronts every packaging job, so a metainfo file that would install
       # under the app ID instead of the name fails before anything is built.
+      # --check-urls only here, not in ci.yml: this is the path that publishes, and
+      # a listing advertising a screenshot nobody can load is worse than one with
+      # none. It runs on every dispatch rather than only on a tag, so it is not
+      # first exercised during a real release.
       - name: AppStream metainfo
-        run: bash tool/check-metainfo.sh
+        run: bash tool/check-metainfo.sh --check-urls
       - name: Tag matches VERSION
         if: startsWith(github.ref, 'refs/tags/v')
         run: |

@@ -68,8 +68,33 @@ it used to name `share/applications` and `share/icons` one by one, which is how
 Two gates hold it: `tool/check-metainfo.sh` runs `appstreamcli validate` and
 checks the newest `<release>` against `VERSION` (in `ci.yml` and in the release
 `test` job that fronts every packaging job), and the Flatpak smoke test asserts
-that the *installed* app's name is `Tramp`. The validation runs `--no-net`, so a
-moved screenshot host cannot fail a build over an input that is not in the repo.
+that the *installed* app's name is `Tramp`. Validation is `--no-net`, so a moved
+screenshot host cannot fail a build over an input that is not in the repo.
+
+`StartupWMClass=Tramp`, not the app ID: Qt builds X11 `WM_CLASS` from argv[0]'s
+basename and `applicationName`, giving `"tramp", "Tramp"`, so the app ID matched
+neither field and the key did nothing there. Wayland does not need it — `app_id`
+already equals the desktop file's basename, which is what xdg-shell asks for and
+what GNOME and KWin match on.
+
+### Screenshots
+
+Still to do, and the one step that cannot be done from the repo. Flathub
+requires screenshots and AppStream `<image>` must be a URL a store can fetch, so
+they cannot ride inside the bundle. The pictures are generated, not committed:
+
+```bash
+QT_QPA_PLATFORM=offscreen ./build/tramp --dump-chrome /tmp/shots
+```
+
+Take `main_player_window.png`, `playlist_window.png` and
+`equalizer_window.png`, upload them under
+`https://tramp.music/screenshots/<version>/`, then uncomment the `<screenshots>`
+block in the metainfo file. `check-metainfo.sh --check-urls` — which the release
+`test` job runs — fetches every declared `<image>` and fails on anything that is
+not a 200. While the block stays commented it reports that none are declared, so
+the guard is in place before it is needed rather than added after the first
+broken listing.
 
 `--socket=pulseaudio` in the manifest is why installers warn about microphone
 access. Flatpak has exactly one audio permission and it covers capture and

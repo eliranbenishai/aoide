@@ -8,4 +8,8 @@ Type=Application
 Categories=AudioVideo;Audio;Player;
 MimeType=audio/mpeg;audio/mp4;audio/aac;audio/flac;audio/wav;audio/ogg;audio/opus;audio/x-mpegurl;application/vnd.apple.mpegurl;
 StartupNotify=true
-StartupWMClass=com.proximamagnifica.tramp
+# Qt builds X11 WM_CLASS as "tramp", "Tramp" — argv[0] basename and
+# applicationName — so the app ID matched neither field and the key did nothing
+# there. Wayland does not need it: app_id already equals this file's basename,
+# which is what xdg-shell asks for and what GNOME and KWin match on.
+StartupWMClass=Tramp
