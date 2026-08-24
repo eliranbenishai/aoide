@@ -64,6 +64,7 @@ class HostWindowMoveTest : public QObject {
   void paintsSameFlipsWhenAnEmptyListGainsARow();
   void paintsSameFlipsWhenSkinRadiiChange();
   void emptyWellsAreNotBlank();
+  void emptyCollectionHeadingKeepsItsSidesAtMinWidth();
   void unmeasuredSpectrumMarkFollowsTheSpectrogram();
   void missingEngineMarkStaysOnTheDisplayWell();
   void persistFailureMarkStaysUntilAWriteSucceeds();
@@ -1319,6 +1320,18 @@ void HostWindowMoveTest::emptyWellsAreNotBlank() {
                           .arg(emptyColInk)));
   QVERIFY2(emptyColInk > listedColInk, "a saved-playlist row is not the empty-state heading");
 
+  tramp::SessionView minEmpty = empty;
+  minEmpty.collectionWidth = tramp::kPlaylistCollectionMinWidth;
+  const QImage minPl = paintPlaylistPanel(minEmpty);
+  const QRect minColWell =
+      tramp::playlistCollectionWell(tramp::panelBody(tramp::kPlaylistDefault),
+                                    minEmpty.collectionWidth)
+          .toAlignedRect();
+  const int minColInk = pixelsNear(minPl, minColWell, tokens.inkFaint, 72);
+  QVERIFY2(minColInk > 80,
+           qPrintable(QStringLiteral("min-width empty collection well ink-faint pixels: %1")
+                          .arg(minColInk)));
+
   const tramp::SessionView golden = tramp::goldenDemoView();
   const QImage goldenPl = paintPlaylistPanel(golden);
   QVERIFY2(goldenPl != emptyPl, "the golden playlist dump must keep its rows");
@@ -1336,6 +1349,76 @@ void HostWindowMoveTest::emptyWellsAreNotBlank() {
   QVERIFY2(paintCachedPass(tramp::WindowId::main, mainLogical, golden) ==
                paintCachedPass(tramp::WindowId::main, mainLogical, spun),
            "the golden demo title must not follow aboutSpins");
+}
+
+void HostWindowMoveTest::emptyCollectionHeadingKeepsItsSidesAtMinWidth() {
+  tramp::loadTrampFonts();
+  const auto catalog = tramp::scanLookCatalog(QStringLiteral(TRAMP_SKINS_DIR));
+  tramp::LoadedSkinFonts fonts =
+      tramp::loadSkinFonts(QStringLiteral("shield"), catalog.manifests);
+  QVERIFY2(!fonts.chromeFamily.isEmpty(), "Shield must ship a chrome face");
+  tramp::setLookFamilies(fonts.chromeFamily, fonts.lcdFamily);
+
+  tramp::SessionView empty;
+  empty.collectionWidth = tramp::kPlaylistCollectionMinWidth;
+  const QImage panel = paintPlaylistPanel(empty);
+
+  const QRectF well = tramp::playlistCollectionWell(
+      tramp::panelBody(tramp::kPlaylistDefault), empty.collectionWidth);
+  const qreal pad = tramp::kPlaylistEmptyWellPad;
+  const qreal headH = 20;
+  const qreal bodyH = 40;
+  const qreal top = well.center().y() - (headH + bodyH) / 2;
+  const QRectF headBox(well.left() + pad, top, well.width() - 2 * pad, headH);
+  const QString heading = tramp::collectionEmptyCopy().heading;
+
+  QFont designed = tramp::condensedFont(12, 0.18);
+  QVERIFY2(QFontMetricsF(designed).horizontalAdvance(heading) > headBox.width(),
+           "Shield's empty-well heading must still overshoot the min-width box "
+           "before it is fitted — otherwise this is no longer the reported bug");
+
+  QFont fitted = designed;
+  tramp::fitFontToWidth(fitted, heading, headBox.width());
+
+  QImage reference(panel.size(), QImage::Format_ARGB32_Premultiplied);
+  reference.fill(Qt::transparent);
+  {
+    QPainter p(&reference);
+    p.setRenderHint(QPainter::TextAntialiasing);
+    p.setFont(fitted);
+    p.setPen(Qt::white);
+    p.drawText(headBox, Qt::AlignHCenter | Qt::AlignVCenter | Qt::TextDontClip, heading);
+  }
+
+  const tramp::ChromeTokens tokens = tramp::ChromeTokens::builtin();
+  const QRect band = headBox.toAlignedRect();
+  auto inkSpan = [&](auto isInk) {
+    int left = -1;
+    int right = -1;
+    for (int y = band.top(); y <= band.bottom(); ++y) {
+      for (int x = band.left(); x <= band.right(); ++x) {
+        if (!isInk(x, y)) continue;
+        if (left < 0 || x < left) left = x;
+        if (x > right) right = x;
+      }
+    }
+    return QPair<int, int>(left, right);
+  };
+  const auto ref = inkSpan(
+      [&](int x, int y) { return qAlpha(reference.pixel(x, y)) >= 180; });
+  const auto painted = inkSpan(
+      [&](int x, int y) { return rgbDistance(panel.pixel(x, y), tokens.inkFaint) <= 80; });
+
+  tramp::setLookFamilies({}, {});
+  fonts.unload();
+
+  QVERIFY2(ref.first >= 0 && painted.first >= 0, "empty-well heading must paint at min width");
+  QVERIFY2(qAbs(painted.first - ref.first) <= 1 && qAbs(painted.second - ref.second) <= 1,
+           qPrintable(QStringLiteral("heading span panel=%1..%2 fitted=%3..%4")
+                          .arg(painted.first)
+                          .arg(painted.second)
+                          .arg(ref.first)
+                          .arg(ref.second)));
 }
 
 void HostWindowMoveTest::unmeasuredSpectrumMarkFollowsTheSpectrogram() {

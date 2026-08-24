@@ -500,16 +500,20 @@ void paintEq(QPainter& p, const QRectF& body, const QImage* logo, const SessionV
 
 /// Two centred lines in a well that has no rows. Heading in the faint
 /// condensed face the PLAYLISTS label already uses; body one step dimmer so
-/// the sentence reads as chrome, not as a phosphor track.
+/// the sentence reads as chrome, not as a phosphor track. The heading is
+/// fitted to the box: at the collection min width several skin faces
+/// (Shield's Oswald, Thunder's Cinzel) overshoot and [QPainter::drawText]
+/// clips both sides of the locked copy.
 void paintEmptyWellCopy(QPainter& p, const QRectF& well, const EmptyWellCopy& copy) {
-  const QFont head = condensedFont(12, 0.18);
   const QFont body = condensedFont(11, 0.08);
-  const qreal pad = 16;
+  const qreal pad = kPlaylistEmptyWellPad;
   const qreal headH = 20;
   const qreal bodyH = 40;
   const qreal top = well.center().y() - (headH + bodyH) / 2;
   const QRectF headBox(well.left() + pad, top, well.width() - 2 * pad, headH);
   const QRectF bodyBox(well.left() + pad, top + headH, well.width() - 2 * pad, bodyH);
+  QFont head = condensedFont(12, 0.18);
+  fitFontToWidth(head, copy.heading, headBox.width());
   p.setFont(head);
   p.setPen(T().inkFaint);
   p.drawText(headBox, Qt::AlignHCenter | Qt::AlignVCenter, copy.heading);

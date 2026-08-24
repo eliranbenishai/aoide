@@ -5,6 +5,7 @@
 #include <QFileInfo>
 #include <QFontDatabase>
 #include <QFontMetrics>
+#include <QFontMetricsF>
 #include <QString>
 #include <QStringList>
 #include <cmath>
@@ -111,6 +112,40 @@ int pixelSizeFittingLineHeight(QFont font, int requestedPx, qreal maxLineHeight)
     --px;
   }
   return px;
+}
+
+void fitFontToWidth(QFont& font, const QString& text, qreal maxWidth) {
+  if (text.isEmpty() || maxWidth <= 0) return;
+
+  auto advance = [&]() { return QFontMetricsF(font).horizontalAdvance(text); };
+  if (advance() <= maxWidth) return;
+
+  if (font.letterSpacingType() == QFont::AbsoluteSpacing && font.letterSpacing() > 0) {
+    const qreal hi0 = font.letterSpacing();
+    font.setLetterSpacing(QFont::AbsoluteSpacing, 0);
+    if (advance() <= maxWidth) {
+      qreal lo = 0;
+      qreal hi = hi0;
+      for (int i = 0; i < 24; ++i) {
+        const qreal mid = (lo + hi) * 0.5;
+        font.setLetterSpacing(QFont::AbsoluteSpacing, mid);
+        if (advance() <= maxWidth) {
+          lo = mid;
+        } else {
+          hi = mid;
+        }
+      }
+      font.setLetterSpacing(QFont::AbsoluteSpacing, lo);
+      if (advance() <= maxWidth) return;
+      font.setLetterSpacing(QFont::AbsoluteSpacing, 0);
+    }
+  }
+
+  int px = font.pixelSize();
+  while (px > 1 && advance() > maxWidth) {
+    --px;
+    font.setPixelSize(px);
+  }
 }
 
 }  // namespace tramp

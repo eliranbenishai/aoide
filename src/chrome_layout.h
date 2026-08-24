@@ -756,6 +756,15 @@ inline constexpr qreal kPlaylistCollectionPadL = 12;
 inline constexpr qreal kPlaylistCollectionPadT = 12;
 inline constexpr qreal kPlaylistCollectionPadR = 6;
 inline constexpr qreal kPlaylistCollectionPadB = 12;
+/// Inset of empty-well copy from the well edge. At the collection min width
+/// this is what leaves the heading only 130 logical px — too tight for several
+/// skin chrome faces unless the font is fitted.
+inline constexpr qreal kPlaylistEmptyWellPad = 16;
+
+inline qreal playlistEmptyWellTextWidth(qreal collectionW) {
+  return collectionW - kPlaylistCollectionPadL - kPlaylistCollectionPadR -
+         2 * kPlaylistEmptyWellPad;
+}
 inline constexpr qreal kPlaylistCollectionHeaderH = 30;
 inline constexpr qreal kPlaylistCollectionBtnGap = 8;
 inline constexpr qreal kPlaylistCollectionBtnH = 24;
