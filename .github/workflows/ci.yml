@@ -13,11 +13,6 @@ permissions:
   contents: write
   pull-requests: write
 
-env:
-  # Matches QT_VERSION in release.yml, which carries the reasoning. PR CI has to
-  # build against the Qt the release builds against, or it is not a gate.
-  QT_VERSION: "6.8.3"
-
 jobs:
   test:
     name: Qt (${{ matrix.os }})
@@ -28,6 +23,10 @@ jobs:
         os: [ubuntu-24.04, windows-latest]
     steps:
       - uses: actions/checkout@v6
+
+      - name: Qt pin
+        shell: bash
+        run: bash tool/export-qt-pin.sh >> "$GITHUB_ENV"
 
       - name: Build deps (Linux)
         if: runner.os == 'Linux'
@@ -45,8 +44,9 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
+          arch: linux_gcc_64
           cache: true
-          # Base archives, not modules: 6.8.3 has no qtwayland module (the
+          # Base archives, not modules: 6.10 has no qtwayland module (the
           # addon is qtwaylandcompositor). qtwayland is the client QPA plugin;
           # icu is what official Linux Qt links against.
           archives: qtbase qtwayland icu

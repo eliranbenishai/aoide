@@ -32,6 +32,9 @@ migrate_working_dir/
 .superpowers/
 .scratch/
 
+# Official Qt kit fetched by tool/fetch_qt.sh (matches QT_VERSION)
+.local/
+
 # Git worktrees
 .worktrees/
 

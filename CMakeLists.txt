@@ -13,8 +13,23 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type" FORCE)
 endif()
 
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/QT_VERSION" TRAMP_QT_VERSION LIMIT_COUNT 1)
+string(STRIP "${TRAMP_QT_VERSION}" TRAMP_QT_VERSION)
+if(UNIX AND NOT APPLE)
+  set(_tramp_qt_pin "${CMAKE_CURRENT_SOURCE_DIR}/.local/qt/${TRAMP_QT_VERSION}/gcc_64")
+  if(EXISTS "${_tramp_qt_pin}/lib/cmake/Qt6/Qt6Config.cmake")
+    list(PREPEND CMAKE_PREFIX_PATH "${_tramp_qt_pin}")
+  endif()
+endif()
+
 find_package(Qt6 REQUIRED COMPONENTS Widgets Test)
 find_package(Qt6 QUIET COMPONENTS DBus)
+if(NOT Qt6_VERSION VERSION_EQUAL TRAMP_QT_VERSION)
+  message(FATAL_ERROR
+    "Tramp is pinned to Qt ${TRAMP_QT_VERSION} (QT_VERSION). Found ${Qt6_VERSION}. "
+    "On Linux run ./tool/fetch_qt.sh and reconfigure.")
+endif()
+message(STATUS "Qt ${Qt6_VERSION} matches QT_VERSION")
 find_package(PkgConfig QUIET)
 
 qt_standard_project_setup()

@@ -23,24 +23,27 @@ and the job also asserts no `libQt6*` reached its staging directory.
 
 ## Qt version
 
-`QT_VERSION` in both workflows is the authority: one Qt, built and tested
-against everywhere something ships. It is **6.8.3**, and the reason is
-`org.kde.Platform` — the Flatpak runtime is the one Qt we cannot choose, and it
-tracks 6.8, so `QT_RUNTIME` and
+The [`QT_VERSION`](../QT_VERSION) file is the authority: one official desktop
+kit, built and tested against everywhere something ships, and the same kit
+`./build.sh` compiles against. It is **6.10.3**. `QT_RUNTIME` is its
+major.minor (`6.10`), which is what
 [`packaging/flatpak/com.proximamagnifica.tramp.yml`](../packaging/flatpak/com.proximamagnifica.tramp.yml)
-say `6.8` and the rest follows.
+and `org.kde.Platform` use. KDE's 6.8 runtime is end-of-life; 6.10 is the
+supported line that still matches a current official `6.10.x` kit (the
+runtime currently ships 6.10.3). Workflows read the file via
+[`tool/export-qt-pin.sh`](../tool/export-qt-pin.sh).
 
-Linux installs that Qt through `install-qt-action` rather than apt: the runner's
-`qt6-base-dev` is 6.4.2 and does not have `QEvent::DevicePixelRatioChange`.
-The install is the official desktop base sliced to `qtbase`, `qtwayland`, and
-`icu`. `qtwayland` is a base *archive* (the client QPA plugin the AppImage
-stages); it is not an aqt module. The module of that name does not exist on
-6.8.3 — `qtwaylandcompositor` does, and that is a compositor SDK, not the
-plugin. `icu` is the bundled ICU the official Linux `qtbase` links against.
+Linux installs that Qt through `install-qt-action` / `./tool/fetch_qt.sh`
+rather than apt or Homebrew: the runner's `qt6-base-dev` is 6.4.2, and
+Homebrew's `qtbase` moves ahead of the pin. The install is the official
+desktop base sliced to `qtbase`, `qtwayland`, and `icu`. `qtwayland` is a
+base *archive* (the client QPA plugin the AppImage stages); it is not an aqt
+module. The module of that name does not exist on 6.10 — `qtwaylandcompositor`
+does, and that is a compositor SDK, not the plugin. `icu` is the bundled ICU
+the official Linux `qtbase` links against.
 
-[`build.sh`](../build.sh) is deliberately **not** pinned. It uses whatever Qt the
-developer has — Homebrew's, currently newer — and prints the version it used, so
-a local-vs-release difference shows up in the log instead of in a bug report.
+[`build.sh`](../build.sh) fetches the pin into `.local/qt/` if it is missing
+and refuses to link any other version. CMake does the same check.
 
 Cut a release by bumping [`VERSION`](../VERSION), committing, then:
 

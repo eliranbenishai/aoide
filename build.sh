@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-# No Qt version pinned here, deliberately. The authority is QT_VERSION in
-# .github/workflows/*.yml: that is the Qt every shipped bit is built and tested
-# against. This is a developer's local Qt, it is allowed to drift from that, and
-# the version is printed below so the difference is visible rather than silent.
-QT="${QT:-/home/linuxbrew/.linuxbrew/opt/qtbase}"
-MOC="${MOC:-$QT/share/qt/libexec/moc}"
+# The pin is the QT_VERSION file — same kit CI, release, and the Flatpak
+# runtime line use. Homebrew is not a substitute.
+# shellcheck source=tool/qt-env.sh
+source "$ROOT/tool/qt-env.sh"
+tramp_resolve_qt
 CXX="${CXX:-/home/linuxbrew/.linuxbrew/opt/llvm/bin/clang++}"
 CC="${CC:-/home/linuxbrew/.linuxbrew/opt/llvm/bin/clang}"
 BREW="${BREW:-/home/linuxbrew/.linuxbrew}"
@@ -17,19 +16,7 @@ STUB="$BUILD/mpv-stubs"
 STUB_SRC="$ROOT/src/mpv_stubs"
 mkdir -p "$BUILD" "$STUB"
 
-qt_version() {
-  if [[ -x "$QT/bin/qmake6" ]]; then
-    "$QT/bin/qmake6" -query QT_VERSION && return
-  fi
-  local core
-  core="$(echo "$QT"/lib/libQt6Core.so.6.*)"
-  if [[ -e "$core" ]]; then
-    basename "$core" | sed 's/^libQt6Core\.so\.//'
-  else
-    echo unknown
-  fi
-}
-echo "build.sh: Qt $(qt_version) at $QT — local build; releases pin QT_VERSION in .github/workflows"
+echo "build.sh: Qt $TRAMP_QT_VERSION at $QT"
 if [[ -d "$STUB_SRC" ]]; then
   for spec in libmujs.so.0.1 liblua-5.1.so libuchardet.so.0 libvapoursynth-script.so.0 libXpresent.so.1; do
     "$CC" -shared -fPIC -Wl,-soname,"$spec" -o "$STUB/$spec" "$STUB_SRC/$spec.c"

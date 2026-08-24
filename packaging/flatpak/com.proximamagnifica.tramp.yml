@@ -2,9 +2,9 @@
 # this is the sandbox/permissions contract and a local test bundle.
 app-id: com.proximamagnifica.tramp
 runtime: org.kde.Platform
-# Must equal QT_RUNTIME in .github/workflows/*.yml. This runtime is the one Qt
-# we cannot choose freely, so it is what QT_VERSION is pinned to.
-runtime-version: "6.8"
+# Must equal QT_RUNTIME from QT_VERSION (major.minor). The pin is the same
+# official kit CI and local builds use.
+runtime-version: "6.10"
 sdk: org.kde.Sdk
 command: tramp
 finish-args:

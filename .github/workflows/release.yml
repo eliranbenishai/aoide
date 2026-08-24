@@ -13,21 +13,9 @@ env:
   MSIX_PUBLISHER_DEFAULT: "CN=Proxima Magnifica"
   MSIX_IDENTITY_DEFAULT: "ProximaMagnifica.trampmusic"
 
-  # The Qt every shipped bit is built and tested against. This is the authority:
-  # ci.yml matches it, and the Flatpak runtime below is the same line.
-  #
-  # 6.8 because org.kde.Platform is the one place we cannot choose freely, and it
-  # tracks 6.8. Linux installs this Qt rather than the runner's apt Qt, which on
-  # ubuntu-24.04 is 6.4.2 and does not have QEvent::DevicePixelRatioChange.
-  #
-  # build.sh deliberately does not pin: it uses whatever Qt the developer has and
-  # prints it, so a local-vs-release difference is visible rather than silent.
-  #
-  # Linux aqt archives are qtbase + qtwayland + icu. qtwayland is a base
-  # archive (the client QPA plugin), not a module — the only Wayland *module*
-  # is qtwaylandcompositor, which we do not ship.
-  QT_VERSION: "6.8.3"
-  QT_RUNTIME: "6.8"
+  # The Qt pin lives in QT_VERSION (x.y.z). export-qt-pin.sh writes QT_VERSION
+  # and QT_RUNTIME (x.y) into GITHUB_ENV. That is the same line as
+  # org.kde.Platform and as local ./tool/fetch_qt.sh.
 
 jobs:
   test:
@@ -35,6 +23,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
+      - name: Qt pin
+        run: bash tool/export-qt-pin.sh >> "$GITHUB_ENV"
       - name: Build deps
         run: |
           sudo apt-get update
@@ -47,6 +37,7 @@ jobs:
       - uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
+          arch: linux_gcc_64
           cache: true
           archives: qtbase qtwayland icu
       - name: Tag matches VERSION
@@ -73,6 +64,9 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Qt pin
+        shell: bash
+        run: bash tool/export-qt-pin.sh >> "$GITHUB_ENV"
       - uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
@@ -143,6 +137,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
+      - name: Qt pin
+        run: bash tool/export-qt-pin.sh >> "$GITHUB_ENV"
       - name: Linux build deps
         run: |
           sudo apt-get update
@@ -155,6 +151,7 @@ jobs:
       - uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
+          arch: linux_gcc_64
           cache: true
           archives: qtbase qtwayland icu
       - name: Stage full libmpv into the tree
@@ -213,6 +210,8 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v6
+      - name: Qt pin
+        run: bash tool/export-qt-pin.sh >> "$GITHUB_ENV"
       # Built here rather than unpacked from the linux job's tarball. That
       # tarball carries Qt, because a tarball has to; this runs on
       # org.kde.Platform, which is a Qt runtime, and taking the tarball is what
@@ -227,6 +226,7 @@ jobs:
       - uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
+          arch: linux_gcc_64
           cache: true
           archives: qtbase qtwayland icu
       - name: Configure and build

@@ -7,28 +7,31 @@ The app is **Qt 6** (QWidget + QPainter) in [`src/`](src/).
 
 ## Development
 
-Homebrew Qt / no CMake on `PATH`:
+Qt is pinned in [`QT_VERSION`](QT_VERSION). `./build.sh` fetches that official
+kit (once) into `.local/qt/` and will not link Homebrew or distro Qt.
 
 ```bash
 ./build.sh
 ./build/tramp
 ```
 
-System Qt + CMake:
-
-```bash
-# Fedora
-sudo dnf install qt6-qtbase-devel qt6-qtwayland libX11-devel cmake ninja-build gcc-c++ mpv-libs-devel
-
-# Arch
-sudo pacman -S qt6-base qt6-wayland cmake ninja gcc mpv
-```
+CMake, after the same kit is present (`./tool/fetch_qt.sh`):
 
 ```bash
 cmake -S . -B build -G Ninja
 cmake --build build
 ctest --test-dir build --output-on-failure
 ./build/tramp
+```
+
+Linux still needs the usual build tools and libmpv headers:
+
+```bash
+# Fedora
+sudo dnf install libX11-devel cmake ninja-build gcc-c++ mpv-libs-devel
+
+# Arch
+sudo pacman -S cmake ninja gcc mpv
 ```
 
 The chrome is rasterised on the CPU every frame, so an unoptimised build does not

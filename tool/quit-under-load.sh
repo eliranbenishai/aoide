@@ -26,8 +26,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-QT="${QT:-/home/linuxbrew/.linuxbrew/opt/qtbase}"
-MOC="${MOC:-/home/linuxbrew/.linuxbrew/Cellar/qtbase/6.11.1/share/qt/libexec/moc}"
+# shellcheck source=qt-env.sh
+source "$ROOT/tool/qt-env.sh"
+tramp_resolve_qt
 CXX="${CXX:-/home/linuxbrew/.linuxbrew/opt/llvm/bin/clang++}"
 CC="${CC:-/home/linuxbrew/.linuxbrew/opt/llvm/bin/clang}"
 BREW="${BREW:-/home/linuxbrew/.linuxbrew}"

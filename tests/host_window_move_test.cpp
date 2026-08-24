@@ -364,9 +364,9 @@ void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
   const tramp::ChromeHit web =
       tramp::hitTest(tramp::WindowId::about, about, pill.center().toPoint(), view);
   QCOMPARE(web.kind, tramp::ChromeHit::Kind::aboutWeb);
-  // Official 6.8.3 (CI) gives a fractional advance; int(pad*2+textW) then
-  // disagrees with the hit by a pixel. The region is the outward-rounded paint
-  // rect, same as the equaliser wells above.
+  // Official desktop Qt (CI) can give a fractional advance; int(pad*2+textW)
+  // then disagrees with the hit by a pixel. The region is the outward-rounded
+  // paint rect, same as the equaliser wells above.
   QCOMPARE(web.rect, pill.toAlignedRect());
 }
 

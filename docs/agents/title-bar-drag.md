@@ -146,7 +146,7 @@ tool/build-app.sh                  # app only, no test gate — fast measure loo
 
 Offscreen runs give deterministic client-side cost; a run on the live session adds surface commit back-pressure. Neither replaces looking at it: drag main and a child on KWin with playlist + settings open, watch for trails in the vacated hole and in the gap between panels, and confirm desktop clicks still pass through the gaps at rest.
 
-Build with `./build.sh` (Homebrew Qt on this machine). System `cmake` on PATH is not the project build.
+Build with `./build.sh` (the `QT_VERSION` kit under `.local/qt/`). System `cmake` on PATH is not the project build.
 
 ## History
 
