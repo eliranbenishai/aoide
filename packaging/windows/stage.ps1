@@ -7,7 +7,7 @@ $Candidates = @(
 )
 $Exe = $Candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $Exe) {
-  throw "stage: missing tramp.exe under build/ — cmake --build build first"
+  throw "stage: missing tramp.exe under build/; cmake --build build first"
 }
 $Stage = Join-Path $Root "build\windows\stage"
 if (Test-Path $Stage) { Remove-Item $Stage -Recurse -Force }
@@ -44,7 +44,7 @@ if ($Windeploy) {
   }
   & $deployBin (Join-Path $Stage "tramp.exe") --release --no-translations
 } else {
-  throw "stage: windeployqt not found — refusing to ship tramp.exe without Qt DLLs"
+  throw "stage: windeployqt not found; refusing to ship tramp.exe without Qt DLLs"
 }
 
 Write-Host "Staged $Stage"

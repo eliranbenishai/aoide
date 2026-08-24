@@ -17,7 +17,7 @@ $OutDir = Join-Path $Root "build\windows\msix"
 $Png = Join-Path $Root "packaging\linux\icons\hicolor\256x256\apps\com.proximamagnifica.tramp.png"
 
 if (-not (Test-Path (Join-Path $Release "tramp.exe"))) {
-  throw "Missing $Release\tramp.exe — run packaging/windows/stage.ps1 first"
+  throw "Missing $Release\tramp.exe; run packaging/windows/stage.ps1 first"
 }
 
 $makeappx = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\makeappx.exe" -ErrorAction SilentlyContinue |
