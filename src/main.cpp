@@ -159,7 +159,14 @@ int dumpChrome(const QString& dirPath) {
 }
 
 int benchChrome() {
-#ifdef __OPTIMIZE__
+// GCC and Clang predefine __OPTIMIZE__ from -O1 up. MSVC predefines nothing
+// equivalent, and without a stand-in every Windows build failed this gate while
+// painting within a few ms of the Linux one. NDEBUG is that stand-in: every
+// Windows build here comes from CMake, which pairs it with /O2 in Release and
+// RelWithDebInfo and with /O1 in MinSizeRel, and gives Debug /Od and _DEBUG
+// instead. The budgets below do not cover for this: an -O0 build measures ~38 ms
+// of full paint against a 120 ms budget and passes, so the macro is the guard.
+#if defined(__OPTIMIZE__) || (defined(_MSC_VER) && defined(NDEBUG))
   constexpr bool optimized = true;
 #else
   constexpr bool optimized = false;

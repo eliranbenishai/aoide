@@ -71,10 +71,24 @@ jobs:
           ctest --test-dir build -C Release --output-on-failure
         shell: bash
 
+      # Both runners, not just Linux. The optimisation guard inside --bench-chrome
+      # is compiler-specific, so a Linux-only budget step leaves the Windows half
+      # of it unproven here and discovers it during a release instead.
       - name: Paint budget (Linux)
         if: runner.os == 'Linux'
         run: QT_QPA_PLATFORM=offscreen ./build/tramp --bench-chrome
         shell: bash
+
+      - name: Paint budget (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Multi-config generators put the binary under the config directory;
+          # Ninja and Makefiles put it straight in the build tree.
+          exe=build/Release/tramp.exe
+          [ -f "$exe" ] || exe=build/tramp.exe
+          QT_QPA_PLATFORM=offscreen "$exe" --bench-chrome
 
   passed:
     name: CI passed

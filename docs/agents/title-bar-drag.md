@@ -39,7 +39,7 @@ Measure with `--bench-drag` (below) before theorising. What the numbers say:
 
 - **Punch is not the problem.** Main-only drag, punch applied on every move: **0.55 ms/move**. `QWaylandWindow::setMask` is a `QRegion` compare plus a handful of `wl_surface.set_input_region` requests, and on a toplevel it triggers no repaint at all.
 - **Paint is the problem**, and two things made it enormous:
-  1. **The build had no optimisation.** `build.sh` passed no `-O` flag and `CMakeLists.txt` set no default `CMAKE_BUILD_TYPE`, so the binary anyone dragged was `-O0`. That alone was ~12× on every paint. Both now default to optimised, and `--bench-chrome` fails the gate when `__OPTIMIZE__` is absent.
+  1. **The build had no optimisation.** `build.sh` passed no `-O` flag and `CMakeLists.txt` set no default `CMAKE_BUILD_TYPE`, so the binary anyone dragged was `-O0`. That alone was ~12× on every paint. Both now default to optimised, and `--bench-chrome` fails the gate when `__OPTIMIZE__` is absent — or, on MSVC, which predefines no such macro, when `NDEBUG` is.
   2. **`gaussianBlur` dominated everything else.** A naive `double` separable convolution, `constScanLine()` per tap, radius `3σ` (73 taps at σ=12), two allocations per call. It was **99% of all paint cost**: ablating it took a full main paint from 282 ms to 2.6 ms.
 - **Panels that re-rasterise per move pay that cost per move.** Main and EQ cached a chassis and ran zero blurs. Playlist, settings and about called `paintMockupWindow` with the default `BodyPaint::full`, which also sets `glow = true`. They now cache their whole paint, because none of them has per-frame content.
 
