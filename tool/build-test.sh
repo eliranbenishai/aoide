@@ -30,7 +30,7 @@ case "$NAME" in
       "$ROOT/src/wav_reader.cpp" "$ROOT/src/stft.cpp" "$ROOT/src/spectrum.cpp" \
       "$ROOT/src/playback.cpp" "$ROOT/src/docking.cpp" \
       "$ROOT/src/collection.cpp" "$ROOT/src/duration_probe.cpp" "$ROOT/src/persist.cpp" \
-      "$ROOT/src/settings.cpp" "$ROOT/src/window_spec.cpp" \
+      "$ROOT/src/settings.cpp" "$ROOT/src/window_spec.cpp" "$ROOT/src/document_portal.cpp" \
       "$ROOT/tests/domain_test.cpp" \
       -L"$QT/lib" -L"$BREW/lib" -L"$MPV_LIB" -L"$STUB" \
       -lQt6Widgets -lQt6Gui -lQt6Core -lmpv -lstdc++ -lm -lgcc_s -pthread \
