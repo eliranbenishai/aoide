@@ -42,7 +42,13 @@ fi
 
 TRAMP_BUNDLE_DIR="$BUNDLE" "$ROOT/packaging/linux/stage_bundle.sh" --no-qt
 
-flatpak-builder --force-clean --repo="$STATE/repo" "$STATE/build" \
+# stable, not flatpak-builder's default of master. The branch is part of the ref
+# a listener sees on install, and `master` reads as a development snapshot; it is
+# also the name Flathub publishes under. build-bundle has to be told the same
+# thing, because its own default is master too.
+BRANCH=stable
+flatpak-builder --force-clean --default-branch="$BRANCH" \
+  --repo="$STATE/repo" "$STATE/build" \
   "$ROOT/packaging/flatpak/com.proximamagnifica.tramp.yml"
-flatpak build-bundle "$STATE/repo" "$OUT" com.proximamagnifica.tramp
+flatpak build-bundle "$STATE/repo" "$OUT" com.proximamagnifica.tramp "$BRANCH"
 echo "Wrote $OUT"
