@@ -238,7 +238,10 @@ jobs:
       - name: Install flatpak-builder
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends flatpak flatpak-builder
+          # elfutils is only a Recommends of the Ubuntu package. Without it,
+          # flatpak-builder dies after the module install: "eu-strip" not found.
+          sudo apt-get install -y --no-install-recommends \
+            flatpak flatpak-builder elfutils
           sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           sudo flatpak install -y flathub \
             "org.kde.Platform//${QT_RUNTIME}" "org.kde.Sdk//${QT_RUNTIME}"

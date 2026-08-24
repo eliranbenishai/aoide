@@ -127,6 +127,11 @@ bundled Qt is dead weight that can shadow the runtime's:
 ./packaging/linux/make_flatpak.sh   # runs stage_bundle.sh --no-qt for you
 ```
 
+`flatpak-builder` strips the staged binary with host `eu-strip` (`elfutils`).
+Ubuntu only Recommends that package, so a `--no-install-recommends` install of
+`flatpak-builder` is not enough — the release job installs `elfutils` next to
+it. Locally: `elfutils` plus the KDE runtime/SDK that match `QT_RUNTIME`.
+
 That is the only caller of `--no-qt`, and it stages into
 `build/linux/flatpak-bundle` so `build/linux/bundle` keeps the Qt the tarball
 and the AppImage need. One script and one code path for all three; do not give

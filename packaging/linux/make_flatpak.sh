@@ -21,6 +21,10 @@ if ! command -v flatpak-builder >/dev/null; then
   echo "make_flatpak: flatpak-builder not installed" >&2
   exit 1
 fi
+if ! command -v eu-strip >/dev/null; then
+  echo "make_flatpak: eu-strip not found (install elfutils)" >&2
+  exit 1
+fi
 
 TRAMP_BUNDLE_DIR="$BUNDLE" "$ROOT/packaging/linux/stage_bundle.sh" --no-qt
 
