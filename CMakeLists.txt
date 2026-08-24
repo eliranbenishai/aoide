@@ -168,6 +168,8 @@ set(TRAMP_SOURCES
   src/collection.cpp
   src/duration_probe.cpp
   src/files.cpp
+  src/document_portal.cpp
+  src/document_portal.h
   src/native_file_dialog.cpp
   src/native_file_dialog.h
   src/native_file_dialog_p.h
@@ -354,6 +356,7 @@ qt_add_executable(domain_test
   src/duration_probe.cpp
   src/persist.cpp
   src/settings.cpp
+  src/document_portal.cpp
 )
 target_include_directories(domain_test PRIVATE src)
 target_link_libraries(domain_test PRIVATE tramp_window_spec Qt6::Widgets)

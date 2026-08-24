@@ -1,5 +1,6 @@
 #include "chrome_hits.h"
 #include "collection.h"
+#include "document_portal.h"
 #include "duration_probe.h"
 #include "native_file_dialog.h"
 #include "persist.h"
@@ -150,6 +151,54 @@ int main() {
     const auto save = tramp::portalFileChooserRequest(tramp::FilePickKind::saveFile);
     REQUIRE_EQ(save.method, QStringLiteral("SaveFile"));
     REQUIRE(!save.directory);
+  }
+
+  {
+    // "Open with" does not hand over the file's own path. It hands over a
+    // document-portal export, and that export is held in memory by the portal
+    // service: it outlives the process that was launched -- so the bug hides
+    // during testing -- but dies when the service does, at logout. A session
+    // file holding one restores a dead row after a reboot while the file itself
+    // never moved. The xattr the portal sets on the export is the way back.
+    // Recognising the mount is pure string work, so it can be asked about the
+    // real one.
+    const QString realRuntime = QStringLiteral("/run/user/1000");
+    REQUIRE(tramp::isDocumentPortalPath(
+        QStringLiteral("/run/user/1000/doc/nbpeE9v4izUGiQ0CXz1BUw/song.mp3"), realRuntime));
+    REQUIRE(!tramp::isDocumentPortalPath(QStringLiteral("/home/me/Music/a.mp3"), realRuntime));
+    // "docs" is not "doc", so the separator has to be part of the comparison.
+    REQUIRE(
+        !tramp::isDocumentPortalPath(QStringLiteral("/run/user/1000/docs/a.mp3"), realRuntime));
+    // No runtime dir means no mount to be under, not everything is under it.
+    REQUIRE(!tramp::isDocumentPortalPath(QStringLiteral("/run/user/1000/doc/x/a.mp3"), QString()));
+
+    // Rewriting one reads the filesystem, so the mount has to be a made-up one:
+    // pointed at the real $XDG_RUNTIME_DIR this passes or fails depending on
+    // what the machine running it happens to have exported.
+    QTemporaryDir portalTmp;
+    REQUIRE(portalTmp.isValid());
+    const QString runtime = portalTmp.path();
+    const QString real = QDir(runtime).filePath(QStringLiteral("song.mp3"));
+    {
+      QFile f(real);
+      REQUIRE(f.open(QIODevice::WriteOnly));
+      f.write("x");
+    }
+    // Ordinary paths come back untouched -- the overwhelmingly common case, and
+    // the one where a wrong answer would corrupt a working playlist.
+    REQUIRE_EQ(tramp::durablePath(real, runtime), real);
+    REQUIRE(tramp::documentPortalHostPath(real).isEmpty());
+    // An export whose origin cannot be read stays as it is. That is what a
+    // sandbox narrowed off --filesystem=host will see, and there the export is
+    // the only handle the app has; replacing it with an unreadable host path
+    // would trade a row that dies at logout for one that is dead immediately.
+    // The rewrite itself is not provable from here -- setting the portal's own
+    // xattr is the portal's job -- so it is verified against a live export
+    // instead; see distribution.md.
+    const QString doc = QDir(runtime).filePath(QStringLiteral("doc/AbCd/song.mp3"));
+    REQUIRE_EQ(tramp::durablePath(doc, runtime), doc);
+    REQUIRE_EQ(tramp::durablePaths(QStringList{real, doc}, runtime).join(QLatin1Char(';')),
+               (QStringList{real, doc}).join(QLatin1Char(';')));
   }
 
   {

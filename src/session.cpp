@@ -2,6 +2,7 @@
 
 #include "chrome_command.h"
 #include "chrome_layout.h"
+#include "document_portal.h"
 #include "files.h"
 #include "host_shell.h"
 #include "host_shell_window.h"
@@ -932,9 +933,16 @@ void TrampSession::applyDroppedPaths(const QStringList& paths, bool replace) {
 }
 
 void TrampSession::openPaths(const QStringList& paths, bool enqueue) {
+  // Every path from outside the app arrives here -- argv, a drop, a pick -- and
+  // some of them are document-portal exports that expire at logout. Trade them
+  // for the paths they stand in for before anything writes them down. A
+  // directory is swapped before it is walked, so its contents come out durable
+  // too, and an M3U before it is parsed, so its relative entries resolve
+  // against the real folder.
+  const QStringList incoming = durablePaths(paths);
   QStringList playlists;
   QStringList others;
-  for (const QString& p : paths) {
+  for (const QString& p : incoming) {
     if (isPlaylistPath(p)) playlists.push_back(p);
     else others.push_back(p);
   }

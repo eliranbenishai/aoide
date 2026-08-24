@@ -111,6 +111,43 @@ migrating the absolute paths already in the state files.
 
 [qtbug]: https://bugreports.qt.io/browse/QTBUG-91357
 
+### Portal exports expire, so they are not what gets stored
+
+Opening a file from a file manager does not hand the app that file's path. It
+hands over an *export* of it under `$XDG_RUNTIME_DIR/doc`, and an export made for
+a launch is held only in the document portal's memory — it is never written to
+`~/.local/share/flatpak/db/documents`. That is what made this hard to catch: the
+export **outlives the process it was handed to**, so opening a track, quitting
+and relaunching restores it perfectly. It dies with the portal service, at
+logout. The next day the row is dead while the file itself never moved.
+
+`src/document_portal.cpp` reads the `user.document-portal.host-path` xattr the
+portal sets on the export and hands `openPaths` the real path, so what reaches
+the playlist and the state files is the durable one. Verified against a live
+export rather than a mock, before and after:
+
+```bash
+# before: the export path is what got written down
+"path": "/run/user/1000/doc/nbpeE9v4izUGiQ0CXz1BUw/openwith-test.mp3"
+# after
+"path": "/tmp/openwith-test.mp3"
+```
+
+Reproducing it needs the enqueue case, because only an *altered* list is
+persisted: a bare "Open with" replaces the playlist and is not written down at
+all, so seed `altered_playlist.json` with one track first, then pass an export
+as argv.
+
+The rewrite is deliberately conditional on the origin being **readable**. With
+`--filesystem=host` it is; narrow the sandbox and it is not, and there the
+expiring export is the only handle the app has — better than a host path nothing
+can open. So this change is also a prerequisite for narrowing rather than
+something narrowing would undo.
+
+`unzip` for skin installs was the other Flatpak lead, and it is a non-issue:
+`org.kde.Platform` 6.10 ships it, and `look.cpp` already declines a zip it
+cannot unpack instead of failing.
+
 `--filesystem=xdg-run/tramp:create` exists for one file: the KWin script behind
 always-on-top. KWin opens it by path from its own process, and a sandbox's
 `$XDG_RUNTIME_DIR` is a private mount the host cannot see, so the script has to
