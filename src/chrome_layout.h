@@ -377,12 +377,13 @@ inline constexpr qreal kSkinTrashInset = 4;
 inline constexpr qreal kSkinPreviewAspect = 825.0 / 348.0;
 inline constexpr qreal kSkinsToolBtn = kMainOptionsSize;
 inline constexpr qreal kSkinsToolGap = 8;
-inline constexpr int kSkinsBtnStackH = 26;
-inline constexpr int kSkinsBtnGap = 8;
+/// Playlist deck: pane pad 12 + deck pad 12 / 10, gap 10 above the footer.
+inline constexpr qreal kSkinsFooterPadX = 24;
+inline constexpr qreal kSkinsFooterPadY = 10;
+inline constexpr qreal kSkinsFooterGap = 10;
+inline constexpr int kSkinsFooterH = 46;
 inline constexpr int kSkinsScrollW = 14;
 inline constexpr int kSkinsScrollGap = 10;
-inline constexpr int kSkinsErrorH = 26;
-inline constexpr int kSkinsErrorGap = 8;
 
 /// Everything a panel owns below its title bar. Hit-testing and painting both
 /// start here, so it is the one place the title bar is subtracted.
@@ -403,13 +404,20 @@ inline QRectF skinsPane(const QRectF& body) {
 
 inline QRectF skinsPane(QSize logical) { return skinsPane(panelBody(logical)); }
 
+inline QRectF skinsFooter(const QRectF& pane) {
+  return QRectF(pane.left(), pane.bottom() - kSkinsFooterH, pane.width(), kSkinsFooterH);
+}
+
 inline QRectF skinsAddBtn(const QRectF& pane) {
-  return QRectF(pane.left() + 12, pane.bottom() - kSkinsBtnStackH, kSkinsToolBtn, kSkinsToolBtn);
+  const QRectF footer = skinsFooter(pane);
+  return QRectF(footer.left() + kSkinsFooterPadX,
+                footer.top() + kSkinsFooterPadY, kSkinsToolBtn, kSkinsToolBtn);
 }
 
 inline QRectF skinsRefreshBtn(const QRectF& pane) {
-  return QRectF(pane.right() - 12 - kSkinsToolBtn, pane.bottom() - kSkinsBtnStackH, kSkinsToolBtn,
-                kSkinsToolBtn);
+  const QRectF footer = skinsFooter(pane);
+  return QRectF(footer.right() - kSkinsFooterPadX - kSkinsToolBtn, footer.top() + kSkinsFooterPadY,
+                kSkinsToolBtn, kSkinsToolBtn);
 }
 
 inline QRectF skinsFolderBtn(const QRectF& pane) {
@@ -423,30 +431,29 @@ inline QRectF settingsPersistMark(const QRectF& pane) {
   return QRectF(pane.left() + 16, pane.top() + 230, pane.width() - 32, 20);
 }
 
-/// The catalogue's window onto its preview matrix. It stops short of the button stack by
-/// the error strip below, whether or not an install has failed — see
-/// [skinsErrorStrip] for why the strip is not claimed only when it is needed.
+/// The catalogue's window onto its preview matrix. It stops short of the footer
+/// by [kSkinsFooterGap], the same kind of list-to-deck gap the playlist uses.
 inline QRectF skinsListViewport(const QRectF& pane) {
   const qreal top = pane.top() + kSkinRowTop;
-  const qreal bottom =
-      pane.bottom() - kSkinsBtnStackH - kSkinsBtnGap - kSkinsErrorH - kSkinsErrorGap;
+  const qreal bottom = pane.bottom() - kSkinsFooterH - kSkinsFooterGap;
   const qreal scroll = kSkinsScrollGap + kSkinsScrollW;
   return QRectF(pane.left() + 12, top, qMax<qreal>(0, pane.width() - 24 - scroll),
                 qMax<qreal>(0, bottom - top));
 }
 
-/// Where a failed install says so: under the list, above the buttons, and no
-/// wider than the list, so it can reach neither the rows nor the scrollbar.
+/// Where a failed install says so: the slack between the + and the folder
+/// glyph, in the footer, so it can reach neither the rows nor the buttons.
 ///
-/// The strip is reserved even with nothing to say. Claiming it only while an
-/// error showed would reflow the catalogue under the pointer the moment an
+/// The slack is reserved even with nothing to say. Claiming a band only while
+/// an error showed would reflow the catalogue under the pointer the moment an
 /// install failed — and the scroll clamp that decides how far the list may
-/// travel lives outside this header, where the error is not in scope, so a
-/// viewport that came and went would leave the two disagreeing by exactly this
-/// strip: a row painted past the bottom edge with no way to scroll to it.
-inline QRectF skinsErrorStrip(const QRectF& viewport) {
-  return QRectF(viewport.left(), viewport.bottom() + kSkinsErrorGap, viewport.width(),
-                kSkinsErrorH);
+/// travel lives outside this header, where the error is not in scope.
+inline QRectF skinsErrorStrip(const QRectF& pane) {
+  const QRectF add = skinsAddBtn(pane);
+  const QRectF folder = skinsFolderBtn(pane);
+  const qreal left = add.right() + kSkinsToolGap;
+  const qreal right = folder.left() - kSkinsToolGap;
+  return QRectF(left, add.top(), qMax<qreal>(0, right - left), add.height());
 }
 
 inline QRectF skinsListScrollTrack(const QRectF& viewport) {

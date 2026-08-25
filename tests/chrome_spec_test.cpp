@@ -243,7 +243,7 @@ void ChromeSpecTest::stereoPlaylistGapHoldsForWideGlyphs() {
 void ChromeSpecTest::skinsListScrollsLastRowIntoView() {
   const auto pane = tramp::skinsPane(tramp::kSkins);
   const auto viewport = tramp::skinsListViewport(pane);
-  QCOMPARE(int(viewport.height()), 360);
+  QCOMPARE(int(viewport.height()), 372);
   QVERIFY(tramp::skinsListMaxScroll(8, viewport) > 0);
 
   const auto lastHidden = tramp::skinsGridCell(viewport, 7, 0);
@@ -262,27 +262,30 @@ void ChromeSpecTest::skinsListScrollsLastRowIntoView() {
 void ChromeSpecTest::skinsErrorStripClearsTheListAndTheScrollbar() {
   const auto pane = tramp::skinsPane(tramp::kSkins);
   const auto viewport = tramp::skinsListViewport(pane);
-  const auto strip = tramp::skinsErrorStrip(viewport);
+  const auto strip = tramp::skinsErrorStrip(pane);
   const auto track = tramp::skinsListScrollTrack(viewport);
+  const auto add = tramp::skinsAddBtn(pane);
+  const auto folder = tramp::skinsFolderBtn(pane);
+  const auto refresh = tramp::skinsRefreshBtn(pane);
 
   QVERIFY(!strip.intersects(viewport));
   QVERIFY(!strip.intersects(track));
-  QVERIFY(strip.right() <= track.left());
-  QVERIFY(strip.top() >= viewport.bottom());
-
-  // The button stack starts where the strip ends, so the strip cannot reach it
-  // and the pane's bottom edge is still the buttons'.
-  const qreal btnTop = pane.bottom() - tramp::kSkinsBtnStackH;
-  QVERIFY(strip.bottom() <= btnTop);
+  QVERIFY(!strip.intersects(add));
+  QVERIFY(!strip.intersects(folder));
+  QVERIFY(!strip.intersects(refresh));
+  QVERIFY(strip.left() >= add.right());
+  QVERIFY(strip.right() <= folder.left());
   QVERIFY(strip.height() > 0);
 
-  // Every row the list can scroll to stays clear of the strip, however long the
-  // catalogue is: the scroll domain is measured off the same shortened viewport.
+  // Every row the list can scroll to stays clear of the footer, however long
+  // the catalogue is: the scroll domain is measured off the same shortened
+  // viewport.
   for (const int count : {1, 7, 8, 40}) {
     const int scroll = tramp::skinsListMaxScroll(count, viewport);
     const auto last = tramp::skinsGridCell(viewport, count - 1, scroll);
     QVERIFY(last.bottom() <= viewport.bottom());
     QVERIFY(!last.intersects(strip));
+    QVERIFY(!last.intersects(add));
   }
 }
 
@@ -292,10 +295,10 @@ void ChromeSpecTest::skinsFooterButtonsSitOnThePane() {
   const auto folder = tramp::skinsFolderBtn(pane);
   const auto refresh = tramp::skinsRefreshBtn(pane);
   QCOMPARE(add.size(), QSizeF(tramp::kSkinsToolBtn, tramp::kSkinsToolBtn));
-  QCOMPARE(add.left(), pane.left() + 12);
-  QCOMPARE(add.bottom(), pane.bottom());
-  QCOMPARE(refresh.right(), pane.right() - 12);
-  QCOMPARE(refresh.bottom(), pane.bottom());
+  QCOMPARE(add.left(), pane.left() + tramp::kSkinsFooterPadX);
+  QCOMPARE(add.bottom(), pane.bottom() - tramp::kSkinsFooterPadY);
+  QCOMPARE(refresh.right(), pane.right() - tramp::kSkinsFooterPadX);
+  QCOMPARE(refresh.bottom(), pane.bottom() - tramp::kSkinsFooterPadY);
   QCOMPARE(folder.right() + tramp::kSkinsToolGap, refresh.left());
   QVERIFY(!add.intersects(folder));
   QVERIFY(!folder.intersects(refresh));

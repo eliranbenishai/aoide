@@ -978,7 +978,7 @@ void paintSkins(QPainter& p, const QRectF& body, const SessionView& view,
     drawScrollbar(p, track, thumb.top() - track.top(), thumb.height());
   }
   if (!view.skinsError.isEmpty()) {
-    const QRectF strip = skinsErrorStrip(viewport);
+    const QRectF strip = skinsErrorStrip(pane);
     p.save();
     p.setClipRect(strip);
     p.setFont(monoFont(10));
