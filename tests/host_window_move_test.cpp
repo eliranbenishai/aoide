@@ -1200,8 +1200,7 @@ void HostWindowMoveTest::emptyStateCopyIsTheLockedCopy() {
 
   const tramp::EmptyWellCopy collection = tramp::collectionEmptyCopy();
   QCOMPARE(collection.heading, QStringLiteral("NO SAVED PLAYLISTS"));
-  QCOMPARE(collection.body,
-           QStringLiteral("A playlist is a file you keep. Tramp does not scan a library."));
+  QCOMPARE(collection.body, QStringLiteral("Tramp only saves references to your playlist files. You can create new ones and name them whatever you want, without affecting the files."));
 
   QCOMPARE(tramp::resumePlaybackLabel(), QStringLiteral("Resume playback"));
 

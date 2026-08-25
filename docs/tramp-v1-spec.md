@@ -76,7 +76,7 @@ Must decode and play: **MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus**.
 
 - Open files/folders, drag-and-drop, and playlists only.
 - **No media library** (no scanned catalog / database) in v1.
-- **Empty states** (no first-run flag, no tour): an empty track well paints `THIS LIST IS EMPTY` / `Drop files here, or open one from PLAYLISTS.`; an empty collection well paints `NO SAVED PLAYLISTS` / `A playlist is a file you keep. Tramp does not scan a library.`; the main title is `Drop files to play` while it would otherwise be `No track` and the current list has no rows. The footer drop hint is chrome, not a third well line.
+- **Empty states** (no first-run flag, no tour): an empty track well paints `THIS LIST IS EMPTY` / `Drop files here, or open one from PLAYLISTS.`; an empty collection well paints `NO SAVED PLAYLISTS` / `Tramp only saves references to your playlist files. You can name them whatever you want, without affecting the files. How you manage the files themselves is up to you.`; the main title is `Drop files to play` while it would otherwise be `No track` and the current list has no rows. The footer drop hint is chrome, not a third well line.
 
 ## Playlist manager
 

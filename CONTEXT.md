@@ -109,7 +109,7 @@ The Settings row (on by default) that starts the transport on launch. Playlist, 
 _Avoid_: Resume last session (retired label); treating the switch as what restores the playlist
 
 **Empty state**:
-The copy a well paints when it has no rows, and the main title when nothing is loaded yet. The playlist track well says `THIS LIST IS EMPTY` / `Drop files here, or open one from PLAYLISTS.`; the collection well says `NO SAVED PLAYLISTS` / `A playlist is a file you keep. Tramp does not scan a library.`; the main title is `Drop files to play` while the display title would be `No track` *and* the current list is empty. A stopped current track still shows its title; `No track` is only when nothing is loaded. There is no first-run flag and no tour — the empty wells carry the idea that music enters through files and playlists.
+The copy a well paints when it has no rows, and the main title when nothing is loaded yet. The playlist track well says `THIS LIST IS EMPTY` / `Drop files here, or open one from PLAYLISTS.`; the collection well says `NO SAVED PLAYLISTS` / `Tramp only saves references to your playlist files. You can name them whatever you want, without affecting the files. How you manage the files themselves is up to you.`; the main title is `Drop files to play` while the display title would be `No track` *and* the current list is empty. A stopped current track still shows its title; `No track` is only when nothing is loaded. There is no first-run flag and no tour — the empty wells carry the idea that music enters through files and playlists.
 _Avoid_: wizard, onboarding, first-run tour, repeating the footer drop hint as a third well line, treating `No track` as the first-run title
 
 **Disabled playlist**:

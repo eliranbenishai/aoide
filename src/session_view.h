@@ -150,8 +150,10 @@ inline EmptyWellCopy playlistEmptyCopy() {
 }
 
 inline EmptyWellCopy collectionEmptyCopy() {
-  return {QStringLiteral("NO SAVED PLAYLISTS"),
-          QStringLiteral("A playlist is a file you keep. Tramp does not scan a library.")};
+  return {
+    QStringLiteral("NO SAVED PLAYLISTS"),
+    QStringLiteral("Tramp only saves references to your playlist files. You can create new ones and name them whatever you want, without affecting the files.")
+  };
 }
 
 inline QString resumePlaybackLabel() { return QStringLiteral("Resume playback"); }
