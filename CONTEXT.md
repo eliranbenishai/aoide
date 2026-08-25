@@ -7,7 +7,7 @@ A multi-platform desktop music player positioned as a spiritual successor to Win
 Most entries here are settled: the term means what it says, and the phrasings in `_Avoid_` were considered and rejected. Eight rest on a product bet nobody has tested. Those carry a `_Premise_` line — the bet, and the observable event that should reopen it — between the definition and `_Avoid_`. The dated record, with what each one costs today and what is genuinely known, is `docs/premises.md`; the section numbers match. An entry with no `_Premise_` line is vocabulary, not a wager.
 
 **Tramp**:
-The product — a desktop music player that can be built for Windows, Linux, and macOS.
+The product — a desktop music player that ships for Windows and Linux in 1.0, and macOS in 1.1.
 _Premise_ (2026-08-21, accepted without evidence): that the homage is the product and the nostalgia is not — that people want this player rather than classic skins, visualisations, doublesize, global hotkeys and plugins. Revisit if over half of the first twenty unprompted reactions name a v1 non-goal as the thing that was missing — `docs/premises.md` §5.
 _Avoid_: Winamp clone, media player (when meaning this product)
 
@@ -25,7 +25,7 @@ _Premise_ (2026-08-21, cost partly evidenced, capacity unevidenced): that one ma
 _Avoid_: freeware, donationware (unless donations become a product); using this phrase to mean open-source
 
 **Official download**:
-How listeners obtain Tramp — the website (`https://tramp.music`). Not GitHub. Windows also has a Microsoft Store listing and Linux a Flathub listing; the site still offers an unsigned EXE and an AppImage when a store is missing or unwanted.
+How listeners obtain Tramp — the website (`https://tramp.music`). Not GitHub. Windows also has a Microsoft Store listing and Linux a Flathub listing; the site still offers an unsigned EXE and an AppImage when a store is missing or unwanted. The macOS DMG is 1.1.
 _Avoid_: GitHub Release as the product surface, treating Store or Flathub as the only install, shipping from the repo
 
 **Store listing name**:

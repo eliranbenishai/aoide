@@ -73,9 +73,9 @@ attaches artifacts to a GitHub Release (a mirror; the product page is tramp.musi
 | Linux MPRIS | OS media keys / Now Playing via D-Bus not implemented. In-app media keys work when Tramp is focused. |
 | Second-instance “Open with” | Cold-start argv and file associations work; a second running instance does not forward paths to the first. |
 | Spectrum | Real 20-bar analyser (offline PCM + STFT). Honest silence until the spectrogram for the current track is ready. |
-| macOS host | Qt pairing comes after Linux + Windows. |
+| macOS host | 1.1. Qt pairing comes after Linux + Windows. |
 
-Windows Store and Flathub are v1 channels; Mac App Store and Snap are not.
+Windows Store and Flathub are 1.0 channels; the macOS DMG is 1.1. Mac App Store and Snap are not.
 
 ## v1 success criteria
 
@@ -83,7 +83,7 @@ From [`docs/tramp-v1-spec.md`](docs/tramp-v1-spec.md).
 
 | Criterion | Status |
 |-----------|--------|
-| Install/run on Win/Linux/macOS (build artifacts) | Linux binary is `build/tramp`; Windows CI compiles the host; macOS later |
+| Install/run on Win/Linux (build artifacts) | Linux binary is `build/tramp`; Windows CI compiles the host; macOS is 1.1 |
 | Open local audio + playlists | Implemented (file picker, DnD, argv, folder expand) |
 | Manage playlist (add/remove/reorder/save/restore) | Implemented (`PlaylistController`, M3U/M3U8) |
 | Transport chrome controls + tags when present | Implemented (Qt chrome + libmpv) |

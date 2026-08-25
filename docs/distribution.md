@@ -204,8 +204,8 @@ and refuses to link any other version. CMake does the same check.
 Cut a release by bumping [`VERSION`](../VERSION), committing, then:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v1.0
+git push origin v1.0
 ```
 
 The tag name without `v` must equal the `VERSION` file.
@@ -215,11 +215,11 @@ The tag name without `v` must equal the `VERSION` file.
 | File | Channel |
 |------|---------|
 | `Tramp-<ver>-windows-x64.exe` | Official download (unsigned Inno; SmartScreen click-through) |
-| `Tramp-<ver>-windows-x64.msix` | Microsoft Store listing **tramp.music** (unsigned here; Store re-signs). Identity version is `x.y.z.0` from `VERSION` `x.y.z`; the fourth number must be **0** or Partner Center rejects the package. Bump `x.y.z` for each Store upload. |
+| `Tramp-<ver>-windows-x64.msix` | Microsoft Store listing **tramp.music** (unsigned here; Store re-signs). Identity version is four-part `x.y.z.0` from `VERSION` (`1.0` → `1.0.0.0`); the fourth number must be **0** or Partner Center rejects the package. Bump `VERSION` for each Store upload. |
 | `Tramp-<ver>-linux-x86_64.AppImage` | Official download |
 | `Tramp-<ver>-linux-x86_64.tar.gz` | Input for a Flathub recipe |
 | `Tramp-<ver>-linux-x86_64.flatpak` | Optional CI bundle (job may fail without blocking the rest) |
-| `Tramp-<ver>-macos-universal.dmg` | Official download once the Qt Mac host exists (notarized when secrets are set) |
+| `Tramp-<ver>-macos-universal.dmg` | Official download in **1.1**, once the Qt Mac host exists (notarized when secrets are set) |
 
 Partner Center and Flathub submit stay **human**. Packaging scripts live under `packaging/`.
 

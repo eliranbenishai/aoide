@@ -130,7 +130,7 @@ Recorded 2026-08-21 · **Status:** cost structure partly evidenced, capacity une
 
 **The bet.** One maintainer can carry a GPL-3.0-or-later desktop player across five install channels indefinitely, at no price to the listener, and never need money to do it.
 
-**Known.** The release surface is real, and human at both ends: Partner Center and Flathub submit stay manual, the MSIX identity version has to be bumped per upload, and macOS notarization needs a Developer ID certificate — which means a paid Apple Developer Program membership. So **Free Forever** is a price to the listener that already has a recurring bill behind it and no named payer. Maintainer capacity over twelve months is unknown; there is no twelve months of history to look at.
+**Known.** The release surface is real, and human at both ends: Partner Center and Flathub submit stay manual, the MSIX identity version has to be bumped per upload, and macOS notarization needs a Developer ID certificate — which means a paid Apple Developer Program membership. 1.0 ships four channels (Store, website EXE, Flathub, AppImage); the fifth (macOS DMG) is 1.1, which is when that Apple bill arrives. So **Free Forever** is a price to the listener that already has a recurring bill behind it and no named payer. Maintainer capacity over twelve months is unknown; there is no twelve months of history to look at.
 
 **Cost.** Whatever release and store chores cost, paid out of the same hours the product would otherwise get.
 

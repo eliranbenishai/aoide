@@ -8,12 +8,12 @@ Living map of how Tramp is structured. Domain terms: [`CONTEXT.md`](../CONTEXT.m
 
 `TrampSession` owns playback (libmpv), playlist/collection, EQ, spectrum, docking, zoom, skins, and persistence. Panels are views onto that session, not extra engines or extra OS windows. Title-bar drags are app-owned: main translates the cluster inside the host; other panels move alone. No skip-taskbar transients, no pin-against-recenter. Host geometry is the virtual desktop (bounding rect of every screen); it does not resize on panel drag; input is punched to panel shapes so the desktop is clickable in the gaps. `--dump-chrome` writes 1× logical PNGs from `goldenDemoView()`, the demo state as data the painters honour rather than a flag they override — which is what lets a caller photograph a state the demo does not open on (collapsed, clamped, and empty playlist, dead zoom-in on main, Audio tab, populated Skins panel).
 
-Linux + Windows are the pairing hosts; macOS follows.
+Linux + Windows are the pairing hosts; macOS is 1.1.
 
-## Product shape (v1)
+## Product shape (1.0)
 
-- Desktop player (Windows, Linux, macOS); official download `https://tramp.music`; GPL-3.0-or-later
-- Windows Store MSIX **and** website EXE; Linux Flathub **and** AppImage; Mac notarized DMG later
+- Desktop player (Windows and Linux in 1.0; macOS in 1.1); official download `https://tramp.music`; GPL-3.0-or-later
+- Windows Store MSIX **and** website EXE; Linux Flathub **and** AppImage; Mac notarized DMG in 1.1
 - Custom **app chrome**; six **panels** inside one host window — main/EQ/PL dock; settings, about, and skins freestanding; host shape
 - Main title-bar drag translates all panels inside the host; other title-bar drags move only that panel. EQ/PL snap on drag end; settings and skins stay raised among panels; taskbar shows the host (Tramp)
 - Fixed canvases: main/EQ **825×348**, playlist default **1073×696** (free resize), settings **520×420**, about **480×360**, skins **520×420**; global discrete zoom
@@ -34,12 +34,12 @@ flowchart LR
   CI --> FH
   Site --> WinExe[Windows EXE x64]
   Site --> AppImage[Linux AppImage x86_64]
-  Site --> Dmg[macOS universal DMG]
+  Site --> Dmg[macOS universal DMG 1.1]
   MS --> Msix[Windows MSIX x64]
   FH --> Flatpak[Linux Flatpak x86_64]
 ```
 
-CI-built. Workflows and secrets: [`distribution.md`](distribution.md). macOS DMG waits on the Qt Mac host. In-app update follows **install channel**.
+CI-built. Workflows and secrets: [`distribution.md`](distribution.md). macOS DMG is **1.1** and waits on the Qt Mac host. In-app update follows **install channel**.
 
 One Qt for everything that ships **and** for the local tree — the `QT_VERSION` file. That is the official desktop kit CI installs, the line `org.kde.Platform` tracks (`QT_RUNTIME` is its major.minor), and what `./tool/fetch_qt.sh` puts under `.local/qt/`. `build.sh` and CMake refuse any other version. Nothing reaches an artifact upload without being **run**: staged binary, AppImage and extracted tarball each take `--bench-chrome` and a `TRAMP_AUTO_QUIT=1` start, with the runner's Qt — libraries *and* plugins — stripped from the environment so an artifact can only use what it carries. Nothing reaches a release without being **complete**: assembly happens on every run, and it requires an EXE, an MSIX, an AppImage and a tarball before the tag-only publish step.
 
@@ -168,10 +168,10 @@ Playlist bytes are decoded by `decodeM3uBytes`: UTF-8 or UTF-16 by byte-order ma
 ## Known v1 gaps
 
 - Mockup fidelity / `--dump-chrome` vs `player-mockup-2.html` still hardening
-- Full libmpv packaging on macOS
+- Full libmpv packaging on macOS (1.1)
 - The Flatpak takes Qt from its runtime but still bundles libmpv's whole closure, so it carries copies of libraries `org.kde.Platform` also ships and could shadow them. Removing Qt was the shadowing risk worth closing first; trimming the rest needs a list of what the runtime provides
 - Linux MPRIS; second-instance “Open with”
-- Qt macOS host (and therefore the notarized DMG)
+- Qt macOS host (and therefore the notarized DMG) — 1.1
 - Spectrum: second `ao=pcm` pass per open; long tracks analyse in the background, and a quit cancels that analysis rather than waiting it out
 - Playlist free resize re-rasterises per move (size change invalidates the cache), so it is bounded by raw paint cost — ~12 ms at the default size, ~25 ms at large sizes — [`title-bar-drag.md`](agents/title-bar-drag.md)
 - One ~38 ms stall per second of dragging comes from committing the virtual-desktop-sized ARGB host surface, not from app painting

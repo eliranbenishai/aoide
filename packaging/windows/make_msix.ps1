@@ -1,7 +1,7 @@
 # Packs the Windows Release folder into an unsigned MSIX for Store submission.
 # Microsoft re-signs Store MSIX after certification (ADR 0011).
 param(
-  [string]$Version = "0.1.0.0",
+  [string]$Version = "1.0.0.0",
   [string]$Publisher = "CN=Proxima Magnifica",
   [string]$IdentityName = "ProximaMagnifica.trampmusic"
 )

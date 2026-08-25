@@ -12,11 +12,11 @@ Tramp is a multi-platform desktop music player — a spiritual successor to Wina
 
 ## Platforms
 
-- **Windows, Linux, and macOS** desktop.
+- **Windows and Linux** desktop in **1.0**. **macOS** is **1.1**.
 - One codebase; shippable artifacts via the Qt host (`src/`) and platform installers.
-- **Official download** is `https://tramp.music`. Windows lists on the **Microsoft Store** as **tramp.music** (MSIX) **and** offers an unsigned website EXE. Linux lists on **Flathub** **and** offers an AppImage. macOS is a notarized DMG from the site. Mac App Store and Snap are **not** v1.
+- **Official download** is `https://tramp.music`. Windows lists on the **Microsoft Store** as **tramp.music** (MSIX) **and** offers an unsigned website EXE. Linux lists on **Flathub** **and** offers an AppImage. macOS is a notarized DMG from the site in **1.1**. Mac App Store and Snap are **not** 1.0.
 - License: **GPL-3.0-or-later**.
-- Release artifacts are built on **GitHub Actions**. v1 CPUs: Windows x64, Linux x86_64, macOS universal.
+- Release artifacts are built on **GitHub Actions**. 1.0 CPUs: Windows x64, Linux x86_64. macOS universal is 1.1.
 - **In-app new-version prompt — intended, not built.** The design is to follow the **install channel** (Store → Store, Flathub → Flathub, otherwise tramp.music) and send the listener there rather than replace the app in place. Nothing in `src/` detects the channel, checks for a new version, or prompts.
 
 ## Stack
@@ -56,7 +56,7 @@ Must decode and play: **MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus**.
 
 ### Engine
 
-- Bundle **full libmpv** (+ required FFmpeg) on Windows, macOS, and Linux — features first; binary size later.
+- Bundle **full libmpv** (+ required FFmpeg) on Windows and Linux — features first; binary size later. macOS follows in 1.1.
 - Talk to libmpv through the in-process `PlayerEngine` seam (`MpvEngine`).
 - **Audible 10-band EQ** (measurement-gated before the UI claims it), **real** LCD spectrum (**20** bars), and **Mono** (force downmix when on). Synthetic spectrum levels are a failure/dev signal, not the product end-state — an unmeasured spectrogram (including a decode past its 120 s deadline) is a **transient notice** in the display well. A build with no usable audio engine keeps the panel subtitle and a durable **persistent indicator** in that well. A settings or state-file write that fails is a Settings-row mark until that file writes. Vocabulary: [`CONTEXT.md`](../CONTEXT.md): **Failure surface**.
 
@@ -120,7 +120,7 @@ Eight rules in this file are bets rather than findings: no media library, playli
 
 ## Success criteria
 
-v1 is done when a user can install Tramp on Windows, Linux, and macOS, open local audio and playlists, manage a large playlist in a freely resizable playlist panel, control playback with three dockable panels inside one host window whose chrome matches `player-mockup-2.html` at 100% zoom, hear measurement-proven EQ, see a real 20-bar spectrum, and use Mono — without depending on a library, WSZ skins, PNG graphite faces, or any single store. Windows install must work from the Microsoft Store and from the website EXE; Linux from Flathub and from the AppImage.
+1.0 is done when a user can install Tramp on Windows and Linux, open local audio and playlists, manage a large playlist in a freely resizable playlist panel, control playback with three dockable panels inside one host window whose chrome matches `player-mockup-2.html` at 100% zoom, hear measurement-proven EQ, see a real 20-bar spectrum, and use Mono — without depending on a library, WSZ skins, PNG graphite faces, or any single store. Windows install must work from the Microsoft Store and from the website EXE; Linux from Flathub and from the AppImage. macOS install (notarized DMG) is 1.1.
 
 ## Related artifacts
 

@@ -359,4 +359,4 @@ jobs:
             Source: this tag. Product downloads: https://tramp.music
 
             Windows Store and Flathub listings are submitted separately from these bits.
-            macOS DMG waits on the Qt Mac host.
+            macOS DMG is 1.1 and waits on the Qt Mac host.
