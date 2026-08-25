@@ -143,12 +143,12 @@ The cog at the top of the gutter left of the main player's **display well**. Und
 _Avoid_: clutterbar, clutter rail, **O** / **A** / **I** as product controls (all retired — the mockup's vertical letter strip, replaced by the cog); toolbar (when this control is meant); doublesize button (**D**), viz button (**V**); always-on-top as a per-panel or per-group control; Track info as a cog-menu row
 
 **Skins panel**:
-Freestanding panel (shade + close, no snap) that holds a **2-column matrix** of main-player preview PNGs, install zip/folder, skins folder, reset folder, and the install-error strip. Opened from the gutter Skins button. Click a preview to apply it; a trashcan on a non-active, non-Tramp, non-extended pack confirms then deletes that pack's files. Not a Settings tab.
-_Avoid_: Skins tab (retired home), look packs dialog
+Freestanding panel (shade + close, no snap) that holds a **2-column matrix** of main-player preview PNGs, a **+** menu (Install ZIP / Install Folder), an open-folder glyph, a refresh glyph, and the install-error strip. Opened from the gutter Skins button. Click a preview to apply it; a trashcan on a non-active, non-Tramp, non-extended pack confirms then deletes that pack's files. Not a Settings tab.
+_Avoid_: Skins tab (retired home), look packs dialog; Reset folder (retired — Reset Settings re-seeds)
 
 **Settings**:
-Freestanding panel with side tabs **General** | **Audio**. Audio is an empty stake. **Reset Settings** restores factory `settings.json` except `activeSkinId` and `skinsDirectory`.
-_Avoid_: Skins as a Settings tab; Reset Settings as a skins-catalog action
+Freestanding panel with side tabs **General** | **Audio**. Audio is an empty stake. **Reset Settings** restores factory `settings.json` except `activeSkinId`, and re-seeds the skins directory.
+_Avoid_: Skins as a Settings tab; Reset folder as a Skins-panel action
 
 **Phosphor**:
 The **cyan** colour of the mockup chrome’s “screen glow” — used for lit LCD text, spectrum bars, and other live readouts (`#3de7ff` / hot variants). Not chartreuse.

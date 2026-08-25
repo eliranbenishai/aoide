@@ -25,7 +25,9 @@ class ChromeCommandTest : public QObject {
   void collapsingTheCollectionPersistsAndAsksForARefresh();
   void togglingElapsedTimePersistsAndAsksForARefresh();
   void monoPersistsAndDoesNotMarkThePlaylistAltered();
-  void installingASkinAsksForAZipAndDoesNotPersistYet();
+  void skinsAddButtonAsksForTheInstallMenu();
+  void skinsFolderButtonOpensTheDirectory();
+  void skinsRefreshButtonAsksToRescan();
   void skinsButtonTogglesTheSkinsPanel();
   void clickingASkinPreviewAsksToActivate();
   void trashcanAsksToRemove();
@@ -168,13 +170,32 @@ void ChromeCommandTest::monoPersistsAndDoesNotMarkThePlaylistAltered() {
   QVERIFY(!f.playlist.altered());
 }
 
-void ChromeCommandTest::installingASkinAsksForAZipAndDoesNotPersistYet() {
+void ChromeCommandTest::skinsAddButtonAsksForTheInstallMenu() {
   Fixture f;
   const tramp::ChromeCommandOutcome out = f.router().handle(
-      tramp::WindowId::skins, hit(tramp::ChromeHit::Kind::settingsInstallZip), Qt::NoModifier,
+      tramp::WindowId::skins, hit(tramp::ChromeHit::Kind::settingsSkinAdd), Qt::NoModifier, {});
+  QVERIFY(out.handled);
+  QCOMPARE(out.intent, tramp::ChromeIntent::showSkinInstallMenu);
+  QVERIFY(!out.persist);
+}
+
+void ChromeCommandTest::skinsFolderButtonOpensTheDirectory() {
+  Fixture f;
+  const tramp::ChromeCommandOutcome out = f.router().handle(
+      tramp::WindowId::skins, hit(tramp::ChromeHit::Kind::settingsSkinsFolder), Qt::NoModifier,
       {});
   QVERIFY(out.handled);
-  QCOMPARE(out.intent, tramp::ChromeIntent::pickSkinZip);
+  QCOMPARE(out.intent, tramp::ChromeIntent::openSkinsDirectory);
+  QVERIFY(!out.persist);
+}
+
+void ChromeCommandTest::skinsRefreshButtonAsksToRescan() {
+  Fixture f;
+  const tramp::ChromeCommandOutcome out = f.router().handle(
+      tramp::WindowId::skins, hit(tramp::ChromeHit::Kind::settingsSkinsRefresh), Qt::NoModifier,
+      {});
+  QVERIFY(out.handled);
+  QCOMPARE(out.intent, tramp::ChromeIntent::rescanSkins);
   QVERIFY(!out.persist);
 }
 

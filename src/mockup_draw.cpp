@@ -410,6 +410,13 @@ QPainterPath pathSave() {
   return path;
 }
 
+QPainterPath pathFolder() {
+  QPainterPath path;
+  path.addRoundedRect(QRectF(3.2, 4.6, 7.6, 3.6), 1.0, 1.0);
+  path.addRoundedRect(QRectF(3.2, 7.2, 17.6, 12.4), 1.8, 1.8);
+  return path;
+}
+
 QPainterPath pathSort() {
   QPainterPath path;
   path.addRoundedRect(2.6, 5.4, 11, 2.2, 1.1, 1.1);
@@ -913,6 +920,12 @@ void drawIcon(QPainter& p, const QRectF& box, MockupIcon icon, const QColor& col
       return;
     case MockupIcon::trackInfo:
       paintIconPath(p, box, 24, pathTrackInfo(), color);
+      return;
+    case MockupIcon::folder:
+      paintIconPath(p, box, 24, pathFolder(), color);
+      return;
+    case MockupIcon::refresh:
+      drawReload(p, box, color);
       return;
     case MockupIcon::previous:
       paintIconPath(p, box, 24, pathPrev(), color);

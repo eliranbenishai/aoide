@@ -119,7 +119,7 @@ int dumpChrome(const QString& dirPath) {
       audio.settingsTab = 1;
       if (!shoot(spec, audio, dumpName(spec.id) + QStringLiteral("_audio"))) return 1;
     }
-    // The Skins panel's matrix, scrollbar, four buttons and error line need a
+    // The Skins panel's matrix, scrollbar, footer glyphs and error line need a
     // picture of their own. The catalogue is longer than the viewport on purpose
     // — a grid that fits would leave the scrollbar unphotographed.
     if (spec.id == tramp::WindowId::skins) {

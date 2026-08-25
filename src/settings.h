@@ -74,12 +74,12 @@ struct TrampSettings {
   static TrampSettings fromJson(const QJsonObject& json);
 };
 
+/// Factory settings, keeping the active skin. The skins directory goes back
+/// with the rest; the session re-seeds the bundled packs when it applies this.
 inline void resetSettingsExceptSkins(TrampSettings& s) {
   const QString skin = s.activeSkinId;
-  const QString dir = s.skinsDirectory;
   s = TrampSettings{};
   s.activeSkinId = skin;
-  s.skinsDirectory = dir;
 }
 
 WindowFrame* frameFor(TrampSettings& s, WindowId id);

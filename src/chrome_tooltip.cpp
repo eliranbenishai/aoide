@@ -147,14 +147,12 @@ QString chromeKindTip(const ChromeHit& chrome, const SessionView& view) {
       return QStringLiteral("Dock snap strong");
     case K::settingsReset:
       return QStringLiteral("Reset Settings");
-    case K::settingsInstallZip:
-      return QStringLiteral("Install zip");
-    case K::settingsInstallFolder:
-      return QStringLiteral("Install folder");
+    case K::settingsSkinAdd:
+      return QStringLiteral("Install skin");
     case K::settingsSkinsFolder:
-      return QStringLiteral("Skins folder");
-    case K::settingsResetSkinsFolder:
-      return QStringLiteral("Reset folder");
+      return QStringLiteral("Open skins folder");
+    case K::settingsSkinsRefresh:
+      return QStringLiteral("Refresh skins");
     case K::settingsSkinRemove:
       if (chrome.index >= 0 && chrome.index < view.skins.size()) {
         return QStringLiteral("Remove %1").arg(view.skins[chrome.index].name);

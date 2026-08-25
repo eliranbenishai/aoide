@@ -375,7 +375,9 @@ inline constexpr qreal kSkinCellPad = 4;
 inline constexpr qreal kSkinTrash = 18;
 inline constexpr qreal kSkinTrashInset = 4;
 inline constexpr qreal kSkinPreviewAspect = 825.0 / 348.0;
-inline constexpr int kSkinsBtnStackH = 58;
+inline constexpr qreal kSkinsToolBtn = kMainOptionsSize;
+inline constexpr qreal kSkinsToolGap = 8;
+inline constexpr int kSkinsBtnStackH = 26;
 inline constexpr int kSkinsBtnGap = 8;
 inline constexpr int kSkinsScrollW = 14;
 inline constexpr int kSkinsScrollGap = 10;
@@ -400,6 +402,21 @@ inline QRectF skinsPane(const QRectF& body) {
 }
 
 inline QRectF skinsPane(QSize logical) { return skinsPane(panelBody(logical)); }
+
+inline QRectF skinsAddBtn(const QRectF& pane) {
+  return QRectF(pane.left() + 12, pane.bottom() - kSkinsBtnStackH, kSkinsToolBtn, kSkinsToolBtn);
+}
+
+inline QRectF skinsRefreshBtn(const QRectF& pane) {
+  return QRectF(pane.right() - 12 - kSkinsToolBtn, pane.bottom() - kSkinsBtnStackH, kSkinsToolBtn,
+                kSkinsToolBtn);
+}
+
+inline QRectF skinsFolderBtn(const QRectF& pane) {
+  const QRectF refresh = skinsRefreshBtn(pane);
+  return QRectF(refresh.left() - kSkinsToolGap - kSkinsToolBtn, refresh.top(), kSkinsToolBtn,
+                kSkinsToolBtn);
+}
 
 /// General-tab mark for a state-file write that has not yet succeeded.
 inline QRectF settingsPersistMark(const QRectF& pane) {

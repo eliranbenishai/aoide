@@ -987,15 +987,13 @@ void paintSkins(QPainter& p, const QRectF& body, const SessionView& view,
                       view.skinsError);
     p.restore();
   }
-  const qreal btnY = pane.bottom() - kSkinsBtnStackH;
-  drawBtn(p, QRectF(pane.left() + 12, btnY, 148, 26), faceOf(phases, K::settingsInstallZip, false),
-          QStringLiteral("Install zip"));
-  drawBtn(p, QRectF(pane.left() + 168, btnY, 160, 26),
-          faceOf(phases, K::settingsInstallFolder, false), QStringLiteral("Install folder"));
-  drawBtn(p, QRectF(pane.left() + 12, btnY + 30, 148, 26),
-          faceOf(phases, K::settingsSkinsFolder, false), QStringLiteral("Skins folder"));
-  drawBtn(p, QRectF(pane.left() + 168, btnY + 30, 160, 26),
-          faceOf(phases, K::settingsResetSkinsFolder, false), QStringLiteral("Reset folder"));
+  const QRectF add = skinsAddBtn(pane);
+  drawGlyphBtn(p, add, MockupIcon::add, faceOf(phases, K::settingsSkinAdd, false), 16);
+  drawMenuCaret(p, add);
+  drawGlyphBtn(p, skinsFolderBtn(pane), MockupIcon::folder,
+               faceOf(phases, K::settingsSkinsFolder, false), 16);
+  drawGlyphBtn(p, skinsRefreshBtn(pane), MockupIcon::refresh,
+               faceOf(phases, K::settingsSkinsRefresh, false), 16);
 }
 
 void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const SessionView& view) {

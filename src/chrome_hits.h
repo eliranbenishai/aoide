@@ -68,10 +68,9 @@ struct ChromeHit {
     settingsSkinRow,
     settingsSkinRemove,
     settingsSkinScroll,
-    settingsInstallZip,
-    settingsInstallFolder,
+    settingsSkinAdd,
     settingsSkinsFolder,
-    settingsResetSkinsFolder,
+    settingsSkinsRefresh,
     aboutWeb,
     plResize,
   };

@@ -129,6 +129,8 @@ enum class MockupIcon {
   options,
   skins,
   trackInfo,
+  folder,
+  refresh,
   minimize,
   zoomOut,
   zoomIn,

@@ -2450,7 +2450,7 @@ int main() {
     settings.alwaysOnTop = true;
     tramp::resetSettingsExceptSkins(settings);
     REQUIRE_EQ(settings.activeSkinId, QStringLiteral("gamma"));
-    REQUIRE_EQ(settings.skinsDirectory, QStringLiteral("/tmp/skins-keep"));
+    REQUIRE(settings.skinsDirectory.isEmpty());
     REQUIRE_EQ(settings.zoomPercent, 75);
     REQUIRE(!settings.alwaysOnTop);
   }

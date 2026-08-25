@@ -253,24 +253,15 @@ ChromeHit hitSettings(QSize logical, QPoint pos, const SessionView& view) {
 
 ChromeHit hitSkins(QSize logical, QPoint pos, const SessionView& view) {
   const QRectF pane = skinsPane(logical);
-  const qreal btnY = pane.bottom() - kSkinsBtnStackH;
-  if (auto h = hitIf(QRect(int(pane.left() + 12), int(btnY), 148, 26), pos,
-                     ChromeHit::Kind::settingsInstallZip);
+  if (auto h = hitIf(skinsAddBtn(pane).toRect(), pos, ChromeHit::Kind::settingsSkinAdd);
       h.kind != ChromeHit::Kind::none) {
     return h;
   }
-  if (auto h = hitIf(QRect(int(pane.left() + 168), int(btnY), 160, 26), pos,
-                     ChromeHit::Kind::settingsInstallFolder);
+  if (auto h = hitIf(skinsFolderBtn(pane).toRect(), pos, ChromeHit::Kind::settingsSkinsFolder);
       h.kind != ChromeHit::Kind::none) {
     return h;
   }
-  if (auto h = hitIf(QRect(int(pane.left() + 12), int(btnY + 30), 148, 26), pos,
-                     ChromeHit::Kind::settingsSkinsFolder);
-      h.kind != ChromeHit::Kind::none) {
-    return h;
-  }
-  if (auto h = hitIf(QRect(int(pane.left() + 168), int(btnY + 30), 160, 26), pos,
-                     ChromeHit::Kind::settingsResetSkinsFolder);
+  if (auto h = hitIf(skinsRefreshBtn(pane).toRect(), pos, ChromeHit::Kind::settingsSkinsRefresh);
       h.kind != ChromeHit::Kind::none) {
     return h;
   }

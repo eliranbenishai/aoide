@@ -1179,6 +1179,12 @@ void TrampSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
     case ChromeIntent::resetSettings:
       presentResetSettings();
       break;
+    case ChromeIntent::showSkinInstallMenu:
+      presentSkinInstallMenu(hit);
+      break;
+    case ChromeIntent::openSkinsDirectory:
+      QDesktopServices::openUrl(QUrl::fromLocalFile(skins_.skinsDirectory()));
+      break;
     case ChromeIntent::rescanSkins: {
       WaitCursorScope wait;
       skins_.rescan();
@@ -1208,17 +1214,6 @@ void TrampSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
     case ChromeIntent::pickSkinFolder:
       presentSkinFolderInstall();
       break;
-    case ChromeIntent::pickSkinsDirectory:
-      presentSkinsDirectoryPick();
-      break;
-    case ChromeIntent::resetSkinsDirectory: {
-      WaitCursorScope wait;
-      skins_.setSkinsDirectory({}, settings_);
-      refreshSkinPreviews();
-      schedulePersist();
-      refreshChrome();
-      break;
-    }
     case ChromeIntent::none:
       break;
   }
@@ -1384,6 +1379,11 @@ void TrampSession::presentEqPresets(const ChromeHit& hit) {
 
 void TrampSession::presentResetSettings() {
   resetSettingsExceptSkins(settings_);
+  {
+    WaitCursorScope wait;
+    skins_.setSkinsDirectory({}, settings_);
+    refreshSkinPreviews();
+  }
   applyEq();
   engine_->setForceMono(false);
   layout_.docking().setSnapThreshold(snapPixels(settings_.dockSnapStrength));
@@ -1391,6 +1391,21 @@ void TrampSession::presentResetSettings() {
   syncTitleMarquee();
   schedulePersist();
   refreshChrome();
+}
+
+void TrampSession::presentSkinInstallMenu(const ChromeHit& hit) {
+  enum Row { kZip, kFolder };
+  const QVector<ChromeMenuItem> items{
+      ChromeMenuItem::action(QStringLiteral("Install ZIP")),
+      ChromeMenuItem::action(QStringLiteral("Install Folder")),
+  };
+  const int chosen =
+      execAnchoredMenu(items, windowFor(WindowId::skins), hit.rect, PopupAnchor::aboveLeft);
+  if (chosen == kZip) {
+    presentSkinZipInstall();
+    return;
+  }
+  if (chosen == kFolder) presentSkinFolderInstall();
 }
 
 void TrampSession::presentSkinZipInstall() {
@@ -1422,22 +1437,6 @@ void TrampSession::presentSkinFolderInstall() {
       refreshSkinPreviews();
       schedulePersist();
     }
-  }
-  refreshChrome();
-}
-
-void TrampSession::presentSkinsDirectoryPick() {
-  FilePick pick;
-  pick.parent = windowFor(WindowId::skins);
-  pick.title = QStringLiteral("Skins folder");
-  pick.directory = skins_.skinsDirectory();
-  pick.kind = FilePickKind::openDirectory;
-  const QString path = pickFile(pick);
-  if (!path.isEmpty()) {
-    WaitCursorScope wait;
-    skins_.setSkinsDirectory(path, settings_);
-    refreshSkinPreviews();
-    schedulePersist();
   }
   refreshChrome();
 }
@@ -1571,7 +1570,7 @@ void TrampSession::presentSkinRemove(int index) {
   QString text = QStringLiteral("Remove “%1” from this folder? The skin’s files will be deleted.")
                      .arg(entry.name);
   if (isBundledHomageId(entry.id)) {
-    text += QStringLiteral("\n\nReset folder will install it again.");
+    text += QStringLiteral("\n\nReset Settings will install it again.");
   }
   QMessageBox box(parent);
   box.setWindowTitle(QStringLiteral("Remove skin?"));

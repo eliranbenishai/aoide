@@ -4,7 +4,6 @@
 #include "mockup_draw.h"
 #include "mockup_tokens.h"
 #include "title_chrome.h"
-#include "tramp_metrics.h"
 #include "window_spec.h"
 
 #include <QTest>
@@ -28,6 +27,7 @@ class ChromeSpecTest : public QObject {
   void stereoPlaylistGapHoldsForWideGlyphs();
   void skinsListScrollsLastRowIntoView();
   void skinsErrorStripClearsTheListAndTheScrollbar();
+  void skinsFooterButtonsSitOnThePane();
   void playlistHidesScrollbarWhenRowsFit();
   void collapsedCollectionKeepsTheColumnItsReopenTabPaintsIn();
   void playlistStripKeepsGapBeforeLengthWell();
@@ -243,7 +243,7 @@ void ChromeSpecTest::stereoPlaylistGapHoldsForWideGlyphs() {
 void ChromeSpecTest::skinsListScrollsLastRowIntoView() {
   const auto pane = tramp::skinsPane(tramp::kSkins);
   const auto viewport = tramp::skinsListViewport(pane);
-  QCOMPARE(int(viewport.height()), 328);
+  QCOMPARE(int(viewport.height()), 360);
   QVERIFY(tramp::skinsListMaxScroll(8, viewport) > 0);
 
   const auto lastHidden = tramp::skinsGridCell(viewport, 7, 0);
@@ -284,6 +284,21 @@ void ChromeSpecTest::skinsErrorStripClearsTheListAndTheScrollbar() {
     QVERIFY(last.bottom() <= viewport.bottom());
     QVERIFY(!last.intersects(strip));
   }
+}
+
+void ChromeSpecTest::skinsFooterButtonsSitOnThePane() {
+  const auto pane = tramp::skinsPane(tramp::kSkins);
+  const auto add = tramp::skinsAddBtn(pane);
+  const auto folder = tramp::skinsFolderBtn(pane);
+  const auto refresh = tramp::skinsRefreshBtn(pane);
+  QCOMPARE(add.size(), QSizeF(tramp::kSkinsToolBtn, tramp::kSkinsToolBtn));
+  QCOMPARE(add.left(), pane.left() + 12);
+  QCOMPARE(add.bottom(), pane.bottom());
+  QCOMPARE(refresh.right(), pane.right() - 12);
+  QCOMPARE(refresh.bottom(), pane.bottom());
+  QCOMPARE(folder.right() + tramp::kSkinsToolGap, refresh.left());
+  QVERIFY(!add.intersects(folder));
+  QVERIFY(!folder.intersects(refresh));
 }
 
 void ChromeSpecTest::playlistHidesScrollbarWhenRowsFit() {

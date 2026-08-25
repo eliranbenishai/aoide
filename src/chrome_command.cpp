@@ -271,21 +271,17 @@ ChromeCommandOutcome ChromeCommandRouter::handle(WindowId id, const ChromeHit& h
       out.beginSlider = true;
       out.sliderKind = K::settingsSkinScroll;
       break;
-    case K::settingsInstallZip:
+    case K::settingsSkinAdd:
       out.handled = true;
-      out.intent = ChromeIntent::pickSkinZip;
-      break;
-    case K::settingsInstallFolder:
-      out.handled = true;
-      out.intent = ChromeIntent::pickSkinFolder;
+      out.intent = ChromeIntent::showSkinInstallMenu;
       break;
     case K::settingsSkinsFolder:
       out.handled = true;
-      out.intent = ChromeIntent::pickSkinsDirectory;
+      out.intent = ChromeIntent::openSkinsDirectory;
       break;
-    case K::settingsResetSkinsFolder:
+    case K::settingsSkinsRefresh:
       out.handled = true;
-      out.intent = ChromeIntent::resetSkinsDirectory;
+      out.intent = ChromeIntent::rescanSkins;
       break;
     case K::plResize:
     case K::plDivider:

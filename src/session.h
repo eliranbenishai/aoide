@@ -154,9 +154,9 @@ class TrampSession : public QObject, public PanelSurfaces {
   void presentPlOptionsMenu(const ChromeHit& hit);
   void presentEqPresets(const ChromeHit& hit);
   void presentResetSettings();
+  void presentSkinInstallMenu(const ChromeHit& hit);
   void presentSkinZipInstall();
   void presentSkinFolderInstall();
-  void presentSkinsDirectoryPick();
   void presentSkinRemove(int index);
   void refreshSkinPreviews();
   void showOptionsMenu(QRect logicalHit);

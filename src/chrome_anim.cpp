@@ -71,10 +71,9 @@ bool takesPointerFeedback(ChromeHit::Kind kind) {
     case ChromeHit::Kind::settingsSnapStrong:
     case ChromeHit::Kind::settingsSkinRow:
     case ChromeHit::Kind::settingsSkinRemove:
-    case ChromeHit::Kind::settingsInstallZip:
-    case ChromeHit::Kind::settingsInstallFolder:
+    case ChromeHit::Kind::settingsSkinAdd:
     case ChromeHit::Kind::settingsSkinsFolder:
-    case ChromeHit::Kind::settingsResetSkinsFolder:
+    case ChromeHit::Kind::settingsSkinsRefresh:
       return true;
   }
   return false;
