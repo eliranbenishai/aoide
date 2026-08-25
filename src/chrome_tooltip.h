@@ -15,7 +15,7 @@ inline constexpr int kTooltipWaitMs = 450;
 enum class TooltipMotion { hide, restartWait, keep };
 
 /// Hover label for a title-bar or chrome hit. Empty means no tip (sliders,
-/// list rows, title-bar drag, empty space).
+/// list rows, skins preview cells, title-bar drag, empty space).
 QString chromeTooltip(TitleChromeLayout::Hit title, const ChromeHit& chrome,
                       const SessionView& view);
 

@@ -155,13 +155,6 @@ QString chromeKindTip(const ChromeHit& chrome, const SessionView& view) {
       return QStringLiteral("Skins folder");
     case K::settingsResetSkinsFolder:
       return QStringLiteral("Reset folder");
-    case K::settingsSkinRow:
-      if (chrome.index >= 0 && chrome.index < view.skins.size()) {
-        const SkinCatalogEntry& e = view.skins[chrome.index];
-        if (e.author.isEmpty()) return e.name;
-        return e.name + QStringLiteral(" — ") + e.author;
-      }
-      return {};
     case K::settingsSkinRemove:
       if (chrome.index >= 0 && chrome.index < view.skins.size()) {
         return QStringLiteral("Remove %1").arg(view.skins[chrome.index].name);
@@ -179,6 +172,7 @@ QString chromeKindTip(const ChromeHit& chrome, const SessionView& view) {
     case K::plDivider:
     case K::plTrackRow:
     case K::plResize:
+    case K::settingsSkinRow:
     case K::settingsSkinScroll:
       break;
   }

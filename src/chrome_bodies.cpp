@@ -879,6 +879,48 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
   paintReset();
 }
 
+/// Name and author on the preview itself. The hover label used to say the
+/// same thing from a tip above the cell; that sat off the photo and covered
+/// the neighbour. A wash on the photo keeps the words on the pack they name.
+void paintSkinHoverCaption(QPainter& p, const QRectF& photo, const SkinCatalogEntry& skin,
+                           qreal amount) {
+  if (amount <= 0 || photo.width() < 8 || photo.height() < 8) return;
+  const PainterStateScope hold(p);
+  p.setOpacity(amount);
+  p.setClipRect(photo);
+  const qreal h = qMin(qreal(36), photo.height() * 0.58);
+  const QRectF bar(photo.left(), photo.bottom() - h, photo.width(), h);
+  QLinearGradient wash(bar.topLeft(), bar.bottomLeft());
+  wash.setColorAt(0, QColor(0, 0, 0, 0));
+  wash.setColorAt(0.28, QColor(0, 0, 0, 150));
+  wash.setColorAt(1, QColor(0, 0, 0, 210));
+  p.fillRect(bar, wash);
+
+  const qreal padX = 6;
+  const qreal padY = 4;
+  const qreal rightPad = skin.canRemove ? kSkinTrash + kSkinTrashInset + 2 : padX;
+  const QRectF textBox = bar.adjusted(padX, padY, -rightPad, -padY);
+  const auto elide = [&](const QString& text) {
+    return QFontMetricsF(p.font()).elidedText(text, Qt::ElideRight, int(textBox.width()));
+  };
+  if (skin.author.isEmpty()) {
+    p.setFont(condensedFont(11, 0.12));
+    p.setPen(T().ink);
+    p.drawText(textBox, Qt::AlignLeft | Qt::AlignVCenter, elide(skin.name));
+    return;
+  }
+  const qreal nameH = textBox.height() * 0.55;
+  const QRectF nameBox(textBox.left(), textBox.top(), textBox.width(), nameH);
+  const QRectF authorBox(textBox.left(), nameBox.bottom(), textBox.width(),
+                         textBox.height() - nameH);
+  p.setFont(condensedFont(11, 0.12));
+  p.setPen(T().ink);
+  p.drawText(nameBox, Qt::AlignLeft | Qt::AlignVCenter, elide(skin.name));
+  p.setFont(condensedFont(10, 0.06));
+  p.setPen(T().inkDim);
+  p.drawText(authorBox, Qt::AlignLeft | Qt::AlignVCenter, elide(skin.author));
+}
+
 void paintSkins(QPainter& p, const QRectF& body, const SessionView& view,
                 const ChromePhases& phases) {
   const PainterStateScope hold(p);
@@ -894,14 +936,16 @@ void paintSkins(QPainter& p, const QRectF& body, const SessionView& view,
     const QRectF cell = skinsGridCell(viewport, i, scroll);
     if (cell.bottom() < viewport.top() || cell.top() > viewport.bottom()) continue;
     const bool on = skins[i].id == active;
-    const BtnFace hover = on ? BtnFace() : faceOf(phases, K::settingsSkinRow, false, i);
+    const BtnFace row = faceOf(phases, K::settingsSkinRow, false, i);
+    const BtnFace trashFace =
+        skins[i].canRemove ? faceOf(phases, K::settingsSkinRemove, false, i) : BtnFace();
     p.fillRect(cell, T().shell);
     if (on) {
       p.setPen(QPen(T().phos, 2));
       p.setBrush(Qt::NoBrush);
       p.drawRoundedRect(cell.adjusted(1, 1, -1, -1), 3, 3);
-    } else if (hover.hover > 0) {
-      p.fillRect(cell, mix(T().shell, T().hoverLift, 0.16 * hover.hover));
+    } else if (row.hover > 0) {
+      p.fillRect(cell, mix(T().shell, T().hoverLift, 0.16 * row.hover));
     }
     const QRectF photo = skinsGridPhotoRect(cell);
     const QImage preview = loadCachedSkinPreview(skins[i].previewPath);
@@ -910,9 +954,10 @@ void paintSkins(QPainter& p, const QRectF& body, const SessionView& view,
     } else {
       p.fillRect(photo, T().shellMid);
     }
+    paintSkinHoverCaption(p, photo, skins[i], qMax(row.hover, trashFace.hover));
     if (skins[i].canRemove) {
       const QRectF trash = skinsGridTrashcan(cell);
-      const BtnFace face = faceOf(phases, K::settingsSkinRemove, false, i);
+      const BtnFace face = trashFace;
       fillRound(p, trash, T().buttonRadius(trash),
                 mix(T().shell, T().shellHi, 0.35 + 0.25 * face.hover));
       p.setPen(QPen(T().ink, 1.15));

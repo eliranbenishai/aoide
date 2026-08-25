@@ -77,7 +77,7 @@ void ChromeSpecTest::nativeSeedIsRoundedSeventyFivePercent() {
   QCOMPARE(tramp::nativeUnmappedSeed(tramp::kPlaylistDefault), QSize(805, 522));
   QCOMPARE(tramp::nativeUnmappedSeed(tramp::kSettings), QSize(390, 315));
   QCOMPARE(tramp::nativeUnmappedSeed(tramp::kAbout), QSize(360, 270));
-  QCOMPARE(tramp::nativeUnmappedSeed(tramp::kSkins), QSize(390, 315));
+  QCOMPARE(tramp::nativeUnmappedSeed(tramp::kSkins), QSize(450, 360));
 }
 
 void ChromeSpecTest::windowSpecsUseNativeSeeds() {
@@ -243,7 +243,7 @@ void ChromeSpecTest::stereoPlaylistGapHoldsForWideGlyphs() {
 void ChromeSpecTest::skinsListScrollsLastRowIntoView() {
   const auto pane = tramp::skinsPane(tramp::kSkins);
   const auto viewport = tramp::skinsListViewport(pane);
-  QCOMPARE(int(viewport.height()), 268);
+  QCOMPARE(int(viewport.height()), 328);
   QVERIFY(tramp::skinsListMaxScroll(8, viewport) > 0);
 
   const auto lastHidden = tramp::skinsGridCell(viewport, 7, 0);

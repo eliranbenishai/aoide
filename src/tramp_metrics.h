@@ -76,7 +76,7 @@ inline constexpr QSize kEqualizer{825, 348};
 inline constexpr QSize kPlaylistDefault{1073, 696};
 inline constexpr QSize kSettings{520, 420};
 inline constexpr QSize kAbout{480, 360};
-inline constexpr QSize kSkins{520, 420};
+inline constexpr QSize kSkins{600, 480};
 /// Compact-strip floor with a reserved TOTAL well (180). Host uses
 /// [playlistMinLogical] with the measured well so a short list can go narrower.
 inline constexpr QSize kPlaylistMin{585, 280};

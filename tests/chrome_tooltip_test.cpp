@@ -14,7 +14,7 @@ class ChromeTooltipTest : public QObject {
   void playlistButtonsKeepFlutterNames();
   void saveButtonIsDeadUntilTheListIsAltered();
   void settingsAndAboutNameControls();
-  void skinsCellsNameThePack();
+  void skinsCellsStayQuiet();
   void hoverMotionHidesWhenBusyOrEmpty();
   void hoverMotionRestartsWhenTheNameChanges();
 };
@@ -117,16 +117,15 @@ void ChromeTooltipTest::slidersAndListsStayQuiet() {
   QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsSkinScroll), view), QString());
 }
 
-void ChromeTooltipTest::skinsCellsNameThePack() {
+void ChromeTooltipTest::skinsCellsStayQuiet() {
   tramp::SessionView view;
   using K = tramp::ChromeHit::Kind;
   view.skins = {{QStringLiteral("builtin"), QStringLiteral("Tramp"),
                  QStringLiteral("Proxima Magnifica")},
                 {QStringLiteral("arc"), QStringLiteral("Arc"), QStringLiteral("Proxima Magnifica")}};
-  QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsSkinRow, 0), view),
-           QStringLiteral("Tramp — Proxima Magnifica"));
-  QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsSkinRow, 1), view),
-           QStringLiteral("Arc — Proxima Magnifica"));
+  // Name and author paint on the preview; the hover label would cover it.
+  QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsSkinRow, 0), view), QString());
+  QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsSkinRow, 1), view), QString());
   QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsSkinRemove, 1), view),
            QStringLiteral("Remove Arc"));
 }
