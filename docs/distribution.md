@@ -225,9 +225,36 @@ Partner Center and Flathub submit stay **human**. Packaging scripts live under `
 
 ## GitHub configuration
 
-Actions must be allowed to open PRs: **Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests**. Without that, you still open PRs by hand; CI and merge-if-green still apply.
+Actions must be allowed to open PRs: **Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests**. Without that, you still open PRs by hand; CI and merge-if-green still apply. That box stays ticked for `open-pr.yml`; the `passed` job in `ci.yml` leaves a `--comment` review, which is not an approval and does not need it.
 
 Label a PR `do-not-merge` (or convert it to draft) to keep it open after a green CI.
+
+### Outside contributors
+
+The repo is public, so anyone can fork and open a PR. Three things stand between
+that and the default branch, and they are settings rather than code — a fresh
+clone does not carry them.
+
+| Setting | Value | Why |
+|---------|-------|-----|
+| Actions → Fork pull request workflows | Require approval for **all** external contributors | Otherwise a stranger's PR runs its own code on the runners as soon as they have one merged contribution |
+| Actions → Workflow permissions | Default `GITHUB_TOKEN` is **read** | Every workflow here declares its own `permissions:` block, so nothing relies on the write default |
+| Ruleset **main** | Active, admin bypass | Blocks deletion and force-push, and requires a PR whose `Qt (ubuntu-24.04)`, `Qt (windows-latest)` and `CI passed` checks are green. Squash only, matching `merge-if-green` |
+
+The ruleset requires **zero** approving reviews on purpose: `merge-if-green.yml`
+merges as `GITHUB_TOKEN`, which cannot approve its own PR, so any non-zero count
+would stop auto-merge dead. GitHub adds
+`require_extra_approval_for_unattributed_changes` by default, which does demand
+one review when a PR carries commits it cannot attribute to the author — rare on
+a same-repo branch, and the admin bypass covers it.
+
+Fork PRs never auto-merge regardless: `merge-if-green.yml` exits early when
+`head_repository.full_name` differs from the repo. No workflow uses
+`pull_request_target`, which is the usual way a fork PR reaches write scope, and
+there are no repository secrets for one to reach.
+
+[`.github/CODEOWNERS`](../.github/CODEOWNERS) names the owner for every path. The
+ruleset does not require code-owner review yet, so today it only auto-requests it.
 
 ### Variables (optional)
 

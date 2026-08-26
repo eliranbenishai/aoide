@@ -1,0 +1,4 @@
+# Everything belongs to the owner. Review is not required by the main ruleset
+# yet, so this only auto-requests review; turn on "require code owner review"
+# there to make it a gate.
+* @eliranbenishai
