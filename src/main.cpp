@@ -86,12 +86,10 @@ int dumpChrome(const QString& dirPath) {
       collapsed.collectionCollapsed = true;
       if (!shoot(spec, collapsed, dumpName(spec.id) + QStringLiteral("_collapsed"))) return 1;
 
-      // The demo list is thirteen rows against a default well that shows
-      // thirteen, so nothing in the pictures above can overflow. At the size
-      // the panel clamps to it does, which is what puts the track scrollbar,
-      // its thumb, and the row the well's bottom edge clips under the gate.
-      // A disabled row of each kind rides along: both paint faint, and neither
-      // had a picture either.
+      // The default well shows thirteen rows. At the size the panel clamps to it
+      // shows fewer, which is what puts the track scrollbar, its thumb, and the
+      // row the well's bottom edge clips under the gate. A disabled row of each
+      // kind rides along: both paint faint, and neither had a picture either.
       tramp::WindowSpec smallest = spec;
       smallest.logicalSize = tramp::kPlaylistMinWithCollection;
       tramp::SessionView clamped = golden;
@@ -99,9 +97,11 @@ int dumpChrome(const QString& dirPath) {
       clamped.trackScroll = 2;
       clamped.tracks[3].disabled = true;
       clamped.collection[2].disabled = true;
-      // A disabled track is left out of both footer readouts.
+      // A disabled track is left out of both footer readouts. The subtraction is
+      // tracks[3]'s own length, so it tracks the demo list rather than a literal
+      // that silently stops matching it.
       clamped.playlistTrackCount = golden.playlistTrackCount - 1;
-      clamped.playlistTotalMs = golden.playlistTotalMs - 243000;
+      clamped.playlistTotalMs = golden.playlistTotalMs - 220000;
       if (!shoot(smallest, clamped, dumpName(spec.id) + QStringLiteral("_clamped"))) return 1;
 
       // The demo list fills both wells. Ticket 15's empty-state copy lives

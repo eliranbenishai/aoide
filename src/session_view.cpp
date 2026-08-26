@@ -151,11 +151,19 @@ SessionView goldenDemoView() {
   SessionView v;
   v.goldenDemo = true;
 
-  v.positionMs = 161000;
-  v.durationMs = 347000;
-  v.title = QStringLiteral("3. Velvet Static — Neon Boulevard (Extended Mix)");
-  v.subtitle = QStringLiteral("COPPER RAIN EP · TRACK 3 OF 12");
-  v.bitrate = QStringLiteral("192 kbps");
+  // Real tracks, from the Chronoton catalogue. The screenshots this view feeds
+  // are the ones on tramp.music and in the AppStream metainfo, and a store
+  // listing showing invented band names is a listing showing music nobody can
+  // buy. Durations are the released ones, so the footer totals below add up.
+  v.positionMs = 112000;
+  v.durationMs = 248000;
+  v.title = QStringLiteral("1. Chronoton — Travelling Far In Short Strides");
+  v.subtitle = QStringLiteral("PARTICLES EP · TRACK 1 OF 5");
+  // Not "320 kbps", and the chip below is not "FLAC": aKeptRasterIsNeverOneThatWentStale
+  // in host_window_move_test proves a changed field re-rasterises main by
+  // assigning those two literals, and a demo already holding one makes that
+  // mutation a no-op and fails the test.
+  v.bitrate = QStringLiteral("256 kbps");
   v.sampleRate = QStringLiteral("44.1 kHz");
   v.channels = QStringLiteral("STEREO");
   v.formatChip = QStringLiteral("MP3");
@@ -176,30 +184,32 @@ SessionView goldenDemoView() {
 
   v.collectionWidth = 240;
   v.collection = {
-      {QStringLiteral("ANALOGUE GHOSTS"), 24, false, false},
-      {QStringLiteral("COPPER RAIN EP"), 13, true, false},
-      {QStringLiteral("NIGHTBUS CHOIR — LIVE"), 8, false, false},
+      {QStringLiteral("CHRONOTON"), 13, true, false},
+      {QStringLiteral("PARTICLES"), 5, false, false},
+      {QStringLiteral("CHILDHOOD CHORDS"), 5, false, false},
   };
-  // Thirteen rows totalling 65:34, which the default panel shows exactly.
+  // Thirteen rows totalling 46:58, which the default panel shows exactly: a row
+  // the bottom edge halves belongs in the clamped dump, not this one. Order is
+  // the Particles EP, then Childhood Chords, then the singles.
   v.tracks = {
-      {QStringLiteral("Cassette Mirage"), QStringLiteral("Low Orbit Lullaby"), QStringLiteral("4:12"), false, false},
-      {QStringLiteral("The Brass Cassini"), QStringLiteral("Slow Dial"), QStringLiteral("3:38"), false, false},
-      {QStringLiteral("Velvet Static"), QStringLiteral("Neon Boulevard (Extended Mix)"), QStringLiteral("5:47"), true, true},
-      {QStringLiteral("Halogen Youth"), QStringLiteral("Parking Garage Sunset"), QStringLiteral("4:03"), false, false},
-      {QStringLiteral("Moth & Marrow"), QStringLiteral("Analogue Ghosts"), QStringLiteral("6:21"), false, false},
-      {QStringLiteral("Ruby Transit"), QStringLiteral("Bakelite Heart"), QStringLiteral("3:55"), false, false},
-      {QStringLiteral("Slow Signal"), QStringLiteral("Copper Rain"), QStringLiteral("4:44"), false, false},
-      {QStringLiteral("Aurora Kiosk"), QStringLiteral("Departure Lounge B"), QStringLiteral("5:09"), false, false},
-      {QStringLiteral("Pale Antenna"), QStringLiteral("Tramp Theme (Demo)"), QStringLiteral("2:58"), false, false},
-      {QStringLiteral("Nightbus Choir"), QStringLiteral("Fluorescent Hymn"), QStringLiteral("6:02"), false, false},
-      {QStringLiteral("Second Cassette"), QStringLiteral("Static Blonde"), QStringLiteral("3:27"), false, false},
-      {QStringLiteral("Velvet Static"), QStringLiteral("Neon Boulevard (Reprise)"), QStringLiteral("2:02"), false, false},
-      {QStringLiteral("Long Wave Motel"), QStringLiteral("Untitled Sketch"), QStringLiteral("13:16"), false, false},
+      {QStringLiteral("Chronoton"), QStringLiteral("Travelling Far In Short Strides"), QStringLiteral("4:08"), true, true},
+      {QStringLiteral("Chronoton"), QStringLiteral("All My Secrets Are Petals For You"), QStringLiteral("4:14"), false, false},
+      {QStringLiteral("Chronoton"), QStringLiteral("The Evolution Of Weakness"), QStringLiteral("3:34"), false, false},
+      {QStringLiteral("Chronoton"), QStringLiteral("Puzzle Catcher - Ingame"), QStringLiteral("3:40"), false, false},
+      {QStringLiteral("Chronoton"), QStringLiteral("Puzzle Catcher - Menu"), QStringLiteral("3:07"), false, false},
+      {QStringLiteral("Chronoton"), QStringLiteral("What's the Plan, Superman?"), QStringLiteral("3:00"), false, false},
+      {QStringLiteral("Chronoton"), QStringLiteral("Stranded Between States of Matter (feat Wilsiac)"), QStringLiteral("3:44"), false, false},
+      {QStringLiteral("Chronoton"), QStringLiteral("The Whispers That Move Mountains"), QStringLiteral("2:56"), false, false},
+      {QStringLiteral("Chronoton"), QStringLiteral("Light Years Away by ZAYAZ (Chronoton Cover)"), QStringLiteral("3:10"), false, false},
+      {QStringLiteral("Chronoton"), QStringLiteral("A Kingdom for Your Thoughts"), QStringLiteral("3:52"), false, false},
+      {QStringLiteral("Chronoton"), QStringLiteral("Escaping Eridani"), QStringLiteral("3:57"), false, false},
+      {QStringLiteral("Chronoton"), QStringLiteral("Only In The Void We Find Perfection"), QStringLiteral("4:13"), false, false},
+      {QStringLiteral("Chronoton"), QStringLiteral("In This Light You Look Like Me"), QStringLiteral("3:23"), false, false},
   };
-  v.playingIndex = 2;
+  v.playingIndex = 0;
   v.trackInfoEnabled = true;
-  v.playlistName = QStringLiteral("Copper Rain — Night Set.m3u8");
-  v.playlistTotalMs = 3934000;
+  v.playlistName = QStringLiteral("Chronoton.m3u8");
+  v.playlistTotalMs = 2818000;
   v.playlistTrackCount = v.tracks.size();
   v.playlistRefreshEnabled = true;
 

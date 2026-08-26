@@ -22,14 +22,15 @@
       from a file manager. There is no library to import and no account to make.
     </p>
     <p>
-      The playlist is the whole model: add, remove and reorder tracks, save them
-      as M3U or M3U8, and pick up where you left off next time. Transport chrome
-      shows the tags a file carries, a twenty-bar spectrum analyser follows what
-      is playing, and a ten-band equaliser with presets sits beside it.
+      Playlists are the heart of it: add, remove and reorder tracks, save them
+      as M3U or M3U8 files of your own, and pick up where you left off next
+      time. Tramp shows the artist and album written into each file, a
+      twenty-bar spectrum follows what is playing, and a ten-band equaliser with
+      presets sits beside it.
     </p>
     <p>
-      The window is Tramp's own, painted rather than themed. Several skins come
-      with it, and more can be installed from a folder or a zip.
+      Tramp draws its own window rather than borrowing your desktop's. Several
+      skins come with it, and more can be installed from a folder or a zip.
     </p>
   </description>
 
@@ -50,15 +51,15 @@
   <screenshots>
     <screenshot type="default">
       <image>https://tramp.music/screenshots/1.0/main_player_window.png</image>
-      <caption>Transport chrome, tags and the spectrum analyser</caption>
+      <caption>Big clear controls, your track's details, and a live spectrum</caption>
     </screenshot>
     <screenshot>
       <image>https://tramp.music/screenshots/1.0/playlist_window.png</image>
-      <caption>The playlist manager</caption>
+      <caption>Your playlists, beside the songs inside them</caption>
     </screenshot>
     <screenshot>
       <image>https://tramp.music/screenshots/1.0/equalizer_window.png</image>
-      <caption>Ten-band equaliser with presets</caption>
+      <caption>Ten bands, a shelf of presets, and the curve you're making</caption>
     </screenshot>
   </screenshots>
   -->
