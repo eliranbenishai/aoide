@@ -36,6 +36,7 @@ docs/superpowers/
 docs/mockups/
 docs/design/
 docs/agents/
+AGENTS.md
 
 # Official Qt kit fetched by tool/fetch_qt.sh (matches QT_VERSION)
 .local/
