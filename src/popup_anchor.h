@@ -4,7 +4,7 @@
 #include <QRect>
 #include <QSize>
 
-namespace tramp {
+namespace aoide {
 
 enum class PopupAnchor { belowLeft, aboveLeft };
 
@@ -19,4 +19,4 @@ inline QPoint popupMenuPos(const QRect& buttonGlobal, const QSize& menuSize,
   return {buttonGlobal.left(), buttonGlobal.y() + buttonGlobal.height()};
 }
 
-}  // namespace tramp
+}  // namespace aoide

@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace tramp {
+namespace aoide {
 
 bool takesPointerFeedback(ChromeHit::Kind kind) {
   // Every control is listed and there is no default, so adding a hit kind is a
@@ -168,4 +168,4 @@ bool ChromePhases::advance(qreal dtMs) {
   return busy;
 }
 
-}  // namespace tramp
+}  // namespace aoide

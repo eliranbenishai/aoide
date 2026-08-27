@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <functional>
 
-namespace tramp {
+namespace aoide {
 
 /// What the collection knows about its own files comes from two passes of very
 /// different size, and they are kept apart on purpose.
@@ -120,4 +120,4 @@ QVector<Track> dropMissingTrackFiles(const QVector<Track>& tracks);
 CollectionTrackSets pruneTrackSets(const CollectionTrackSets& sets,
                                    const QSet<QString>& livePlaylists);
 
-}  // namespace tramp
+}  // namespace aoide

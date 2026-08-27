@@ -6,18 +6,18 @@
 
 class QWindow;
 
-namespace tramp {
+namespace aoide {
 
 /// JS KWin runs to set keepAbove on the host. xdg-shell has no keep-above;
 /// Plasma's "Keep Above Others" is this property. The script matches pid,
-/// caption, desktop file, or WM class `tramp`.
+/// caption, desktop file, or WM class `aoide`.
 QString kwinKeepAboveScript(qint64 pid, QStringView caption, QStringView desktopFile, bool on);
 
 /// Where that script is written, given [runtimeDir] ($XDG_RUNTIME_DIR). KWin
 /// reads it by path from *its* process, so the file has to sit somewhere the
 /// host and the app agree on. It must therefore be a **subdirectory**: a
 /// Flatpak's $XDG_RUNTIME_DIR is a private mount that the host cannot see, and
-/// `--filesystem=xdg-run/tramp:create` shares exactly this one directory at the
+/// `--filesystem=xdg-run/aoide:create` shares exactly this one directory at the
 /// same absolute path on both sides. Empty when [runtimeDir] is empty.
 QString kwinKeepAboveScriptPath(const QString& runtimeDir);
 
@@ -26,4 +26,4 @@ QString kwinKeepAboveScriptPath(const QString& runtimeDir);
 /// other apps.
 void applyCompositorKeepAbove(QWindow* window, bool on);
 
-}  // namespace tramp
+}  // namespace aoide

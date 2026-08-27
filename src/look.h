@@ -1,7 +1,7 @@
 #pragma once
 
 #include "settings.h"
-#include "tramp_metrics.h"
+#include "aoide_metrics.h"
 
 #include <QColor>
 #include <QJsonObject>
@@ -14,7 +14,7 @@
 #include <functional>
 #include <stdexcept>
 
-namespace tramp {
+namespace aoide {
 
 class LookError : public std::runtime_error {
  public:
@@ -94,7 +94,7 @@ struct SkinCatalogEntry {
 };
 
 /// Bump when the golden main shot or its paint path changes, so cached thumbs
-/// rebuild instead of showing a player Tramp no longer draws.
+/// rebuild instead of showing a player Aoide no longer draws.
 inline constexpr int kSkinPreviewGeneration = 6;
 
 using SkinPreviewWriter = std::function<bool(const QString& id, const QString& path,
@@ -263,13 +263,13 @@ class SkinController {
   using ConflictFn = std::function<SkinConflictChoice(const SkinConflict&)>;
 
   void bootstrap(const QString& supportDir, const QString& bundledSkinsDir,
-                 TrampSettings& settings);
-  bool activate(const QString& id, TrampSettings& settings);
+                 AoideSettings& settings);
+  bool activate(const QString& id, AoideSettings& settings);
   bool installDirectory(const QString& path, ConflictFn onConflict);
   bool installZip(const QString& path, ConflictFn onConflict);
-  void setSkinsDirectory(const QString& path, TrampSettings& settings);
+  void setSkinsDirectory(const QString& path, AoideSettings& settings);
   void rescan();
-  bool remove(const QString& id, const TrampSettings& settings);
+  bool remove(const QString& id, const AoideSettings& settings);
   void ensurePreviews(const SkinPreviewWriter& write);
   QString previewPath(const QString& id) const;
 
@@ -280,7 +280,7 @@ class SkinController {
   QString skinsDirectory() const { return skinsDir_; }
 
  private:
-  bool activateInternal(const QString& id, TrampSettings& settings);
+  bool activateInternal(const QString& id, AoideSettings& settings);
   void applyFonts(const QString& id);
   void seedBundled();
   LookManifest* findInstalled(const QString& id);
@@ -301,4 +301,4 @@ class SkinController {
   QVector<int> loadedFontIds_;
 };
 
-}  // namespace tramp
+}  // namespace aoide

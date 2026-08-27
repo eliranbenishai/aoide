@@ -14,7 +14,7 @@ These C files export dummy symbols with the right SONAMEs so the process can
 load. Prefer a system `libmpv` (`pkg-config mpv`) when it is available — then
 the stubs are not used.
 
-Link the stub `.so` files into `tramp` itself (not only `-rpath`). ELF
+Link the stub `.so` files into `aoide` itself (not only `-rpath`). ELF
 `DT_RUNPATH` is not inherited: `libmpv.so` still looks for `libmujs.so.0.1` on
 `LD_LIBRARY_PATH` / the cache / default paths. A Cursor AppImage terminal sets
 `LD_LIBRARY_PATH` to its own libs, so an unlinked stub shows up as

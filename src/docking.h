@@ -1,7 +1,7 @@
 #pragma once
 
 #include "settings.h"
-#include "tramp_metrics.h"
+#include "aoide_metrics.h"
 #include "window_spec.h"
 
 #include <QPointF>
@@ -11,7 +11,7 @@
 #include <QVector>
 #include <optional>
 
-namespace tramp {
+namespace aoide {
 
 struct DockLayout {
   WindowFrame main = WindowFrame::mainDefault();
@@ -93,4 +93,4 @@ class DockingCoordinator {
   double snapThreshold_ = 20;
 };
 
-}  // namespace tramp
+}  // namespace aoide

@@ -4,12 +4,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 # shellcheck disable=SC1090
 eval "$(bash "$ROOT/tool/version.sh")"
-BUNDLE="${TRAMP_BUNDLE_DIR:-$ROOT/build/linux/bundle}"
+BUNDLE="${AOIDE_BUNDLE_DIR:-$ROOT/build/linux/bundle}"
 APPDIR="$ROOT/build/linux/AppDir"
-OUT="$ROOT/build/linux/Tramp-${version}-linux-x86_64.AppImage"
+OUT="$ROOT/build/linux/Aoide-${version}-linux-x86_64.AppImage"
 
-if [[ ! -x "$BUNDLE/tramp" ]]; then
-  echo "make_appimage: missing $BUNDLE/tramp — run packaging/linux/stage_bundle.sh" >&2
+if [[ ! -x "$BUNDLE/aoide" ]]; then
+  echo "make_appimage: missing $BUNDLE/aoide — run packaging/linux/stage_bundle.sh" >&2
   exit 1
 fi
 
@@ -19,24 +19,24 @@ cp -a "$BUNDLE"/. "$APPDIR/"
 cp -f "$ROOT/LICENSE" "$APPDIR/"
 cp -f "$ROOT/THIRD-PARTY-NOTICES.md" "$APPDIR/"
 
-if [[ -f "$APPDIR/share/applications/com.proximamagnifica.tramp.desktop" ]]; then
-  cp "$APPDIR/share/applications/com.proximamagnifica.tramp.desktop" "$APPDIR/com.proximamagnifica.tramp.desktop"
+if [[ -f "$APPDIR/share/applications/com.proximamagnifica.aoide.desktop" ]]; then
+  cp "$APPDIR/share/applications/com.proximamagnifica.aoide.desktop" "$APPDIR/com.proximamagnifica.aoide.desktop"
 else
-  cp "$ROOT/packaging/linux/com.proximamagnifica.tramp.desktop" "$APPDIR/com.proximamagnifica.tramp.desktop"
+  cp "$ROOT/packaging/linux/com.proximamagnifica.aoide.desktop" "$APPDIR/com.proximamagnifica.aoide.desktop"
 fi
-sed -i 's|^Exec=.*|Exec=tramp %F|' "$APPDIR/com.proximamagnifica.tramp.desktop"
-sed -i 's|^Icon=.*|Icon=com.proximamagnifica.tramp|' "$APPDIR/com.proximamagnifica.tramp.desktop"
+sed -i 's|^Exec=.*|Exec=aoide %F|' "$APPDIR/com.proximamagnifica.aoide.desktop"
+sed -i 's|^Icon=.*|Icon=com.proximamagnifica.aoide|' "$APPDIR/com.proximamagnifica.aoide.desktop"
 
-icon_src="$ROOT/packaging/linux/icons/hicolor/256x256/apps/com.proximamagnifica.tramp.png"
+icon_src="$ROOT/packaging/linux/icons/hicolor/256x256/apps/com.proximamagnifica.aoide.png"
 if [[ -f "$icon_src" ]]; then
-  cp "$icon_src" "$APPDIR/com.proximamagnifica.tramp.png"
+  cp "$icon_src" "$APPDIR/com.proximamagnifica.aoide.png"
 fi
 
 cat >"$APPDIR/AppRun" <<'EOF'
 #!/bin/sh
 HERE="$(dirname "$(readlink -f "$0")")"
 export LD_LIBRARY_PATH="$HERE/lib:${LD_LIBRARY_PATH:-}"
-exec "$HERE/tramp" "$@"
+exec "$HERE/aoide" "$@"
 EOF
 chmod +x "$APPDIR/AppRun"
 

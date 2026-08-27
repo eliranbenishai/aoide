@@ -2,8 +2,8 @@
 
 #include "chrome_layout.h"
 #include "look.h"
-#include "tramp_fonts.h"
-#include "tramp_metrics.h"
+#include "aoide_fonts.h"
+#include "aoide_metrics.h"
 
 #include <QElapsedTimer>
 #include <QFontMetrics>
@@ -16,7 +16,7 @@
 #include <functional>
 #include <vector>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 const ChromeTokens& T() { return currentLook(); }
@@ -35,14 +35,14 @@ struct FontAccount {
 };
 
 // Ablation switch for the drag benches: proves how much of a repaint is blur.
-const bool g_blurOff = qEnvironmentVariableIsSet("TRAMP_BENCH_NO_BLUR");
+const bool g_blurOff = qEnvironmentVariableIsSet("AOIDE_BENCH_NO_BLUR");
 // Escape hatch to the exact separable kernel, for fidelity comparison.
-const bool g_blurExact = qEnvironmentVariable("TRAMP_BLUR") == QLatin1String("exact");
+const bool g_blurExact = qEnvironmentVariable("AOIDE_BLUR") == QLatin1String("exact");
 // Sigma at or above which the box approximation takes over. Overridable so the
 // fidelity/cost trade-off can be re-measured rather than argued about.
 const qreal kBoxBlurSigma =
-    qEnvironmentVariableIsSet("TRAMP_BLUR_BOX_SIGMA")
-        ? qEnvironmentVariable("TRAMP_BLUR_BOX_SIGMA").toDouble()
+    qEnvironmentVariableIsSet("AOIDE_BLUR_BOX_SIGMA")
+        ? qEnvironmentVariable("AOIDE_BLUR_BOX_SIGMA").toDouble()
         : 4.0;
 
 // Separable Gaussian. `sigma` is Skia/Flutter MaskFilter sigma.
@@ -1425,7 +1425,7 @@ void drawDiscLogo(QPainter& p, const QRectF& disc, const QImage* logo, bool inse
   p.restore();
 }
 
-QImage loadTrampLogo() {
+QImage loadAoideLogo() {
   QImage img(assetPath("branding/logo.png"));
   if (img.isNull()) {
     img.load(assetPath("branding/app_icon.png"));
@@ -1443,4 +1443,4 @@ BlurCost blurCost() { return g_blurCost; }
 
 void resetBlurCost() { g_blurCost = {}; }
 
-}  // namespace tramp
+}  // namespace aoide

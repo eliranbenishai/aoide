@@ -12,7 +12,7 @@
 #include <array>
 #include <optional>
 
-namespace tramp {
+namespace aoide {
 
 struct CollectionRowView {
   QString name;
@@ -154,7 +154,7 @@ inline EmptyWellCopy playlistEmptyCopy() {
 inline EmptyWellCopy collectionEmptyCopy() {
   return {
     QStringLiteral("NO SAVED PLAYLISTS"),
-    QStringLiteral("Tramp only saves references to your playlist files. You can create new ones and name them whatever you want, without affecting the files.")
+    QStringLiteral("Aoide only saves references to your playlist files. You can create new ones and name them whatever you want, without affecting the files.")
   };
 }
 
@@ -236,4 +236,4 @@ struct MainLiveReadouts {
   std::array<qreal, 20> spectrumPeaks{};
 };
 
-}  // namespace tramp
+}  // namespace aoide

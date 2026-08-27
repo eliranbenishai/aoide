@@ -4,7 +4,7 @@
 #include "chrome_hits.h"
 #include "session_view.h"
 #include "title_chrome.h"
-#include "tramp_metrics.h"
+#include "aoide_metrics.h"
 #include "window_spec.h"
 
 #include <QCloseEvent>
@@ -31,14 +31,14 @@ class HostWindow : public QWidget {
   Q_OBJECT
 
  public:
-  explicit HostWindow(const tramp::WindowSpec& spec, QWidget* parent = nullptr);
+  explicit HostWindow(const aoide::WindowSpec& spec, QWidget* parent = nullptr);
 
-  tramp::WindowId id() const { return spec_.id; }
+  aoide::WindowId id() const { return spec_.id; }
   void setZoomPercent(int percent);
   void setShaded(bool shaded);
-  void setSessionView(const tramp::SessionView& view);
-  void applyLiveReadouts(const tramp::MainLiveReadouts& live);
-  void applyEqualizer(const tramp::EqualizerSettings& eq);
+  void setSessionView(const aoide::SessionView& view);
+  void applyLiveReadouts(const aoide::MainLiveReadouts& live);
+  void applyEqualizer(const aoide::EqualizerSettings& eq);
   void setPlaylistLogicalSize(QSize logical);
   void setQuitConfirmer(std::function<bool()> fn) { quitConfirmer_ = std::move(fn); }
   void setAlwaysOnTop(bool on);
@@ -68,8 +68,8 @@ class HostWindow : public QWidget {
   void zoomInRequested();
   void extraHidden();
   void extraMapped();
-  void chromePressed(tramp::ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical);
-  void chromeDragged(tramp::ChromeHit hit, QPoint logical);
+  void chromePressed(aoide::ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical);
+  void chromeDragged(aoide::ChromeHit hit, QPoint logical);
   void chromeReleased();
   void wheelScrolled(int delta);
   void nativeMoved(QPoint pos);
@@ -108,7 +108,7 @@ class HostWindow : public QWidget {
   void applyHitCursor(const QPointF& widgetPos);
   void applyChromeTooltip(const QPointF& widgetPos);
   void hideChromeTooltipNow();
-  QRect tooltipAnchorRect(tramp::TitleChromeLayout::Hit title, const tramp::ChromeHit& chrome) const;
+  QRect tooltipAnchorRect(aoide::TitleChromeLayout::Hit title, const aoide::ChromeHit& chrome) const;
   bool hasLiveBody() const;
   void invalidateChassis();
   void ensureChassis();
@@ -124,31 +124,31 @@ class HostWindow : public QWidget {
   void stepButtonAnimation();
   void startButtonAnimation();
 
-  tramp::WindowSpec spec_;
-  tramp::TitleChromeLayout title_;
-  tramp::SessionView view_;
+  aoide::WindowSpec spec_;
+  aoide::TitleChromeLayout title_;
+  aoide::SessionView view_;
   QImage logo_;
   QImage chassis_;
   bool chassisValid_ = false;
   bool chassisIsFullPaint_ = false;
   bool titleMarqueeLive_ = false;
-  int zoomPercent_ = tramp::kDefaultZoomPercent;
+  int zoomPercent_ = aoide::kDefaultZoomPercent;
   bool shaded_ = false;
   bool draggingChrome_ = false;
   bool draggingTitle_ = false;
   bool resizingPlaylist_ = false;
   bool grabbedPointer_ = false;
   QPoint grabOffset_;
-  tramp::ChromeHit dragHit_;
-  tramp::ChromePhases phases_;
+  aoide::ChromeHit dragHit_;
+  aoide::ChromePhases phases_;
   QTimer animTimer_;
   QElapsedTimer animClock_;
   bool sawFirstView_ = false;
   QTimer tooltipTimer_;
   QString tooltipCandidate_;
   QPoint tooltipGlobal_;
-  tramp::TitleChromeLayout::Hit tooltipTitle_ = tramp::TitleChromeLayout::Hit::none;
-  tramp::ChromeHit tooltipChrome_;
+  aoide::TitleChromeLayout::Hit tooltipTitle_ = aoide::TitleChromeLayout::Hit::none;
+  aoide::ChromeHit tooltipChrome_;
   PaintStats paintStats_;
   std::function<bool()> quitConfirmer_;
 };

@@ -9,7 +9,7 @@
 
 struct mpv_handle;
 
-namespace tramp {
+namespace aoide {
 
 class MpvEngine : public QObject, public PlayerEngine {
   Q_OBJECT
@@ -51,4 +51,4 @@ class MpvEngine : public QObject, public PlayerEngine {
   QString currentPath_;
 };
 
-}  // namespace tramp
+}  // namespace aoide

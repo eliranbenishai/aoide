@@ -4,7 +4,7 @@
 #include <QFileInfo>
 #include <algorithm>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 const QStringList kAudio = {QStringLiteral("mp3"), QStringLiteral("m4a"), QStringLiteral("aac"),
@@ -61,4 +61,4 @@ QVector<Track> tracksFromPaths(const QStringList& paths) {
   return tracks;
 }
 
-}  // namespace tramp
+}  // namespace aoide

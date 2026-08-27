@@ -13,7 +13,7 @@
 
 class QWidget;
 
-namespace tramp {
+namespace aoide {
 
 enum class ChromeMenuKind { action, separator };
 
@@ -148,4 +148,4 @@ int execChromeMenu(QWidget* owner, const QVector<ChromeMenuItem>& items,
                    const QRect& anchorGlobal, PopupAnchor anchor, int zoomPercent,
                    const ChromeTokens& look);
 
-}  // namespace tramp
+}  // namespace aoide

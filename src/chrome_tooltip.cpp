@@ -1,7 +1,7 @@
 #include "chrome_tooltip.h"
 
-#include "tramp_fonts.h"
-#include "tramp_metrics.h"
+#include "aoide_fonts.h"
+#include "aoide_metrics.h"
 
 #include <QFont>
 #include <QFontMetrics>
@@ -12,18 +12,18 @@
 #include <algorithm>
 #include <cmath>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 /// Naming the control is no use on a button that will not take it: "Zoom out"
 /// on a dead button says what it would have done, which is the reading the
 /// disabled face exists to prevent. So a withdrawn step says why instead, and
 /// the two reasons are not the same answer — the floor of the ladder is where
-/// Tramp ends, and a step that will not fit is where this display ends. At the
+/// Aoide ends, and a step that will not fit is where this display ends. At the
 /// shipped default both are out at once on a short screen, and a whole cluster
 /// greyed for one unexplained reason is what reads as broken chrome.
 QString zoomFloorTip(const SessionView& view) {
-  return QStringLiteral("%1% is as small as Tramp goes").arg(view.zoomPercent);
+  return QStringLiteral("%1% is as small as Aoide goes").arg(view.zoomPercent);
 }
 
 /// The step is named rather than called "the next one": the readout between the
@@ -163,7 +163,7 @@ QString chromeKindTip(const ChromeHit& chrome, const SessionView& view) {
       }
       return QStringLiteral("Remove skin");
     case K::aboutWeb:
-      return QStringLiteral("Open tramp.music");
+      return QStringLiteral("Open aoide.music");
     case K::none:
     case K::timeToggle:
     case K::volume:
@@ -281,4 +281,4 @@ void hideChromeTooltip() {
   if (g_tip) g_tip->hide();
 }
 
-}  // namespace tramp
+}  // namespace aoide

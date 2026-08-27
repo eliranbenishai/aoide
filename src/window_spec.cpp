@@ -1,12 +1,12 @@
 #include "window_spec.h"
 
 #include "panel_registry.h"
-#include "tramp_metrics.h"
+#include "aoide_metrics.h"
 
 #include <QMap>
 #include <algorithm>
 
-namespace tramp {
+namespace aoide {
 
 std::array<WindowSpec, kPanelCount> windowSpecs() {
   // The first-run arrangement, and only that: panels stack down their column in
@@ -46,4 +46,4 @@ Qt::WindowFlags hostWindowFlags() {
   return Qt::FramelessWindowHint | Qt::Window;
 }
 
-}  // namespace tramp
+}  // namespace aoide

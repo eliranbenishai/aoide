@@ -1,9 +1,9 @@
 #include "chrome_command.h"
 
-namespace tramp {
+namespace aoide {
 
 ChromeCommandRouter::ChromeCommandRouter(PlaybackController& playback, PlaylistController& playlist,
-                                         TrampSettings& settings, PlaylistCollection& collection,
+                                         AoideSettings& settings, PlaylistCollection& collection,
                                          PlayerEngine& engine, DockingCoordinator& docking)
     : playback_(playback),
       playlist_(playlist),
@@ -305,4 +305,4 @@ ChromeCommandOutcome ChromeCommandRouter::handle(WindowId id, const ChromeHit& h
   return out;
 }
 
-}  // namespace tramp
+}  // namespace aoide

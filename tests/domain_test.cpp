@@ -93,24 +93,25 @@ bool allowStoreWrites(const QString& dir, const QString& fileName) {
 
 }  // namespace
 
-using tramp::AudioLevels;
-using tramp::EqualizerSettings;
-using tramp::M3uCodec;
-using tramp::NullEngine;
-using tramp::PlaybackController;
-using tramp::PlaylistController;
-using tramp::PcmBuffer;
-using tramp::RepeatMode;
-using tramp::Spectrogram;
-using tramp::SpectrumAnalyzer;
-using tramp::SpectrumHold;
-using tramp::Track;
-using tramp::WavReader;
-using tramp::buildEqualizerAf;
-using tramp::nextIndex;
-using tramp::previousIndex;
-using tramp::resolveLinuxSupportPath;
-using tramp::spectrumFrame;
+using aoide::AudioLevels;
+using aoide::EqualizerSettings;
+using aoide::M3uCodec;
+using aoide::NullEngine;
+using aoide::PlaybackController;
+using aoide::PlaylistController;
+using aoide::PcmBuffer;
+using aoide::RepeatMode;
+using aoide::Spectrogram;
+using aoide::SpectrumAnalyzer;
+using aoide::SpectrumHold;
+using aoide::Track;
+using aoide::WavReader;
+using aoide::buildEqualizerAf;
+using aoide::nextIndex;
+using aoide::previousIndex;
+using aoide::resolveLinuxSupportPath;
+using aoide::resolveNonLinuxSupportPath;
+using aoide::spectrumFrame;
 
 int main() {
   {
@@ -118,40 +119,40 @@ int main() {
     // well center — otherwise every click seeks to 50%.
     const QRect seekWell(100, 248, 200, 16);
     const QPoint click(150, 256);
-    const QPoint engage = tramp::sliderPressPoint(seekWell, click);
+    const QPoint engage = aoide::sliderPressPoint(seekWell, click);
     REQUIRE_EQ(engage, click);
-    REQUIRE(std::abs(tramp::sliderFractionX(seekWell, engage.x()) - 0.25) < 1e-9);
-    REQUIRE(std::abs(tramp::sliderFractionX(seekWell, seekWell.left() + seekWell.width() / 2) - 0.5) <
+    REQUIRE(std::abs(aoide::sliderFractionX(seekWell, engage.x()) - 0.25) < 1e-9);
+    REQUIRE(std::abs(aoide::sliderFractionX(seekWell, seekWell.left() + seekWell.width() / 2) - 0.5) <
             1e-9);
-    REQUIRE_EQ(qint64(tramp::sliderFractionX(seekWell, engage.x()) * 400000), qint64(100000));
+    REQUIRE_EQ(qint64(aoide::sliderFractionX(seekWell, engage.x()) * 400000), qint64(100000));
   }
 
   {
-    REQUIRE(!tramp::qtPluginPathNeedsSanitize(QByteArray()));
-    REQUIRE(!tramp::qtPluginPathNeedsSanitize(QByteArray("/opt/qt/6.11.1/plugins")));
-    REQUIRE(tramp::qtPluginPathNeedsSanitize(
+    REQUIRE(!aoide::qtPluginPathNeedsSanitize(QByteArray()));
+    REQUIRE(!aoide::qtPluginPathNeedsSanitize(QByteArray("/opt/qt/6.11.1/plugins")));
+    REQUIRE(aoide::qtPluginPathNeedsSanitize(
         QByteArray("/tmp/.mount_cursorABC/usr/lib/qt5/plugins:/tmp/.mount_cursorABC/usr/lib64/qt5/"
                    "plugins")));
-    REQUIRE(tramp::qtPluginPathNeedsSanitize(QByteArray("/usr/lib/qt4/plugins")));
-    const auto audio = tramp::parseQtFileFilter(
+    REQUIRE(aoide::qtPluginPathNeedsSanitize(QByteArray("/usr/lib/qt4/plugins")));
+    const auto audio = aoide::parseQtFileFilter(
         QStringLiteral("Audio (*.mp3 *.m4a *.aac *.flac *.wav *.ogg *.opus)"));
     REQUIRE(audio.size() == 1);
     REQUIRE_EQ(audio.front().name, QStringLiteral("Audio"));
     REQUIRE(audio.front().globs.contains(QStringLiteral("*.flac")));
-    REQUIRE_EQ(tramp::fileUrisToLocalPaths(QStringList{QStringLiteral("file:///home/music/a.mp3")})
+    REQUIRE_EQ(aoide::fileUrisToLocalPaths(QStringList{QStringLiteral("file:///home/music/a.mp3")})
                    .front(),
                QStringLiteral("/home/music/a.mp3"));
     // xdg-desktop-portal FileChooser has OpenFile/SaveFile/SaveFiles only.
     // Folder pick is OpenFile + directory=true (portal v3), not OpenDirectory.
-    const auto folder = tramp::portalFileChooserRequest(tramp::FilePickKind::openDirectory);
+    const auto folder = aoide::portalFileChooserRequest(aoide::FilePickKind::openDirectory);
     REQUIRE_EQ(folder.method, QStringLiteral("OpenFile"));
     REQUIRE(folder.directory);
     REQUIRE(!folder.multiple);
-    const auto files = tramp::portalFileChooserRequest(tramp::FilePickKind::openFiles);
+    const auto files = aoide::portalFileChooserRequest(aoide::FilePickKind::openFiles);
     REQUIRE_EQ(files.method, QStringLiteral("OpenFile"));
     REQUIRE(files.multiple);
     REQUIRE(!files.directory);
-    const auto save = tramp::portalFileChooserRequest(tramp::FilePickKind::saveFile);
+    const auto save = aoide::portalFileChooserRequest(aoide::FilePickKind::saveFile);
     REQUIRE_EQ(save.method, QStringLiteral("SaveFile"));
     REQUIRE(!save.directory);
   }
@@ -166,14 +167,14 @@ int main() {
     // Recognising the mount is pure string work, so it can be asked about the
     // real one.
     const QString realRuntime = QStringLiteral("/run/user/1000");
-    REQUIRE(tramp::isDocumentPortalPath(
+    REQUIRE(aoide::isDocumentPortalPath(
         QStringLiteral("/run/user/1000/doc/nbpeE9v4izUGiQ0CXz1BUw/song.mp3"), realRuntime));
-    REQUIRE(!tramp::isDocumentPortalPath(QStringLiteral("/home/me/Music/a.mp3"), realRuntime));
+    REQUIRE(!aoide::isDocumentPortalPath(QStringLiteral("/home/me/Music/a.mp3"), realRuntime));
     // "docs" is not "doc", so the separator has to be part of the comparison.
     REQUIRE(
-        !tramp::isDocumentPortalPath(QStringLiteral("/run/user/1000/docs/a.mp3"), realRuntime));
+        !aoide::isDocumentPortalPath(QStringLiteral("/run/user/1000/docs/a.mp3"), realRuntime));
     // No runtime dir means no mount to be under, not everything is under it.
-    REQUIRE(!tramp::isDocumentPortalPath(QStringLiteral("/run/user/1000/doc/x/a.mp3"), QString()));
+    REQUIRE(!aoide::isDocumentPortalPath(QStringLiteral("/run/user/1000/doc/x/a.mp3"), QString()));
 
     // Rewriting one reads the filesystem, so the mount has to be a made-up one:
     // pointed at the real $XDG_RUNTIME_DIR this passes or fails depending on
@@ -189,8 +190,8 @@ int main() {
     }
     // Ordinary paths come back untouched -- the overwhelmingly common case, and
     // the one where a wrong answer would corrupt a working playlist.
-    REQUIRE_EQ(tramp::durablePath(real, runtime), real);
-    REQUIRE(tramp::documentPortalHostPath(real).isEmpty());
+    REQUIRE_EQ(aoide::durablePath(real, runtime), real);
+    REQUIRE(aoide::documentPortalHostPath(real).isEmpty());
     // An export whose origin cannot be read stays as it is. That is what a
     // sandbox narrowed off --filesystem=host will see, and there the export is
     // the only handle the app has; replacing it with an unreadable host path
@@ -199,8 +200,8 @@ int main() {
     // xattr is the portal's job -- so it is verified against a live export
     // instead; see distribution.md.
     const QString doc = QDir(runtime).filePath(QStringLiteral("doc/AbCd/song.mp3"));
-    REQUIRE_EQ(tramp::durablePath(doc, runtime), doc);
-    REQUIRE_EQ(tramp::durablePaths(QStringList{real, doc}, runtime).join(QLatin1Char(';')),
+    REQUIRE_EQ(aoide::durablePath(doc, runtime), doc);
+    REQUIRE_EQ(aoide::durablePaths(QStringList{real, doc}, runtime).join(QLatin1Char(';')),
                (QStringList{real, doc}).join(QLatin1Char(';')));
   }
 
@@ -335,9 +336,10 @@ int main() {
   {
     const QString home = QStringLiteral("/home/listener");
     const QString share = home + QStringLiteral("/.local/share");
-    const QString pinned = share + QStringLiteral("/com.proximamagnifica.tramp");
+    const QString pinned = share + QStringLiteral("/com.proximamagnifica.aoide");
+    const QString oldPin = share + QStringLiteral("/com.proximamagnifica.tramp");
+    const QString bareLegacy = share + QStringLiteral("/tramp");
     const QString ignored = share + QStringLiteral("/com.tramp.tramp");
-    const QString legacy = share + QStringLiteral("/tramp");
     auto only = [](const QStringList& existing) {
       return [existing](const QString& path) { return existing.contains(path); };
     };
@@ -350,17 +352,36 @@ int main() {
                                     only({pinned})) == pinned);
     REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home},
                                      {QStringLiteral("XDG_DATA_HOME"), QStringLiteral("/data/xdg")}},
-                                    only({QStringLiteral("/data/xdg/com.proximamagnifica.tramp")})) ==
-            QStringLiteral("/data/xdg/com.proximamagnifica.tramp"));
-    REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home}}, only({legacy})) == legacy);
-    REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home}}, only({pinned, legacy})) ==
+                                    only({QStringLiteral("/data/xdg/com.proximamagnifica.aoide")})) ==
+            QStringLiteral("/data/xdg/com.proximamagnifica.aoide"));
+    REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home}}, only({oldPin})) == oldPin);
+    REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home}}, only({bareLegacy})) ==
+            bareLegacy);
+    REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home}}, only({oldPin, bareLegacy})) ==
+            oldPin);
+    REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home}}, only({pinned, oldPin})) ==
             pinned);
+    REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home}}, only({pinned, bareLegacy})) ==
+            pinned);
+    REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home}},
+                                    only({pinned, oldPin, bareLegacy})) == pinned);
     REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home}}, only({ignored})) == pinned);
-    REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home}}, only({ignored, legacy})) ==
-            legacy);
+    REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home}}, only({ignored, oldPin})) ==
+            oldPin);
+    REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home}}, only({ignored, bareLegacy})) ==
+            bareLegacy);
     REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home}}, only({pinned, ignored})) ==
             pinned);
     REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home}}, only({})) == pinned);
+
+    const QString winPinned =
+        QStringLiteral("/Users/listener/Library/Application Support/Proxima Magnifica/Aoide");
+    const QString winLegacy =
+        QStringLiteral("/Users/listener/Library/Application Support/Proxima Magnifica/Tramp");
+    REQUIRE(resolveNonLinuxSupportPath(winPinned, only({winPinned})) == winPinned);
+    REQUIRE(resolveNonLinuxSupportPath(winPinned, only({winLegacy})) == winLegacy);
+    REQUIRE(resolveNonLinuxSupportPath(winPinned, only({winPinned, winLegacy})) == winPinned);
+    REQUIRE(resolveNonLinuxSupportPath(winPinned, only({})) == winPinned);
   }
 
   {
@@ -375,10 +396,10 @@ int main() {
     REQUIRE(nextIndex(1, 3, true, RepeatMode::all, order).value() == 2);
     REQUIRE(previousIndex(2, 3, true, RepeatMode::all, order).value() == 1);
     auto skipMiddle = [](int i) { return i != 1; };
-    REQUIRE(tramp::nextPlayableIndex(0, 3, false, RepeatMode::off, {}, skipMiddle).value() == 2);
-    REQUIRE(tramp::previousPlayableIndex(2, 3, false, RepeatMode::off, {}, skipMiddle).value() ==
+    REQUIRE(aoide::nextPlayableIndex(0, 3, false, RepeatMode::off, {}, skipMiddle).value() == 2);
+    REQUIRE(aoide::previousPlayableIndex(2, 3, false, RepeatMode::off, {}, skipMiddle).value() ==
             0);
-    REQUIRE(!tramp::nextPlayableIndex(0, 2, false, RepeatMode::off, {}, [](int) { return false; })
+    REQUIRE(!aoide::nextPlayableIndex(0, 2, false, RepeatMode::off, {}, [](int) { return false; })
                  .has_value());
   }
 
@@ -405,7 +426,7 @@ int main() {
     REQUIRE(pl.altered());
     pl.select(0);
     REQUIRE(pl.altered());
-    const QString tmp = QDir::temp().filePath(QStringLiteral("tramp-domain-test.m3u"));
+    const QString tmp = QDir::temp().filePath(QStringLiteral("aoide-domain-test.m3u"));
     REQUIRE(pl.savePlaylistFile(tmp));
     REQUIRE(!pl.altered());
     pl.addTracks({b});
@@ -418,12 +439,12 @@ int main() {
   }
 
   {
-    REQUIRE(tramp::formatClock(161000) == QStringLiteral("2:41"));
-    REQUIRE(tramp::formatClock(347000) == QStringLiteral("5:47"));
-    REQUIRE(tramp::formatTotalTime((3 * 24 + 22) * 3600LL * 1000 + 40 * 60 * 1000) ==
+    REQUIRE(aoide::formatClock(161000) == QStringLiteral("2:41"));
+    REQUIRE(aoide::formatClock(347000) == QStringLiteral("5:47"));
+    REQUIRE(aoide::formatTotalTime((3 * 24 + 22) * 3600LL * 1000 + 40 * 60 * 1000) ==
             QStringLiteral("3 d 22 h"));
-    REQUIRE(tramp::groupedInt(1284) == QStringLiteral("1,284"));
-    REQUIRE(tramp::groupedInt(4096) == QStringLiteral("4,096"));
+    REQUIRE(aoide::groupedInt(1284) == QStringLiteral("1,284"));
+    REQUIRE(aoide::groupedInt(4096) == QStringLiteral("4,096"));
   }
 
   auto appendU16 = [](QByteArray& b, quint16 v) {
@@ -760,48 +781,48 @@ int main() {
     // A hidden panel keeps the position it will reappear at. Counting it against
     // the desktop edge reserved ghost space: a closed About parked left of main
     // stopped main reaching the left edge of the screen.
-    tramp::DockLayout layout;
+    aoide::DockLayout layout;
     layout.main = {true, false, 400, 100, {}, {}};
     layout.equalizer = {true, false, 400, 448, {}, {}};
     layout.playlist = {false, false, 0, 0, {}, {}};
     layout.settings = {false, false, 0, 0, {}, {}};
     layout.about = {false, false, 0, 500, {}, {}};
-    const QVector<tramp::WindowId> members = tramp::visibleClusterMembers(layout);
+    const QVector<aoide::WindowId> members = aoide::visibleClusterMembers(layout);
     REQUIRE_EQ(members.size(), 2);
-    REQUIRE(members.contains(tramp::WindowId::main));
-    REQUIRE(members.contains(tramp::WindowId::equalizer));
-    REQUIRE(!members.contains(tramp::WindowId::about));
+    REQUIRE(members.contains(aoide::WindowId::main));
+    REQUIRE(members.contains(aoide::WindowId::equalizer));
+    REQUIRE(!members.contains(aoide::WindowId::about));
 
     layout.about.visible = true;
-    REQUIRE(tramp::visibleClusterMembers(layout).contains(tramp::WindowId::about));
+    REQUIRE(aoide::visibleClusterMembers(layout).contains(aoide::WindowId::about));
   }
 
   {
     // Main cannot be hidden, so it anchors the cluster even if persist says otherwise.
-    tramp::DockLayout layout;
+    aoide::DockLayout layout;
     layout.main = {false, false, 0, 0, {}, {}};
     layout.equalizer = {false, false, 0, 0, {}, {}};
     layout.playlist = {false, false, 0, 0, {}, {}};
     layout.settings = {false, false, 0, 0, {}, {}};
     layout.about = {false, false, 0, 0, {}, {}};
-    REQUIRE_EQ(tramp::visibleClusterMembers(layout), QVector<tramp::WindowId>{tramp::WindowId::main});
+    REQUIRE_EQ(aoide::visibleClusterMembers(layout), QVector<aoide::WindowId>{aoide::WindowId::main});
   }
 
   {
     const QRect cog(100, 200, 26, 26);
     const QSize menu(180, 120);
-    REQUIRE_EQ(tramp::popupMenuPos(cog, menu, tramp::PopupAnchor::belowLeft), QPoint(100, 226));
-    REQUIRE_EQ(tramp::popupMenuPos(cog, menu, tramp::PopupAnchor::aboveLeft), QPoint(100, 80));
+    REQUIRE_EQ(aoide::popupMenuPos(cog, menu, aoide::PopupAnchor::belowLeft), QPoint(100, 226));
+    REQUIRE_EQ(aoide::popupMenuPos(cog, menu, aoide::PopupAnchor::aboveLeft), QPoint(100, 80));
   }
 
   {
-    tramp::DockLayout layout;
+    aoide::DockLayout layout;
     layout.main = {true, false, 0, 0, {}, {}};
     layout.equalizer = {true, false, 0, 348, {}, {}};
     layout.playlist = {true, false, 0, 696, {}, {}};
-    layout.dockEdges = {{tramp::WindowId::main, tramp::WindowId::equalizer, tramp::DockSide::bottom}};
-    tramp::DockingCoordinator dock(layout);
-    dock.move(tramp::WindowId::main, QPointF(40, 20), false, false);
+    layout.dockEdges = {{aoide::WindowId::main, aoide::WindowId::equalizer, aoide::DockSide::bottom}};
+    aoide::DockingCoordinator dock(layout);
+    dock.move(aoide::WindowId::main, QPointF(40, 20), false, false);
     REQUIRE_EQ(dock.layout().main.left, 40.0);
     REQUIRE_EQ(dock.layout().main.top, 20.0);
     REQUIRE_EQ(dock.layout().equalizer.left, 40.0);
@@ -815,22 +836,22 @@ int main() {
   }
 
   {
-    tramp::DockLayout layout;
+    aoide::DockLayout layout;
     layout.main = {true, false, 100, 100, {}, {}};
     layout.equalizer = {true, false, 100, 448, {}, {}};
-    tramp::DockingCoordinator dock(layout);
+    aoide::DockingCoordinator dock(layout);
     dock.setSnapThreshold(20);
-    dock.move(tramp::WindowId::main, QPointF(130, 110), false, false);
+    dock.move(aoide::WindowId::main, QPointF(130, 110), false, false);
     REQUIRE_EQ(dock.layout().equalizer.left, 130.0);
     REQUIRE_EQ(dock.layout().equalizer.top, 458.0);
   }
 
   {
-    tramp::DockLayout layout;
+    aoide::DockLayout layout;
     layout.main = {true, false, 0, 0, {}, {}};
     layout.equalizer = {true, false, 0, 348, {}, {}};
-    tramp::DockingCoordinator dock(layout);
-    dock.move(tramp::WindowId::equalizer, QPointF(40, 20), false, false);
+    aoide::DockingCoordinator dock(layout);
+    dock.move(aoide::WindowId::equalizer, QPointF(40, 20), false, false);
     REQUIRE_EQ(dock.layout().main.left, 0.0);
     REQUIRE_EQ(dock.layout().main.top, 0.0);
     REQUIRE_EQ(dock.layout().equalizer.left, 40.0);
@@ -840,22 +861,22 @@ int main() {
   {
     // A crawl of two logical pixels is under the peel delta, so the dock edge
     // holds and the panel keeps the group it is in.
-    tramp::DockLayout layout;
+    aoide::DockLayout layout;
     layout.main = {true, false, 0, 0, {}, {}};
     layout.equalizer = {true, false, 0, 348, {}, {}};
     layout.playlist.visible = false;
     layout.dockEdges = {
-        {tramp::WindowId::equalizer, tramp::WindowId::main, tramp::DockSide::top}};
-    tramp::DockingCoordinator dock(layout);
+        {aoide::WindowId::equalizer, aoide::WindowId::main, aoide::DockSide::top}};
+    aoide::DockingCoordinator dock(layout);
     dock.setSnapThreshold(20);
-    dock.move(tramp::WindowId::equalizer, QPointF(2, 350), false, true);
+    dock.move(aoide::WindowId::equalizer, QPointF(2, 350), false, true);
     REQUIRE_EQ(dock.layout().dockEdges.size(), 1);
     REQUIRE_EQ(dock.layout().equalizer.left, 2.0);
     REQUIRE_EQ(dock.layout().equalizer.top, 350.0);
 
     // Shift undocks the same crawl: the edge goes at once, and the drop is left
     // where the listener put it instead of snapping back onto main.
-    dock.move(tramp::WindowId::equalizer, QPointF(4, 352), true, true);
+    dock.move(aoide::WindowId::equalizer, QPointF(4, 352), true, true);
     REQUIRE(dock.layout().dockEdges.isEmpty());
     REQUIRE_EQ(dock.layout().equalizer.left, 4.0);
     REQUIRE_EQ(dock.layout().equalizer.top, 352.0);
@@ -864,76 +885,76 @@ int main() {
     REQUIRE_EQ(dock.layout().main.top, 0.0);
 
     // Undocked is not un-dockable: the next ordinary drop this close snaps back.
-    dock.move(tramp::WindowId::equalizer, QPointF(4, 352), false, true);
+    dock.move(aoide::WindowId::equalizer, QPointF(4, 352), false, true);
     REQUIRE(!dock.layout().dockEdges.isEmpty());
     REQUIRE_EQ(dock.layout().equalizer.left, 0.0);
     REQUIRE_EQ(dock.layout().equalizer.top, 348.0);
   }
 
   {
-    tramp::DockLayout layout;
+    aoide::DockLayout layout;
     layout.main = {true, false, 0, 0, {}, {}};
     layout.equalizer = {true, false, 0, 358, {}, {}};
-    tramp::DockingCoordinator dock(layout);
+    aoide::DockingCoordinator dock(layout);
     dock.setSnapThreshold(20);
-    dock.move(tramp::WindowId::equalizer, QPointF(0, 358), false, true);
+    dock.move(aoide::WindowId::equalizer, QPointF(0, 358), false, true);
     REQUIRE_EQ(dock.layout().equalizer.left, 0.0);
     REQUIRE_EQ(dock.layout().equalizer.top, 348.0);
   }
 
   {
-    tramp::DockLayout layout;
+    aoide::DockLayout layout;
     layout.main = {true, false, 0, 0, {}, {}};
     layout.equalizer = {true, false, 0, 358, {}, {}};
     layout.playlist = {true, false, 830, 0, 1073.0, 820.0};
-    tramp::DockingCoordinator dock(layout);
+    aoide::DockingCoordinator dock(layout);
     dock.setSnapThreshold(20);
-    dock.move(tramp::WindowId::equalizer, QPointF(0, 358), false, true);
+    dock.move(aoide::WindowId::equalizer, QPointF(0, 358), false, true);
     REQUIRE_EQ(dock.layout().equalizer.top, 348.0);
     REQUIRE_EQ(dock.layout().equalizer.left, 5.0);
   }
 
   {
-    tramp::DockLayout layout;
+    aoide::DockLayout layout;
     layout.main = {true, false, 0, 0, {}, {}};
     layout.equalizer = {true, false, 8, 358, {}, {}};
-    tramp::DockingCoordinator dock(layout);
+    aoide::DockingCoordinator dock(layout);
     dock.setSnapThreshold(20);
-    dock.move(tramp::WindowId::equalizer, QPointF(8, 358), false, true);
+    dock.move(aoide::WindowId::equalizer, QPointF(8, 358), false, true);
     REQUIRE_EQ(dock.layout().equalizer.left, 0.0);
     REQUIRE_EQ(dock.layout().equalizer.top, 348.0);
   }
 
   {
-    tramp::DockLayout layout;
+    aoide::DockLayout layout;
     layout.main = {true, false, 0, 0, {}, {}};
     layout.playlist = {true, false, 0, 358, {}, {}};
-    tramp::DockingCoordinator dock(layout);
+    aoide::DockingCoordinator dock(layout);
     dock.setSnapThreshold(20);
-    dock.move(tramp::WindowId::playlist, QPointF(0, 358), false, true);
+    dock.move(aoide::WindowId::playlist, QPointF(0, 358), false, true);
     REQUIRE_EQ(dock.layout().playlist.left, 0.0);
     REQUIRE_EQ(dock.layout().playlist.top, 348.0);
   }
 
   {
-    tramp::DockLayout layout;
+    aoide::DockLayout layout;
     layout.main = {true, false, 0, 0, {}, {}};
     layout.playlist = {true, false, 835, 0, {}, {}};
-    tramp::DockingCoordinator dock(layout);
+    aoide::DockingCoordinator dock(layout);
     dock.setSnapThreshold(20);
-    dock.move(tramp::WindowId::playlist, QPointF(835, 0), false, true);
+    dock.move(aoide::WindowId::playlist, QPointF(835, 0), false, true);
     REQUIRE_EQ(dock.layout().playlist.left, 825.0);
     REQUIRE_EQ(dock.layout().playlist.top, 0.0);
   }
 
   {
-    tramp::DockLayout layout;
+    aoide::DockLayout layout;
     layout.main = {true, false, 0, 0, {}, {}};
     layout.equalizer = {true, false, 0, 348, {}, {}};
     layout.playlist = {true, false, 835, 10, 1073.0, 500.0};
-    tramp::DockingCoordinator dock(layout);
+    aoide::DockingCoordinator dock(layout);
     dock.setSnapThreshold(20);
-    dock.move(tramp::WindowId::playlist, QPointF(835, 10), false, true);
+    dock.move(aoide::WindowId::playlist, QPointF(835, 10), false, true);
     REQUIRE_EQ(dock.layout().playlist.left, 825.0);
     REQUIRE_EQ(dock.layout().playlist.top, 0.0);
   }
@@ -941,11 +962,11 @@ int main() {
   {
     // Leading '/' is absolute on both OS, but Windows drive-qualifies it
     // (D:/music/...). cleanPath does not; normalizePlaylistPath does.
-    REQUIRE_EQ(tramp::collectionHighlightPath(QStringLiteral("/music/set.m3u"), QString()),
-               tramp::normalizePlaylistPath(QStringLiteral("/music/set.m3u")));
-    REQUIRE_EQ(tramp::collectionHighlightPath(QString(), QStringLiteral("/music/other.m3u")),
+    REQUIRE_EQ(aoide::collectionHighlightPath(QStringLiteral("/music/set.m3u"), QString()),
+               aoide::normalizePlaylistPath(QStringLiteral("/music/set.m3u")));
+    REQUIRE_EQ(aoide::collectionHighlightPath(QString(), QStringLiteral("/music/other.m3u")),
                QStringLiteral("/music/other.m3u"));
-    REQUIRE_EQ(tramp::collectionHighlightPath(QString(), QString()), QString());
+    REQUIRE_EQ(aoide::collectionHighlightPath(QString(), QString()), QString());
   }
 
   {
@@ -1095,7 +1116,7 @@ int main() {
     Track track;
     track.path = QStringLiteral("/tmp/quiet.flac");
     playlist.setTracks({track});
-    tramp::MissingAudioEngine engine(QStringLiteral("no audio engine in this build"));
+    aoide::MissingAudioEngine engine(QStringLiteral("no audio engine in this build"));
     PlaybackController playback(&playlist, &engine);
     playback.playIndex(0);
     REQUIRE(!playback.playing());
@@ -1108,7 +1129,7 @@ int main() {
     // into replacement characters and left their paths unresolvable.
     const QByteArray withBom =
         QByteArray("\xEF\xBB\xBF#EXTM3U\n#EXTINF:1,Bj\xC3\xB6rk\n/m/a.mp3\n");
-    const QString bomText = tramp::decodeM3uBytes(withBom);
+    const QString bomText = aoide::decodeM3uBytes(withBom);
     REQUIRE(!bomText.startsWith(QChar(0xFEFF)));
     REQUIRE(bomText.contains(QString::fromUtf8("Björk")));
     REQUIRE(bomText.startsWith(QStringLiteral("#EXTM3U")));
@@ -1116,7 +1137,7 @@ int main() {
     QByteArray latin1("#EXTM3U\n#EXTINF:1,Caf");
     latin1.append(char(0xE9));
     latin1.append("\n/m/b.mp3\n");
-    const QString latinText = tramp::decodeM3uBytes(latin1);
+    const QString latinText = aoide::decodeM3uBytes(latin1);
     REQUIRE(latinText.contains(QString::fromUtf8("Café")));
     REQUIRE(!latinText.contains(QChar(QChar::ReplacementCharacter)));
   }
@@ -1194,8 +1215,8 @@ int main() {
     // whatever had survived.
     QTemporaryDir tmp;
     REQUIRE(tmp.isValid());
-    tramp::SupportStore store(tmp.path());
-    tramp::TrampSettings first;
+    aoide::SupportStore store(tmp.path());
+    aoide::AoideSettings first;
     first.zoomPercent = 150;
     REQUIRE(store.writeSettings(first));
     REQUIRE_EQ(store.readSettings().zoomPercent, 150);
@@ -1203,7 +1224,7 @@ int main() {
 
     // A refused write must fail loudly and leave the old file intact.
     REQUIRE(refuseStoreWrites(tmp.path(), QStringLiteral("settings.json")));
-    tramp::TrampSettings second;
+    aoide::AoideSettings second;
     second.zoomPercent = 50;
     const bool wrote = store.writeSettings(second);
     REQUIRE(allowStoreWrites(tmp.path(), QStringLiteral("settings.json")));
@@ -1217,20 +1238,20 @@ int main() {
     // what clears the Settings mark.
     QTemporaryDir tmp;
     REQUIRE(tmp.isValid());
-    tramp::SupportStore store(tmp.path());
-    tramp::PersistHealth health;
-    tramp::TrampSettings settings;
-    tramp::SessionResume resume;
-    tramp::UsageCounters usage;
-    tramp::writeSessionPersist(store, health, settings, resume, usage, {}, nullptr);
+    aoide::SupportStore store(tmp.path());
+    aoide::PersistHealth health;
+    aoide::AoideSettings settings;
+    aoide::SessionResume resume;
+    aoide::UsageCounters usage;
+    aoide::writeSessionPersist(store, health, settings, resume, usage, {}, nullptr);
     REQUIRE(!health.anyFailed());
 
     REQUIRE(refuseStoreWrites(tmp.path(), QStringLiteral("settings.json")));
-    tramp::writeSessionPersist(store, health, settings, resume, usage, {}, nullptr);
+    aoide::writeSessionPersist(store, health, settings, resume, usage, {}, nullptr);
     REQUIRE(allowStoreWrites(tmp.path(), QStringLiteral("settings.json")));
     REQUIRE(health.anyFailed());
 
-    tramp::writeSessionPersist(store, health, settings, resume, usage, {}, nullptr);
+    aoide::writeSessionPersist(store, health, settings, resume, usage, {}, nullptr);
     REQUIRE(!health.anyFailed());
   }
 
@@ -1241,7 +1262,7 @@ int main() {
     // step rather than being thrown away for the default.
     QTemporaryDir tmp;
     REQUIRE(tmp.isValid());
-    tramp::SupportStore store(tmp.path());
+    aoide::SupportStore store(tmp.path());
     const QString path = QDir(tmp.path()).filePath(QStringLiteral("settings.json"));
     const auto restoredZoom = [&](int saved) {
       QFile file(path);
@@ -1267,29 +1288,29 @@ int main() {
     REQUIRE(broken.open(QIODevice::WriteOnly));
     broken.write(QByteArray("{ this is not json"));
     broken.close();
-    tramp::SupportStore store(tmp.path());
-    REQUIRE_EQ(store.readSettings().zoomPercent, tramp::TrampSettings{}.zoomPercent);
+    aoide::SupportStore store(tmp.path());
+    REQUIRE_EQ(store.readSettings().zoomPercent, aoide::AoideSettings{}.zoomPercent);
     REQUIRE(QFile::exists(path + QStringLiteral(".corrupt")));
   }
 
   {
     // A relative path in a state file keys everything on whichever directory
-    // Tramp happened to be started from: the same collection read from another
+    // Aoide happened to be started from: the same collection read from another
     // working directory misses every cached track. Nothing relative is written,
     // and nothing relative survives a read.
     QTemporaryDir tmp;
     REQUIRE(tmp.isValid());
-    tramp::SupportStore store(tmp.path());
+    aoide::SupportStore store(tmp.path());
     const QString relList = QStringLiteral("lists/set.m3u");
     const QString relTrack = QStringLiteral("lists/a.mp3");
-    const QString absList = tramp::normalizePlaylistPath(relList);
-    const QString absTrack = tramp::normalizePlaylistPath(relTrack);
+    const QString absList = aoide::normalizePlaylistPath(relList);
+    const QString absTrack = aoide::normalizePlaylistPath(relTrack);
 
-    tramp::SavedPlaylist entry;
+    aoide::SavedPlaylist entry;
     entry.path = relList;
     entry.trackCount = 1;
     REQUIRE(store.writeCollectionIndex({entry}));
-    tramp::CollectionTrackSets sets;
+    aoide::CollectionTrackSets sets;
     sets.byEntry.insert(relList, {relTrack});
     sets.durationsMs.insert(relTrack, 1000);
     sets.meta.insert(relTrack, {QStringLiteral("A"), QString(), QString()});
@@ -1310,7 +1331,7 @@ int main() {
     REQUIRE(cached.contains(absTrack.toUtf8()));
 
     // And the two files still describe the same tracks after the round trip.
-    const tramp::CollectionTrackSets back = store.readTrackSets();
+    const aoide::CollectionTrackSets back = store.readTrackSets();
     REQUIRE_EQ(back.byEntry.value(absList).size(), 1);
     REQUIRE_EQ(back.byEntry.value(absList).value(0), absTrack);
     REQUIRE_EQ(back.durationsMs.value(absTrack, -1), qint64(1000));
@@ -1324,7 +1345,7 @@ int main() {
     // N TRACKS counted files that are not there.
     QTemporaryDir tmp;
     REQUIRE(tmp.isValid());
-    tramp::SupportStore store(tmp.path());
+    aoide::SupportStore store(tmp.path());
     Track live;
     live.path = QStringLiteral("/music/live.mp3");
     live.durationMs = 1000;
@@ -1334,20 +1355,20 @@ int main() {
     dead.disabled = true;
     REQUIRE(store.writeAltered({{live, dead}, QStringLiteral("/music/set.m3u")}));
 
-    const tramp::AlteredPlaylist back = store.readAltered();
+    const aoide::AlteredPlaylist back = store.readAltered();
     REQUIRE_EQ(back.tracks.size(), 2);
     REQUIRE(!back.tracks[0].disabled);
     REQUIRE(back.tracks[1].disabled);
-    REQUIRE_EQ(tramp::playableTrackCount(back.tracks), 1);
-    REQUIRE_EQ(tramp::playableTotalMs(back.tracks), 1000);
+    REQUIRE_EQ(aoide::playableTrackCount(back.tracks), 1);
+    REQUIRE_EQ(aoide::playableTotalMs(back.tracks), 1000);
   }
 
   {
-    REQUIRE(tramp::samePlaylistFile(QStringLiteral("/music/set.m3u"),
+    REQUIRE(aoide::samePlaylistFile(QStringLiteral("/music/set.m3u"),
                                     QStringLiteral("/music/./set.m3u")));
-    REQUIRE(!tramp::samePlaylistFile(QStringLiteral("/music/a.m3u"),
+    REQUIRE(!aoide::samePlaylistFile(QStringLiteral("/music/a.m3u"),
                                      QStringLiteral("/music/b.m3u")));
-    REQUIRE(!tramp::samePlaylistFile(QString(), QStringLiteral("/music/a.m3u")));
+    REQUIRE(!aoide::samePlaylistFile(QString(), QStringLiteral("/music/a.m3u")));
   }
 
   {
@@ -1609,27 +1630,27 @@ int main() {
     t.title = QStringLiteral("Keep Playing");
     t.artist = QStringLiteral("Wire Garden");
     t.album = QStringLiteral("Copper Rain EP");
-    const auto shown = tramp::nowPlayingDisplay(t, std::nullopt, 1);
+    const auto shown = aoide::nowPlayingDisplay(t, std::nullopt, 1);
     REQUIRE_EQ(shown.title, QStringLiteral("Wire Garden — Keep Playing"));
     REQUIRE_EQ(shown.subtitle, QStringLiteral("COPPER RAIN EP"));
     REQUIRE_EQ(shown.formatChip, QStringLiteral("MP3"));
     REQUIRE(shown.title != QStringLiteral("No track"));
-    const auto numbered = tramp::nowPlayingDisplay(t, 2, 12);
+    const auto numbered = aoide::nowPlayingDisplay(t, 2, 12);
     REQUIRE_EQ(numbered.title, QStringLiteral("3. Wire Garden — Keep Playing"));
     REQUIRE_EQ(numbered.subtitle, QStringLiteral("COPPER RAIN EP · TRACK 3 OF 12"));
-    const auto empty = tramp::nowPlayingDisplay(std::nullopt, std::nullopt, 0);
+    const auto empty = aoide::nowPlayingDisplay(std::nullopt, std::nullopt, 0);
     REQUIRE_EQ(empty.title, QStringLiteral("No track"));
     REQUIRE_EQ(empty.formatChip, QStringLiteral("—"));
   }
 
   {
-    tramp::DockLayout layout;
+    aoide::DockLayout layout;
     layout.main = {true, false, 100, 80, {}, {}};
     layout.equalizer = {true, false, 100, 80, {}, {}};
     layout.playlist = {true, false, 102, 82, {}, {}};
-    tramp::DockingCoordinator dock(layout);
-    dock.nudgeOffMainIfStacked(tramp::WindowId::equalizer);
-    dock.nudgeOffMainIfStacked(tramp::WindowId::playlist);
+    aoide::DockingCoordinator dock(layout);
+    dock.nudgeOffMainIfStacked(aoide::WindowId::equalizer);
+    dock.nudgeOffMainIfStacked(aoide::WindowId::playlist);
     REQUIRE_EQ(dock.layout().equalizer.left, 100.0);
     REQUIRE_EQ(dock.layout().equalizer.top, 80.0 + 348.0);
     REQUIRE_EQ(dock.layout().playlist.left, 100.0 + 825.0);
@@ -1637,30 +1658,30 @@ int main() {
   }
 
   {
-    tramp::DockLayout layout;
+    aoide::DockLayout layout;
     layout.main = {true, false, 40, 20, {}, {}};
     layout.equalizer = {true, false, 40, 368, {}, {}};
-    tramp::DockingCoordinator dock(layout);
-    dock.nudgeOffMainIfStacked(tramp::WindowId::equalizer);
+    aoide::DockingCoordinator dock(layout);
+    dock.nudgeOffMainIfStacked(aoide::WindowId::equalizer);
     REQUIRE_EQ(dock.layout().equalizer.left, 40.0);
     REQUIRE_EQ(dock.layout().equalizer.top, 368.0);
   }
 
   {
-    tramp::DockLayout layout;
+    aoide::DockLayout layout;
     layout.main.visible = false;
     layout.equalizer.visible = false;
     layout.playlist.visible = false;
-    tramp::DockingCoordinator dock(layout);
-    dock.setVisible(tramp::WindowId::main, false);
+    aoide::DockingCoordinator dock(layout);
+    dock.setVisible(aoide::WindowId::main, false);
     REQUIRE(dock.layout().main.visible == false);
     dock.ensureMainVisible();
     REQUIRE(dock.layout().main.visible);
     REQUIRE(dock.layout().equalizer.visible);
     REQUIRE(dock.layout().playlist.visible);
-    dock.setVisible(tramp::WindowId::main, false);
+    dock.setVisible(aoide::WindowId::main, false);
     REQUIRE(dock.layout().main.visible);
-    dock.setVisible(tramp::WindowId::equalizer, false);
+    dock.setVisible(aoide::WindowId::equalizer, false);
     dock.ensureMainVisible();
     REQUIRE(!dock.layout().equalizer.visible);
   }
@@ -1682,7 +1703,7 @@ int main() {
       audio.close();
     }
 
-    tramp::PlaylistCollection col;
+    aoide::PlaylistCollection col;
     col.add(pl);
     REQUIRE_EQ(col.readFigures().playlists, 1);
     REQUIRE_EQ(col.readFigures().tracks, 2);
@@ -1718,10 +1739,10 @@ int main() {
     REQUIRE_EQ(titled[0].artist, QStringLiteral("Wire Garden"));
     REQUIRE_EQ(titled[0].album, QStringLiteral("Demos"));
 
-    tramp::SupportStore store(tmp.path());
+    aoide::SupportStore store(tmp.path());
     col.saveIndex(store);
     col.saveTrackSets(store);
-    tramp::PlaylistCollection loaded;
+    aoide::PlaylistCollection loaded;
     loaded.load(store);
     REQUIRE_EQ(loaded.readFigures().totalDurationMs, 250000);
     REQUIRE_EQ(loaded.readFigures().tracks, 2);
@@ -1754,7 +1775,7 @@ int main() {
     f.write(QStringLiteral("#EXTM3U\n%1\n%2\n").arg(keep, gone).toUtf8());
     f.close();
 
-    tramp::PlaylistCollection col;
+    aoide::PlaylistCollection col;
     Track kept;
     kept.path = keep;
     kept.title = QStringLiteral("Keep");
@@ -1775,18 +1796,18 @@ int main() {
     REQUIRE(col.disabledPaths().isEmpty());
     REQUIRE_EQ(col.tracksFor(pl).size(), 2);
     REQUIRE_EQ(col.tracksFor(pl)[0].title, QStringLiteral("Keep"));
-    tramp::SavedPlaylist resolved;
+    aoide::SavedPlaylist resolved;
     REQUIRE(col.resolveForLoad(pl, &resolved));
 
     QFile::remove(pl);
     col.validateReferences();
-    REQUIRE(col.disabledPaths().contains(tramp::normalizePlaylistPath(pl)));
+    REQUIRE(col.disabledPaths().contains(aoide::normalizePlaylistPath(pl)));
     REQUIRE(col.resolveForLoad(pl, &resolved));
     REQUIRE_EQ(col.tracksFor(pl).size(), 2);
 
     Track diskKeep = kept;
     Track diskGone = missing;
-    const QVector<Track> purged = tramp::dropMissingTrackFiles({diskKeep, diskGone});
+    const QVector<Track> purged = aoide::dropMissingTrackFiles({diskKeep, diskGone});
     REQUIRE_EQ(purged.size(), 1);
     REQUIRE_EQ(purged[0].path, keep);
   }
@@ -1795,7 +1816,7 @@ int main() {
     // Pruning is the one thing here that can destroy what the app cannot get
     // back, so the rules are pinned before anything calls it: a live list keeps
     // every row it mentions, and only rows nothing mentions go.
-    tramp::CollectionTrackSets sets;
+    aoide::CollectionTrackSets sets;
     sets.byEntry.insert(QStringLiteral("/music/keep.m3u"),
                         {QStringLiteral("/music/a.mp3"), QStringLiteral("/music/shared.mp3")});
     sets.byEntry.insert(QStringLiteral("/music/gone.m3u"),
@@ -1808,7 +1829,7 @@ int main() {
     sets.meta.insert(QStringLiteral("/music/b.mp3"), {QStringLiteral("B"), {}, {}});
     sets.meta.insert(QStringLiteral("/music/orphan.mp3"), {QStringLiteral("Orphan"), {}, {}});
 
-    const auto kept = tramp::pruneTrackSets(sets, {QStringLiteral("/music/keep.m3u")});
+    const auto kept = aoide::pruneTrackSets(sets, {QStringLiteral("/music/keep.m3u")});
     REQUIRE_EQ(kept.byEntry.size(), 1);
     REQUIRE(kept.byEntry.contains(QStringLiteral("/music/keep.m3u")));
     REQUIRE_EQ(kept.byEntry.value(QStringLiteral("/music/keep.m3u")).size(), 2);
@@ -1822,24 +1843,24 @@ int main() {
     REQUIRE(!kept.meta.contains(QStringLiteral("/music/orphan.mp3")));
 
     // Both entries live: nothing goes but the orphan.
-    const auto both = tramp::pruneTrackSets(
+    const auto both = aoide::pruneTrackSets(
         sets, {QStringLiteral("/music/keep.m3u"), QStringLiteral("/music/gone.m3u")});
     REQUIRE_EQ(both.byEntry.size(), 2);
     REQUIRE_EQ(both.durationsMs.size(), 3);
     REQUIRE_EQ(both.meta.size(), 2);
 
     // An empty collection keeps nothing, and a prune of nothing is not a crash.
-    REQUIRE(tramp::pruneTrackSets(sets, {}).byEntry.isEmpty());
-    REQUIRE(tramp::pruneTrackSets(sets, {}).durationsMs.isEmpty());
-    REQUIRE(tramp::pruneTrackSets({}, {QStringLiteral("/music/keep.m3u")}).byEntry.isEmpty());
+    REQUIRE(aoide::pruneTrackSets(sets, {}).byEntry.isEmpty());
+    REQUIRE(aoide::pruneTrackSets(sets, {}).durationsMs.isEmpty());
+    REQUIRE(aoide::pruneTrackSets({}, {QStringLiteral("/music/keep.m3u")}).byEntry.isEmpty());
 
     // A key that was never normalized still matches the live entry it belongs
     // to. Comparing raw strings here would throw the listener's durations away.
-    tramp::CollectionTrackSets unclean;
+    aoide::CollectionTrackSets unclean;
     unclean.byEntry.insert(QStringLiteral("/music/./keep.m3u"),
                            {QStringLiteral("/music/sub/../c.mp3")});
     unclean.durationsMs.insert(QStringLiteral("/music/c.mp3"), 5000);
-    const auto tidied = tramp::pruneTrackSets(unclean, {QStringLiteral("/music/keep.m3u")});
+    const auto tidied = aoide::pruneTrackSets(unclean, {QStringLiteral("/music/keep.m3u")});
     REQUIRE_EQ(tidied.byEntry.size(), 1);
     REQUIRE_EQ(tidied.durationsMs.value(QStringLiteral("/music/c.mp3"), -1), 5000);
   }
@@ -1860,10 +1881,10 @@ int main() {
     };
     writeList();
 
-    tramp::PlaylistCollection col;
+    aoide::PlaylistCollection col;
     col.setValidationIntervalMs(0);
     col.add(pl);
-    const QString key = tramp::normalizePlaylistPath(pl);
+    const QString key = aoide::normalizePlaylistPath(pl);
     REQUIRE(!col.disabledPaths().contains(key));
 
     REQUIRE(QFile::remove(pl));
@@ -1893,7 +1914,7 @@ int main() {
     list.write(QStringLiteral("#EXTM3U\n%1\n%2\n").arg(keep, gone).toUtf8());
     list.close();
 
-    tramp::PlaylistCollection col;
+    aoide::PlaylistCollection col;
     Track a;
     a.path = keep;
     a.durationMs = 1000;
@@ -1925,10 +1946,10 @@ int main() {
     col.addWritten(pl, {a, b});
     REQUIRE_EQ(col.readFigures().tracks, 1);
 
-    tramp::SupportStore store(tmp.path());
+    aoide::SupportStore store(tmp.path());
     col.saveIndex(store);
     col.saveTrackSets(store);
-    tramp::PlaylistCollection reloaded;
+    aoide::PlaylistCollection reloaded;
     reloaded.load(store);
     reloaded.validateReferences();  // what bootstrap does, and the only sweep
     REQUIRE_EQ(reloaded.readFigures().playlists, 1);
@@ -1945,7 +1966,7 @@ int main() {
     // on a share that has dropped. The reads are pure now; this keeps them so.
     QTemporaryDir tmp;
     REQUIRE(tmp.isValid());
-    tramp::PlaylistCollection col;
+    aoide::PlaylistCollection col;
     int listAsks = 0;
     int trackAsks = 0;
     col.setExists([&](const QString& path) {
@@ -2019,7 +2040,7 @@ int main() {
     list.write("#EXTM3U\n#EXTINF:120,Wire Garden - One\none.mp3\n");
     list.close();
 
-    tramp::PlaylistCollection col;
+    aoide::PlaylistCollection col;
     col.add(pl);
     REQUIRE_EQ(col.entries().front().trackCount, 1);
 
@@ -2042,19 +2063,19 @@ int main() {
     QTemporaryDir tmp;
     REQUIRE(tmp.isValid());
     const QString pl = QDir(tmp.path()).filePath(QStringLiteral("vanished.m3u"));
-    tramp::PlaylistCollection col;
+    aoide::PlaylistCollection col;
     Track a;
     a.path = QDir(tmp.path()).filePath(QStringLiteral("a.mp3"));
     a.title = QStringLiteral("A");
     a.durationMs = 1000;
     col.addWritten(pl, {a});
     col.validateReferences();
-    REQUIRE(col.disabledPaths().contains(tramp::normalizePlaylistPath(pl)));
-    tramp::SupportStore store(tmp.path());
+    REQUIRE(col.disabledPaths().contains(aoide::normalizePlaylistPath(pl)));
+    aoide::SupportStore store(tmp.path());
     col.saveTrackSets(store);
     REQUIRE_EQ(col.tracksFor(pl).size(), 1);
     REQUIRE_EQ(col.tracksFor(pl)[0].durationMs.value_or(0), 1000);
-    tramp::PlaylistCollection reloaded;
+    aoide::PlaylistCollection reloaded;
     reloaded.load(store);
     REQUIRE_EQ(reloaded.tracksFor(pl).size(), 1);
   }
@@ -2062,13 +2083,13 @@ int main() {
   {
     // The track-set cache never evicted anything: removing a collection entry
     // dropped its list but left every duration and tag row behind, so
-    // playlist_tracks.json grew for as long as Tramp was used and every write
+    // playlist_tracks.json grew for as long as Aoide was used and every write
     // serialised the lot.
     QTemporaryDir tmp;
     REQUIRE(tmp.isValid());
     const QString cache = QDir(tmp.path()).filePath(QStringLiteral("playlist_tracks.json"));
-    tramp::SupportStore store(tmp.path());
-    tramp::PlaylistCollection col;
+    aoide::SupportStore store(tmp.path());
+    aoide::PlaylistCollection col;
     col.saveTrackSets(store);
     const qint64 empty = QFileInfo(cache).size();
     REQUIRE(empty > 0);
@@ -2102,12 +2123,12 @@ int main() {
     dead.durationMs = 20000;
     list.setTracks({live, dead}, QStringLiteral("/tmp/p.m3u"));
     REQUIRE(!list.altered());
-    list.markMissingPaths({tramp::normalizePlaylistPath(dead.path)});
+    list.markMissingPaths({aoide::normalizePlaylistPath(dead.path)});
     REQUIRE(!list.altered());
     REQUIRE(list.tracks()[1].disabled);
     REQUIRE(!list.tracks()[0].disabled);
-    REQUIRE_EQ(tramp::playableTrackCount(list.tracks()), 1);
-    REQUIRE_EQ(tramp::playableTotalMs(list.tracks()), 10000);
+    REQUIRE_EQ(aoide::playableTrackCount(list.tracks()), 1);
+    REQUIRE_EQ(aoide::playableTotalMs(list.tracks()), 10000);
   }
 
   {
@@ -2118,7 +2139,7 @@ int main() {
     REQUIRE(f.open(QIODevice::WriteOnly | QIODevice::Text));
     f.write(QByteArray("#EXTM3U\n#EXTINF:-1,Unknown\ntrack.mp3\n"));
     f.close();
-    tramp::PlaylistCollection col;
+    aoide::PlaylistCollection col;
     col.add(pl);
     REQUIRE_EQ(col.readFigures().totalDurationMs, 0);
   }
@@ -2158,11 +2179,11 @@ int main() {
     Track timed;
     timed.path = QStringLiteral("/tmp/tagged.mp3");
     timed.durationMs = 221000;
-    REQUIRE(tramp::trackNeedsAudioProbe(timed));
-    REQUIRE(tramp::pathsNeedingAudioProbe({timed}).contains(timed.path));
+    REQUIRE(aoide::trackNeedsAudioProbe(timed));
+    REQUIRE(aoide::pathsNeedingAudioProbe({timed}).contains(timed.path));
     timed.title = QStringLiteral("Static Hymn");
-    REQUIRE(!tramp::trackNeedsAudioProbe(timed));
-    REQUIRE(tramp::pathsNeedingAudioProbe({timed}).isEmpty());
+    REQUIRE(!aoide::trackNeedsAudioProbe(timed));
+    REQUIRE(aoide::pathsNeedingAudioProbe({timed}).isEmpty());
   }
 
   {
@@ -2175,17 +2196,17 @@ int main() {
     stale.title = QStringLiteral("Wrong Title");
     stale.durationMs = 9000;
 
-    tramp::ProbedAudio truth;
+    aoide::ProbedAudio truth;
     truth.title = QStringLiteral("Right Title");
     truth.durationMs = 221000;
 
     Track kept = stale;
-    tramp::applyProbedAudio(kept, truth, false);
+    aoide::applyProbedAudio(kept, truth, false);
     REQUIRE_EQ(kept.title, QStringLiteral("Wrong Title"));
     REQUIRE_EQ(kept.durationMs.value_or(0), qint64(9000));
 
     Track corrected = stale;
-    tramp::applyProbedAudio(corrected, truth, true);
+    aoide::applyProbedAudio(corrected, truth, true);
     REQUIRE_EQ(corrected.title, QStringLiteral("Right Title"));
     REQUIRE_EQ(corrected.durationMs.value_or(0), qint64(221000));
 
@@ -2196,7 +2217,7 @@ int main() {
     row.disabled = true;
     list.setTracks({row}, QStringLiteral("/tmp/current.m3u"));
     Track next = list.tracks()[0];
-    tramp::applyProbedAudio(next, truth, true);
+    aoide::applyProbedAudio(next, truth, true);
     REQUIRE(list.updateTrackByPath(stale.path, next));
     REQUIRE_EQ(list.tracks()[0].title, QStringLiteral("Right Title"));
     REQUIRE_EQ(list.tracks()[0].durationMs.value_or(0), qint64(221000));
@@ -2210,7 +2231,7 @@ int main() {
     t.durationMs = 221000;
     list.setTracks({t}, QStringLiteral("/tmp/current.m3u"));
     REQUIRE(list.tracks()[0].displayTitle() == QFileInfo(t.path).fileName());
-    tramp::PlaylistCollection col;
+    aoide::PlaylistCollection col;
     col.mergeTrackDuration(t.path, 221000);
     QVector<Track> copy = list.tracks();
     col.hydrateDurations(copy);
@@ -2218,7 +2239,7 @@ int main() {
                        copy[0].durationMs.value_or(0));
     REQUIRE(list.tracks()[0].durationMs == 221000);
     REQUIRE(list.tracks()[0].displayTitle() == QFileInfo(t.path).fileName());
-    REQUIRE(tramp::trackNeedsAudioProbe(list.tracks()[0]));
+    REQUIRE(aoide::trackNeedsAudioProbe(list.tracks()[0]));
     col.mergeTrackTags(t.path, QStringLiteral("Keep Playing"), QStringLiteral("Wire Garden"),
                        QString());
     copy = list.tracks();
@@ -2226,7 +2247,7 @@ int main() {
     list.applyMetadata(copy[0].path, copy[0].title, copy[0].artist, copy[0].album,
                        copy[0].durationMs.value_or(0));
     REQUIRE_EQ(list.tracks()[0].displayTitle(), QStringLiteral("Keep Playing"));
-    REQUIRE(!tramp::trackNeedsAudioProbe(list.tracks()[0]));
+    REQUIRE(!aoide::trackNeedsAudioProbe(list.tracks()[0]));
   }
 
   {
@@ -2252,13 +2273,13 @@ int main() {
     qToLittleEndian(quint16(16), reinterpret_cast<uchar*>(wav.data() + 34));
     std::memcpy(wav.data() + 36, "data", 4);
     qToLittleEndian(quint32(dataBytes), reinterpret_cast<uchar*>(wav.data() + 40));
-    REQUIRE(tramp::probeWavDurationMs(wav) == 1000);
+    REQUIRE(aoide::probeWavDurationMs(wav) == 1000);
     const QString path = tmp.filePath(QStringLiteral("one-sec.wav"));
     QFile out(path);
     REQUIRE(out.open(QIODevice::WriteOnly));
     out.write(wav);
     out.close();
-    REQUIRE(tramp::probeAudioDurationMs(path) == 1000);
+    REQUIRE(aoide::probeAudioDurationMs(path) == 1000);
   }
 
   {
@@ -2268,17 +2289,17 @@ int main() {
     QTemporaryDir tmp;
     REQUIRE(tmp.isValid());
     const QByteArray full = makePcm16Wav(QVector<qint16>(8000, 0), 1, 8000);
-    REQUIRE_EQ(tramp::probeWavDurationMs(full).value_or(-1), qint64(1000));
+    REQUIRE_EQ(aoide::probeWavDurationMs(full).value_or(-1), qint64(1000));
 
     const QByteArray cut = full.left(44 + 4000);
-    REQUIRE_EQ(tramp::probeWavDurationMs(cut).value_or(-1), qint64(250));
+    REQUIRE_EQ(aoide::probeWavDurationMs(cut).value_or(-1), qint64(250));
 
     const QString cutPath = tmp.filePath(QStringLiteral("cut.wav"));
     QFile cutFile(cutPath);
     REQUIRE(cutFile.open(QIODevice::WriteOnly));
     cutFile.write(cut);
     cutFile.close();
-    REQUIRE_EQ(tramp::probeAudioDurationMs(cutPath).value_or(-1), qint64(250));
+    REQUIRE_EQ(aoide::probeAudioDurationMs(cutPath).value_or(-1), qint64(250));
 
     // And a file bigger than the window the probe reads still reports its whole
     // length: the head is not the file.
@@ -2289,10 +2310,10 @@ int main() {
     REQUIRE(longFile.open(QIODevice::WriteOnly));
     longFile.write(longer);
     longFile.close();
-    REQUIRE_EQ(tramp::probeAudioDurationMs(longPath).value_or(-1), qint64(10000));
+    REQUIRE_EQ(aoide::probeAudioDurationMs(longPath).value_or(-1), qint64(10000));
   }
 
-#ifdef TRAMP_HAVE_MPV
+#ifdef AOIDE_HAVE_MPV
   {
     const QString fixture =
         QFileInfo(QString::fromUtf8(__FILE__)).dir().filePath(QStringLiteral("fixtures/probe-tone.mp3"));
@@ -2307,8 +2328,8 @@ int main() {
     }
     int probed = 0;
     int complete = 0;
-    tramp::probeAudioDurations(paths, [] { return true; },
-                               [&](const QString&, const tramp::ProbedAudio& p) {
+    aoide::probeAudioDurations(paths, [] { return true; },
+                               [&](const QString&, const aoide::ProbedAudio& p) {
                                  ++probed;
                                  if (!p.title.isEmpty() && p.durationMs && *p.durationMs > 0) ++complete;
                                });
@@ -2322,14 +2343,14 @@ int main() {
     // while the rest of it is still being asked about.
     const QStringList paths{QStringLiteral("a.flac"), QStringLiteral("b.flac")};
     QStringList order;
-    tramp::probeAudioDurations(
+    aoide::probeAudioDurations(
         paths, {},
-        [&](const QString& p, const tramp::ProbedAudio&) { order.push_back(QLatin1String("said ") + p); },
-        [&](const QString& p, const tramp::ProbeCancelFn&) {
+        [&](const QString& p, const aoide::ProbedAudio&) { order.push_back(QLatin1String("said ") + p); },
+        [&](const QString& p, const aoide::ProbeCancelFn&) {
           order.push_back(QLatin1String("asked ") + p);
-          tramp::ProbedAudio probed;
+          aoide::ProbedAudio probed;
           probed.durationMs = 2000;
-          return std::optional<tramp::ProbedAudio>(probed);
+          return std::optional<aoide::ProbedAudio>(probed);
         });
     REQUIRE_EQ(order.join(QLatin1Char('/')),
                QStringLiteral("asked a.flac/said a.flac/asked b.flac/said b.flac"));
@@ -2350,18 +2371,18 @@ int main() {
     QElapsedTimer clock;
     clock.start();
     std::thread worker([&]() {
-      tramp::probeAudioDurations(
+      aoide::probeAudioDurations(
           paths, [&]() { return live.load(); },
-          [&](const QString& p, const tramp::ProbedAudio&) { said.push_back(p); },
-          [&](const QString& p, const tramp::ProbeCancelFn& stillWanted) {
+          [&](const QString& p, const aoide::ProbedAudio&) { said.push_back(p); },
+          [&](const QString& p, const aoide::ProbeCancelFn& stillWanted) {
             asked.push_back(p);
             for (int tick = 0; tick < 200; ++tick) {
-              if (stillWanted && !stillWanted()) return std::optional<tramp::ProbedAudio>();
+              if (stillWanted && !stillWanted()) return std::optional<aoide::ProbedAudio>();
               std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
-            tramp::ProbedAudio probed;
+            aoide::ProbedAudio probed;
             probed.durationMs = 1000;
-            return std::optional<tramp::ProbedAudio>(probed);
+            return std::optional<aoide::ProbedAudio>(probed);
           });
     });
     std::this_thread::sleep_for(std::chrono::milliseconds(30));
@@ -2378,14 +2399,14 @@ int main() {
   {
     int applied = 0;
     int restored = 0;
-    tramp::WaitCursorScope::installHooks({[&]() { ++applied; }, [&]() { ++restored; }});
+    aoide::WaitCursorScope::installHooks({[&]() { ++applied; }, [&]() { ++restored; }});
     {
-      tramp::WaitCursorScope outer;
-      REQUIRE(tramp::WaitCursorScope::showing());
+      aoide::WaitCursorScope outer;
+      REQUIRE(aoide::WaitCursorScope::showing());
       REQUIRE_EQ(applied, 1);
       REQUIRE_EQ(restored, 0);
       {
-        tramp::WaitCursorScope inner;
+        aoide::WaitCursorScope inner;
         REQUIRE_EQ(applied, 1);
         REQUIRE_EQ(restored, 0);
       }
@@ -2395,63 +2416,63 @@ int main() {
     REQUIRE_EQ(applied, 1);
     REQUIRE_EQ(restored, 1);
     {
-      tramp::WaitCursorScope again;
+      aoide::WaitCursorScope again;
       REQUIRE_EQ(applied, 2);
     }
     REQUIRE_EQ(restored, 2);
-    tramp::WaitCursorScope::resetHooks();
+    aoide::WaitCursorScope::resetHooks();
   }
 
   {
     int applied = 0;
     int restored = 0;
-    tramp::WaitCursorScope::installHooks({[&]() { ++applied; }, [&]() { ++restored; }});
+    aoide::WaitCursorScope::installHooks({[&]() { ++applied; }, [&]() { ++restored; }});
     {
-      tramp::WaitCursorScope outer;
+      aoide::WaitCursorScope outer;
       REQUIRE_EQ(applied, 1);
       {
-        tramp::WaitCursorPause pause;
-        REQUIRE(!tramp::WaitCursorScope::showing());
+        aoide::WaitCursorPause pause;
+        REQUIRE(!aoide::WaitCursorScope::showing());
         REQUIRE_EQ(restored, 1);
       }
-      REQUIRE(tramp::WaitCursorScope::showing());
+      REQUIRE(aoide::WaitCursorScope::showing());
       REQUIRE_EQ(applied, 2);
     }
     REQUIRE_EQ(restored, 2);
-    tramp::WaitCursorScope::resetHooks();
+    aoide::WaitCursorScope::resetHooks();
   }
 
   {
     // Overflow only: Skins and Track info are gutter buttons, not menu rows.
     // Open files sits with Settings; About sits with Quit.
-    tramp::TrampSettings settings;
-    const auto items = tramp::optionsMenuItems(settings);
+    aoide::AoideSettings settings;
+    const auto items = aoide::optionsMenuItems(settings);
     QStringList labels;
     for (const auto& item : items) {
-      if (item.kind != tramp::ChromeMenuKind::separator) labels.push_back(item.label);
+      if (item.kind != aoide::ChromeMenuKind::separator) labels.push_back(item.label);
     }
     REQUIRE_EQ(labels, (QStringList{
                            QStringLiteral("Always on top"),
                            QStringLiteral("Open files…"),
                            QStringLiteral("Settings…"),
-                           QStringLiteral("About Tramp"),
+                           QStringLiteral("About Aoide"),
                            QStringLiteral("Quit"),
                        }));
     REQUIRE(items.front().checkable);
     REQUIRE(!items.front().checked);
     settings.alwaysOnTop = true;
-    REQUIRE(tramp::optionsMenuItems(settings).front().checked);
-    REQUIRE_EQ(items.at(4).kind, tramp::ChromeMenuKind::separator);
+    REQUIRE(aoide::optionsMenuItems(settings).front().checked);
+    REQUIRE_EQ(items.at(4).kind, aoide::ChromeMenuKind::separator);
     REQUIRE_EQ(items.at(2).label, QStringLiteral("Open files…"));
   }
 
   {
-    tramp::TrampSettings settings;
+    aoide::AoideSettings settings;
     settings.activeSkinId = QStringLiteral("gamma");
     settings.skinsDirectory = QStringLiteral("/tmp/skins-keep");
     settings.zoomPercent = 125;
     settings.alwaysOnTop = true;
-    tramp::resetSettingsExceptSkins(settings);
+    aoide::resetSettingsExceptSkins(settings);
     REQUIRE_EQ(settings.activeSkinId, QStringLiteral("gamma"));
     REQUIRE(settings.skinsDirectory.isEmpty());
     REQUIRE_EQ(settings.zoomPercent, 75);
@@ -2459,58 +2480,58 @@ int main() {
   }
 
   {
-    tramp::TrampSettings defaults;
+    aoide::AoideSettings defaults;
     REQUIRE((defaults.audioDevice.isEmpty() ||
-             defaults.audioDevice == tramp::kDefaultAudioDeviceName()));
+             defaults.audioDevice == aoide::kDefaultAudioDeviceName()));
     REQUIRE(!defaults.audioExclusive);
 
-    tramp::TrampSettings saved;
+    aoide::AoideSettings saved;
     saved.audioDevice = QStringLiteral("pulse/alsa_output.pci-0000_00_1f.3.analog-stereo");
     saved.audioExclusive = true;
-    const tramp::TrampSettings loaded = tramp::TrampSettings::fromJson(saved.toJson());
+    const aoide::AoideSettings loaded = aoide::AoideSettings::fromJson(saved.toJson());
     REQUIRE_EQ(loaded.audioDevice, saved.audioDevice);
     REQUIRE(loaded.audioExclusive);
     REQUIRE_EQ(saved.toJson().value(QStringLiteral("audioDevice")).toString(), saved.audioDevice);
     REQUIRE(saved.toJson().value(QStringLiteral("audioExclusive")).toBool());
 
-    const tramp::TrampSettings missing = tramp::TrampSettings::fromJson(QJsonObject{});
+    const aoide::AoideSettings missing = aoide::AoideSettings::fromJson(QJsonObject{});
     REQUIRE((missing.audioDevice.isEmpty() ||
-             missing.audioDevice == tramp::kDefaultAudioDeviceName()));
+             missing.audioDevice == aoide::kDefaultAudioDeviceName()));
     REQUIRE(!missing.audioExclusive);
 
-    tramp::TrampSettings reset;
+    aoide::AoideSettings reset;
     reset.activeSkinId = QStringLiteral("gamma");
     reset.audioDevice = QStringLiteral("wasapi/{guid}");
     reset.audioExclusive = true;
-    tramp::resetSettingsExceptSkins(reset);
+    aoide::resetSettingsExceptSkins(reset);
     REQUIRE_EQ(reset.activeSkinId, QStringLiteral("gamma"));
     REQUIRE((reset.audioDevice.isEmpty() ||
-             reset.audioDevice == tramp::kDefaultAudioDeviceName()));
+             reset.audioDevice == aoide::kDefaultAudioDeviceName()));
     REQUIRE(!reset.audioExclusive);
 
-    const QVector<tramp::AudioOutputDevice> devices{
+    const QVector<aoide::AudioOutputDevice> devices{
         {QStringLiteral("auto"), QStringLiteral("Autoselect device")},
         {QStringLiteral("pulse/speakers"), QStringLiteral("Built-in Speakers")},
     };
-    REQUIRE_EQ(tramp::audioDeviceDisplayLabel(QString(), devices), QStringLiteral("Auto"));
-    REQUIRE_EQ(tramp::audioDeviceDisplayLabel(QStringLiteral("auto"), devices),
+    REQUIRE_EQ(aoide::audioDeviceDisplayLabel(QString(), devices), QStringLiteral("Auto"));
+    REQUIRE_EQ(aoide::audioDeviceDisplayLabel(QStringLiteral("auto"), devices),
                QStringLiteral("Auto"));
-    REQUIRE_EQ(tramp::audioDeviceDisplayLabel(QStringLiteral("pulse/speakers"), devices),
+    REQUIRE_EQ(aoide::audioDeviceDisplayLabel(QStringLiteral("pulse/speakers"), devices),
                QStringLiteral("Built-in Speakers"));
-    REQUIRE_EQ(tramp::audioDeviceDisplayLabel(QStringLiteral("wasapi/{gone}"), devices),
+    REQUIRE_EQ(aoide::audioDeviceDisplayLabel(QStringLiteral("wasapi/{gone}"), devices),
                QStringLiteral("wasapi/{gone}"));
-    REQUIRE_EQ(tramp::audioDeviceDisplayLabel(QStringLiteral("pulse/nameless"),
+    REQUIRE_EQ(aoide::audioDeviceDisplayLabel(QStringLiteral("pulse/nameless"),
                                               {{QStringLiteral("pulse/nameless"), QString()}}),
                QStringLiteral("pulse/nameless"));
-    REQUIRE_EQ(tramp::normalizeAudioDeviceName(QString()), tramp::kDefaultAudioDeviceName());
-    REQUIRE_EQ(tramp::kDefaultAudioDeviceName(), QStringLiteral("auto"));
+    REQUIRE_EQ(aoide::normalizeAudioDeviceName(QString()), aoide::kDefaultAudioDeviceName());
+    REQUIRE_EQ(aoide::kDefaultAudioDeviceName(), QStringLiteral("auto"));
 
-    const QVector<tramp::AudioOutputDevice> withAuto = tramp::withAutoAudioDevice(
+    const QVector<aoide::AudioOutputDevice> withAuto = aoide::withAutoAudioDevice(
         {{QStringLiteral("pulse/speakers"), QStringLiteral("Speakers")},
          {QStringLiteral("auto"), QStringLiteral("Autoselect device")}});
     REQUIRE_EQ(withAuto.size(), 2);
     REQUIRE_EQ(withAuto.front().name, QStringLiteral("auto"));
-    REQUIRE_EQ(tramp::withAutoAudioDevice({}).front().name, QStringLiteral("auto"));
+    REQUIRE_EQ(aoide::withAutoAudioDevice({}).front().name, QStringLiteral("auto"));
   }
 
   if (gFails != 0) {

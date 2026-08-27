@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 /// The analysis window. `stft.h` takes both as arguments; the choice is ours, and
@@ -168,4 +168,4 @@ void SpectrumHold::reset() {
   peaks.fill(0);
 }
 
-}  // namespace tramp
+}  // namespace aoide

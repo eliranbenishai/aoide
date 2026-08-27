@@ -9,7 +9,7 @@
 #include <array>
 #include <functional>
 
-namespace tramp {
+namespace aoide {
 
 /// Three things this can be, and two of them have flat frames, so the frames are
 /// not what tells them apart:
@@ -78,4 +78,4 @@ struct SpectrumHold {
   void reset();
 };
 
-}  // namespace tramp
+}  // namespace aoide

@@ -9,7 +9,7 @@
 #include <QVector>
 #include <QWidget>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 struct SavedCursor {
@@ -113,4 +113,4 @@ void WaitCursorScope::resetHooks() {
   gSavedCursors.clear();
 }
 
-}  // namespace tramp
+}  // namespace aoide

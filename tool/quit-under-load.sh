@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Quit under load, under AddressSanitizer.
 #
-# Tramp's background workers (spectrum decode, path verify, duration probe) used
+# Aoide's background workers (spectrum decode, path verify, duration probe) used
 # to be detached threads holding a QPointer to the session. Nothing waited for
 # them, so a quit that landed while one was finishing marshalled a queued call
 # into a QObject that was already gone. The window is a few instructions wide,
@@ -10,25 +10,25 @@
 #
 #   tool/quit-under-load.sh            # both phases
 #   tool/quit-under-load.sh loop       # in-process: session built and destroyed in a loop
-#   tool/quit-under-load.sh app        # real launches with TRAMP_AUTO_QUIT=1
+#   tool/quit-under-load.sh app        # real launches with AOIDE_AUTO_QUIT=1
 #
-# Env: TRAMP_QUIT_ROUNDS, TRAMP_QUIT_LAUNCHES, TRAMP_QUIT_TRACKS, TRAMP_QUIT_SECONDS,
-#      TRAMP_QUIT_SWEEP_MS, TRAMP_QUIT_LIVE_MS, TRAMP_QUIT_SKIP_BUILD, TRAMP_OPT.
+# Env: AOIDE_QUIT_ROUNDS, AOIDE_QUIT_LAUNCHES, AOIDE_QUIT_TRACKS, AOIDE_QUIT_SECONDS,
+#      AOIDE_QUIT_SWEEP_MS, AOIDE_QUIT_LIVE_MS, AOIDE_QUIT_SKIP_BUILD, AOIDE_OPT.
 #
 # To re-prove the original crash on a tree without the fix, widen the gap the
 # worker leaves between asking whether the session is alive and acting on the
 # answer — that gap is the bug, a sleep only makes it visible:
 #
-#   in TrampSession::schedulePathVerify, between `if (!session) return;` and the
+#   in AoideSession::schedulePathVerify, between `if (!session) return;` and the
 #   `QMetaObject::invokeMethod(...)` under it, add
 #       std::this_thread::sleep_for(std::chrono::milliseconds(40));
-#   then run this with TRAMP_QUIT_LIVE_MS set near the verify's own runtime.
+#   then run this with AOIDE_QUIT_LIVE_MS set near the verify's own runtime.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=qt-env.sh
 source "$ROOT/tool/qt-env.sh"
-tramp_resolve_qt
+aoide_resolve_qt
 CXX="${CXX:-/home/linuxbrew/.linuxbrew/opt/llvm/bin/clang++}"
 CC="${CC:-/home/linuxbrew/.linuxbrew/opt/llvm/bin/clang}"
 BREW="${BREW:-/home/linuxbrew/.linuxbrew}"
@@ -39,10 +39,10 @@ STUB="$BUILD/mpv-stubs"
 WORK="$BUILD/quit-load"
 PHASE="${1:-both}"
 
-TRACKS="${TRAMP_QUIT_TRACKS:-60000}"
-SECONDS_OF_AUDIO="${TRAMP_QUIT_SECONDS:-240}"
-ROUNDS="${TRAMP_QUIT_ROUNDS:-24}"
-LAUNCHES="${TRAMP_QUIT_LAUNCHES:-40}"
+TRACKS="${AOIDE_QUIT_TRACKS:-60000}"
+SECONDS_OF_AUDIO="${AOIDE_QUIT_SECONDS:-240}"
+ROUNDS="${AOIDE_QUIT_ROUNDS:-24}"
+LAUNCHES="${AOIDE_QUIT_LAUNCHES:-40}"
 
 mkdir -p "$WORK" "$STUB"
 
@@ -52,11 +52,11 @@ mkdir -p "$WORK" "$STUB"
 INC=(-I"$QT/include" -I"$QT/include/QtWidgets" -I"$QT/include/QtGui" -I"$QT/include/QtCore"
      -I"$QT/include/QtDBus" -I"$MPV_INC" -I"$ROOT/src" -I"$BUILD")
 VERSION="$(head -n 1 "$ROOT/VERSION" | tr -d '\r[:space:]')"
-DEFS=(-DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_DBUS_LIB -DTRAMP_HAVE_MPV -DTRAMP_HAVE_DBUS
-      -DTRAMP_VERSION="\"$VERSION\"" -DTRAMP_ASSET_DIR="\"$ROOT/assets\""
-      -DTRAMP_SKINS_DIR="\"$ROOT/skins\"")
+DEFS=(-DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_DBUS_LIB -DAOIDE_HAVE_MPV -DAOIDE_HAVE_DBUS
+      -DAOIDE_VERSION="\"$VERSION\"" -DAOIDE_ASSET_DIR="\"$ROOT/assets\""
+      -DAOIDE_SKINS_DIR="\"$ROOT/skins\"")
 SAN=(-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=undefined -g)
-CXXFLAGS=(-std=c++17 "${TRAMP_OPT:--O1}" -fPIC -Wall -Wextra -Wno-unused-parameter "${SAN[@]}")
+CXXFLAGS=(-std=c++17 "${AOIDE_OPT:--O1}" -fPIC -Wall -Wextra -Wno-unused-parameter "${SAN[@]}")
 LIBS=(-L"$QT/lib" -L"$BREW/lib" -L"$MPV_LIB" -L"$STUB"
       -lQt6Widgets -lQt6Gui -lQt6Core -lQt6DBus -lmpv -lstdc++ -lm -lgcc_s -pthread
       -Wl,--no-as-needed
@@ -68,7 +68,7 @@ LIBS=(-L"$QT/lib" -L"$BREW/lib" -L"$MPV_LIB" -L"$STUB"
 APP_SRCS=(
   "$ROOT/src/window_spec.cpp" "$ROOT/src/title_chrome.cpp" "$ROOT/src/host_shell.cpp"
   "$ROOT/src/app_icon.cpp" "$ROOT/src/host_shell_window.cpp" "$ROOT/src/mockup_draw.cpp"
-  "$ROOT/src/tramp_fonts.cpp" "$ROOT/src/chrome_anim.cpp" "$ROOT/src/chrome_paint.cpp"
+  "$ROOT/src/aoide_fonts.cpp" "$ROOT/src/chrome_anim.cpp" "$ROOT/src/chrome_paint.cpp"
   "$ROOT/src/chrome_bodies.cpp" "$ROOT/src/chrome_hits.cpp" "$ROOT/src/chrome_tooltip.cpp"
   "$ROOT/src/chrome_menu.cpp" "$ROOT/src/session_view.cpp" "$ROOT/src/m3u.cpp"
   "$ROOT/src/equalizer.cpp" "$ROOT/src/support_dir.cpp" "$ROOT/src/wait_cursor.cpp"
@@ -84,7 +84,7 @@ APP_SRCS=(
   "$BUILD/moc_mpv_engine.cpp"
 )
 
-if [[ "${TRAMP_QUIT_SKIP_BUILD:-0}" != "1" ]]; then
+if [[ "${AOIDE_QUIT_SKIP_BUILD:-0}" != "1" ]]; then
   if [[ -d "$ROOT/src/mpv_stubs" ]]; then
     for spec in libmujs.so.0.1 liblua-5.1.so libuchardet.so.0 libvapoursynth-script.so.0 libXpresent.so.1; do
       [[ -e "$STUB/$spec" ]] || "$CC" -shared -fPIC -Wl,-soname,"$spec" -o "$STUB/$spec" "$ROOT/src/mpv_stubs/$spec.c"
@@ -102,7 +102,7 @@ if [[ "${TRAMP_QUIT_SKIP_BUILD:-0}" != "1" ]]; then
   if [[ "$PHASE" != "loop" ]]; then
     echo "quit-load: building sanitized app"
     "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" "${DEFS[@]}" "${APP_SRCS[@]}" \
-      "$ROOT/src/main.cpp" "${LIBS[@]}" -o "$WORK/tramp-asan"
+      "$ROOT/src/main.cpp" "${LIBS[@]}" -o "$WORK/aoide-asan"
   fi
 fi
 
@@ -124,7 +124,7 @@ if [[ ! -d "$DROPS" ]]; then
   for i in $(seq 1 12); do cp "$ROOT/tests/fixtures/probe-tone.mp3" "$DROPS/drop-$i.mp3"; done
 fi
 
-SUPPORT="$WORK/home/com.proximamagnifica.tramp"
+SUPPORT="$WORK/home/com.proximamagnifica.aoide"
 rm -rf "$WORK/home"
 mkdir -p "$SUPPORT"
 python3 - "$SUPPORT" "$TRACKS" "$TONE" <<'PY'
@@ -132,8 +132,8 @@ import json, sys
 support, count, tone = sys.argv[1], int(sys.argv[2]), sys.argv[3]
 # Durations and titles are filled in so nothing here asks for a duration probe;
 # the probe is driven separately from the dropped files.
-tracks = [{"path": tone, "title": "Load tone", "artist": "Tramp", "durationMs": 240000}]
-tracks += [{"path": "/nonexistent/tramp-quit-load/%06d.mp3" % i, "title": "Ghost %d" % i,
+tracks = [{"path": tone, "title": "Load tone", "artist": "Aoide", "durationMs": 240000}]
+tracks += [{"path": "/nonexistent/aoide-quit-load/%06d.mp3" % i, "title": "Ghost %d" % i,
             "durationMs": 1000} for i in range(count)]
 json.dump({"sourcePath": None, "tracks": tracks}, open(support + "/altered_playlist.json", "w"))
 json.dump({"resumeLastSession": True, "confirmBeforeQuit": False},
@@ -151,16 +151,16 @@ export UBSAN_OPTIONS="print_stacktrace=1:halt_on_error=1"
 # --- phase: in-process rounds ---------------------------------------------
 if [[ "$PHASE" == "loop" || "$PHASE" == "both" ]]; then
   echo "quit-load: $ROUNDS rounds, $TRACKS tracks, ${SECONDS_OF_AUDIO}s track"
-  TRAMP_QUIT_ROUNDS="$ROUNDS" TRAMP_QUIT_DROP_DIR="$DROPS" "$WORK/quit_loop"
+  AOIDE_QUIT_ROUNDS="$ROUNDS" AOIDE_QUIT_DROP_DIR="$DROPS" "$WORK/quit_loop"
 fi
 
 # --- phase: real launches --------------------------------------------------
-# TRAMP_AUTO_QUIT starts a real session, then quits on the next turn of the event
+# AOIDE_AUTO_QUIT starts a real session, then quits on the next turn of the event
 # loop — every worker is still going when the process tears itself down.
 if [[ "$PHASE" == "app" || "$PHASE" == "both" ]]; then
-  echo "quit-load: $LAUNCHES launches with TRAMP_AUTO_QUIT=1"
+  echo "quit-load: $LAUNCHES launches with AOIDE_AUTO_QUIT=1"
   for i in $(seq 1 "$LAUNCHES"); do
-    if ! TRAMP_AUTO_QUIT=1 "$WORK/tramp-asan" >"$WORK/launch.log" 2>&1; then
+    if ! AOIDE_AUTO_QUIT=1 "$WORK/aoide-asan" >"$WORK/launch.log" 2>&1; then
       echo "quit-load: launch $i failed" >&2
       cat "$WORK/launch.log" >&2
       exit 1

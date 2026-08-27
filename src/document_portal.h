@@ -3,7 +3,7 @@
 #include <QString>
 #include <QStringList>
 
-namespace tramp {
+namespace aoide {
 
 /// Paths that reach the app from outside it -- "Open with" from a file manager,
 /// a drag from one, a portal file pick -- do not always name the file. Under a
@@ -34,4 +34,4 @@ QStringList durablePaths(const QStringList& paths, const QString& runtimeDir);
 /// The same, against the running process's `$XDG_RUNTIME_DIR`.
 QStringList durablePaths(const QStringList& paths);
 
-}  // namespace tramp
+}  // namespace aoide

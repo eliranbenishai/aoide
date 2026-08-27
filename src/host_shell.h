@@ -7,7 +7,7 @@
 #include <QVector>
 #include <optional>
 
-namespace tramp {
+namespace aoide {
 
 struct HostShellLayout {
   QRect screenRect;   // native px, global host (virtual desktop); null if no panels
@@ -29,4 +29,4 @@ QPoint panelLocalTopLeft(QPoint screenTopLeft, QPoint actualHostGlobal);
 /// Native size for a panel. Zoomed logical size wins over an unmapped 0×0 widget.
 QSize panelNativeSize(QSize logicalZoomed, QSize widgetSize);
 
-}  // namespace tramp
+}  // namespace aoide

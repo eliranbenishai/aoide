@@ -1,7 +1,7 @@
 #pragma once
 
 #include "docking.h"
-#include "tramp_metrics.h"
+#include "aoide_metrics.h"
 #include "window_spec.h"
 
 #include <QPoint>
@@ -13,7 +13,7 @@
 #include <QVector>
 #include <optional>
 
-namespace tramp {
+namespace aoide {
 
 /// One panel's share of a placement pass.
 struct PanelPlacement {
@@ -122,4 +122,4 @@ class LayoutSync {
   bool placing_ = false;
 };
 
-}  // namespace tramp
+}  // namespace aoide

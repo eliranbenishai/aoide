@@ -3,9 +3,9 @@
 #include <QFont>
 #include <QString>
 
-namespace tramp {
+namespace aoide {
 
-void loadTrampFonts();
+void loadAoideFonts();
 void setLookFamilies(const QString& chrome, const QString& lcd);
 QString lookChromeOverride();
 QString lookLcdOverride();
@@ -27,4 +27,4 @@ int pixelSizeFittingLineHeight(QFont font, int requestedPx, qreal maxLineHeight)
 /// sit in a box that some skin faces overshoot at the collection min width.
 void fitFontToWidth(QFont& font, const QString& text, qreal maxWidth);
 
-}  // namespace tramp
+}  // namespace aoide

@@ -3,8 +3,8 @@
 #include "chrome_bodies.h"
 #include "look.h"
 #include "mockup_draw.h"
-#include "tramp_fonts.h"
-#include "tramp_metrics.h"
+#include "aoide_fonts.h"
+#include "aoide_metrics.h"
 
 #include <QFont>
 #include <QFontMetrics>
@@ -12,7 +12,7 @@
 #include <QPainterPath>
 #include <QRadialGradient>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 /// Every painter below leaves the painter as it found it, the same contract
@@ -212,7 +212,7 @@ void drawLogo(QPainter& p, const QRectF& disc, const QImage* logo) {
 
 void drawWordmark(QPainter& p, const QRectF& box) {
   QFont font = brandFont(24);
-  const QString text = QStringLiteral("TRAMP");
+  const QString text = QStringLiteral("AOIDE");
   drawStyledText(p, box, text, font, T().wordmark, Qt::AlignVCenter | Qt::AlignLeft,
                  {
                      {withAlpha(T().hoverLift, 77), QPointF(0, -1), 0},
@@ -249,7 +249,7 @@ void drawTitleContents(QPainter& p, const TitleChromeLayout& title, const QImage
     x = disc.right() + 12;
     const QFont wm = brandFont(24);
     const QFontMetrics fm(wm);
-    const int wmW = fm.horizontalAdvance(QStringLiteral("TRAMP"));
+    const int wmW = fm.horizontalAdvance(QStringLiteral("AOIDE"));
     drawWordmark(p, QRectF(x + 2, 0, wmW, bar.height()));
     brandRight = x + wmW + 12;
   }
@@ -333,4 +333,4 @@ void paintMockupWindow(QPainter& painter,
   painter.restore();
 }
 
-}  // namespace tramp
+}  // namespace aoide

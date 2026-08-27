@@ -10,7 +10,7 @@
 #include <functional>
 #include <optional>
 
-namespace tramp {
+namespace aoide {
 
 enum class PlaylistSortKey { title, artist, duration, path };
 
@@ -68,4 +68,4 @@ class PlaylistController {
   Changed onChanged_;
 };
 
-}  // namespace tramp
+}  // namespace aoide

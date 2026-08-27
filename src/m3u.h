@@ -7,7 +7,7 @@
 #include <QVector>
 #include <functional>
 
-namespace tramp {
+namespace aoide {
 
 /// Decodes playlist bytes to text. Honours a UTF-8 or UTF-16 byte-order mark and
 /// falls back to Latin-1 when the bytes are not valid UTF-8, because playlists
@@ -31,4 +31,4 @@ class M3uCodec {
   Exists exists_;
 };
 
-}  // namespace tramp
+}  // namespace aoide

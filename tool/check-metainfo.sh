@@ -3,7 +3,7 @@
 # VERSION.
 #
 # This file is the only place a Linux installer learns that the app is called
-# Tramp. A .desktop file's Name= does not reach flatpak, GNOME Software or
+# Aoide. A .desktop file's Name= does not reach flatpak, GNOME Software or
 # Discover, and when the metainfo is missing or unreadable they fall back to the
 # app ID -- which is a silent failure everywhere else in the build:
 # flatpak-builder skips its AppStream compose step without a word, and
@@ -15,7 +15,7 @@
 # screenshot nobody can load is worse than one with none.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-FILE="$ROOT/packaging/linux/com.proximamagnifica.tramp.metainfo.xml"
+FILE="$ROOT/packaging/linux/com.proximamagnifica.aoide.metainfo.xml"
 CHECK_URLS=0
 for arg in "$@"; do
   case "$arg" in

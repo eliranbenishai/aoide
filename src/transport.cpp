@@ -3,7 +3,7 @@
 #include <QRandomGenerator>
 #include <functional>
 
-namespace tramp {
+namespace aoide {
 
 namespace {
 
@@ -107,4 +107,4 @@ QVector<int> shuffledOrder(int length) {
   return order;
 }
 
-}  // namespace tramp
+}  // namespace aoide

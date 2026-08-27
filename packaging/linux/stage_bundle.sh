@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install the Qt tramp binary plus assets/skins/desktop into build/linux/bundle,
+# Install the Qt aoide binary plus assets/skins/desktop into build/linux/bundle,
 # then deploy Qt and every other non-host library beside it.
 #
 # A download that needs the user's distro to ship a matching Qt 6 is not a
@@ -32,13 +32,13 @@ for arg in "$@"; do
 done
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-BUILD="${TRAMP_BUILD_DIR:-$ROOT/build}"
-DEST="${TRAMP_BUNDLE_DIR:-$ROOT/build/linux/bundle}"
+BUILD="${AOIDE_BUILD_DIR:-$ROOT/build}"
+DEST="${AOIDE_BUNDLE_DIR:-$ROOT/build/linux/bundle}"
 LIB="$DEST/lib"
 PLUGINS="$DEST/plugins"
 
-if [[ ! -x "$BUILD/tramp" ]]; then
-  echo "stage_bundle: missing $BUILD/tramp — build the Qt host first" >&2
+if [[ ! -x "$BUILD/aoide" ]]; then
+  echo "stage_bundle: missing $BUILD/aoide — build the Qt host first" >&2
   exit 1
 fi
 if ! command -v patchelf >/dev/null; then
@@ -58,9 +58,9 @@ if ((stage_qt)); then
   # had its RPATH rewritten to $ORIGIN, so it would answer with whatever Qt this
   # machine happens to have in ld.so.cache — which is exactly how a bundle ends
   # up carrying a different Qt from the one it was compiled against.
-  qt_core="$(ldd "$BUILD/tramp" | awk '$1 == "libQt6Core.so.6" { print $3 }')"
+  qt_core="$(ldd "$BUILD/aoide" | awk '$1 == "libQt6Core.so.6" { print $3 }')"
   if [[ -z "$qt_core" || ! -f "$qt_core" ]]; then
-    echo "stage_bundle: cannot resolve libQt6Core.so.6 from $BUILD/tramp" >&2
+    echo "stage_bundle: cannot resolve libQt6Core.so.6 from $BUILD/aoide" >&2
     exit 1
   fi
   qt_lib_dir="$(cd "$(dirname "$(readlink -f "$qt_core")")" && pwd)"
@@ -93,7 +93,7 @@ needed_sonames() {
   readelf -d "$1" 2>/dev/null | sed -n 's/.*(NEEDED).*\[\(.*\)\]/\1/p'
 }
 
-# Tramp links Core, Gui, Widgets and DBus, and paints every pixel of its own
+# Aoide links Core, Gui, Widgets and DBus, and paints every pixel of its own
 # chrome. A plugin that also wants Quick, Qml, Pdf, Svg, GTK or KDE Frameworks
 # is serving a capability this app does not have, and taking it drags that whole
 # stack in behind it — one distro's platform theme turned a 60 MB bundle into
@@ -170,7 +170,7 @@ host_provided() {
 # a bundle with no libass, no libav* and no libpulse — an entire subtree missing,
 # with nothing in the output to say so.
 bundle_elfs() {
-  printf '%s\n' "$DEST/tramp"
+  printf '%s\n' "$DEST/aoide"
   local roots=("$LIB")
   [[ -d "$PLUGINS" ]] && roots+=("$PLUGINS")
   find "${roots[@]}" -xtype f -name '*.so*' 2>/dev/null
@@ -245,7 +245,7 @@ unresolved="$(while IFS= read -r elf; do
   done < <(needed_sonames "$elf")
 done < <(bundle_elfs) | sort -u)"
 
-echo "Staged $DEST/tramp"
+echo "Staged $DEST/aoide"
 if ((stage_qt)); then
   echo "  Qt $qt_lib_dir"
   echo "  plugins $qt_plugin_root"

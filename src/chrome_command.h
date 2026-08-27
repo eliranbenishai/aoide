@@ -12,7 +12,7 @@
 #include <Qt>
 #include <optional>
 
-namespace tramp {
+namespace aoide {
 
 /// What the router cannot do itself: a dialog or a menu needs a parent widget,
 /// so the session presents these. Everything else the router does through the
@@ -67,7 +67,7 @@ struct ChromeCommandOutcome {
 class ChromeCommandRouter {
  public:
   ChromeCommandRouter(PlaybackController& playback, PlaylistController& playlist,
-                      TrampSettings& settings, PlaylistCollection& collection, PlayerEngine& engine,
+                      AoideSettings& settings, PlaylistCollection& collection, PlayerEngine& engine,
                       DockingCoordinator& docking);
 
   ChromeCommandOutcome handle(WindowId id, const ChromeHit& hit, Qt::KeyboardModifiers mods,
@@ -76,10 +76,10 @@ class ChromeCommandRouter {
  private:
   PlaybackController& playback_;
   PlaylistController& playlist_;
-  TrampSettings& settings_;
+  AoideSettings& settings_;
   PlaylistCollection& collection_;
   PlayerEngine& engine_;
   DockingCoordinator& docking_;
 };
 
-}  // namespace tramp
+}  // namespace aoide

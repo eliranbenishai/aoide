@@ -10,7 +10,7 @@
 #include <QSize>
 #include <algorithm>
 
-namespace tramp {
+namespace aoide {
 
 /// Where a title-bar button with nothing to do sits, and how much of its
 /// glyph's ink is left. The lift is below a resting button's rather than level
@@ -57,4 +57,4 @@ void paintMockupWindow(QPainter& painter,
                        BodyPaint pass = BodyPaint::full,
                        const ChromePhases& phases = ChromePhases());
 
-}  // namespace tramp
+}  // namespace aoide

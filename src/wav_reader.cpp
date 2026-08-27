@@ -5,7 +5,7 @@
 #include <cstring>
 #include <stdexcept>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 quint32 u32le(const QByteArray& bytes, int offset) {
@@ -127,4 +127,4 @@ PcmBuffer WavReader::read(const QByteArray& bytes) const {
   return pcm;
 }
 
-}  // namespace tramp
+}  // namespace aoide

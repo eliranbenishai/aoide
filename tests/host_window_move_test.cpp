@@ -8,8 +8,8 @@
 #include "host_window.h"
 #include "look.h"
 #include "session_view.h"
-#include "tramp_fonts.h"
-#include "tramp_metrics.h"
+#include "aoide_fonts.h"
+#include "aoide_metrics.h"
 #include "wait_cursor.h"
 #include "window_spec.h"
 
@@ -75,7 +75,7 @@ class HostWindowMoveTest : public QObject {
 
 void HostWindowMoveTest::parentedPanelMoveDoesNotEmitNativeMoved() {
   HostShell shell;
-  HostWindow panel(tramp::windowSpecs()[0], &shell);
+  HostWindow panel(aoide::windowSpecs()[0], &shell);
   shell.show();
   panel.show();
   QSignalSpy spy(&panel, &HostWindow::nativeMoved);
@@ -84,7 +84,7 @@ void HostWindowMoveTest::parentedPanelMoveDoesNotEmitNativeMoved() {
 }
 
 void HostWindowMoveTest::siblingDragDoesNotPayFullClusterPaint() {
-  const auto specs = tramp::windowSpecs();
+  const auto specs = aoide::windowSpecs();
   HostShell shell;
   HostWindow main(specs[0], &shell);
   HostWindow pl(specs[2], &shell);
@@ -116,7 +116,7 @@ namespace {
 /// pixel divides down to. Going through this is the closest an automated test
 /// gets to clicking the chrome at a given zoom.
 QPoint logicalAtZoom(QSize logical, int zoomPercent, QPointF widgetPos) {
-  const QSize widget = tramp::zoomed(logical, zoomPercent);
+  const QSize widget = aoide::zoomed(logical, zoomPercent);
   const qreal sx = qreal(widget.width()) / qMax(1, logical.width());
   const qreal sy = qreal(widget.height()) / qMax(1, logical.height());
   return QPoint(int(widgetPos.x() / sx), int(widgetPos.y() / sy));
@@ -131,7 +131,7 @@ QPair<int, int> paintedPixels(qreal from, qreal to, qreal scale) {
 /// for one control. The extremes are the whole question: a hit region that
 /// stops short of the paint fails there and nowhere else.
 QVector<QPointF> paintedSamples(QSize logical, const QRectF& painted, int zoomPercent) {
-  const QSize widget = tramp::zoomed(logical, zoomPercent);
+  const QSize widget = aoide::zoomed(logical, zoomPercent);
   const qreal sx = qreal(widget.width()) / qMax(1, logical.width());
   const qreal sy = qreal(widget.height()) / qMax(1, logical.height());
   const QPair<int, int> xs = paintedPixels(painted.left(), painted.right(), sx);
@@ -156,13 +156,13 @@ struct ClaimedRegion {
 /// first region that claims a point, so a region that overlaps one checked
 /// before it silently loses the shared pixels — and that shows up here as a
 /// region winning fewer pixels than its own bounds hold.
-QMap<QPair<int, int>, ClaimedRegion> claimedRegions(tramp::WindowId id, QSize logical,
-                                                    const tramp::SessionView& view) {
+QMap<QPair<int, int>, ClaimedRegion> claimedRegions(aoide::WindowId id, QSize logical,
+                                                    const aoide::SessionView& view) {
   QMap<QPair<int, int>, ClaimedRegion> out;
   for (int y = 0; y < logical.height(); ++y) {
     for (int x = 0; x < logical.width(); ++x) {
-      const tramp::ChromeHit hit = tramp::hitTest(id, logical, QPoint(x, y), view);
-      if (hit.kind == tramp::ChromeHit::Kind::none) {
+      const aoide::ChromeHit hit = aoide::hitTest(id, logical, QPoint(x, y), view);
+      if (hit.kind == aoide::ChromeHit::Kind::none) {
         continue;
       }
       ClaimedRegion& claimed = out[{int(hit.kind), hit.index}];
@@ -177,13 +177,13 @@ QMap<QPair<int, int>, ClaimedRegion> claimedRegions(tramp::WindowId id, QSize lo
 
 /// Every extreme and midpoint pixel of what the chrome paints for one control
 /// must land on that control, at both shipping zooms.
-void assertPaintIsGrabbable(tramp::WindowId id, QSize logical, const tramp::SessionView& view,
-                            const QRectF& painted, tramp::ChromeHit::Kind kind, int index,
+void assertPaintIsGrabbable(aoide::WindowId id, QSize logical, const aoide::SessionView& view,
+                            const QRectF& painted, aoide::ChromeHit::Kind kind, int index,
                             const QString& what) {
   for (int zoom : {75, 150}) {
     for (const QPointF& at : paintedSamples(logical, painted, zoom)) {
-      const tramp::ChromeHit hit =
-          tramp::hitTest(id, logical, logicalAtZoom(logical, zoom, at), view);
+      const aoide::ChromeHit hit =
+          aoide::hitTest(id, logical, logicalAtZoom(logical, zoom, at), view);
       QVERIFY2(hit.kind == kind && hit.index == index,
                qPrintable(QStringLiteral("%1 paints into (%2, %3) at %4%, which is not a hit")
                               .arg(what)
@@ -202,43 +202,43 @@ void assertPaintIsGrabbable(tramp::WindowId id, QSize logical, const tramp::Sess
 // `chrome_layout.h`, and these walk the painted extent of each control at the
 // zoom levels the chrome ships at to keep it that way.
 void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
-  const auto specs = tramp::windowSpecs();
-  const tramp::SessionView view;
+  const auto specs = aoide::windowSpecs();
+  const aoide::SessionView view;
 
   const QSize main = specs[0].logicalSize;
-  auto grabCoversPaint = [&](tramp::WindowId id, QSize logical, const QRectF& painted,
-                             tramp::ChromeHit::Kind kind, const QString& what, int index = -1) {
+  auto grabCoversPaint = [&](aoide::WindowId id, QSize logical, const QRectF& painted,
+                             aoide::ChromeHit::Kind kind, const QString& what, int index = -1) {
     assertPaintIsGrabbable(id, logical, view, painted, kind, index, what);
   };
 
-  const tramp::MainDisplayRow display = tramp::layoutMainDisplay(tramp::panelBody(main));
-  grabCoversPaint(tramp::WindowId::main, main, display.options, tramp::ChromeHit::Kind::options,
+  const aoide::MainDisplayRow display = aoide::layoutMainDisplay(aoide::panelBody(main));
+  grabCoversPaint(aoide::WindowId::main, main, display.options, aoide::ChromeHit::Kind::options,
                   "the options cog");
-  grabCoversPaint(tramp::WindowId::main, main, display.skins, tramp::ChromeHit::Kind::skins,
+  grabCoversPaint(aoide::WindowId::main, main, display.skins, aoide::ChromeHit::Kind::skins,
                   "the skins button");
-  grabCoversPaint(tramp::WindowId::main, main, display.trackInfo, tramp::ChromeHit::Kind::trackInfo,
+  grabCoversPaint(aoide::WindowId::main, main, display.trackInfo, aoide::ChromeHit::Kind::trackInfo,
                   "the track info button");
-  grabCoversPaint(tramp::WindowId::main, main, display.well, tramp::ChromeHit::Kind::timeToggle,
+  grabCoversPaint(aoide::WindowId::main, main, display.well, aoide::ChromeHit::Kind::timeToggle,
                   "the display well");
 
-  const tramp::MainVolumeRow vol = tramp::layoutMainVolumeRow(tramp::panelBody(main));
-  grabCoversPaint(tramp::WindowId::main, main, vol.mute, tramp::ChromeHit::Kind::mute, "Mute");
-  grabCoversPaint(tramp::WindowId::main, main,
-                  QRectF(vol.track.left(), vol.track.center().y() - tramp::kVolumeThumbH / 2,
-                         vol.track.width(), tramp::kVolumeThumbH),
-                  tramp::ChromeHit::Kind::volume, "the volume well and its thumb");
-  grabCoversPaint(tramp::WindowId::main, main, vol.mono, tramp::ChromeHit::Kind::mono, "MONO");
-  grabCoversPaint(tramp::WindowId::main, main, vol.eq, tramp::ChromeHit::Kind::eqToggle, "EQ");
-  grabCoversPaint(tramp::WindowId::main, main, vol.pl, tramp::ChromeHit::Kind::plToggle, "PL");
+  const aoide::MainVolumeRow vol = aoide::layoutMainVolumeRow(aoide::panelBody(main));
+  grabCoversPaint(aoide::WindowId::main, main, vol.mute, aoide::ChromeHit::Kind::mute, "Mute");
+  grabCoversPaint(aoide::WindowId::main, main,
+                  QRectF(vol.track.left(), vol.track.center().y() - aoide::kVolumeThumbH / 2,
+                         vol.track.width(), aoide::kVolumeThumbH),
+                  aoide::ChromeHit::Kind::volume, "the volume well and its thumb");
+  grabCoversPaint(aoide::WindowId::main, main, vol.mono, aoide::ChromeHit::Kind::mono, "MONO");
+  grabCoversPaint(aoide::WindowId::main, main, vol.eq, aoide::ChromeHit::Kind::eqToggle, "EQ");
+  grabCoversPaint(aoide::WindowId::main, main, vol.pl, aoide::ChromeHit::Kind::plToggle, "PL");
 
-  const QFontMetricsF stamp{tramp::monoFont(14)};
-  const tramp::MainSeekRow seekRow = tramp::layoutMainSeekRow(
-      tramp::panelBody(main), stamp.horizontalAdvance(tramp::formatClock(view.positionMs)),
-      stamp.horizontalAdvance(tramp::formatClock(view.durationMs)));
-  grabCoversPaint(tramp::WindowId::main, main,
-                  QRectF(seekRow.track.left(), seekRow.track.center().y() - tramp::kSeekThumbH / 2,
-                         seekRow.track.width(), tramp::kSeekThumbH),
-                  tramp::ChromeHit::Kind::seek, "the seek well and its thumb");
+  const QFontMetricsF stamp{aoide::monoFont(14)};
+  const aoide::MainSeekRow seekRow = aoide::layoutMainSeekRow(
+      aoide::panelBody(main), stamp.horizontalAdvance(aoide::formatClock(view.positionMs)),
+      stamp.horizontalAdvance(aoide::formatClock(view.durationMs)));
+  grabCoversPaint(aoide::WindowId::main, main,
+                  QRectF(seekRow.track.left(), seekRow.track.center().y() - aoide::kSeekThumbH / 2,
+                         seekRow.track.width(), aoide::kSeekThumbH),
+                  aoide::ChromeHit::Kind::seek, "the seek well and its thumb");
 
   // The seek row stamps elapsed time on the left whatever the display well
   // above it is showing, so flipping the well to REMAIN must not move the seek
@@ -246,147 +246,147 @@ void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
   // while the row painted the elapsed one, so the two disagreed by the width of
   // a digit exactly when the digit counts differed.
   {
-    tramp::SessionView elapsedShown;
+    aoide::SessionView elapsedShown;
     elapsedShown.durationMs = 1'200'000;  // 20:00
     elapsedShown.positionMs = 599'000;    // 9:59 elapsed, 10:01 remaining
-    tramp::SessionView remainShown = elapsedShown;
+    aoide::SessionView remainShown = elapsedShown;
     remainShown.showElapsed = false;
     QVERIFY2(!qFuzzyCompare(
-                 stamp.horizontalAdvance(tramp::formatClock(elapsedShown.positionMs)),
-                 stamp.horizontalAdvance(tramp::formatClock(elapsedShown.durationMs -
+                 stamp.horizontalAdvance(aoide::formatClock(elapsedShown.positionMs)),
+                 stamp.horizontalAdvance(aoide::formatClock(elapsedShown.durationMs -
                                                             elapsedShown.positionMs))),
              "this case only bites while the elapsed and remaining stamps differ in width");
 
     const int rowY = int(seekRow.row.center().y());
-    auto seekHit = [&](const tramp::SessionView& v) {
+    auto seekHit = [&](const aoide::SessionView& v) {
       for (int x = 0; x < main.width(); ++x) {
-        const tramp::ChromeHit hit =
-            tramp::hitTest(tramp::WindowId::main, main, QPoint(x, rowY), v);
-        if (hit.kind == tramp::ChromeHit::Kind::seek) {
+        const aoide::ChromeHit hit =
+            aoide::hitTest(aoide::WindowId::main, main, QPoint(x, rowY), v);
+        if (hit.kind == aoide::ChromeHit::Kind::seek) {
           return hit;
         }
       }
-      return tramp::ChromeHit{};
+      return aoide::ChromeHit{};
     };
-    const tramp::ChromeHit whileElapsed = seekHit(elapsedShown);
-    QCOMPARE(whileElapsed.kind, tramp::ChromeHit::Kind::seek);
+    const aoide::ChromeHit whileElapsed = seekHit(elapsedShown);
+    QCOMPARE(whileElapsed.kind, aoide::ChromeHit::Kind::seek);
     QCOMPARE(seekHit(remainShown).rect, whileElapsed.rect);
 
-    const tramp::MainSeekRow remainRow = tramp::layoutMainSeekRow(
-        tramp::panelBody(main),
-        stamp.horizontalAdvance(tramp::formatClock(elapsedShown.positionMs)),
-        stamp.horizontalAdvance(tramp::formatClock(elapsedShown.durationMs)));
+    const aoide::MainSeekRow remainRow = aoide::layoutMainSeekRow(
+        aoide::panelBody(main),
+        stamp.horizontalAdvance(aoide::formatClock(elapsedShown.positionMs)),
+        stamp.horizontalAdvance(aoide::formatClock(elapsedShown.durationMs)));
     assertPaintIsGrabbable(
-        tramp::WindowId::main, main, remainShown,
-        QRectF(remainRow.track.left(), remainRow.track.center().y() - tramp::kSeekThumbH / 2,
-               remainRow.track.width(), tramp::kSeekThumbH),
-        tramp::ChromeHit::Kind::seek, -1,
+        aoide::WindowId::main, main, remainShown,
+        QRectF(remainRow.track.left(), remainRow.track.center().y() - aoide::kSeekThumbH / 2,
+               remainRow.track.width(), aoide::kSeekThumbH),
+        aoide::ChromeHit::Kind::seek, -1,
         QStringLiteral("the seek well while the display well shows REMAIN"));
   }
 
-  const tramp::MainTransportRow transport = tramp::layoutMainTransportRow(
-      tramp::panelBody(main), tramp::toggleBtnWidth(QStringLiteral("SHUFFLE")),
-      tramp::toggleBtnWidth(QStringLiteral("REPEAT")));
-  grabCoversPaint(tramp::WindowId::main, main, transport.prev, tramp::ChromeHit::Kind::prev,
+  const aoide::MainTransportRow transport = aoide::layoutMainTransportRow(
+      aoide::panelBody(main), aoide::toggleBtnWidth(QStringLiteral("SHUFFLE")),
+      aoide::toggleBtnWidth(QStringLiteral("REPEAT")));
+  grabCoversPaint(aoide::WindowId::main, main, transport.prev, aoide::ChromeHit::Kind::prev,
                   "Previous");
-  grabCoversPaint(tramp::WindowId::main, main, transport.play, tramp::ChromeHit::Kind::play,
+  grabCoversPaint(aoide::WindowId::main, main, transport.play, aoide::ChromeHit::Kind::play,
                   "Play");
-  grabCoversPaint(tramp::WindowId::main, main, transport.pause, tramp::ChromeHit::Kind::pause,
+  grabCoversPaint(aoide::WindowId::main, main, transport.pause, aoide::ChromeHit::Kind::pause,
                   "Pause");
-  grabCoversPaint(tramp::WindowId::main, main, transport.stop, tramp::ChromeHit::Kind::stop,
+  grabCoversPaint(aoide::WindowId::main, main, transport.stop, aoide::ChromeHit::Kind::stop,
                   "Stop");
-  grabCoversPaint(tramp::WindowId::main, main, transport.next, tramp::ChromeHit::Kind::next,
+  grabCoversPaint(aoide::WindowId::main, main, transport.next, aoide::ChromeHit::Kind::next,
                   "Next");
-  grabCoversPaint(tramp::WindowId::main, main, transport.eject, tramp::ChromeHit::Kind::eject,
+  grabCoversPaint(aoide::WindowId::main, main, transport.eject, aoide::ChromeHit::Kind::eject,
                   "Eject");
-  grabCoversPaint(tramp::WindowId::main, main, transport.shuffle, tramp::ChromeHit::Kind::shuffle,
+  grabCoversPaint(aoide::WindowId::main, main, transport.shuffle, aoide::ChromeHit::Kind::shuffle,
                   "SHUFFLE");
-  grabCoversPaint(tramp::WindowId::main, main, transport.repeat, tramp::ChromeHit::Kind::repeat,
+  grabCoversPaint(aoide::WindowId::main, main, transport.repeat, aoide::ChromeHit::Kind::repeat,
                   "REPEAT");
 
   const QSize eq = specs[1].logicalSize;
-  const tramp::EqHeaderRow header = tramp::layoutEqHeader(
-      tramp::panelBody(eq), tramp::labelBtnWidth(QStringLiteral("ON")),
-      tramp::labelBtnWidth(QStringLiteral("AUTO")),
-      tramp::labelBtnWidth(QStringLiteral("PRESETS"), 16, 22));
-  grabCoversPaint(tramp::WindowId::equalizer, eq, header.on, tramp::ChromeHit::Kind::eqOn, "EQ ON");
-  grabCoversPaint(tramp::WindowId::equalizer, eq, header.autoBtn, tramp::ChromeHit::Kind::eqAuto,
+  const aoide::EqHeaderRow header = aoide::layoutEqHeader(
+      aoide::panelBody(eq), aoide::labelBtnWidth(QStringLiteral("ON")),
+      aoide::labelBtnWidth(QStringLiteral("AUTO")),
+      aoide::labelBtnWidth(QStringLiteral("PRESETS"), 16, 22));
+  grabCoversPaint(aoide::WindowId::equalizer, eq, header.on, aoide::ChromeHit::Kind::eqOn, "EQ ON");
+  grabCoversPaint(aoide::WindowId::equalizer, eq, header.autoBtn, aoide::ChromeHit::Kind::eqAuto,
                   "EQ AUTO");
-  grabCoversPaint(tramp::WindowId::equalizer, eq, header.presets,
-                  tramp::ChromeHit::Kind::eqPresets, "EQ PRESETS");
+  grabCoversPaint(aoide::WindowId::equalizer, eq, header.presets,
+                  aoide::ChromeHit::Kind::eqPresets, "EQ PRESETS");
 
   // The gain readout is painted above the well and reads as part of the same
   // control, so it drags the band. The rect the hit carries stays the well:
   // it is the domain the gain is read off, and dragging must not squash it.
-  const QRectF bandRow = tramp::eqBandRow(tramp::panelBody(eq));
-  for (int i = 0; i < tramp::kEqBandCount; ++i) {
-    const tramp::EqBandColumn column = tramp::eqBandColumn(bandRow, i);
-    const auto kind = i == 0 ? tramp::ChromeHit::Kind::eqPreamp : tramp::ChromeHit::Kind::eqBand;
+  const QRectF bandRow = aoide::eqBandRow(aoide::panelBody(eq));
+  for (int i = 0; i < aoide::kEqBandCount; ++i) {
+    const aoide::EqBandColumn column = aoide::eqBandColumn(bandRow, i);
+    const auto kind = i == 0 ? aoide::ChromeHit::Kind::eqPreamp : aoide::ChromeHit::Kind::eqBand;
     const int index = i == 0 ? -1 : i - 1;
     const QByteArray what =
         (i == 0 ? QStringLiteral("the preamp") : QStringLiteral("band %1").arg(i - 1)).toLatin1();
-    grabCoversPaint(tramp::WindowId::equalizer, eq, column.gain, kind, what.constData(), index);
-    grabCoversPaint(tramp::WindowId::equalizer, eq, column.well, kind, what.constData(), index);
+    grabCoversPaint(aoide::WindowId::equalizer, eq, column.gain, kind, what.constData(), index);
+    grabCoversPaint(aoide::WindowId::equalizer, eq, column.well, kind, what.constData(), index);
     // The thumb is centred on the value point, so at the ends of the range half
     // of it stands outside the well it slides in.
     for (qreal gainDb : {12.0, 0.0, -12.0}) {
-      grabCoversPaint(tramp::WindowId::equalizer, eq, tramp::bandThumbRect(column.well, gainDb),
+      grabCoversPaint(aoide::WindowId::equalizer, eq, aoide::bandThumbRect(column.well, gainDb),
                       kind, QStringLiteral("%1's thumb at %2 dB")
                                 .arg(QString::fromLatin1(what))
                                 .arg(gainDb),
                       index);
     }
-    const tramp::ChromeHit hit = tramp::hitTest(tramp::WindowId::equalizer, eq,
+    const aoide::ChromeHit hit = aoide::hitTest(aoide::WindowId::equalizer, eq,
                                                 column.well.center().toPoint(), view);
     QCOMPARE(hit.rect, column.well.toAlignedRect());
   }
 
-  tramp::ChromeHit volume;
-  tramp::ChromeHit seek;
+  aoide::ChromeHit volume;
+  aoide::ChromeHit seek;
   for (int y = 0; y < main.height(); ++y) {
     const auto hit =
-        tramp::hitTest(tramp::WindowId::main, main, QPoint(main.width() / 2, y), view);
-    if (hit.kind == tramp::ChromeHit::Kind::volume && volume.rect.isNull()) volume = hit;
-    if (hit.kind == tramp::ChromeHit::Kind::seek && seek.rect.isNull()) seek = hit;
+        aoide::hitTest(aoide::WindowId::main, main, QPoint(main.width() / 2, y), view);
+    if (hit.kind == aoide::ChromeHit::Kind::volume && volume.rect.isNull()) volume = hit;
+    if (hit.kind == aoide::ChromeHit::Kind::seek && seek.rect.isNull()) seek = hit;
   }
-  QCOMPARE(volume.kind, tramp::ChromeHit::Kind::volume);
-  QCOMPARE(seek.kind, tramp::ChromeHit::Kind::seek);
-  QVERIFY2(volume.rect.height() >= int(tramp::kVolumeThumbH),
+  QCOMPARE(volume.kind, aoide::ChromeHit::Kind::volume);
+  QCOMPARE(seek.kind, aoide::ChromeHit::Kind::seek);
+  QVERIFY2(volume.rect.height() >= int(aoide::kVolumeThumbH),
            "the volume hit region must cover the painted thumb, not just the groove");
-  QVERIFY2(seek.rect.height() >= int(tramp::kSeekThumbH),
+  QVERIFY2(seek.rect.height() >= int(aoide::kSeekThumbH),
            "the seek hit region must cover the painted thumb, not just the groove");
 
   const QSize about = specs[4].logicalSize;
-  const qreal textW = tramp::textWidth(tramp::monoFont(10), QStringLiteral("tramp.music"));
-  const QRectF pill = tramp::aboutWebPill(
-      tramp::aboutMakerPlate(tramp::aboutInner(tramp::panelBody(about))), textW);
-  grabCoversPaint(tramp::WindowId::about, about, pill, tramp::ChromeHit::Kind::aboutWeb,
-                  "the tramp.music pill");
+  const qreal textW = aoide::textWidth(aoide::monoFont(10), QStringLiteral("aoide.music"));
+  const QRectF pill = aoide::aboutWebPill(
+      aoide::aboutMakerPlate(aoide::aboutInner(aoide::panelBody(about))), textW);
+  grabCoversPaint(aoide::WindowId::about, about, pill, aoide::ChromeHit::Kind::aboutWeb,
+                  "the aoide.music pill");
 
   const QSize settings = specs[3].logicalSize;
-  const QRectF pane = tramp::settingsPane(settings);
-  const QRectF reset = tramp::settingsResetBtn(tramp::panelBody(settings));
-  QVERIFY2(reset.left() >= 0 && reset.right() <= tramp::kSettingsRailW,
+  const QRectF pane = aoide::settingsPane(settings);
+  const QRectF reset = aoide::settingsResetBtn(aoide::panelBody(settings));
+  QVERIFY2(reset.left() >= 0 && reset.right() <= aoide::kSettingsRailW,
            "Reset Settings lives under the tabs, not on the pane");
-  QVERIFY2(reset.top() > tramp::panelBody(settings).top() + 84,
+  QVERIFY2(reset.top() > aoide::panelBody(settings).top() + 84,
            "Reset Settings sits below the tab stack");
-  grabCoversPaint(tramp::WindowId::settings, settings, reset, tramp::ChromeHit::Kind::settingsReset,
+  grabCoversPaint(aoide::WindowId::settings, settings, reset, aoide::ChromeHit::Kind::settingsReset,
                   "Reset Settings");
-  tramp::SessionView audio = view;
+  aoide::SessionView audio = view;
   audio.settingsTab = 1;
-  assertPaintIsGrabbable(tramp::WindowId::settings, settings, audio, reset,
-                         tramp::ChromeHit::Kind::settingsReset, -1,
+  assertPaintIsGrabbable(aoide::WindowId::settings, settings, audio, reset,
+                         aoide::ChromeHit::Kind::settingsReset, -1,
                          QStringLiteral("Reset Settings on the Audio tab"));
-  assertPaintIsGrabbable(tramp::WindowId::settings, settings, audio,
-                         tramp::settingsAudioDeviceBtn(pane),
-                         tramp::ChromeHit::Kind::settingsAudioDevice, -1,
+  assertPaintIsGrabbable(aoide::WindowId::settings, settings, audio,
+                         aoide::settingsAudioDeviceBtn(pane),
+                         aoide::ChromeHit::Kind::settingsAudioDevice, -1,
                          QStringLiteral("the output device button"));
-  assertPaintIsGrabbable(tramp::WindowId::settings, settings, audio,
-                         tramp::settingsExclusiveRow(pane), tramp::ChromeHit::Kind::settingsExclusive,
+  assertPaintIsGrabbable(aoide::WindowId::settings, settings, audio,
+                         aoide::settingsExclusiveRow(pane), aoide::ChromeHit::Kind::settingsExclusive,
                          -1, QStringLiteral("Exclusive output"));
-  const tramp::ChromeHit web =
-      tramp::hitTest(tramp::WindowId::about, about, pill.center().toPoint(), view);
-  QCOMPARE(web.kind, tramp::ChromeHit::Kind::aboutWeb);
+  const aoide::ChromeHit web =
+      aoide::hitTest(aoide::WindowId::about, about, pill.center().toPoint(), view);
+  QCOMPARE(web.kind, aoide::ChromeHit::Kind::aboutWeb);
   // Official desktop Qt (CI) can give a fractional advance; int(pad*2+textW)
   // then disagrees with the hit by a pixel. The region is the outward-rounded
   // paint rect, same as the equaliser wells above.
@@ -405,16 +405,16 @@ void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
 // pointer can reach, so each region is then required to still win its corners
 // through the widget-pixel division at both shipping zooms.
 void HostWindowMoveTest::hitRegionsDoNotOverlap() {
-  const auto specs = tramp::windowSpecs();
+  const auto specs = aoide::windowSpecs();
 
   // The value a slider drags is read off its well, so those four carry the well
   // and grab a larger area around it; every other control grabs what it carries.
   const QSet<int> grabsWiderThanItCarries{
-      int(tramp::ChromeHit::Kind::volume), int(tramp::ChromeHit::Kind::seek),
-      int(tramp::ChromeHit::Kind::eqPreamp), int(tramp::ChromeHit::Kind::eqBand)};
+      int(aoide::ChromeHit::Kind::volume), int(aoide::ChromeHit::Kind::seek),
+      int(aoide::ChromeHit::Kind::eqPreamp), int(aoide::ChromeHit::Kind::eqBand)};
 
-  auto panelHoldsItsRegionsApart = [&](tramp::WindowId id, QSize logical,
-                                       const tramp::SessionView& view, const QString& what,
+  auto panelHoldsItsRegionsApart = [&](aoide::WindowId id, QSize logical,
+                                       const aoide::SessionView& view, const QString& what,
                                        const QSet<int>& knownToLose = {}) {
     const auto claimed = claimedRegions(id, logical, view);
     QVERIFY2(!claimed.isEmpty(), qPrintable(what + QStringLiteral(" offers no hit regions at all")));
@@ -455,8 +455,8 @@ void HostWindowMoveTest::hitRegionsDoNotOverlap() {
 
       for (int zoom : {75, 150}) {
         for (const QPointF& at : paintedSamples(logical, it->bounds, zoom)) {
-          const tramp::ChromeHit hit =
-              tramp::hitTest(id, logical, logicalAtZoom(logical, zoom, at), view);
+          const aoide::ChromeHit hit =
+              aoide::hitTest(id, logical, logicalAtZoom(logical, zoom, at), view);
           QVERIFY2(int(hit.kind) == it.key().first && hit.index == it.key().second,
                    qPrintable(where + QStringLiteral(" loses (%1, %2) at %3%")
                                           .arg(at.x())
@@ -467,25 +467,25 @@ void HostWindowMoveTest::hitRegionsDoNotOverlap() {
     }
   };
 
-  const tramp::SessionView plain;
-  panelHoldsItsRegionsApart(tramp::WindowId::main, specs[0].logicalSize, plain,
+  const aoide::SessionView plain;
+  panelHoldsItsRegionsApart(aoide::WindowId::main, specs[0].logicalSize, plain,
                             QStringLiteral("the main panel's"));
-  panelHoldsItsRegionsApart(tramp::WindowId::equalizer, specs[1].logicalSize, plain,
+  panelHoldsItsRegionsApart(aoide::WindowId::equalizer, specs[1].logicalSize, plain,
                             QStringLiteral("the equaliser's"));
-  panelHoldsItsRegionsApart(tramp::WindowId::about, specs[4].logicalSize, plain,
+  panelHoldsItsRegionsApart(aoide::WindowId::about, specs[4].logicalSize, plain,
                             QStringLiteral("the about panel's"));
 
   // The playlist and settings only grow their rows and buttons once there is
   // something to list, so the empty panel is the weaker case of the two.
-  tramp::SessionView listed = plain;
+  aoide::SessionView listed = plain;
   listed.collection = {{QStringLiteral("Nights"), 12, true, false},
                        {QStringLiteral("Drive"), 8, false, false}};
   // One more track than the well shows: the row past the bottom is painted
   // clipped, and its hit region is the one that could reach the deck below.
-  const int overflowing = tramp::playlistVisibleRows(
-      tramp::playlistListWell(
-          tramp::playlistListRowRect(tramp::playlistTrackInner(tramp::playlistTracksPane(
-              tramp::panelBody(specs[2].logicalSize), listed.collectionWidth))),
+  const int overflowing = aoide::playlistVisibleRows(
+      aoide::playlistListWell(
+          aoide::playlistListRowRect(aoide::playlistTrackInner(aoide::playlistTracksPane(
+              aoide::panelBody(specs[2].logicalSize), listed.collectionWidth))),
           99)
           .height()) + 4;
   listed.tracks.clear();
@@ -493,41 +493,41 @@ void HostWindowMoveTest::hitRegionsDoNotOverlap() {
     listed.tracks.push_back({QStringLiteral("Artist"), QStringLiteral("Track %1").arg(i),
                              QStringLiteral("3:20"), false, false, false});
   }
-  panelHoldsItsRegionsApart(tramp::WindowId::playlist, specs[2].logicalSize, plain,
+  panelHoldsItsRegionsApart(aoide::WindowId::playlist, specs[2].logicalSize, plain,
                             QStringLiteral("the empty playlist's"));
-  panelHoldsItsRegionsApart(tramp::WindowId::playlist, specs[2].logicalSize, listed,
+  panelHoldsItsRegionsApart(aoide::WindowId::playlist, specs[2].logicalSize, listed,
                             QStringLiteral("the full playlist's"));
-  tramp::SessionView collapsed = listed;
+  aoide::SessionView collapsed = listed;
   collapsed.collectionCollapsed = true;
-  panelHoldsItsRegionsApart(tramp::WindowId::playlist, specs[2].logicalSize, collapsed,
+  panelHoldsItsRegionsApart(aoide::WindowId::playlist, specs[2].logicalSize, collapsed,
                             QStringLiteral("the collapsed playlist's"));
 
-  panelHoldsItsRegionsApart(tramp::WindowId::settings, specs[3].logicalSize, plain,
+  panelHoldsItsRegionsApart(aoide::WindowId::settings, specs[3].logicalSize, plain,
                             QStringLiteral("the general settings'"));
-  tramp::SessionView skins = plain;
+  aoide::SessionView skins = plain;
   skins.settingsTab = 1;
   skins.skins = {{QStringLiteral("builtin"), QStringLiteral("Built-in"), {}},
                  {QStringLiteral("dusk"), QStringLiteral("Dusk"), {}}};
   skins.skins[1].canRemove = true;
-  panelHoldsItsRegionsApart(tramp::WindowId::settings, specs[3].logicalSize, skins,
+  panelHoldsItsRegionsApart(aoide::WindowId::settings, specs[3].logicalSize, skins,
                             QStringLiteral("the audio settings'"));
-  panelHoldsItsRegionsApart(tramp::WindowId::skins, specs[5].logicalSize, skins,
+  panelHoldsItsRegionsApart(aoide::WindowId::skins, specs[5].logicalSize, skins,
                             QStringLiteral("the skins panel's"),
-                            {int(tramp::ChromeHit::Kind::settingsSkinRow)});
+                            {int(aoide::ChromeHit::Kind::settingsSkinRow)});
 }
 
 // Dragging a panel used to re-run its whole procedural paint on every mouse
 // move, which is what made drags crawl. Moving cannot change a panel's pixels,
 // so it must come out of the cache; changing its content must not.
 void HostWindowMoveTest::movingAPanelDoesNotRerasteriseIt() {
-  const auto specs = tramp::windowSpecs();
+  const auto specs = aoide::windowSpecs();
   HostShell shell;
   HostWindow pl(specs[2], &shell);
   shell.show();
   pl.show();
   QVERIFY(QTest::qWaitForWindowExposed(&pl));
 
-  tramp::SessionView view;
+  aoide::SessionView view;
   view.playlistRefreshEnabled = true;
   pl.setSessionView(view);
   const QImage before = pl.grab().toImage();
@@ -540,7 +540,7 @@ void HostWindowMoveTest::movingAPanelDoesNotRerasteriseIt() {
   QVERIFY2(before == after, "a move must not change a panel's pixels");
 
   pl.resetPaintStats();
-  tramp::SessionView changed = view;
+  aoide::SessionView changed = view;
   changed.playlistRefreshing = true;
   pl.setSessionView(changed);
   pl.grab();
@@ -554,29 +554,29 @@ void HostWindowMoveTest::movingAPanelDoesNotRerasteriseIt() {
 
 namespace {
 
-QString panelLabel(tramp::WindowId id) {
+QString panelLabel(aoide::WindowId id) {
   switch (id) {
-    case tramp::WindowId::main: return QStringLiteral("main");
-    case tramp::WindowId::equalizer: return QStringLiteral("eq");
-    case tramp::WindowId::playlist: return QStringLiteral("playlist");
-    case tramp::WindowId::settings: return QStringLiteral("settings");
-    case tramp::WindowId::about: return QStringLiteral("about");
-    case tramp::WindowId::skins: return QStringLiteral("skins");
+    case aoide::WindowId::main: return QStringLiteral("main");
+    case aoide::WindowId::equalizer: return QStringLiteral("eq");
+    case aoide::WindowId::playlist: return QStringLiteral("playlist");
+    case aoide::WindowId::settings: return QStringLiteral("settings");
+    case aoide::WindowId::about: return QStringLiteral("about");
+    case aoide::WindowId::skins: return QStringLiteral("skins");
   }
   return QStringLiteral("?");
 }
 
-QSize panelLogicalSize(tramp::WindowId id) {
-  for (const tramp::WindowSpec& spec : tramp::windowSpecs()) {
+QSize panelLogicalSize(aoide::WindowId id) {
+  for (const aoide::WindowSpec& spec : aoide::windowSpecs()) {
     if (spec.id == id) return spec.logicalSize;
   }
   return {};
 }
 
-const std::array<tramp::WindowId, 6>& everyPanel() {
-  static const std::array<tramp::WindowId, 6> ids = {
-      tramp::WindowId::main, tramp::WindowId::equalizer, tramp::WindowId::playlist,
-      tramp::WindowId::settings, tramp::WindowId::about, tramp::WindowId::skins};
+const std::array<aoide::WindowId, 6>& everyPanel() {
+  static const std::array<aoide::WindowId, 6> ids = {
+      aoide::WindowId::main, aoide::WindowId::equalizer, aoide::WindowId::playlist,
+      aoide::WindowId::settings, aoide::WindowId::about, aoide::WindowId::skins};
   return ids;
 }
 
@@ -588,11 +588,11 @@ const std::array<tramp::WindowId, 6>& everyPanel() {
 // the pre-load chrome never shows at all.
 void HostWindowMoveTest::waitCursorRepaintsEvenWhenTheRasterIsKept() {
   HostShell shell;
-  PaintCountHost panel(tramp::windowSpecs()[0], &shell);
+  PaintCountHost panel(aoide::windowSpecs()[0], &shell);
   shell.show();
   panel.show();
   QVERIFY(QTest::qWaitForWindowExposed(&panel));
-  tramp::SessionView view = tramp::goldenDemoView();
+  aoide::SessionView view = aoide::goldenDemoView();
   // The golden flag takes a panel off the cache altogether, and the cache is
   // the thing under test.
   view.goldenDemo = false;
@@ -600,7 +600,7 @@ void HostWindowMoveTest::waitCursorRepaintsEvenWhenTheRasterIsKept() {
   QApplication::processEvents();
   panel.resetPaintStats();
   {
-    tramp::WaitCursorScope wait;
+    aoide::WaitCursorScope wait;
     const int beforeRefresh = panel.paints;
     panel.setSessionView(view);
     QVERIFY2(panel.paints > beforeRefresh,
@@ -615,16 +615,16 @@ void HostWindowMoveTest::waitCursorRepaintsEvenWhenTheRasterIsKept() {
 void HostWindowMoveTest::onlyThePanelsThatPaintAChangeRerasteriseForIt() {
   HostShell shell;
   std::vector<std::unique_ptr<HostWindow>> panels;
-  for (const tramp::WindowSpec& spec : tramp::windowSpecs()) {
+  for (const aoide::WindowSpec& spec : aoide::windowSpecs()) {
     panels.push_back(std::make_unique<HostWindow>(spec, &shell));
   }
   shell.show();
   for (auto& panel : panels) panel->show();
   QVERIFY(QTest::qWaitForWindowExposed(panels.front().get()));
 
-  tramp::SessionView base = tramp::goldenDemoView();
+  aoide::SessionView base = aoide::goldenDemoView();
   base.goldenDemo = false;
-  auto publish = [&](const tramp::SessionView& view) {
+  auto publish = [&](const aoide::SessionView& view) {
     for (auto& panel : panels) panel->setSessionView(view);
     for (auto& panel : panels) panel->grab();
   };
@@ -638,7 +638,7 @@ void HostWindowMoveTest::onlyThePanelsThatPaintAChangeRerasteriseForIt() {
 
   publish(base);
   for (auto& panel : panels) panel->resetPaintStats();
-  tramp::SessionView scrolled = base;
+  aoide::SessionView scrolled = base;
   scrolled.trackScroll = 3;
   publish(scrolled);
   QCOMPARE(rebuilt(), QStringLiteral("playlist"));
@@ -647,7 +647,7 @@ void HostWindowMoveTest::onlyThePanelsThatPaintAChangeRerasteriseForIt() {
   for (auto& panel : panels) panel->resetPaintStats();
   // MONO last: it is latched, so main cross-fades and keeps rebuilding for
   // kBtnTransitionMs afterwards. Nothing is measured after this.
-  tramp::SessionView mono = base;
+  aoide::SessionView mono = base;
   mono.forceMono = true;
   publish(mono);
   QCOMPARE(rebuilt(), QStringLiteral("main"));
@@ -655,11 +655,11 @@ void HostWindowMoveTest::onlyThePanelsThatPaintAChangeRerasteriseForIt() {
 
 namespace {
 
-QImage paintPanel(tramp::WindowId id, QSize logical, const tramp::SessionView& view) {
+QImage paintPanel(aoide::WindowId id, QSize logical, const aoide::SessionView& view) {
   QImage img(logical, QImage::Format_ARGB32_Premultiplied);
   img.fill(Qt::black);
   QPainter p(&img);
-  tramp::paintWindowBody(p, id, logical, nullptr, view);
+  aoide::paintWindowBody(p, id, logical, nullptr, view);
   return img;
 }
 
@@ -667,28 +667,28 @@ QImage paintPanel(tramp::WindowId id, QSize logical, const tramp::SessionView& v
 /// their static chrome and redraw the live layer every frame; the other four
 /// have no live layer, so the whole paint is what sits in the cache. Comparing
 /// the full paint for all six would hold main to pixels its cache never held.
-QImage paintCachedPass(tramp::WindowId id, QSize logical, const tramp::SessionView& view) {
+QImage paintCachedPass(aoide::WindowId id, QSize logical, const aoide::SessionView& view) {
   const bool live =
-      id == tramp::WindowId::main || id == tramp::WindowId::equalizer;
+      id == aoide::WindowId::main || id == aoide::WindowId::equalizer;
   QImage img(logical, QImage::Format_ARGB32_Premultiplied);
   img.fill(Qt::black);
   QPainter p(&img);
-  tramp::paintWindowBody(p, id, logical, nullptr, view,
-                         live ? tramp::BodyPaint::chassis : tramp::BodyPaint::full);
+  aoide::paintWindowBody(p, id, logical, nullptr, view,
+                         live ? aoide::BodyPaint::chassis : aoide::BodyPaint::full);
   return img;
 }
 
-QImage paintPlaylistPanel(const tramp::SessionView& view) {
-  return paintPanel(tramp::WindowId::playlist, tramp::kPlaylistDefault, view);
+QImage paintPlaylistPanel(const aoide::SessionView& view) {
+  return paintPanel(aoide::WindowId::playlist, aoide::kPlaylistDefault, view);
 }
 
-tramp::ChromeHit refreshHit(const tramp::SessionView& view) {
-  const QSize logical = tramp::kPlaylistDefault;
+aoide::ChromeHit refreshHit(const aoide::SessionView& view) {
+  const QSize logical = aoide::kPlaylistDefault;
   for (int y = logical.height() - 90; y < logical.height(); ++y) {
     for (int x = logical.width() - 50; x < logical.width(); ++x) {
-      const tramp::ChromeHit hit =
-          tramp::hitTest(tramp::WindowId::playlist, logical, QPoint(x, y), view);
-      if (hit.kind == tramp::ChromeHit::Kind::plRefresh) return hit;
+      const aoide::ChromeHit hit =
+          aoide::hitTest(aoide::WindowId::playlist, logical, QPoint(x, y), view);
+      if (hit.kind == aoide::ChromeHit::Kind::plRefresh) return hit;
     }
   }
   return {};
@@ -699,7 +699,7 @@ struct FieldChange {
   /// The panels that must re-rasterise for it, '+' joined in panel order. An
   /// empty string is a field no painter reads.
   const char* rebuilds;
-  std::function<void(tramp::SessionView&)> apply;
+  std::function<void(aoide::SessionView&)> apply;
 };
 
 /// Every field on the snapshot, and who repaints for it. The roll call is the
@@ -709,38 +709,38 @@ std::vector<FieldChange> everyFieldOfTheSnapshot() {
   const char* all = "main+eq+playlist+settings+about+skins";
   return {
       // The shell and the title bar, which every panel wears.
-      {"goldenDemo", all, [](tramp::SessionView& v) { v.goldenDemo = true; }},
-      {"zoomPercent", all, [](tramp::SessionView& v) { v.zoomPercent = 100; }},
+      {"goldenDemo", all, [](aoide::SessionView& v) { v.goldenDemo = true; }},
+      {"zoomPercent", all, [](aoide::SessionView& v) { v.zoomPercent = 100; }},
       {"look", all,
-       [](tramp::SessionView& v) { v.look.palette.phos = QColor(1, 2, 3); }},
+       [](aoide::SessionView& v) { v.look.palette.phos = QColor(1, 2, 3); }},
 
       // Main: the display well, the meta row, the clusters under it.
-      {"eqOn", "main", [](tramp::SessionView& v) { v.eqOn = !v.eqOn; }},
-      {"plOn", "main", [](tramp::SessionView& v) { v.plOn = !v.plOn; }},
-      {"skinsOn", "main", [](tramp::SessionView& v) { v.skinsOn = !v.skinsOn; }},
+      {"eqOn", "main", [](aoide::SessionView& v) { v.eqOn = !v.eqOn; }},
+      {"plOn", "main", [](aoide::SessionView& v) { v.plOn = !v.plOn; }},
+      {"skinsOn", "main", [](aoide::SessionView& v) { v.skinsOn = !v.skinsOn; }},
       {"trackInfoEnabled", "main",
-       [](tramp::SessionView& v) { v.trackInfoEnabled = !v.trackInfoEnabled; }},
-      {"showElapsed", "main", [](tramp::SessionView& v) { v.showElapsed = !v.showElapsed; }},
-      {"positionMs", "main", [](tramp::SessionView& v) { v.positionMs += 4000; }},
-      {"durationMs", "main", [](tramp::SessionView& v) { v.durationMs += 4000; }},
-      {"title", "main", [](tramp::SessionView& v) { v.title = QStringLiteral("Other"); }},
-      {"subtitle", "main", [](tramp::SessionView& v) { v.subtitle = QStringLiteral("OTHER"); }},
-      {"bitrate", "main", [](tramp::SessionView& v) { v.bitrate = QStringLiteral("320 kbps"); }},
-      {"sampleRate", "main", [](tramp::SessionView& v) { v.sampleRate = QStringLiteral("48 kHz"); }},
-      {"channels", "main", [](tramp::SessionView& v) { v.channels = QStringLiteral("MONO"); }},
-      {"formatChip", "main", [](tramp::SessionView& v) { v.formatChip = QStringLiteral("FLAC"); }},
-      {"volume", "main", [](tramp::SessionView& v) { v.volume = 0.2; }},
-      {"muted", "main", [](tramp::SessionView& v) { v.muted = !v.muted; }},
-      {"forceMono", "main", [](tramp::SessionView& v) { v.forceMono = !v.forceMono; }},
-      {"paused", "main", [](tramp::SessionView& v) { v.paused = !v.paused; }},
-      {"shuffle", "main", [](tramp::SessionView& v) { v.shuffle = !v.shuffle; }},
-      {"repeat", "main", [](tramp::SessionView& v) { v.repeat = tramp::RepeatMode::one; }},
-      {"spectrum", "main", [](tramp::SessionView& v) { v.spectrum[4] = 0.11; }},
-      {"spectrumPeaks", "main", [](tramp::SessionView& v) { v.spectrumPeaks[4] = 0.99; }},
+       [](aoide::SessionView& v) { v.trackInfoEnabled = !v.trackInfoEnabled; }},
+      {"showElapsed", "main", [](aoide::SessionView& v) { v.showElapsed = !v.showElapsed; }},
+      {"positionMs", "main", [](aoide::SessionView& v) { v.positionMs += 4000; }},
+      {"durationMs", "main", [](aoide::SessionView& v) { v.durationMs += 4000; }},
+      {"title", "main", [](aoide::SessionView& v) { v.title = QStringLiteral("Other"); }},
+      {"subtitle", "main", [](aoide::SessionView& v) { v.subtitle = QStringLiteral("OTHER"); }},
+      {"bitrate", "main", [](aoide::SessionView& v) { v.bitrate = QStringLiteral("320 kbps"); }},
+      {"sampleRate", "main", [](aoide::SessionView& v) { v.sampleRate = QStringLiteral("48 kHz"); }},
+      {"channels", "main", [](aoide::SessionView& v) { v.channels = QStringLiteral("MONO"); }},
+      {"formatChip", "main", [](aoide::SessionView& v) { v.formatChip = QStringLiteral("FLAC"); }},
+      {"volume", "main", [](aoide::SessionView& v) { v.volume = 0.2; }},
+      {"muted", "main", [](aoide::SessionView& v) { v.muted = !v.muted; }},
+      {"forceMono", "main", [](aoide::SessionView& v) { v.forceMono = !v.forceMono; }},
+      {"paused", "main", [](aoide::SessionView& v) { v.paused = !v.paused; }},
+      {"shuffle", "main", [](aoide::SessionView& v) { v.shuffle = !v.shuffle; }},
+      {"repeat", "main", [](aoide::SessionView& v) { v.repeat = aoide::RepeatMode::one; }},
+      {"spectrum", "main", [](aoide::SessionView& v) { v.spectrum[4] = 0.11; }},
+      {"spectrumPeaks", "main", [](aoide::SessionView& v) { v.spectrumPeaks[4] = 0.99; }},
       {"spectrumUnmeasured", "main",
-       [](tramp::SessionView& v) { v.spectrumUnmeasured = !v.spectrumUnmeasured; }},
+       [](aoide::SessionView& v) { v.spectrumUnmeasured = !v.spectrumUnmeasured; }},
       {"noAudioEngine", "main",
-       [](tramp::SessionView& v) { v.noAudioEngine = !v.noAudioEngine; }},
+       [](aoide::SessionView& v) { v.noAudioEngine = !v.noAudioEngine; }},
 
       // The marquee clock free-runs, so charging main for every value of it
       // would cost main its cache for as long as a track is loaded. It reaches
@@ -748,81 +748,81 @@ std::vector<FieldChange> everyFieldOfTheSnapshot() {
       // the line is painted on the live pass, and the frames are not main's
       // raster to keep.
       {"titleScrollMs while the line is already moving", "",
-       [](tramp::SessionView& v) { v.titleScrollMs += 1000; }},
+       [](aoide::SessionView& v) { v.titleScrollMs += 1000; }},
       {"titleScrollMs when the hold ends", "main",
-       [](tramp::SessionView& v) { v.titleScrollMs = 0; }},
+       [](aoide::SessionView& v) { v.titleScrollMs = 0; }},
 
       // Playing lights a transport face on main and the deck button on the
       // playlist, so it is the one field two panels latch.
-      {"playing", "main+playlist", [](tramp::SessionView& v) { v.playing = !v.playing; }},
+      {"playing", "main+playlist", [](aoide::SessionView& v) { v.playing = !v.playing; }},
       // As the marquee it runs on main; as a switch it is painted on settings.
-      {"scrollTitle", "main+settings", [](tramp::SessionView& v) { v.scrollTitle = !v.scrollTitle; }},
+      {"scrollTitle", "main+settings", [](aoide::SessionView& v) { v.scrollTitle = !v.scrollTitle; }},
 
-      {"eq", "eq", [](tramp::SessionView& v) { v.eq.gains[2] = 7.5; }},
+      {"eq", "eq", [](aoide::SessionView& v) { v.eq.gains[2] = 7.5; }},
 
       // Playlist: the collection column, the list, the deck and the footer.
       {"tracks", "playlist",
-       [](tramp::SessionView& v) { v.tracks[0].title = QStringLiteral("Renamed"); }},
+       [](aoide::SessionView& v) { v.tracks[0].title = QStringLiteral("Renamed"); }},
       // Emptiness is what the empty-well copy and the main title swap read.
       // Clearing the demo's rows keeps its named title, so only the playlist
       // chassis turns over — main stays until the title is `No track` too.
-      {"tracks emptied", "playlist", [](tramp::SessionView& v) { v.tracks.clear(); }},
+      {"tracks emptied", "playlist", [](aoide::SessionView& v) { v.tracks.clear(); }},
       {"collection emptied", "playlist",
-       [](tramp::SessionView& v) { v.collection.clear(); }},
-      {"playingIndex", "playlist", [](tramp::SessionView& v) { v.playingIndex = 5; }},
-      {"trackScroll", "playlist", [](tramp::SessionView& v) { v.trackScroll = 3; }},
-      {"collection", "playlist", [](tramp::SessionView& v) { v.collection[0].count = 99; }},
-      {"collectionWidth", "playlist", [](tramp::SessionView& v) { v.collectionWidth = 300; }},
+       [](aoide::SessionView& v) { v.collection.clear(); }},
+      {"playingIndex", "playlist", [](aoide::SessionView& v) { v.playingIndex = 5; }},
+      {"trackScroll", "playlist", [](aoide::SessionView& v) { v.trackScroll = 3; }},
+      {"collection", "playlist", [](aoide::SessionView& v) { v.collection[0].count = 99; }},
+      {"collectionWidth", "playlist", [](aoide::SessionView& v) { v.collectionWidth = 300; }},
       {"collectionCollapsed", "playlist",
-       [](tramp::SessionView& v) { v.collectionCollapsed = true; }},
+       [](aoide::SessionView& v) { v.collectionCollapsed = true; }},
       {"playlistName", "playlist",
-       [](tramp::SessionView& v) { v.playlistName = QStringLiteral("other.m3u"); }},
+       [](aoide::SessionView& v) { v.playlistName = QStringLiteral("other.m3u"); }},
       {"playlistAltered", "playlist",
-       [](tramp::SessionView& v) { v.playlistAltered = !v.playlistAltered; }},
-      {"playlistTotalMs", "playlist", [](tramp::SessionView& v) { v.playlistTotalMs += 61000; }},
-      {"playlistTrackCount", "playlist", [](tramp::SessionView& v) { v.playlistTrackCount += 1; }},
+       [](aoide::SessionView& v) { v.playlistAltered = !v.playlistAltered; }},
+      {"playlistTotalMs", "playlist", [](aoide::SessionView& v) { v.playlistTotalMs += 61000; }},
+      {"playlistTrackCount", "playlist", [](aoide::SessionView& v) { v.playlistTrackCount += 1; }},
       {"playlistRefreshEnabled", "playlist",
-       [](tramp::SessionView& v) { v.playlistRefreshEnabled = !v.playlistRefreshEnabled; }},
+       [](aoide::SessionView& v) { v.playlistRefreshEnabled = !v.playlistRefreshEnabled; }},
       {"playlistRefreshing", "playlist",
-       [](tramp::SessionView& v) { v.playlistRefreshing = !v.playlistRefreshing; }},
+       [](aoide::SessionView& v) { v.playlistRefreshing = !v.playlistRefreshing; }},
 
       // Settings: both tabs, because a change on the pane that is not showing
       // still has to be there when the listener switches to it.
-      {"settingsTab", "settings", [](tramp::SessionView& v) { v.settingsTab = 1; }},
+      {"settingsTab", "settings", [](aoide::SessionView& v) { v.settingsTab = 1; }},
       {"resumeLastSession", "settings",
-       [](tramp::SessionView& v) { v.resumeLastSession = !v.resumeLastSession; }},
+       [](aoide::SessionView& v) { v.resumeLastSession = !v.resumeLastSession; }},
       {"confirmBeforeQuit", "settings",
-       [](tramp::SessionView& v) { v.confirmBeforeQuit = !v.confirmBeforeQuit; }},
+       [](aoide::SessionView& v) { v.confirmBeforeQuit = !v.confirmBeforeQuit; }},
       {"minimizeHidesSecondaries", "settings",
-       [](tramp::SessionView& v) { v.minimizeHidesSecondaries = !v.minimizeHidesSecondaries; }},
-      {"dockSnap", "settings", [](tramp::SessionView& v) { v.dockSnap = 2; }},
+       [](aoide::SessionView& v) { v.minimizeHidesSecondaries = !v.minimizeHidesSecondaries; }},
+      {"dockSnap", "settings", [](aoide::SessionView& v) { v.dockSnap = 2; }},
       {"skins", "skins",
-       [](tramp::SessionView& v) {
+       [](aoide::SessionView& v) {
          v.skins.push_back({QStringLiteral("dusk"), QStringLiteral("Dusk"), {}});
        }},
       {"activeSkinId", "skins",
-       [](tramp::SessionView& v) { v.activeSkinId = QStringLiteral("dusk"); }},
+       [](aoide::SessionView& v) { v.activeSkinId = QStringLiteral("dusk"); }},
       {"skinsError", "skins",
-       [](tramp::SessionView& v) { v.skinsError = QStringLiteral("no skin.json"); }},
-      {"skinsScroll", "skins", [](tramp::SessionView& v) { v.skinsScroll = 12; }},
+       [](aoide::SessionView& v) { v.skinsError = QStringLiteral("no skin.json"); }},
+      {"skinsScroll", "skins", [](aoide::SessionView& v) { v.skinsScroll = 12; }},
       {"persistWriteFailed", "settings",
-       [](tramp::SessionView& v) { v.persistWriteFailed = !v.persistWriteFailed; }},
+       [](aoide::SessionView& v) { v.persistWriteFailed = !v.persistWriteFailed; }},
       {"audioDeviceLabel", "settings",
-       [](tramp::SessionView& v) { v.audioDeviceLabel = QStringLiteral("HDMI"); }},
+       [](aoide::SessionView& v) { v.audioDeviceLabel = QStringLiteral("HDMI"); }},
       {"audioExclusive", "settings",
-       [](tramp::SessionView& v) { v.audioExclusive = !v.audioExclusive; }},
+       [](aoide::SessionView& v) { v.audioExclusive = !v.audioExclusive; }},
 
       // About: the four figures in the stats well.
-      {"aboutPlaylists", "about", [](tramp::SessionView& v) { v.aboutPlaylists += 1; }},
-      {"aboutTracks", "about", [](tramp::SessionView& v) { v.aboutTracks += 1; }},
-      {"aboutTimeMs", "about", [](tramp::SessionView& v) { v.aboutTimeMs += 60000; }},
-      {"aboutSpins", "about", [](tramp::SessionView& v) { v.aboutSpins += 1; }},
+      {"aboutPlaylists", "about", [](aoide::SessionView& v) { v.aboutPlaylists += 1; }},
+      {"aboutTracks", "about", [](aoide::SessionView& v) { v.aboutTracks += 1; }},
+      {"aboutTimeMs", "about", [](aoide::SessionView& v) { v.aboutTimeMs += 60000; }},
+      {"aboutSpins", "about", [](aoide::SessionView& v) { v.aboutSpins += 1; }},
 
       // Carried on the snapshot and painted by nobody.
-      {"selectedIndices", "", [](tramp::SessionView& v) { v.selectedIndices = {1, 4}; }},
+      {"selectedIndices", "", [](aoide::SessionView& v) { v.selectedIndices = {1, 4}; }},
       {"collectionSelected", "",
-       [](tramp::SessionView& v) { v.collectionSelected = QStringLiteral("/x.m3u"); }},
-      {"aboutMeasured", "", [](tramp::SessionView& v) { v.aboutMeasured = !v.aboutMeasured; }},
+       [](aoide::SessionView& v) { v.collectionSelected = QStringLiteral("/x.m3u"); }},
+      {"aboutMeasured", "", [](aoide::SessionView& v) { v.aboutMeasured = !v.aboutMeasured; }},
   };
 }
 
@@ -841,18 +841,18 @@ int rgbDistance(QRgb a, const QColor& b) {
 // a group cannot quietly narrow until a change stops reaching the panel that
 // shows it.
 void HostWindowMoveTest::aKeptRasterIsNeverOneThatWentStale() {
-  tramp::SessionView base = tramp::goldenDemoView();
+  aoide::SessionView base = aoide::goldenDemoView();
   base.goldenDemo = false;
   // Past the hold, so the marquee cases below can move the clock in both
   // directions across it.
   base.titleScrollMs = 3000;
 
   for (const FieldChange& change : everyFieldOfTheSnapshot()) {
-    tramp::SessionView changed = base;
+    aoide::SessionView changed = base;
     change.apply(changed);
     QStringList rebuilds;
-    for (tramp::WindowId id : everyPanel()) {
-      if (!tramp::paintsSame(id, base, changed)) {
+    for (aoide::WindowId id : everyPanel()) {
+      if (!aoide::paintsSame(id, base, changed)) {
         rebuilds << panelLabel(id);
         continue;
       }
@@ -875,41 +875,41 @@ void HostWindowMoveTest::aKeptRasterIsNeverOneThatWentStale() {
 // on that path at all. Which face it lights is
 // `refreshButtonLightsWhilePlaylistRefreshing`.
 void HostWindowMoveTest::refreshLampLightsOnTheLiveEventLoop() {
-  const auto specs = tramp::windowSpecs();
+  const auto specs = aoide::windowSpecs();
   HostShell shell;
   PaintCountHost pl(specs[2], &shell);
   shell.show();
   pl.show();
   QVERIFY(QTest::qWaitForWindowExposed(&pl));
 
-  tramp::SessionView idle;
+  aoide::SessionView idle;
   idle.playlistRefreshEnabled = true;
   pl.setSessionView(idle);
   QApplication::processEvents();
 
-  tramp::SessionView busy = idle;
+  aoide::SessionView busy = idle;
   busy.playlistRefreshing = true;
   const int before = pl.paints;
   pl.setSessionView(busy);
-  QVERIFY2(!tramp::WaitCursorScope::showing(), "a playlist ingest must not raise a wait cursor");
+  QVERIFY2(!aoide::WaitCursorScope::showing(), "a playlist ingest must not raise a wait cursor");
   QCOMPARE(pl.paints, before);
   QTRY_VERIFY2(pl.paints > before, "the lamp must reach the screen on the next turn of the loop");
 }
 
 void HostWindowMoveTest::refreshButtonLightsWhilePlaylistRefreshing() {
-  tramp::SessionView idle;
+  aoide::SessionView idle;
   idle.playlistRefreshEnabled = true;
-  tramp::SessionView busy = idle;
+  aoide::SessionView busy = idle;
   busy.playlistRefreshing = true;
 
-  const tramp::ChromeHit hit = refreshHit(busy);
-  QCOMPARE(hit.kind, tramp::ChromeHit::Kind::plRefresh);
+  const aoide::ChromeHit hit = refreshHit(busy);
+  QCOMPARE(hit.kind, aoide::ChromeHit::Kind::plRefresh);
   QVERIFY(hit.rect.isValid());
 
   const QPoint sample(hit.rect.center().x(), hit.rect.top() + 4);
   const QImage idleImg = paintPlaylistPanel(idle);
   const QImage busyImg = paintPlaylistPanel(busy);
-  const tramp::ChromeTokens tokens = tramp::ChromeTokens::builtin();
+  const aoide::ChromeTokens tokens = aoide::ChromeTokens::builtin();
   const int idleToOn = rgbDistance(idleImg.pixel(sample), tokens.btnOn0);
   const int busyToOn = rgbDistance(busyImg.pixel(sample), tokens.btnOn0);
   QVERIFY2(busyToOn < idleToOn,
@@ -921,31 +921,31 @@ void HostWindowMoveTest::refreshButtonLightsWhilePlaylistRefreshing() {
 // photograph and no fidelity gate can watch. That is how the settings Skins
 // pane went unseen, so the states the dump relies on are asserted here.
 void HostWindowMoveTest::goldenDemoPaintsTheStateItIsHanded() {
-  const tramp::SessionView golden = tramp::goldenDemoView();
+  const aoide::SessionView golden = aoide::goldenDemoView();
   QVERIFY2(golden.goldenDemo, "the demo state is still the fidelity reference");
 
   QVERIFY2(!golden.spectrumUnmeasured, "the golden demo is a measured spectrum");
   QVERIFY2(!golden.noAudioEngine, "the golden demo has a working engine");
   QVERIFY2(!golden.persistWriteFailed, "the golden demo has writable settings");
 
-  tramp::SessionView skins = golden;
+  aoide::SessionView skins = golden;
   skins.settingsTab = 1;
   skins.skins = {{QStringLiteral("builtin"), QStringLiteral("Built-in"), {}},
                  {QStringLiteral("dusk"), QStringLiteral("Dusk"), {}}};
-  QVERIFY2(paintPanel(tramp::WindowId::settings, tramp::kSettings, skins) !=
-               paintPanel(tramp::WindowId::settings, tramp::kSettings, golden),
+  QVERIFY2(paintPanel(aoide::WindowId::settings, aoide::kSettings, skins) !=
+               paintPanel(aoide::WindowId::settings, aoide::kSettings, golden),
            "the golden demo must be able to open the Audio tab");
-  QVERIFY2(paintPanel(tramp::WindowId::skins, tramp::kSkins, skins) !=
-               paintPanel(tramp::WindowId::skins, tramp::kSkins, golden),
+  QVERIFY2(paintPanel(aoide::WindowId::skins, aoide::kSkins, skins) !=
+               paintPanel(aoide::WindowId::skins, aoide::kSkins, golden),
            "the golden demo must be able to photograph a populated Skins panel");
 
   // The demo list fits the default well exactly, so the clamped panel is the
   // only picture the track scrollbar appears in.
-  const QRectF clampedList = tramp::playlistListRowRect(
-      tramp::playlistTrackInner(tramp::playlistTracksPane(
-          tramp::panelBody(tramp::kPlaylistMinWithCollection),
-          tramp::kPlaylistCollectionMinWidth)));
-  QVERIFY2(tramp::playlistListMaxScroll(int(golden.tracks.size()), clampedList.height()) > 0,
+  const QRectF clampedList = aoide::playlistListRowRect(
+      aoide::playlistTrackInner(aoide::playlistTracksPane(
+          aoide::panelBody(aoide::kPlaylistMinWithCollection),
+          aoide::kPlaylistCollectionMinWidth)));
+  QVERIFY2(aoide::playlistListMaxScroll(int(golden.tracks.size()), clampedList.height()) > 0,
            "the clamped playlist must overflow, or the scrollbar loses its only picture");
 }
 
@@ -968,73 +968,73 @@ void HostWindowMoveTest::mockupHelpersLeaveThePainterAsTheyFoundIt() {
   const QRectF glyph(30, 30, 24, 24);
   const QPointF dot(60, 60);
   const QString label = QStringLiteral("Label");
-  const QFont face = tramp::condensedFont(13, 0.1);
+  const QFont face = aoide::condensedFont(13, 0.1);
 
   const QVector<QPair<QString, std::function<void(QPainter&)>>> helpers = {
-      {QStringLiteral("fillRound"), [&](QPainter& g) { tramp::fillRound(g, box, 4, Qt::red); }},
-      {QStringLiteral("drawScreenWell"), [&](QPainter& g) { tramp::drawScreenWell(g, box); }},
-      {QStringLiteral("drawScreenOverlay"), [&](QPainter& g) { tramp::drawScreenOverlay(g, box); }},
-      {QStringLiteral("drawScreen"), [&](QPainter& g) { tramp::drawScreen(g, box); }},
-      {QStringLiteral("drawListWell"), [&](QPainter& g) { tramp::drawListWell(g, box); }},
-      {QStringLiteral("drawBtn"), [&](QPainter& g) { tramp::drawBtn(g, box, true); }},
+      {QStringLiteral("fillRound"), [&](QPainter& g) { aoide::fillRound(g, box, 4, Qt::red); }},
+      {QStringLiteral("drawScreenWell"), [&](QPainter& g) { aoide::drawScreenWell(g, box); }},
+      {QStringLiteral("drawScreenOverlay"), [&](QPainter& g) { aoide::drawScreenOverlay(g, box); }},
+      {QStringLiteral("drawScreen"), [&](QPainter& g) { aoide::drawScreen(g, box); }},
+      {QStringLiteral("drawListWell"), [&](QPainter& g) { aoide::drawListWell(g, box); }},
+      {QStringLiteral("drawBtn"), [&](QPainter& g) { aoide::drawBtn(g, box, true); }},
       {QStringLiteral("drawBtn labelled"),
-       [&](QPainter& g) { tramp::drawBtn(g, box, tramp::BtnFace(0.4, 0.5, 0.6), label); }},
+       [&](QPainter& g) { aoide::drawBtn(g, box, aoide::BtnFace(0.4, 0.5, 0.6), label); }},
       {QStringLiteral("drawIcon"),
-       [&](QPainter& g) { tramp::drawIcon(g, glyph, tramp::MockupIcon::play, Qt::white); }},
+       [&](QPainter& g) { aoide::drawIcon(g, glyph, aoide::MockupIcon::play, Qt::white); }},
       {QStringLiteral("drawIcon mute"),
-       [&](QPainter& g) { tramp::drawIcon(g, glyph, tramp::MockupIcon::mute, Qt::white); }},
+       [&](QPainter& g) { aoide::drawIcon(g, glyph, aoide::MockupIcon::mute, Qt::white); }},
       {QStringLiteral("drawIcon options"),
-       [&](QPainter& g) { tramp::drawIcon(g, glyph, tramp::MockupIcon::options, Qt::white); }},
+       [&](QPainter& g) { aoide::drawIcon(g, glyph, aoide::MockupIcon::options, Qt::white); }},
       {QStringLiteral("drawIcon skins"),
-       [&](QPainter& g) { tramp::drawIcon(g, glyph, tramp::MockupIcon::skins, Qt::white); }},
+       [&](QPainter& g) { aoide::drawIcon(g, glyph, aoide::MockupIcon::skins, Qt::white); }},
       {QStringLiteral("drawIcon trackInfo"),
-       [&](QPainter& g) { tramp::drawIcon(g, glyph, tramp::MockupIcon::trackInfo, Qt::white); }},
+       [&](QPainter& g) { aoide::drawIcon(g, glyph, aoide::MockupIcon::trackInfo, Qt::white); }},
       {QStringLiteral("drawGlyphBtn"),
-       [&](QPainter& g) { tramp::drawGlyphBtn(g, box, tramp::MockupIcon::next, true); }},
-      {QStringLiteral("drawSlider"), [&](QPainter& g) { tramp::drawSlider(g, slim, 0.4); }},
+       [&](QPainter& g) { aoide::drawGlyphBtn(g, box, aoide::MockupIcon::next, true); }},
+      {QStringLiteral("drawSlider"), [&](QPainter& g) { aoide::drawSlider(g, slim, 0.4); }},
       {QStringLiteral("drawSlider seek"),
-       [&](QPainter& g) { tramp::drawSlider(g, slim, 0.4, true); }},
-      {QStringLiteral("drawVBand"), [&](QPainter& g) { tramp::drawVBand(g, box, 4.5); }},
-      {QStringLiteral("drawLed"), [&](QPainter& g) { tramp::drawLed(g, dot, 0.7); }},
-      {QStringLiteral("drawLed dark"), [&](QPainter& g) { tramp::drawLed(g, dot, 0); }},
+       [&](QPainter& g) { aoide::drawSlider(g, slim, 0.4, true); }},
+      {QStringLiteral("drawVBand"), [&](QPainter& g) { aoide::drawVBand(g, box, 4.5); }},
+      {QStringLiteral("drawLed"), [&](QPainter& g) { aoide::drawLed(g, dot, 0.7); }},
+      {QStringLiteral("drawLed dark"), [&](QPainter& g) { aoide::drawLed(g, dot, 0); }},
       {QStringLiteral("drawToggleBtn"),
-       [&](QPainter& g) { tramp::drawToggleBtn(g, box, label, true); }},
-      {QStringLiteral("drawMenuCaret"), [&](QPainter& g) { tramp::drawMenuCaret(g, box); }},
-      {QStringLiteral("drawReload"), [&](QPainter& g) { tramp::drawReload(g, glyph, Qt::white); }},
+       [&](QPainter& g) { aoide::drawToggleBtn(g, box, label, true); }},
+      {QStringLiteral("drawMenuCaret"), [&](QPainter& g) { aoide::drawMenuCaret(g, box); }},
+      {QStringLiteral("drawReload"), [&](QPainter& g) { aoide::drawReload(g, glyph, Qt::white); }},
       {QStringLiteral("drawChevron"),
-       [&](QPainter& g) { tramp::drawChevron(g, glyph, true, Qt::white); }},
+       [&](QPainter& g) { aoide::drawChevron(g, glyph, true, Qt::white); }},
       {QStringLiteral("drawCreateMark"),
-       [&](QPainter& g) { tramp::drawCreateMark(g, glyph, Qt::white); }},
+       [&](QPainter& g) { aoide::drawCreateMark(g, glyph, Qt::white); }},
       {QStringLiteral("drawRenameMark"),
-       [&](QPainter& g) { tramp::drawRenameMark(g, glyph, Qt::white); }},
-      {QStringLiteral("drawFooterSep"), [&](QPainter& g) { tramp::drawFooterSep(g, slim); }},
-      {QStringLiteral("drawStatusDot"), [&](QPainter& g) { tramp::drawStatusDot(g, dot); }},
+       [&](QPainter& g) { aoide::drawRenameMark(g, glyph, Qt::white); }},
+      {QStringLiteral("drawFooterSep"), [&](QPainter& g) { aoide::drawFooterSep(g, slim); }},
+      {QStringLiteral("drawStatusDot"), [&](QPainter& g) { aoide::drawStatusDot(g, dot); }},
       {QStringLiteral("drawScrollbar"),
-       [&](QPainter& g) { tramp::drawScrollbar(g, QRectF(200, 30, 14, 120), 10, 40); }},
+       [&](QPainter& g) { aoide::drawScrollbar(g, QRectF(200, 30, 14, 120), 10, 40); }},
       {QStringLiteral("drawDiscLogo"),
-       [&](QPainter& g) { tramp::drawDiscLogo(g, QRectF(30, 30, 30, 30), &logo); }},
+       [&](QPainter& g) { aoide::drawDiscLogo(g, QRectF(30, 30, 30, 30), &logo); }},
       {QStringLiteral("drawDiscLogo flat"),
-       [&](QPainter& g) { tramp::drawDiscLogo(g, QRectF(30, 30, 58, 58), &logo, false); }},
+       [&](QPainter& g) { aoide::drawDiscLogo(g, QRectF(30, 30, 58, 58), &logo, false); }},
       {QStringLiteral("drawNoiseOverlay"),
-       [&](QPainter& g) { tramp::drawNoiseOverlay(g, box, 6); }},
+       [&](QPainter& g) { aoide::drawNoiseOverlay(g, box, 6); }},
       {QStringLiteral("drawStyledText"),
        [&](QPainter& g) {
-         tramp::drawStyledText(g, box, label, face, Qt::white, Qt::AlignCenter,
+         aoide::drawStyledText(g, box, label, face, Qt::white, Qt::AlignCenter,
                                {{Qt::black, QPointF(0, 1), 0}});
        }},
       {QStringLiteral("drawGlowText"),
        [&](QPainter& g) {
-         tramp::drawGlowText(g, box, label, face, Qt::white, Qt::cyan, 5, Qt::AlignCenter);
+         aoide::drawGlowText(g, box, label, face, Qt::white, Qt::cyan, 5, Qt::AlignCenter);
        }},
       {QStringLiteral("paintBlurred"),
        [&](QPainter& g) {
-         tramp::paintBlurred(g, box, 0, [&](QPainter& bp) { bp.setPen(Qt::NoPen); });
+         aoide::paintBlurred(g, box, 0, [&](QPainter& bp) { bp.setPen(Qt::NoPen); });
        }},
   };
 
   const QPen pen(QColor(11, 22, 33), 3);
   const QBrush brush(QColor(44, 55, 66));
-  const QFont font = tramp::monoFont(17, 0.25);
+  const QFont font = aoide::monoFont(17, 0.25);
   for (const auto& helper : helpers) {
     p.setPen(pen);
     p.setBrush(brush);
@@ -1055,17 +1055,17 @@ namespace {
 /// photographs for the same reason.
 struct PanelState {
   QString what;
-  tramp::WindowId id;
+  aoide::WindowId id;
   QSize logical;
-  tramp::SessionView view;
+  aoide::SessionView view;
 };
 
 QVector<PanelState> panelStates() {
-  const auto specs = tramp::windowSpecs();
-  const tramp::SessionView golden = tramp::goldenDemoView();
-  tramp::SessionView collapsed = golden;
+  const auto specs = aoide::windowSpecs();
+  const aoide::SessionView golden = aoide::goldenDemoView();
+  aoide::SessionView collapsed = golden;
   collapsed.collectionCollapsed = true;
-  tramp::SessionView skins = golden;
+  aoide::SessionView skins = golden;
   skins.settingsTab = 1;
   skins.skins = {{QStringLiteral("builtin"), QStringLiteral("Built-in"), {}},
                  {QStringLiteral("dusk"), QStringLiteral("Dusk"),
@@ -1073,28 +1073,28 @@ QVector<PanelState> panelStates() {
   skins.activeSkinId = QStringLiteral("dusk");
   skins.skinsError = QStringLiteral("dusk.zip: no skin.json at the archive root.");
   return {
-      {QStringLiteral("the main player"), tramp::WindowId::main, specs[0].logicalSize, golden},
-      {QStringLiteral("an empty main player"), tramp::WindowId::main, specs[0].logicalSize, {}},
-      {QStringLiteral("the equaliser"), tramp::WindowId::equalizer, specs[1].logicalSize, golden},
-      {QStringLiteral("the playlist"), tramp::WindowId::playlist, specs[2].logicalSize, golden},
-      {QStringLiteral("the collapsed playlist"), tramp::WindowId::playlist, specs[2].logicalSize,
+      {QStringLiteral("the main player"), aoide::WindowId::main, specs[0].logicalSize, golden},
+      {QStringLiteral("an empty main player"), aoide::WindowId::main, specs[0].logicalSize, {}},
+      {QStringLiteral("the equaliser"), aoide::WindowId::equalizer, specs[1].logicalSize, golden},
+      {QStringLiteral("the playlist"), aoide::WindowId::playlist, specs[2].logicalSize, golden},
+      {QStringLiteral("the collapsed playlist"), aoide::WindowId::playlist, specs[2].logicalSize,
        collapsed},
-      {QStringLiteral("an empty playlist"), tramp::WindowId::playlist, specs[2].logicalSize, {}},
-      {QStringLiteral("the settings pane"), tramp::WindowId::settings, specs[3].logicalSize,
+      {QStringLiteral("an empty playlist"), aoide::WindowId::playlist, specs[2].logicalSize, {}},
+      {QStringLiteral("the settings pane"), aoide::WindowId::settings, specs[3].logicalSize,
        golden},
-      {QStringLiteral("the Audio tab"), tramp::WindowId::settings, specs[3].logicalSize, skins},
-      {QStringLiteral("the about panel"), tramp::WindowId::about, specs[4].logicalSize, golden},
-      {QStringLiteral("the Skins panel"), tramp::WindowId::skins, specs[5].logicalSize, skins},
+      {QStringLiteral("the Audio tab"), aoide::WindowId::settings, specs[3].logicalSize, skins},
+      {QStringLiteral("the about panel"), aoide::WindowId::about, specs[4].logicalSize, golden},
+      {QStringLiteral("the Skins panel"), aoide::WindowId::skins, specs[5].logicalSize, skins},
   };
 }
 
-const char* passName(tramp::BodyPaint pass) {
+const char* passName(aoide::BodyPaint pass) {
   switch (pass) {
-    case tramp::BodyPaint::full:
+    case aoide::BodyPaint::full:
       return "the full pass";
-    case tramp::BodyPaint::chassis:
+    case aoide::BodyPaint::chassis:
       return "the chassis pass";
-    case tramp::BodyPaint::live:
+    case aoide::BodyPaint::live:
       return "the live pass";
   }
   return "an unknown pass";
@@ -1127,14 +1127,14 @@ const char* passName(tramp::BodyPaint pass) {
 // here as: the doors the chrome is drawn through are neutral, whatever happens
 // behind them.
 void HostWindowMoveTest::panelPaintersLeaveThePainterAsTheyFoundIt() {
-  const QImage logo = tramp::loadTrampLogo();
+  const QImage logo = aoide::loadAoideLogo();
   const QPen pen(QColor(11, 22, 33), 3);
   const QBrush brush(QColor(44, 55, 66));
-  const QFont font = tramp::monoFont(17, 0.25);
+  const QFont font = aoide::monoFont(17, 0.25);
 
   for (const PanelState& panel : panelStates()) {
-    for (tramp::BodyPaint pass :
-         {tramp::BodyPaint::full, tramp::BodyPaint::chassis, tramp::BodyPaint::live}) {
+    for (aoide::BodyPaint pass :
+         {aoide::BodyPaint::full, aoide::BodyPaint::chassis, aoide::BodyPaint::live}) {
       QImage canvas(panel.logical, QImage::Format_ARGB32_Premultiplied);
       canvas.fill(Qt::transparent);
       QPainter p(&canvas);
@@ -1146,9 +1146,9 @@ void HostWindowMoveTest::panelPaintersLeaveThePainterAsTheyFoundIt() {
       p.setBrush(brush);
       p.setFont(font);
 
-      const tramp::PainterState found = tramp::PainterState::of(p);
-      tramp::paintWindowBody(p, panel.id, panel.logical, &logo, panel.view, pass);
-      const QStringList moved = tramp::PainterState::of(p).differencesFrom(found);
+      const aoide::PainterState found = aoide::PainterState::of(p);
+      aoide::paintWindowBody(p, panel.id, panel.logical, &logo, panel.view, pass);
+      const QStringList moved = aoide::PainterState::of(p).differencesFrom(found);
       QVERIFY2(moved.isEmpty(),
                qPrintable(QStringLiteral("%1 left %2 behind on %3")
                               .arg(panel.what, moved.join(QStringLiteral(", ")),
@@ -1158,11 +1158,11 @@ void HostWindowMoveTest::panelPaintersLeaveThePainterAsTheyFoundIt() {
       // as well as the body, and the shell plate that is drawn before the
       // module takes its own clip. Its helpers were the round before this one
       // and have never had a pin of their own.
-      const tramp::TitleChromeLayout title =
-          tramp::TitleChromeLayout::forWindow(panel.id, panel.logical);
-      const tramp::PainterState atDoor = tramp::PainterState::of(p);
-      tramp::paintMockupWindow(p, panel.logical, panel.id, title, &logo, panel.view, pass);
-      const QStringList escaped = tramp::PainterState::of(p).differencesFrom(atDoor);
+      const aoide::TitleChromeLayout title =
+          aoide::TitleChromeLayout::forWindow(panel.id, panel.logical);
+      const aoide::PainterState atDoor = aoide::PainterState::of(p);
+      aoide::paintMockupWindow(p, panel.logical, panel.id, title, &logo, panel.view, pass);
+      const QStringList escaped = aoide::PainterState::of(p).differencesFrom(atDoor);
       QVERIFY2(escaped.isEmpty(),
                qPrintable(QStringLiteral("painting %1 whole left %2 behind on %3")
                               .arg(panel.what, escaped.join(QStringLiteral(", ")),
@@ -1189,9 +1189,9 @@ void HostWindowMoveTest::panelPaintersLeaveThePainterAsTheyFoundIt() {
 // picture would be the painters honouring the request, not reading state they
 // should have set.
 void HostWindowMoveTest::panelPaintersDrawWithWhatTheySet() {
-  const QImage logo = tramp::loadTrampLogo();
+  const QImage logo = aoide::loadAoideLogo();
 
-  auto shoot = [&](const PanelState& panel, tramp::BodyPaint pass, bool hostile) {
+  auto shoot = [&](const PanelState& panel, aoide::BodyPaint pass, bool hostile) {
     QImage canvas(panel.logical, QImage::Format_ARGB32_Premultiplied);
     canvas.fill(Qt::transparent);
     QPainter p(&canvas);
@@ -1200,16 +1200,16 @@ void HostWindowMoveTest::panelPaintersDrawWithWhatTheySet() {
     if (hostile) {
       p.setPen(QPen(QColor(255, 0, 255), 7));
       p.setBrush(QBrush(QColor(0, 255, 0)));
-      p.setFont(tramp::monoFont(31, 0.4));
+      p.setFont(aoide::monoFont(31, 0.4));
     }
-    tramp::paintWindowBody(p, panel.id, panel.logical, &logo, panel.view, pass);
+    aoide::paintWindowBody(p, panel.id, panel.logical, &logo, panel.view, pass);
     p.end();
     return canvas;
   };
 
   for (const PanelState& panel : panelStates()) {
-    for (tramp::BodyPaint pass :
-         {tramp::BodyPaint::full, tramp::BodyPaint::chassis, tramp::BodyPaint::live}) {
+    for (aoide::BodyPaint pass :
+         {aoide::BodyPaint::full, aoide::BodyPaint::chassis, aoide::BodyPaint::live}) {
       QVERIFY2(shoot(panel, pass, false) == shoot(panel, pass, true),
                qPrintable(QStringLiteral("%1 paints something with the pen, brush or font it "
                                          "was handed on %2")
@@ -1219,81 +1219,81 @@ void HostWindowMoveTest::panelPaintersDrawWithWhatTheySet() {
 }
 
 void HostWindowMoveTest::emptyStateCopyIsTheLockedCopy() {
-  const tramp::EmptyWellCopy playlist = tramp::playlistEmptyCopy();
+  const aoide::EmptyWellCopy playlist = aoide::playlistEmptyCopy();
   QCOMPARE(playlist.heading, QStringLiteral("THIS LIST IS EMPTY"));
   QCOMPARE(playlist.body, QStringLiteral("Drop files here, or open one from PLAYLISTS."));
   QVERIFY(!playlist.body.contains(QStringLiteral("DROP FILES HERE TO ENQUEUE")));
 
-  const tramp::EmptyWellCopy collection = tramp::collectionEmptyCopy();
+  const aoide::EmptyWellCopy collection = aoide::collectionEmptyCopy();
   QCOMPARE(collection.heading, QStringLiteral("NO SAVED PLAYLISTS"));
-  QCOMPARE(collection.body, QStringLiteral("Tramp only saves references to your playlist files. You can create new ones and name them whatever you want, without affecting the files."));
+  QCOMPARE(collection.body, QStringLiteral("Aoide only saves references to your playlist files. You can create new ones and name them whatever you want, without affecting the files."));
 
-  QCOMPARE(tramp::resumePlaybackLabel(), QStringLiteral("Resume playback"));
+  QCOMPARE(aoide::resumePlaybackLabel(), QStringLiteral("Resume playback"));
 
-  tramp::SessionView empty;
+  aoide::SessionView empty;
   QCOMPARE(empty.title, QStringLiteral("No track"));
   QVERIFY(empty.tracks.isEmpty());
-  QCOMPARE(tramp::mainEmptyTitle(empty), QStringLiteral("Drop files to play"));
+  QCOMPARE(aoide::mainEmptyTitle(empty), QStringLiteral("Drop files to play"));
 
-  tramp::SessionView stopped = empty;
+  aoide::SessionView stopped = empty;
   stopped.tracks.push_back(
       {QStringLiteral("A"), QStringLiteral("B"), QStringLiteral("1:00")});
-  QCOMPARE(tramp::mainEmptyTitle(stopped), QStringLiteral("No track"));
+  QCOMPARE(aoide::mainEmptyTitle(stopped), QStringLiteral("No track"));
 
-  const tramp::SessionView golden = tramp::goldenDemoView();
+  const aoide::SessionView golden = aoide::goldenDemoView();
   QVERIFY(!golden.tracks.isEmpty());
   QCOMPARE(golden.aboutSpins, 4096);
-  QCOMPARE(tramp::mainEmptyTitle(golden), golden.title);
+  QCOMPARE(aoide::mainEmptyTitle(golden), golden.title);
 
-  tramp::SessionView named;
+  aoide::SessionView named;
   named.title = QStringLiteral("Velvet Static");
-  QCOMPARE(tramp::mainEmptyTitle(named), QStringLiteral("Velvet Static"));
+  QCOMPARE(aoide::mainEmptyTitle(named), QStringLiteral("Velvet Static"));
 
-  const auto display = tramp::nowPlayingDisplay(std::nullopt, std::nullopt, 0);
+  const auto display = aoide::nowPlayingDisplay(std::nullopt, std::nullopt, 0);
   QCOMPARE(display.title, QStringLiteral("No track"));
 }
 
 void HostWindowMoveTest::paintsSameFlipsWhenAnEmptyListGainsARow() {
-  tramp::SessionView empty;
-  tramp::SessionView oneTrack = empty;
+  aoide::SessionView empty;
+  aoide::SessionView oneTrack = empty;
   oneTrack.tracks.push_back(
       {QStringLiteral("Artist"), QStringLiteral("Track"), QStringLiteral("3:20")});
 
-  QVERIFY2(!tramp::paintsSame(tramp::WindowId::playlist, empty, oneTrack),
+  QVERIFY2(!aoide::paintsSame(aoide::WindowId::playlist, empty, oneTrack),
            "the playlist chassis must turn over when the track list leaves empty");
-  QVERIFY2(!tramp::paintsSame(tramp::WindowId::main, empty, oneTrack),
+  QVERIFY2(!aoide::paintsSame(aoide::WindowId::main, empty, oneTrack),
            "the main chassis must turn over: Drop files to play becomes No track");
 
-  tramp::SessionView oneList = empty;
+  aoide::SessionView oneList = empty;
   oneList.collection.push_back({QStringLiteral("Nights"), 12, true, false});
-  QVERIFY2(!tramp::paintsSame(tramp::WindowId::playlist, empty, oneList),
+  QVERIFY2(!aoide::paintsSame(aoide::WindowId::playlist, empty, oneList),
            "the playlist chassis must turn over when the collection leaves empty");
 
-  tramp::SessionView titled;
+  aoide::SessionView titled;
   titled.title = QStringLiteral("Velvet Static");
-  tramp::SessionView titledOne = titled;
+  aoide::SessionView titledOne = titled;
   titledOne.tracks.push_back(
       {QStringLiteral("Artist"), QStringLiteral("Track"), QStringLiteral("3:20")});
-  QVERIFY2(tramp::paintsSame(tramp::WindowId::main, titled, titledOne),
+  QVERIFY2(aoide::paintsSame(aoide::WindowId::main, titled, titledOne),
            "a named title must not rebuild main just because the list gained a row");
 }
 
 void HostWindowMoveTest::paintsSameFlipsWhenSkinRadiiChange() {
-  tramp::SessionView base;
-  tramp::SessionView rounded = base;
+  aoide::SessionView base;
+  aoide::SessionView rounded = base;
   rounded.look.radii.window = 0;
-  QVERIFY2(!tramp::paintsSame(tramp::WindowId::main, base, rounded),
+  QVERIFY2(!aoide::paintsSame(aoide::WindowId::main, base, rounded),
            "a skin that sharpens window corners must rebuild every chassis");
 }
 
 namespace {
 
-QRectF paintedTrackWell(const tramp::SessionView& view) {
-  const QRectF body = tramp::panelBody(tramp::kPlaylistDefault);
+QRectF paintedTrackWell(const aoide::SessionView& view) {
+  const QRectF body = aoide::panelBody(aoide::kPlaylistDefault);
   const qreal collectionW = view.collectionCollapsed ? 0 : view.collectionWidth;
-  return tramp::playlistListWell(
-      tramp::playlistListRowRect(
-          tramp::playlistTrackInner(tramp::playlistTracksPane(body, collectionW))),
+  return aoide::playlistListWell(
+      aoide::playlistListRowRect(
+          aoide::playlistTrackInner(aoide::playlistTracksPane(body, collectionW))),
       view.tracks.size());
 }
 
@@ -1311,12 +1311,12 @@ int pixelsNear(const QImage& img, const QRect& region, const QColor& target, int
 }  // namespace
 
 void HostWindowMoveTest::emptyWellsAreNotBlank() {
-  tramp::loadTrampFonts();
-  tramp::SessionView empty;
-  tramp::SessionView withTrack = empty;
+  aoide::loadAoideFonts();
+  aoide::SessionView empty;
+  aoide::SessionView withTrack = empty;
   withTrack.tracks.push_back({QStringLiteral("Cassette Mirage"),
                               QStringLiteral("Low Orbit Lullaby"), QStringLiteral("4:12")});
-  tramp::SessionView withList = empty;
+  aoide::SessionView withList = empty;
   withList.collection.push_back({QStringLiteral("ANALOGUE GHOSTS"), 24, false, false});
 
   const QImage emptyPl = paintPlaylistPanel(empty);
@@ -1325,7 +1325,7 @@ void HostWindowMoveTest::emptyWellsAreNotBlank() {
   QVERIFY2(emptyPl != trackPl, "an empty track well must not paint like a list with a row");
   QVERIFY2(emptyPl != listPl, "an empty collection well must not paint like a list with a row");
 
-  const tramp::ChromeTokens tokens = tramp::ChromeTokens::builtin();
+  const aoide::ChromeTokens tokens = aoide::ChromeTokens::builtin();
   const QRect listWell = paintedTrackWell(empty).toAlignedRect();
   const int emptyInk = pixelsNear(emptyPl, listWell, tokens.inkFaint, 72);
   const int trackInk = pixelsNear(trackPl, listWell, tokens.inkFaint, 72);
@@ -1335,7 +1335,7 @@ void HostWindowMoveTest::emptyWellsAreNotBlank() {
   QVERIFY2(emptyInk > trackInk, "track rows are phosphor; empty-state copy is chrome ink");
 
   const QRect colWell =
-      tramp::playlistCollectionWell(tramp::panelBody(tramp::kPlaylistDefault),
+      aoide::playlistCollectionWell(aoide::panelBody(aoide::kPlaylistDefault),
                                     empty.collectionWidth)
           .toAlignedRect();
   const int emptyColInk = pixelsNear(emptyPl, colWell, tokens.inkFaint, 72);
@@ -1345,11 +1345,11 @@ void HostWindowMoveTest::emptyWellsAreNotBlank() {
                           .arg(emptyColInk)));
   QVERIFY2(emptyColInk > listedColInk, "a saved-playlist row is not the empty-state heading");
 
-  tramp::SessionView minEmpty = empty;
-  minEmpty.collectionWidth = tramp::kPlaylistCollectionMinWidth;
+  aoide::SessionView minEmpty = empty;
+  minEmpty.collectionWidth = aoide::kPlaylistCollectionMinWidth;
   const QImage minPl = paintPlaylistPanel(minEmpty);
   const QRect minColWell =
-      tramp::playlistCollectionWell(tramp::panelBody(tramp::kPlaylistDefault),
+      aoide::playlistCollectionWell(aoide::panelBody(aoide::kPlaylistDefault),
                                     minEmpty.collectionWidth)
           .toAlignedRect();
   const int minColInk = pixelsNear(minPl, minColWell, tokens.inkFaint, 72);
@@ -1357,53 +1357,53 @@ void HostWindowMoveTest::emptyWellsAreNotBlank() {
            qPrintable(QStringLiteral("min-width empty collection well ink-faint pixels: %1")
                           .arg(minColInk)));
 
-  const tramp::SessionView golden = tramp::goldenDemoView();
+  const aoide::SessionView golden = aoide::goldenDemoView();
   const QImage goldenPl = paintPlaylistPanel(golden);
   QVERIFY2(goldenPl != emptyPl, "the golden playlist dump must keep its rows");
   QVERIFY2(emptyPl.copy(listWell) !=
                goldenPl.copy(paintedTrackWell(golden).toAlignedRect()),
            "empty-well copy must not appear on the golden playlist");
 
-  const QSize mainLogical = tramp::kMainPlayer;
-  const QImage emptyMain = paintCachedPass(tramp::WindowId::main, mainLogical, empty);
-  const QImage stoppedMain = paintCachedPass(tramp::WindowId::main, mainLogical, withTrack);
+  const QSize mainLogical = aoide::kMainPlayer;
+  const QImage emptyMain = paintCachedPass(aoide::WindowId::main, mainLogical, empty);
+  const QImage stoppedMain = paintCachedPass(aoide::WindowId::main, mainLogical, withTrack);
   QVERIFY2(emptyMain != stoppedMain, "Drop files to play must leave the chassis once a row exists");
 
-  tramp::SessionView spun = golden;
+  aoide::SessionView spun = golden;
   spun.aboutSpins = 0;
-  QVERIFY2(paintCachedPass(tramp::WindowId::main, mainLogical, golden) ==
-               paintCachedPass(tramp::WindowId::main, mainLogical, spun),
+  QVERIFY2(paintCachedPass(aoide::WindowId::main, mainLogical, golden) ==
+               paintCachedPass(aoide::WindowId::main, mainLogical, spun),
            "the golden demo title must not follow aboutSpins");
 }
 
 void HostWindowMoveTest::emptyCollectionHeadingKeepsItsSidesAtMinWidth() {
-  tramp::loadTrampFonts();
-  const auto catalog = tramp::scanLookCatalog(QStringLiteral(TRAMP_SKINS_DIR));
-  tramp::LoadedSkinFonts fonts =
-      tramp::loadSkinFonts(QStringLiteral("shield"), catalog.manifests);
+  aoide::loadAoideFonts();
+  const auto catalog = aoide::scanLookCatalog(QStringLiteral(AOIDE_SKINS_DIR));
+  aoide::LoadedSkinFonts fonts =
+      aoide::loadSkinFonts(QStringLiteral("shield"), catalog.manifests);
   QVERIFY2(!fonts.chromeFamily.isEmpty(), "Shield must ship a chrome face");
-  tramp::setLookFamilies(fonts.chromeFamily, fonts.lcdFamily);
+  aoide::setLookFamilies(fonts.chromeFamily, fonts.lcdFamily);
 
-  tramp::SessionView empty;
-  empty.collectionWidth = tramp::kPlaylistCollectionMinWidth;
+  aoide::SessionView empty;
+  empty.collectionWidth = aoide::kPlaylistCollectionMinWidth;
   const QImage panel = paintPlaylistPanel(empty);
 
-  const QRectF well = tramp::playlistCollectionWell(
-      tramp::panelBody(tramp::kPlaylistDefault), empty.collectionWidth);
-  const qreal pad = tramp::kPlaylistEmptyWellPad;
+  const QRectF well = aoide::playlistCollectionWell(
+      aoide::panelBody(aoide::kPlaylistDefault), empty.collectionWidth);
+  const qreal pad = aoide::kPlaylistEmptyWellPad;
   const qreal headH = 20;
   const qreal bodyH = 40;
   const qreal top = well.center().y() - (headH + bodyH) / 2;
   const QRectF headBox(well.left() + pad, top, well.width() - 2 * pad, headH);
-  const QString heading = tramp::collectionEmptyCopy().heading;
+  const QString heading = aoide::collectionEmptyCopy().heading;
 
-  QFont designed = tramp::condensedFont(12, 0.18);
+  QFont designed = aoide::condensedFont(12, 0.18);
   QVERIFY2(QFontMetricsF(designed).horizontalAdvance(heading) > headBox.width(),
            "Shield's empty-well heading must still overshoot the min-width box "
            "before it is fitted — otherwise this is no longer the reported bug");
 
   QFont fitted = designed;
-  tramp::fitFontToWidth(fitted, heading, headBox.width());
+  aoide::fitFontToWidth(fitted, heading, headBox.width());
 
   QImage reference(panel.size(), QImage::Format_ARGB32_Premultiplied);
   reference.fill(Qt::transparent);
@@ -1415,7 +1415,7 @@ void HostWindowMoveTest::emptyCollectionHeadingKeepsItsSidesAtMinWidth() {
     p.drawText(headBox, Qt::AlignHCenter | Qt::AlignVCenter | Qt::TextDontClip, heading);
   }
 
-  const tramp::ChromeTokens tokens = tramp::ChromeTokens::builtin();
+  const aoide::ChromeTokens tokens = aoide::ChromeTokens::builtin();
   const QRect band = headBox.toAlignedRect();
   auto inkSpan = [&](auto isInk) {
     int left = -1;
@@ -1434,7 +1434,7 @@ void HostWindowMoveTest::emptyCollectionHeadingKeepsItsSidesAtMinWidth() {
   const auto painted = inkSpan(
       [&](int x, int y) { return rgbDistance(panel.pixel(x, y), tokens.inkFaint) <= 80; });
 
-  tramp::setLookFamilies({}, {});
+  aoide::setLookFamilies({}, {});
   fonts.unload();
 
   QVERIFY2(ref.first >= 0 && painted.first >= 0, "empty-well heading must paint at min width");
@@ -1447,98 +1447,98 @@ void HostWindowMoveTest::emptyCollectionHeadingKeepsItsSidesAtMinWidth() {
 }
 
 void HostWindowMoveTest::unmeasuredSpectrumMarkFollowsTheSpectrogram() {
-  tramp::loadTrampFonts();
-  const tramp::SessionView measured = tramp::goldenDemoView();
-  tramp::SessionView unmeasured = measured;
+  aoide::loadAoideFonts();
+  const aoide::SessionView measured = aoide::goldenDemoView();
+  aoide::SessionView unmeasured = measured;
   unmeasured.spectrumUnmeasured = true;
 
-  QVERIFY2(!tramp::paintsSame(tramp::WindowId::main, measured, unmeasured),
+  QVERIFY2(!aoide::paintsSame(aoide::WindowId::main, measured, unmeasured),
            "the main chassis must turn over for the unmeasured-spectrum mark");
-  QVERIFY2(tramp::paintsSame(tramp::WindowId::settings, measured, unmeasured),
+  QVERIFY2(aoide::paintsSame(aoide::WindowId::settings, measured, unmeasured),
            "the mark is a display-well surface, not a second settings notice");
 
-  tramp::SessionView pausedMeasured = measured;
+  aoide::SessionView pausedMeasured = measured;
   pausedMeasured.playing = false;
   pausedMeasured.paused = true;
-  tramp::SessionView pausedUnmeasured = unmeasured;
+  aoide::SessionView pausedUnmeasured = unmeasured;
   pausedUnmeasured.playing = false;
   pausedUnmeasured.paused = true;
 
-  const QSize main = tramp::kMainPlayer;
-  QVERIFY2(paintPanel(tramp::WindowId::main, main, unmeasured) !=
-               paintPanel(tramp::WindowId::main, main, measured),
+  const QSize main = aoide::kMainPlayer;
+  QVERIFY2(paintPanel(aoide::WindowId::main, main, unmeasured) !=
+               paintPanel(aoide::WindowId::main, main, measured),
            "an unmeasured spectrum must paint a mark on the display well");
-  QVERIFY2(paintPanel(tramp::WindowId::main, main, pausedUnmeasured) !=
-               paintPanel(tramp::WindowId::main, main, pausedMeasured),
+  QVERIFY2(paintPanel(aoide::WindowId::main, main, pausedUnmeasured) !=
+               paintPanel(aoide::WindowId::main, main, pausedMeasured),
            "pause must not clear the unmeasured mark");
 }
 
 void HostWindowMoveTest::missingEngineMarkStaysOnTheDisplayWell() {
-  tramp::loadTrampFonts();
-  const tramp::SessionView working = tramp::goldenDemoView();
-  tramp::SessionView missing = working;
+  aoide::loadAoideFonts();
+  const aoide::SessionView working = aoide::goldenDemoView();
+  aoide::SessionView missing = working;
   missing.noAudioEngine = true;
 
-  QVERIFY2(!tramp::paintsSame(tramp::WindowId::main, working, missing),
+  QVERIFY2(!aoide::paintsSame(aoide::WindowId::main, working, missing),
            "the main chassis must turn over for the missing-engine mark");
-  QVERIFY2(tramp::paintsSame(tramp::WindowId::settings, working, missing),
+  QVERIFY2(aoide::paintsSame(aoide::WindowId::settings, working, missing),
            "the mark is a display-well surface, not a second settings notice");
-  QVERIFY2(paintPanel(tramp::WindowId::main, tramp::kMainPlayer, missing) !=
-               paintPanel(tramp::WindowId::main, tramp::kMainPlayer, working),
+  QVERIFY2(paintPanel(aoide::WindowId::main, aoide::kMainPlayer, missing) !=
+               paintPanel(aoide::WindowId::main, aoide::kMainPlayer, working),
            "a missing audio engine must paint a durable mark on the display well");
 }
 
 void HostWindowMoveTest::persistFailureMarkStaysUntilAWriteSucceeds() {
-  tramp::loadTrampFonts();
-  const tramp::SessionView ok = tramp::goldenDemoView();
-  tramp::SessionView failed = ok;
+  aoide::loadAoideFonts();
+  const aoide::SessionView ok = aoide::goldenDemoView();
+  aoide::SessionView failed = ok;
   failed.persistWriteFailed = true;
 
-  QVERIFY2(!tramp::paintsSame(tramp::WindowId::settings, ok, failed),
+  QVERIFY2(!aoide::paintsSame(aoide::WindowId::settings, ok, failed),
            "the settings chassis must turn over for a persist-write mark");
-  QVERIFY2(tramp::paintsSame(tramp::WindowId::main, ok, failed),
+  QVERIFY2(aoide::paintsSame(aoide::WindowId::main, ok, failed),
            "the persist mark is a Settings-row surface, not a title-bar overlay");
-  QVERIFY2(paintPanel(tramp::WindowId::settings, tramp::kSettings, failed) !=
-               paintPanel(tramp::WindowId::settings, tramp::kSettings, ok),
+  QVERIFY2(paintPanel(aoide::WindowId::settings, aoide::kSettings, failed) !=
+               paintPanel(aoide::WindowId::settings, aoide::kSettings, ok),
            "a failed state-file write must paint a Settings-row mark");
 }
 
 void HostWindowMoveTest::skinsErrorStaysOnTheSkinsStrip() {
-  tramp::loadTrampFonts();
-  tramp::SessionView clean = tramp::goldenDemoView();
+  aoide::loadAoideFonts();
+  aoide::SessionView clean = aoide::goldenDemoView();
   clean.settingsTab = 1;
-  tramp::SessionView failed = clean;
+  aoide::SessionView failed = clean;
   failed.skinsError = QStringLiteral("no skin.json at the archive root");
 
-  QVERIFY2(tramp::paintsSame(tramp::WindowId::main, clean, failed),
+  QVERIFY2(aoide::paintsSame(aoide::WindowId::main, clean, failed),
            "a skin install error is not a second display-well surface");
-  QVERIFY2(tramp::paintsSame(tramp::WindowId::settings, clean, failed),
+  QVERIFY2(aoide::paintsSame(aoide::WindowId::settings, clean, failed),
            "a skin install error is not a Settings surface");
-  QVERIFY2(!tramp::paintsSame(tramp::WindowId::skins, clean, failed),
+  QVERIFY2(!aoide::paintsSame(aoide::WindowId::skins, clean, failed),
            "the Skins-panel strip is the transient notice");
-  QVERIFY2(paintPanel(tramp::WindowId::skins, tramp::kSkins, failed) !=
-               paintPanel(tramp::WindowId::skins, tramp::kSkins, clean),
+  QVERIFY2(paintPanel(aoide::WindowId::skins, aoide::kSkins, failed) !=
+               paintPanel(aoide::WindowId::skins, aoide::kSkins, clean),
            "the Skins strip must still paint skinsError");
 }
 
 void HostWindowMoveTest::eqCurveWellIgnoresPreamp() {
-  tramp::SessionView a = tramp::goldenDemoView();
-  tramp::SessionView b = a;
+  aoide::SessionView a = aoide::goldenDemoView();
+  aoide::SessionView b = a;
   b.eq.preamp = -8;
-  tramp::SessionView shaped = a;
+  aoide::SessionView shaped = a;
   shaped.eq.gains[0] = 12;
 
-  const QImage pa = paintPanel(tramp::WindowId::equalizer, tramp::kEqualizer, a);
-  const QImage pb = paintPanel(tramp::WindowId::equalizer, tramp::kEqualizer, b);
-  const QImage ps = paintPanel(tramp::WindowId::equalizer, tramp::kEqualizer, shaped);
+  const QImage pa = paintPanel(aoide::WindowId::equalizer, aoide::kEqualizer, a);
+  const QImage pb = paintPanel(aoide::WindowId::equalizer, aoide::kEqualizer, b);
+  const QImage ps = paintPanel(aoide::WindowId::equalizer, aoide::kEqualizer, shaped);
 
-  const QRectF body = tramp::panelBody(tramp::kEqualizer);
-  const tramp::EqHeaderRow header =
-      tramp::layoutEqHeader(body, tramp::labelBtnWidth(QStringLiteral("ON")),
-                            tramp::labelBtnWidth(QStringLiteral("AUTO")),
-                            tramp::labelBtnWidth(QStringLiteral("PRESETS"), 16, 22));
+  const QRectF body = aoide::panelBody(aoide::kEqualizer);
+  const aoide::EqHeaderRow header =
+      aoide::layoutEqHeader(body, aoide::labelBtnWidth(QStringLiteral("ON")),
+                            aoide::labelBtnWidth(QStringLiteral("AUTO")),
+                            aoide::labelBtnWidth(QStringLiteral("PRESETS"), 16, 22));
   const QRect curve = header.curveWell.toRect();
-  const QRect preampWell = tramp::eqBandColumn(tramp::eqBandRow(body), 0).well.toRect();
+  const QRect preampWell = aoide::eqBandColumn(aoide::eqBandRow(body), 0).well.toRect();
 
   QVERIFY2(pa.copy(curve) != ps.copy(curve),
            "the curve well must still follow the ten band gains");
@@ -1548,31 +1548,31 @@ void HostWindowMoveTest::eqCurveWellIgnoresPreamp() {
 }
 
 void HostWindowMoveTest::wordmarkKeepsBrandFaceWhenChromeFontChanges() {
-  tramp::loadTrampFonts();
-  tramp::SessionView view = tramp::goldenDemoView();
-  const tramp::TitleChromeLayout title =
-      tramp::TitleChromeLayout::forWindow(tramp::WindowId::main, tramp::kMainPlayer);
-  const QImage logo = tramp::loadTrampLogo();
+  aoide::loadAoideFonts();
+  aoide::SessionView view = aoide::goldenDemoView();
+  const aoide::TitleChromeLayout title =
+      aoide::TitleChromeLayout::forWindow(aoide::WindowId::main, aoide::kMainPlayer);
+  const QImage logo = aoide::loadAoideLogo();
 
   auto shoot = [&]() {
-    QImage img(tramp::kMainPlayer, QImage::Format_ARGB32_Premultiplied);
+    QImage img(aoide::kMainPlayer, QImage::Format_ARGB32_Premultiplied);
     img.fill(Qt::black);
     QPainter p(&img);
-    tramp::paintMockupWindow(p, tramp::kMainPlayer, tramp::WindowId::main, title, &logo, view);
+    aoide::paintMockupWindow(p, aoide::kMainPlayer, aoide::WindowId::main, title, &logo, view);
     p.end();
     return img;
   };
 
-  tramp::setLookFamilies({}, {});
+  aoide::setLookFamilies({}, {});
   const QImage builtin = shoot();
-  tramp::setLookFamilies(tramp::lcdFamily(), tramp::lcdFamily());
+  aoide::setLookFamilies(aoide::lcdFamily(), aoide::lcdFamily());
   const QImage skinned = shoot();
-  tramp::setLookFamilies({}, {});
+  aoide::setLookFamilies({}, {});
 
   const int wmW =
-      QFontMetrics(tramp::brandFont(24)).horizontalAdvance(QStringLiteral("TRAMP"));
-  const QRect wordmark(54, 0, wmW, tramp::kTitleBar);
-  const QRect role(330, 0, 180, tramp::kTitleBar);
+      QFontMetrics(aoide::brandFont(24)).horizontalAdvance(QStringLiteral("AOIDE"));
+  const QRect wordmark(54, 0, wmW, aoide::kTitleBar);
+  const QRect role(330, 0, 180, aoide::kTitleBar);
   QVERIFY2(builtin.copy(role) != skinned.copy(role),
            "a chrome-font override must still restyle the role title");
   QCOMPARE(builtin.copy(wordmark), skinned.copy(wordmark));

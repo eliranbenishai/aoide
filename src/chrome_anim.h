@@ -6,7 +6,7 @@
 
 #include <QVector>
 
-namespace tramp {
+namespace aoide {
 
 /// How long a button takes to walk between faces. Long enough to read as a
 /// fade, short enough that a click still feels immediate.
@@ -89,4 +89,4 @@ inline qreal easeBtnPhase(qreal t) {
   return k * k * (3 - 2 * k);
 }
 
-}  // namespace tramp
+}  // namespace aoide

@@ -4,7 +4,7 @@
 #include <QObject>
 #include <QVariantMap>
 
-namespace tramp {
+namespace aoide {
 
 class PortalWaiter : public QObject {
   Q_OBJECT
@@ -21,4 +21,4 @@ class PortalWaiter : public QObject {
   }
 };
 
-}  // namespace tramp
+}  // namespace aoide

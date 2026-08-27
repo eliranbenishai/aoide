@@ -26,7 +26,7 @@ BRAND="$ROOT/assets/branding"
 raster 512 "$BRAND/logo.png"
 raster 256 "$BRAND/app_icon.png"
 
-APP_ID="com.proximamagnifica.tramp"
+APP_ID="com.proximamagnifica.aoide"
 HICOLOR="$ROOT/packaging/linux/icons/hicolor"
 for size in 16 24 32 48 64 128 256 512; do
   raster "$size" "$HICOLOR/${size}x${size}/apps/${APP_ID}.png"
@@ -35,7 +35,7 @@ done
 "$MAGICK" "$BRAND/app_icon.png" -define icon:auto-resize=256,48,32,16 \
   "$ROOT/packaging/windows/app_icon.ico"
 
-python3 - "$HICOLOR" "$APP_ID" "$ROOT/packaging/macos/tramp.icns" <<'PY'
+python3 - "$HICOLOR" "$APP_ID" "$ROOT/packaging/macos/aoide.icns" <<'PY'
 import struct
 import sys
 from pathlib import Path

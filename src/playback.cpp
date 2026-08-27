@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace tramp {
+namespace aoide {
 
 namespace {
 
@@ -438,4 +438,4 @@ void PlaybackController::onPlaylistChanged() {
   notify();
 }
 
-}  // namespace tramp
+}  // namespace aoide

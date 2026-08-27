@@ -2,15 +2,15 @@
 
 #include <QTest>
 
-using tramp::DockLayout;
-using tramp::LayoutSync;
-using tramp::WindowId;
+using aoide::DockLayout;
+using aoide::LayoutSync;
+using aoide::WindowId;
 
 namespace {
 
 /// A desktop with no compositor behind it. Everything LayoutSync needs from the
 /// outside world is one rectangle, so a monitor going away is a field write.
-class FakeDesktop : public tramp::PanelSurfaces {
+class FakeDesktop : public aoide::PanelSurfaces {
  public:
   explicit FakeDesktop(QRect host = {}) : host_(host) {}
   QRect hostRect() const override { return host_; }
@@ -25,20 +25,20 @@ class FakeDesktop : public tramp::PanelSurfaces {
   void setWorkArea(QRect work) { work_ = work; }
   mutable QRect clusterAsked;
 
-  void placePanels(const QVector<tramp::PanelPlacement>& panels) override {
+  void placePanels(const QVector<aoide::PanelPlacement>& panels) override {
     ++passes;
     last = panels;
   }
 
-  tramp::PanelPlacement placementOf(WindowId id) const {
-    for (const tramp::PanelPlacement& panel : last) {
+  aoide::PanelPlacement placementOf(WindowId id) const {
+    for (const aoide::PanelPlacement& panel : last) {
       if (panel.id == id) return panel;
     }
     return {};
   }
 
   int passes = 0;
-  QVector<tramp::PanelPlacement> last;
+  QVector<aoide::PanelPlacement> last;
 
  private:
   QRect host_;
@@ -118,7 +118,7 @@ void LayoutSyncTest::nativeFrameRectTakesTheStoredPlaylistSizeAndTheShadedHeight
   // collapsed panel by its title bar.
   dock.playlist.shaded = true;
   LayoutSync shaded(dock, 100);
-  QCOMPARE(shaded.nativeFrameRect(WindowId::playlist), QRect(0, 0, 900, tramp::kTitleBar));
+  QCOMPARE(shaded.nativeFrameRect(WindowId::playlist), QRect(0, 0, 900, aoide::kTitleBar));
 }
 
 void LayoutSyncTest::setNativeFrameRoundTripsThroughTheFrame() {
@@ -199,7 +199,7 @@ void LayoutSyncTest::aClusterIsTranslatedWholeOntoAScreenLeftOfThePrimary() {
   dock.main = {true, false, -4000, -3000, {}, {}};
   dock.equalizer = {true, false, -4000, -2652, {}, {}};
   dock.playlist.visible = false;
-  dock.dockEdges = {{WindowId::equalizer, WindowId::main, tramp::DockSide::top}};
+  dock.dockEdges = {{WindowId::equalizer, WindowId::main, aoide::DockSide::top}};
   LayoutSync layout(dock, 100);
   layout.setSurfaces(&desktop);
 
@@ -223,8 +223,8 @@ void LayoutSyncTest::clampingOntoAScreenLeftOfThePrimaryDropsTheEdgesItBreaks() 
   dock.playlist = {true, false, -1095, -200, 1073.0, 696.0};
   dock.equalizer.visible = false;
   dock.dockEdges = {
-      {WindowId::playlist, WindowId::main, tramp::DockSide::left},
-      {WindowId::playlist, WindowId::main, tramp::DockSide::top},
+      {WindowId::playlist, WindowId::main, aoide::DockSide::left},
+      {WindowId::playlist, WindowId::main, aoide::DockSide::top},
   };
   LayoutSync layout(dock, 100);
   layout.setSurfaces(&desktop);
@@ -273,8 +273,8 @@ void LayoutSyncTest::aClusterTooWideForTheDesktopClampsEachPanelAndDropsTheEdges
   dock.playlist = {true, false, 825, 0, 1073.0, 696.0};
   dock.equalizer.visible = false;
   dock.dockEdges = {
-      {WindowId::playlist, WindowId::main, tramp::DockSide::left},
-      {WindowId::playlist, WindowId::main, tramp::DockSide::top},
+      {WindowId::playlist, WindowId::main, aoide::DockSide::left},
+      {WindowId::playlist, WindowId::main, aoide::DockSide::top},
   };
   LayoutSync layout(dock, 100);
   layout.setSurfaces(&desktop);
@@ -293,7 +293,7 @@ void LayoutSyncTest::aCrawlTooSlowToPeelStillLosesTheEdgeItCrawledAwayFrom() {
   dock.main = {true, false, 0, 0, {}, {}};
   dock.equalizer = {true, false, 0, 348, {}, {}};
   dock.playlist.visible = false;
-  dock.dockEdges = {{WindowId::equalizer, WindowId::main, tramp::DockSide::top}};
+  dock.dockEdges = {{WindowId::equalizer, WindowId::main, aoide::DockSide::top}};
   LayoutSync layout(dock, 100);
   layout.setSurfaces(&desktop);
 
@@ -324,10 +324,10 @@ void LayoutSyncTest::aClusterThatOnlyMovedKeepsEveryEdgeItWasDockedBy() {
   dock.equalizer = {true, false, 2000, 348, {}, {}};
   dock.playlist = {true, false, 2825, 0, 1073.0, 696.0};
   dock.dockEdges = {
-      {WindowId::equalizer, WindowId::main, tramp::DockSide::top},
-      {WindowId::equalizer, WindowId::main, tramp::DockSide::left},
-      {WindowId::playlist, WindowId::main, tramp::DockSide::left},
-      {WindowId::playlist, WindowId::main, tramp::DockSide::top},
+      {WindowId::equalizer, WindowId::main, aoide::DockSide::top},
+      {WindowId::equalizer, WindowId::main, aoide::DockSide::left},
+      {WindowId::playlist, WindowId::main, aoide::DockSide::left},
+      {WindowId::playlist, WindowId::main, aoide::DockSide::top},
   };
   LayoutSync layout(dock, 75);
   layout.setSurfaces(&desktop);
@@ -337,7 +337,7 @@ void LayoutSyncTest::aClusterThatOnlyMovedKeepsEveryEdgeItWasDockedBy() {
 
   QCOMPARE(layout.layout().dockEdges.size(), 4);
   QVERIFY(layout.layout().playlist.left - layout.layout().main.left - 825.0 <=
-          tramp::DockingCoordinator::kEdgeSlack);
+          aoide::DockingCoordinator::kEdgeSlack);
 }
 
 namespace {
@@ -346,9 +346,9 @@ namespace {
 /// opens on, 1073 x 1392 logical.
 DockLayout defaultCluster() {
   DockLayout dock;
-  dock.main = tramp::WindowFrame::mainDefault();
-  dock.equalizer = tramp::WindowFrame::equalizerDefault();
-  dock.playlist = tramp::WindowFrame::playlistDefault();
+  dock.main = aoide::WindowFrame::mainDefault();
+  dock.equalizer = aoide::WindowFrame::equalizerDefault();
+  dock.playlist = aoide::WindowFrame::playlistDefault();
   return dock;
 }
 
@@ -438,7 +438,7 @@ void LayoutSyncTest::zoomingBackOutOfAStepTheDisplayOutgrewIsAlwaysOffered() {
   // hold — 150% of the default stack is 2088 native tall against 1044 of work
   // area. Withdrawing the way out would strand the listener at it, so a step at
   // or below the one in force is always carried.
-  QVERIFY(!tramp::zoomStepFits(layout.clusterLogicalSize(), kWorkArea1080p.size(), 150));
+  QVERIFY(!aoide::zoomStepFits(layout.clusterLogicalSize(), kWorkArea1080p.size(), 150));
   QCOMPARE(layout.zoomStepDown().value_or(0), 125);
   QVERIFY(layout.setZoomPercent(125));
   QCOMPARE(layout.zoomStepDown().value_or(0), 100);
@@ -458,8 +458,8 @@ DockLayout playlistDockedRightOfMain() {
   dock.playlist = {true, false, 825, 0, 1073.0, 696.0};
   dock.equalizer.visible = false;
   dock.dockEdges = {
-      {WindowId::playlist, WindowId::main, tramp::DockSide::left},
-      {WindowId::playlist, WindowId::main, tramp::DockSide::top},
+      {WindowId::playlist, WindowId::main, aoide::DockSide::left},
+      {WindowId::playlist, WindowId::main, aoide::DockSide::top},
   };
   return dock;
 }
@@ -540,7 +540,7 @@ void LayoutSyncTest::everyPanelReachesTheSurfacesIncludingTheHiddenOnes() {
   layout.setSurfaces(&desktop);
 
   layout.place();
-  QCOMPARE(desktop.last.size(), tramp::kPanelCount);
+  QCOMPARE(desktop.last.size(), aoide::kPanelCount);
   QCOMPARE(desktop.placementOf(WindowId::main).screen, QRect(40, 40, 825, 348));
   QVERIFY(desktop.placementOf(WindowId::equalizer).visible);
   QVERIFY(!desktop.placementOf(WindowId::playlist).visible);
@@ -577,10 +577,10 @@ void LayoutSyncTest::aShadedPanelKeepsTheCanvasItWillGoBackTo() {
   layout.setSurfaces(&desktop);
 
   layout.place();
-  const tramp::PanelPlacement pl = desktop.placementOf(WindowId::playlist);
+  const aoide::PanelPlacement pl = desktop.placementOf(WindowId::playlist);
   // The screen rectangle collapses to the title bar; the canvas handed to the
   // panel does not, or unshading would restore a 42px playlist.
-  QCOMPARE(pl.screen.height(), tramp::kTitleBar);
+  QCOMPARE(pl.screen.height(), aoide::kTitleBar);
   QCOMPARE(pl.logicalSize, QSize(900, 600));
   QVERIFY(pl.shaded);
 }

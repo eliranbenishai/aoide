@@ -3,8 +3,8 @@
 #include "chrome_paint.h"
 #include "session_view.h"
 #include "title_chrome.h"
-#include "tramp_fonts.h"
-#include "tramp_metrics.h"
+#include "aoide_fonts.h"
+#include "aoide_metrics.h"
 #include "window_spec.h"
 
 #include <QDir>
@@ -14,7 +14,7 @@
 
 #include <exception>
 
-namespace tramp {
+namespace aoide {
 
 bool writeSkinPreviewPng(const QString& id, const QVector<LookManifest>& installed,
                          const QString& path, QString* error) {
@@ -37,7 +37,7 @@ bool writeSkinPreviewPng(const QString& id, const QVector<LookManifest>& install
     const ChromeTokens tokens = ChromeTokens::from(resolved);
     setLookFamilies(resolved.chromeFamily, resolved.lcdFamily);
 
-    static const QImage logo = loadTrampLogo();
+    static const QImage logo = loadAoideLogo();
     SessionView view = goldenDemoView();
     view.look = tokens;
     view.zoomPercent = 100;
@@ -70,4 +70,4 @@ bool writeSkinPreviewPng(const QString& id, const QVector<LookManifest>& install
   }
 }
 
-}  // namespace tramp
+}  // namespace aoide

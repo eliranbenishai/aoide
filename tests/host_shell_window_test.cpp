@@ -36,7 +36,7 @@ void HostShellWindowTest::shellIsFramelessToplevelNotTool() {
   QVERIFY(!shell.windowFlags().testFlag(Qt::Dialog));
   QVERIFY(!shell.windowFlags().testFlag(Qt::WindowTransparentForInput));
   QVERIFY(shell.testAttribute(Qt::WA_TranslucentBackground));
-  QCOMPARE(shell.windowTitle(), QStringLiteral("Tramp"));
+  QCOMPARE(shell.windowTitle(), QStringLiteral("Aoide"));
 }
 
 void HostShellWindowTest::shellAdvertisesAppLogoOnTheTaskbar() {
@@ -59,7 +59,7 @@ void HostShellWindowTest::shellAdvertisesAppLogoOnTheTaskbar() {
 
 void HostShellWindowTest::applyLayoutSetsGeometryAndPunchedMask() {
   HostShell shell;
-  tramp::HostShellLayout layout;
+  aoide::HostShellLayout layout;
   layout.screenRect = QRect(10, 20, 300, 50);
   QRegion mask;
   mask += QRect(0, 0, 100, 50);
@@ -76,7 +76,7 @@ void HostShellWindowTest::applyLayoutSetsGeometryAndPunchedMask() {
 
 void HostShellWindowTest::emptyLayoutHidesTheShell() {
   HostShell shell;
-  tramp::HostShellLayout visible;
+  aoide::HostShellLayout visible;
   visible.screenRect = QRect(0, 0, 100, 50);
   visible.localMask = QRegion(QRect(0, 0, 100, 50));
   shell.applyLayout(visible);
@@ -225,30 +225,30 @@ void HostShellWindowTest::alwaysOnTopSetsWindowStaysOnTopHint() {
 }
 
 void HostShellWindowTest::kwinKeepAboveScriptNamesTheHost() {
-  const QString on = tramp::kwinKeepAboveScript(4242, QStringLiteral("Tramp"),
-                                               QStringLiteral("com.proximamagnifica.tramp"), true);
+  const QString on = aoide::kwinKeepAboveScript(4242, QStringLiteral("Aoide"),
+                                               QStringLiteral("com.proximamagnifica.aoide"), true);
   QVERIFY(on.contains(QStringLiteral("const pid = 4242")));
-  QVERIFY(on.contains(QStringLiteral("\"Tramp\"")));
-  QVERIFY(on.contains(QStringLiteral("com.proximamagnifica.tramp")));
+  QVERIFY(on.contains(QStringLiteral("\"Aoide\"")));
+  QVERIFY(on.contains(QStringLiteral("com.proximamagnifica.aoide")));
   QVERIFY(on.contains(QStringLiteral("const want = true")));
   QVERIFY(on.contains(QStringLiteral("w.keepAbove = want")));
-  const QString off = tramp::kwinKeepAboveScript(1, QStringLiteral("Tramp"),
-                                                QStringLiteral("com.proximamagnifica.tramp"), false);
+  const QString off = aoide::kwinKeepAboveScript(1, QStringLiteral("Aoide"),
+                                                QStringLiteral("com.proximamagnifica.aoide"), false);
   QVERIFY(off.contains(QStringLiteral("const want = false")));
 }
 
 void HostShellWindowTest::kwinKeepAboveScriptLivesInASharedSubdirectory() {
-  const QString path = tramp::kwinKeepAboveScriptPath(QStringLiteral("/run/user/1000"));
+  const QString path = aoide::kwinKeepAboveScriptPath(QStringLiteral("/run/user/1000"));
   // Not the runtime root. KWin opens this path from its own process, and a
   // Flatpak's $XDG_RUNTIME_DIR is a private mount the host cannot see, so a file
   // at the root is unreadable to the reader while looking correct to the writer
   // — loadScript still returns success. The subdirectory is what
-  // --filesystem=xdg-run/tramp:create shares at one path on both sides, so the
+  // --filesystem=xdg-run/aoide:create shares at one path on both sides, so the
   // manifest entry and this prefix have to keep agreeing.
-  QCOMPARE(path, QStringLiteral("/run/user/1000/tramp/keep-above.js"));
+  QCOMPARE(path, QStringLiteral("/run/user/1000/aoide/keep-above.js"));
   QVERIFY2(QFileInfo(path).path() != QStringLiteral("/run/user/1000"),
            "a script in the runtime root is invisible to KWin under Flatpak");
-  QVERIFY(tramp::kwinKeepAboveScriptPath(QString()).isEmpty());
+  QVERIFY(aoide::kwinKeepAboveScriptPath(QString()).isEmpty());
 }
 
 QTEST_MAIN(HostShellWindowTest)

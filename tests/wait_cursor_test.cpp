@@ -24,7 +24,7 @@ void WaitCursorTest::scopeSetsTheWidgetCursor() {
   QVERIFY(QTest::qWaitForWindowExposed(&w));
   QCOMPARE(w.cursor().shape(), Qt::PointingHandCursor);
   {
-    tramp::WaitCursorScope wait;
+    aoide::WaitCursorScope wait;
     QCOMPARE(w.cursor().shape(), Qt::WaitCursor);
     QVERIFY(QGuiApplication::overrideCursor());
     QCOMPARE(QGuiApplication::overrideCursor()->shape(), Qt::WaitCursor);
@@ -38,7 +38,7 @@ void WaitCursorTest::restoreClearsTheWidgetCursor() {
   w.show();
   QVERIFY(QTest::qWaitForWindowExposed(&w));
   {
-    tramp::WaitCursorScope wait;
+    aoide::WaitCursorScope wait;
     QCOMPARE(w.cursor().shape(), Qt::WaitCursor);
   }
   QVERIFY(!QGuiApplication::overrideCursor());
@@ -52,7 +52,7 @@ void WaitCursorTest::queuedWorkHoldsTheCursorUntilTheNextTick() {
   w.show();
   QVERIFY(QTest::qWaitForWindowExposed(&w));
   bool ran = false;
-  tramp::withWaitCursor(&w, [&]() {
+  aoide::withWaitCursor(&w, [&]() {
     ran = true;
     QCOMPARE(w.cursor().shape(), Qt::WaitCursor);
   });
@@ -74,7 +74,7 @@ void WaitCursorTest::scopeDoesNotRunQueuedWork() {
   bool queued = false;
   QTimer::singleShot(0, &w, [&]() { queued = true; });
   {
-    tramp::WaitCursorScope wait;
+    aoide::WaitCursorScope wait;
     QVERIFY2(!queued, "entering the wait cursor must not run queued work");
   }
   QVERIFY2(!queued, "leaving the wait cursor must not run queued work either");

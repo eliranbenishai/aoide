@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Codesign tramp.app (hardened runtime) and notarize + staple a DMG.
+# Codesign aoide.app (hardened runtime) and notarize + staple a DMG.
 # No-ops with a warning when certificate / notary secrets are unset.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-APP="${TRAMP_MAC_APP:-$ROOT/build/macos/tramp.app}"
+APP="${AOIDE_MAC_APP:-$ROOT/build/macos/aoide.app}"
 # shellcheck disable=SC1090
 eval "$(bash "$ROOT/tool/version.sh")"
-DMG="${1:-$ROOT/build/macos/Tramp-${version}-macos-universal.dmg}"
+DMG="${1:-$ROOT/build/macos/Aoide-${version}-macos-universal.dmg}"
 
 if [[ ! -d "$APP" ]]; then
   echo "notarize: missing $APP" >&2
@@ -19,9 +19,9 @@ if [[ -z "${MACOS_CERTIFICATE_BASE64:-}" || -z "${MACOS_CERTIFICATE_PASSWORD:-}"
 fi
 
 TMP="${RUNNER_TEMP:-$(mktemp -d)}"
-KEYCHAIN="$TMP/tramp.keychain-db"
+KEYCHAIN="$TMP/aoide.keychain-db"
 KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
-CERT_PATH="$TMP/tramp-cert.p12"
+CERT_PATH="$TMP/aoide-cert.p12"
 echo "$MACOS_CERTIFICATE_BASE64" | base64 --decode >"$CERT_PATH"
 
 security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
@@ -52,7 +52,7 @@ codesign --verify --deep --strict "$APP"
 
 # DMG must contain the signed .app, not the unsigned copy.
 bash "$ROOT/packaging/macos/make_dmg.sh"
-DMG="$ROOT/build/macos/Tramp-${version}-macos-universal.dmg"
+DMG="$ROOT/build/macos/Aoide-${version}-macos-universal.dmg"
 codesign --force --timestamp --sign "$IDENTITY" "$DMG"
 
 if [[ -n "${APPLE_API_KEY_BASE64:-}" && -n "${APPLE_API_KEY_ID:-}" && -n "${APPLE_API_ISSUER:-}" ]]; then

@@ -7,7 +7,7 @@
 #include <QVector>
 #include <QWidget>
 
-namespace tramp {
+namespace aoide {
 
 enum class FilePickKind { openFile, openFiles, saveFile, openDirectory };
 
@@ -111,4 +111,4 @@ inline QString pickFile(const FilePick& pick) {
   return paths.isEmpty() ? QString() : paths.front();
 }
 
-}  // namespace tramp
+}  // namespace aoide

@@ -9,7 +9,7 @@
 #include <QPainter>
 #include <QSize>
 
-namespace tramp {
+namespace aoide {
 
 enum class BodyPaint { full, chassis, live };
 
@@ -18,4 +18,4 @@ void paintWindowBody(QPainter& painter, WindowId id, QSize logical,
                      BodyPaint pass = BodyPaint::full,
                      const ChromePhases& phases = ChromePhases());
 
-}  // namespace tramp
+}  // namespace aoide

@@ -11,7 +11,7 @@
 #include <mpv/client.h>
 #include <stdexcept>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 void check(int rc, const char* what) {
@@ -72,7 +72,7 @@ void renderToWav(const QString& inputPath, const QString& outputPath,
 }  // namespace
 
 PcmBuffer MpvPcmDecoder::decode(const QString& path, const CancelFn& stillWanted) const {
-  QTemporaryDir work(QDir::temp().filePath(QStringLiteral("tramp_pcm_XXXXXX")));
+  QTemporaryDir work(QDir::temp().filePath(QStringLiteral("aoide_pcm_XXXXXX")));
   if (!work.isValid()) throw std::runtime_error("PCM temp dir failed");
   const QString outPath = work.filePath(QStringLiteral("out.wav"));
   renderToWav(path, outPath, stillWanted);
@@ -83,4 +83,4 @@ PcmBuffer MpvPcmDecoder::decode(const QString& path, const CancelFn& stillWanted
   return WavReader().read(file.readAll());
 }
 
-}  // namespace tramp
+}  // namespace aoide

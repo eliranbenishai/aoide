@@ -1,6 +1,6 @@
 #pragma once
 
-#include "tramp_metrics.h"
+#include "aoide_metrics.h"
 
 #include <QPointF>
 #include <QRectF>
@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace tramp {
+namespace aoide {
 
 inline constexpr qreal kDisplayMetaGap = 22;
 inline constexpr qreal kDisplayChipGap = 10;
@@ -865,4 +865,4 @@ inline QRectF playlistListThumb(const QRectF& track, int count, int scrollRows, 
                 thumbH);
 }
 
-}  // namespace tramp
+}  // namespace aoide

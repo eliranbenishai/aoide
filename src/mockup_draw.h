@@ -15,7 +15,7 @@
 #include <QVector>
 #include <functional>
 
-namespace tramp {
+namespace aoide {
 
 /// Holds everything a painter carries for a scope and puts it back. Pairing
 /// [QPainter::save] with [QPainter::restore] by hand is a footgun in any
@@ -218,10 +218,10 @@ void drawGlowText(QPainter& p, const QRectF& box, const QString& text,
                   qreal blurRadius, int flags);
 void paintBlurred(QPainter& p, const QRectF& bounds, qreal sigma,
                   const std::function<void(QPainter&)>& paint);
-QImage loadTrampLogo();
+QImage loadAoideLogo();
 QImage loadProximaMark();
 
-/// Paint accounting for the benches. `TRAMP_BENCH_NO_BLUR` short-circuits every
+/// Paint accounting for the benches. `AOIDE_BENCH_NO_BLUR` short-circuits every
 /// blur so a run measures the rest of the chrome.
 ///
 /// `layerNanos` is the whole `paintBlurred` round trip — buffer, offscreen
@@ -239,4 +239,4 @@ struct BlurCost {
 BlurCost blurCost();
 void resetBlurCost();
 
-}  // namespace tramp
+}  // namespace aoide

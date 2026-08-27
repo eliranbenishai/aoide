@@ -8,7 +8,7 @@
 #include <cmath>
 #include <mpv/client.h>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 QString mpvError(int status) { return QString::fromUtf8(mpv_error_string(status)); }
@@ -251,4 +251,4 @@ void MpvEngine::drainEvents() {
   }
 }
 
-}  // namespace tramp
+}  // namespace aoide

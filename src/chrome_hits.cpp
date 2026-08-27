@@ -2,12 +2,12 @@
 
 #include "chrome_layout.h"
 #include "mockup_draw.h"
-#include "tramp_metrics.h"
+#include "aoide_metrics.h"
 
 #include <QFontMetrics>
 #include <QPointF>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 ChromeHit hitIf(const QRect& r, QPoint pos, ChromeHit::Kind kind, int index = -1) {
@@ -305,7 +305,7 @@ ChromeHit hitSkins(QSize logical, QPoint pos, const SessionView& view) {
 ChromeHit hitAbout(QSize logical, QPoint pos) {
   const QRectF plate = aboutMakerPlate(aboutInner(panelBody(logical)));
   const QRect web =
-      toHitRect(aboutWebPill(plate, textWidth(monoFont(10), QStringLiteral("tramp.music"))));
+      toHitRect(aboutWebPill(plate, textWidth(monoFont(10), QStringLiteral("aoide.music"))));
   if (auto h = hitIf(web, pos, ChromeHit::Kind::aboutWeb); h.kind != ChromeHit::Kind::none) return h;
   return {};
 }
@@ -342,4 +342,4 @@ QRect mainEqHit(QSize logical) { return toHitRect(layoutMainVolumeRow(panelBody(
 
 QRect mainPlHit(QSize logical) { return toHitRect(layoutMainVolumeRow(panelBody(logical)).pl); }
 
-}  // namespace tramp
+}  // namespace aoide

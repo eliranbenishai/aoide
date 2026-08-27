@@ -5,8 +5,8 @@
 #include "chrome_tooltip.h"
 #include "mockup_draw.h"
 #include "track.h"
-#include "tramp_fonts.h"
-#include "tramp_metrics.h"
+#include "aoide_fonts.h"
+#include "aoide_metrics.h"
 #include "wait_cursor.h"
 
 #include <QCoreApplication>
@@ -21,30 +21,30 @@
 
 namespace {
 
-QSize playlistMinNative(const tramp::SessionView& view, int zoomPercent) {
-  const qreal totalW = tramp::playlistStripTotalWidth(
-      tramp::textWidth(tramp::condensedFont(11, 0.2), QStringLiteral("TOTAL")),
-      tramp::textWidth(tramp::monoFont(18), tramp::formatClock(view.playlistTotalMs)));
+QSize playlistMinNative(const aoide::SessionView& view, int zoomPercent) {
+  const qreal totalW = aoide::playlistStripTotalWidth(
+      aoide::textWidth(aoide::condensedFont(11, 0.2), QStringLiteral("TOTAL")),
+      aoide::textWidth(aoide::monoFont(18), aoide::formatClock(view.playlistTotalMs)));
   const qreal col = view.collectionCollapsed ? 0 : view.collectionWidth;
-  return tramp::zoomed(tramp::playlistMinLogical(col, totalW), zoomPercent);
+  return aoide::zoomed(aoide::playlistMinLogical(col, totalW), zoomPercent);
 }
 
 }  // namespace
 
-HostWindow::HostWindow(const tramp::WindowSpec& spec, QWidget* parent)
+HostWindow::HostWindow(const aoide::WindowSpec& spec, QWidget* parent)
     : QWidget(parent),
       spec_(spec),
-      title_(tramp::TitleChromeLayout::forWindow(spec.id, spec.logicalSize)) {
+      title_(aoide::TitleChromeLayout::forWindow(spec.id, spec.logicalSize)) {
   setAttribute(Qt::WA_TranslucentBackground);
   setMouseTracking(true);
   setAcceptDrops(true);
   setWindowTitle(spec.title);
   if (!parent) {
-    setWindowFlags(tramp::hostWindowFlags());
+    setWindowFlags(aoide::hostWindowFlags());
     move(spec.origin);
     winId();
   }
-  logo_ = tramp::loadTrampLogo();
+  logo_ = aoide::loadAoideLogo();
   phases_.setLive(true);
   // A transition rebuilds the chassis per frame, which the paint budget only
   // affords because a pointer cannot hover a button and drag a panel at once.
@@ -55,23 +55,23 @@ HostWindow::HostWindow(const tramp::WindowSpec& spec, QWidget* parent)
   tooltipTimer_.setSingleShot(true);
   connect(&tooltipTimer_, &QTimer::timeout, this, [this]() {
     if (tooltipCandidate_.isEmpty()) return;
-    tramp::showChromeTooltip(tooltipGlobal_, tooltipCandidate_, zoomPercent_, view_.look);
+    aoide::showChromeTooltip(tooltipGlobal_, tooltipCandidate_, zoomPercent_, view_.look);
   });
   applyNativeSize();
-  if (parent && spec.id != tramp::WindowId::main) hide();
+  if (parent && spec.id != aoide::WindowId::main) hide();
 }
 
 QSize HostWindow::paintLogical() const {
   if (shaded_) {
-    return QSize(spec_.logicalSize.width(), tramp::kTitleBar);
+    return QSize(spec_.logicalSize.width(), aoide::kTitleBar);
   }
   return spec_.logicalSize;
 }
 
 void HostWindow::applyNativeSize() {
-  title_ = tramp::TitleChromeLayout::forWindow(spec_.id, paintLogical());
-  const QSize native = tramp::zoomed(paintLogical(), zoomPercent_);
-  if (spec_.id == tramp::WindowId::playlist && !shaded_) {
+  title_ = aoide::TitleChromeLayout::forWindow(spec_.id, paintLogical());
+  const QSize native = aoide::zoomed(paintLogical(), zoomPercent_);
+  if (spec_.id == aoide::WindowId::playlist && !shaded_) {
     const QSize min = playlistMinNative(view_, zoomPercent_);
     setMinimumSize(min);
     setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
@@ -93,15 +93,15 @@ void HostWindow::setZoomPercent(int percent) {
 }
 
 void HostWindow::setShaded(bool shaded) {
-  if (spec_.id == tramp::WindowId::main || shaded_ == shaded) return;
+  if (spec_.id == aoide::WindowId::main || shaded_ == shaded) return;
   shaded_ = shaded;
   applyNativeSize();
   emit shadedChanged(shaded_);
 }
 
-void HostWindow::setSessionView(const tramp::SessionView& view) {
+void HostWindow::setSessionView(const aoide::SessionView& view) {
   const bool playlistMinDirty =
-      spec_.id == tramp::WindowId::playlist &&
+      spec_.id == aoide::WindowId::playlist &&
       (view_.collectionCollapsed != view.collectionCollapsed ||
        view_.collectionWidth != view.collectionWidth ||
        view_.playlistTotalMs != view.playlistTotalMs);
@@ -115,11 +115,11 @@ void HostWindow::setSessionView(const tramp::SessionView& view) {
   // that is what its raster was built from. `applyLiveReadouts` and
   // `applyEqualizer` do move that view ahead of the raster, but only in fields
   // that are painted outside it, which is what lets them.
-  tramp::SessionView incoming = view;
+  aoide::SessionView incoming = view;
   incoming.zoomPercent = zoomPercent_;
-  const bool rerasterise = !sawFirstView_ || !tramp::paintsSame(spec_.id, view_, incoming);
+  const bool rerasterise = !sawFirstView_ || !aoide::paintsSame(spec_.id, view_, incoming);
   view_ = std::move(incoming);
-  titleMarqueeLive_ = tramp::titleMarqueeRunning(view_);
+  titleMarqueeLive_ = aoide::titleMarqueeRunning(view_);
   syncLatchedPhases(!sawFirstView_);
   sawFirstView_ = true;
   if (rerasterise) invalidateChassis();
@@ -128,14 +128,14 @@ void HostWindow::setSessionView(const tramp::SessionView& view) {
   // chance the chrome has to reach the screen before it does. Synchronous
   // whether or not the raster was kept: the point is the pixels arriving now,
   // and a skipped repaint here is the pre-load chrome never showing at all.
-  if (tramp::WaitCursorScope::showing()) {
+  if (aoide::WaitCursorScope::showing()) {
     repaint();
     return;
   }
   update();
 }
 
-void HostWindow::applyEqualizer(const tramp::EqualizerSettings& eq) {
+void HostWindow::applyEqualizer(const aoide::EqualizerSettings& eq) {
   const bool chrome = view_.eq.enabled != eq.enabled || view_.eq.auto_ != eq.auto_ ||
                       view_.eq.presetName != eq.presetName;
   view_.eq = eq;
@@ -146,19 +146,19 @@ void HostWindow::applyEqualizer(const tramp::EqualizerSettings& eq) {
   update();
 }
 
-void HostWindow::applyLiveReadouts(const tramp::MainLiveReadouts& live) {
+void HostWindow::applyLiveReadouts(const aoide::MainLiveReadouts& live) {
   view_.positionMs = live.positionMs;
   view_.durationMs = live.durationMs;
   view_.showElapsed = live.showElapsed;
   view_.titleScrollMs = live.titleScrollMs;
   view_.spectrum = live.spectrum;
   view_.spectrumPeaks = live.spectrumPeaks;
-  const bool marqueeLive = tramp::titleMarqueeRunning(view_);
+  const bool marqueeLive = aoide::titleMarqueeRunning(view_);
   if (titleMarqueeLive_ != marqueeLive) {
     titleMarqueeLive_ = marqueeLive;
     invalidateChassis();
   }
-  if (spec_.id != tramp::WindowId::main || !chassisValid_ || shaded_) {
+  if (spec_.id != aoide::WindowId::main || !chassisValid_ || shaded_) {
     update();
     return;
   }
@@ -170,8 +170,8 @@ void HostWindow::applyLiveReadouts(const tramp::MainLiveReadouts& live) {
                  int(std::ceil(w * sx)) + 2, int(std::ceil(h * sy)) + 2);
   };
   // CRT well (clock + bars) and seek row — the only live pixels.
-  update(mapRect(90, tramp::kTitleBar + 8, 720, 150));
-  update(mapRect(16, tramp::kTitleBar + 198, 800, 52));
+  update(mapRect(90, aoide::kTitleBar + 8, 720, 150));
+  update(mapRect(16, aoide::kTitleBar + 198, 800, 52));
 }
 
 void HostWindow::invalidateChassis() { chassisValid_ = false; }
@@ -192,8 +192,8 @@ void HostWindow::stepButtonAnimation() {
 }
 
 void HostWindow::syncLatchedPhases(bool snap) {
-  using K = tramp::ChromeHit::Kind;
-  using tramp::BtnChannel;
+  using K = aoide::ChromeHit::Kind;
+  using aoide::BtnChannel;
   auto aim = [&](K kind, bool on, bool immediate = false) {
     if (snap || immediate) {
       phases_.snapTo(kind, -1, BtnChannel::on, on ? 1 : 0);
@@ -202,7 +202,7 @@ void HostWindow::syncLatchedPhases(bool snap) {
     }
   };
   switch (spec_.id) {
-    case tramp::WindowId::main:
+    case aoide::WindowId::main:
       aim(K::mute, view_.muted);
       aim(K::mono, view_.forceMono);
       aim(K::eqToggle, view_.eqOn);
@@ -211,13 +211,13 @@ void HostWindow::syncLatchedPhases(bool snap) {
       aim(K::play, view_.playing);
       aim(K::pause, view_.paused);
       aim(K::shuffle, view_.shuffle);
-      aim(K::repeat, view_.repeat != tramp::RepeatMode::off);
+      aim(K::repeat, view_.repeat != aoide::RepeatMode::off);
       break;
-    case tramp::WindowId::equalizer:
+    case aoide::WindowId::equalizer:
       aim(K::eqOn, view_.eq.enabled);
       aim(K::eqAuto, view_.eq.auto_);
       break;
-    case tramp::WindowId::playlist:
+    case aoide::WindowId::playlist:
       aim(K::plPlay, view_.playing);
       // Refresh's `on` tracks an ingest, not a press on this button — a drop or
       // an open lights it too — and an ingest can be over inside
@@ -225,7 +225,7 @@ void HostWindow::syncLatchedPhases(bool snap) {
       // nothing else. Hover and press still fade.
       aim(K::plRefresh, view_.playlistRefreshing, true);
       break;
-    case tramp::WindowId::settings:
+    case aoide::WindowId::settings:
       aim(K::settingsGeneral, view_.settingsTab == 0);
       aim(K::settingsAudio, view_.settingsTab == 1);
       aim(K::settingsResume, view_.resumeLastSession);
@@ -237,30 +237,30 @@ void HostWindow::syncLatchedPhases(bool snap) {
       aim(K::settingsSnapStrong, view_.dockSnap == 2);
       aim(K::settingsExclusive, view_.audioExclusive);
       break;
-    case tramp::WindowId::about:
+    case aoide::WindowId::about:
       break;
-    case tramp::WindowId::skins:
+    case aoide::WindowId::skins:
       break;
   }
   if (!snap) startButtonAnimation();
 }
 
 void HostWindow::trackPointer(std::optional<QPointF> widgetPos, bool pressed) {
-  using tramp::BtnChannel;
+  using aoide::BtnChannel;
   phases_.releaseChannel(BtnChannel::hover);
   phases_.releaseChannel(BtnChannel::press);
   // A held button keeps its press even if the pointer slides off, matching how
   // a real button behaves under a finger; a wait cursor means nothing is live.
-  if (widgetPos && !tramp::WaitCursorScope::showing()) {
+  if (widgetPos && !aoide::WaitCursorScope::showing()) {
     const QPoint logical = logicalFrom(*widgetPos);
     const auto titleHit = title_.hit(logical);
-    if (titleHit != tramp::TitleChromeLayout::Hit::none &&
-        titleHit != tramp::TitleChromeLayout::Hit::drag) {
+    if (titleHit != aoide::TitleChromeLayout::Hit::none &&
+        titleHit != aoide::TitleChromeLayout::Hit::drag) {
       phases_.setTitleTarget(titleHit, BtnChannel::hover, 1);
       if (pressed) phases_.setTitleTarget(titleHit, BtnChannel::press, 1);
-    } else if (titleHit == tramp::TitleChromeLayout::Hit::none) {
-      const auto hit = tramp::hitTest(spec_.id, spec_.logicalSize, logical, view_);
-      if (tramp::takesPointerFeedback(hit.kind) && tramp::chromeHitEnabled(hit, view_)) {
+    } else if (titleHit == aoide::TitleChromeLayout::Hit::none) {
+      const auto hit = aoide::hitTest(spec_.id, spec_.logicalSize, logical, view_);
+      if (aoide::takesPointerFeedback(hit.kind) && aoide::chromeHitEnabled(hit, view_)) {
         phases_.setTarget(hit.kind, hit.index, BtnChannel::hover, 1);
         if (pressed) phases_.setTarget(hit.kind, hit.index, BtnChannel::press, 1);
       }
@@ -282,14 +282,14 @@ void HostWindow::releasePointerIfHeld() {
 }
 
 bool HostWindow::hasLiveBody() const {
-  return (spec_.id == tramp::WindowId::main || spec_.id == tramp::WindowId::equalizer) && !shaded_;
+  return (spec_.id == aoide::WindowId::main || spec_.id == aoide::WindowId::equalizer) && !shaded_;
 }
 
 void HostWindow::rebuildChassis() {
   const QSize logical = paintLogical();
   const QSize widget = size();
   const qreal dpr = qMax(devicePixelRatioF(), qreal(0.5));
-  chassis_ = QImage(tramp::chromePaintBufferSize(widget, dpr), QImage::Format_ARGB32_Premultiplied);
+  chassis_ = QImage(aoide::chromePaintBufferSize(widget, dpr), QImage::Format_ARGB32_Premultiplied);
   chassis_.setDevicePixelRatio(dpr);
   chassis_.fill(Qt::transparent);
   QPainter p(&chassis_);
@@ -302,8 +302,8 @@ void HostWindow::rebuildChassis() {
   // Panels with a live body cache only their static chrome; the rest have no
   // per-frame content at all, so the whole paint is cacheable.
   chassisIsFullPaint_ = !hasLiveBody();
-  tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_,
-                           chassisIsFullPaint_ ? tramp::BodyPaint::full : tramp::BodyPaint::chassis,
+  aoide::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_,
+                           chassisIsFullPaint_ ? aoide::BodyPaint::full : aoide::BodyPaint::chassis,
                            phases_);
   p.end();
   chassisValid_ = true;
@@ -315,7 +315,7 @@ void HostWindow::rebuildChassis() {
 void HostWindow::ensureChassis() {
   const qreal dpr = qMax(devicePixelRatioF(), qreal(0.5));
   if (chassisValid_ && chassisIsFullPaint_ == !hasLiveBody() &&
-      chassis_.size() == tramp::chromePaintBufferSize(size(), dpr)) {
+      chassis_.size() == aoide::chromePaintBufferSize(size(), dpr)) {
     return;
   }
   rebuildChassis();
@@ -334,7 +334,7 @@ void HostWindow::setAlwaysOnTop(bool on) {
 QPoint HostWindow::nativeTopLeft() const { return mapToGlobal(QPoint(0, 0)); }
 
 void HostWindow::setPlaylistLogicalSize(QSize logical) {
-  if (spec_.id != tramp::WindowId::playlist) return;
+  if (spec_.id != aoide::WindowId::playlist) return;
   if (spec_.logicalSize == logical) return;
   spec_.logicalSize = logical;
   applyNativeSize();
@@ -359,14 +359,14 @@ QRect HostWindow::widgetRectFromLogical(const QRect& logical) const {
 void HostWindow::hideChromeTooltipNow() {
   tooltipTimer_.stop();
   tooltipCandidate_.clear();
-  tooltipTitle_ = tramp::TitleChromeLayout::Hit::none;
+  tooltipTitle_ = aoide::TitleChromeLayout::Hit::none;
   tooltipChrome_ = {};
-  tramp::hideChromeTooltip();
+  aoide::hideChromeTooltip();
 }
 
-QRect HostWindow::tooltipAnchorRect(tramp::TitleChromeLayout::Hit title,
-                                    const tramp::ChromeHit& chrome) const {
-  using Hit = tramp::TitleChromeLayout::Hit;
+QRect HostWindow::tooltipAnchorRect(aoide::TitleChromeLayout::Hit title,
+                                    const aoide::ChromeHit& chrome) const {
+  using Hit = aoide::TitleChromeLayout::Hit;
   switch (title) {
     case Hit::minimize:
     case Hit::collapse:
@@ -386,19 +386,19 @@ QRect HostWindow::tooltipAnchorRect(tramp::TitleChromeLayout::Hit title,
 
 void HostWindow::applyChromeTooltip(const QPointF& widgetPos) {
   const bool busy = draggingTitle_ || resizingPlaylist_ || draggingChrome_ ||
-                    tramp::WaitCursorScope::showing();
+                    aoide::WaitCursorScope::showing();
   const QPoint logical = logicalFrom(widgetPos);
   const auto titleHit = title_.hit(logical);
-  const auto chrome = tramp::hitTest(spec_.id, spec_.logicalSize, logical, view_);
-  const QString next = tramp::chromeTooltip(titleHit, chrome, view_);
+  const auto chrome = aoide::hitTest(spec_.id, spec_.logicalSize, logical, view_);
+  const QString next = aoide::chromeTooltip(titleHit, chrome, view_);
   const bool sameControl = titleHit == tooltipTitle_ && chrome.kind == tooltipChrome_.kind &&
                            chrome.index == tooltipChrome_.index;
-  switch (tramp::tooltipMotion(tooltipCandidate_, next, busy, sameControl)) {
-    case tramp::TooltipMotion::hide:
+  switch (aoide::tooltipMotion(tooltipCandidate_, next, busy, sameControl)) {
+    case aoide::TooltipMotion::hide:
       hideChromeTooltipNow();
       break;
-    case tramp::TooltipMotion::restartWait: {
-      tramp::hideChromeTooltip();
+    case aoide::TooltipMotion::restartWait: {
+      aoide::hideChromeTooltip();
       tooltipCandidate_ = next;
       tooltipTitle_ = titleHit;
       tooltipChrome_ = chrome;
@@ -406,38 +406,38 @@ void HostWindow::applyChromeTooltip(const QPointF& widgetPos) {
       if (logicalRect.isEmpty()) logicalRect = QRect(logical, QSize(1, 1));
       const QRect widgetRect = widgetRectFromLogical(logicalRect);
       tooltipGlobal_ = mapToGlobal(QPoint(widgetRect.center().x(), widgetRect.top()));
-      tooltipTimer_.start(tramp::kTooltipWaitMs);
+      tooltipTimer_.start(aoide::kTooltipWaitMs);
       break;
     }
-    case tramp::TooltipMotion::keep:
+    case aoide::TooltipMotion::keep:
       break;
   }
 }
 
 void HostWindow::applyHitCursor(const QPointF& widgetPos) {
-  if (tramp::WaitCursorScope::showing()) {
+  if (aoide::WaitCursorScope::showing()) {
     setCursor(Qt::WaitCursor);
     hideChromeTooltipNow();
     return;
   }
   const QPoint logical = logicalFrom(widgetPos);
   const auto titleHit = title_.hit(logical);
-  if (titleHit == tramp::TitleChromeLayout::Hit::drag) {
+  if (titleHit == aoide::TitleChromeLayout::Hit::drag) {
     setCursor(Qt::OpenHandCursor);
-  } else if (titleHit != tramp::TitleChromeLayout::Hit::none) {
+  } else if (titleHit != aoide::TitleChromeLayout::Hit::none) {
     setCursor(Qt::PointingHandCursor);
   } else {
-    const auto hit = tramp::hitTest(spec_.id, spec_.logicalSize, logical, view_);
-    if (hit.kind == tramp::ChromeHit::Kind::plResize) {
+    const auto hit = aoide::hitTest(spec_.id, spec_.logicalSize, logical, view_);
+    if (hit.kind == aoide::ChromeHit::Kind::plResize) {
       setCursor(Qt::SizeFDiagCursor);
-    } else if (hit.kind == tramp::ChromeHit::Kind::plDivider) {
+    } else if (hit.kind == aoide::ChromeHit::Kind::plDivider) {
       setCursor(Qt::SplitHCursor);
-    } else if (hit.kind == tramp::ChromeHit::Kind::volume || hit.kind == tramp::ChromeHit::Kind::seek ||
-               hit.kind == tramp::ChromeHit::Kind::eqPreamp ||
-               hit.kind == tramp::ChromeHit::Kind::eqBand) {
+    } else if (hit.kind == aoide::ChromeHit::Kind::volume || hit.kind == aoide::ChromeHit::Kind::seek ||
+               hit.kind == aoide::ChromeHit::Kind::eqPreamp ||
+               hit.kind == aoide::ChromeHit::Kind::eqBand) {
       setCursor(Qt::ArrowCursor);
-    } else if (hit.kind != tramp::ChromeHit::Kind::none &&
-               tramp::chromeHitEnabled(hit, view_)) {
+    } else if (hit.kind != aoide::ChromeHit::Kind::none &&
+               aoide::chromeHitEnabled(hit, view_)) {
       setCursor(Qt::PointingHandCursor);
     } else {
       setCursor(Qt::ArrowCursor);
@@ -456,26 +456,26 @@ void HostWindow::paintChrome(QPainter& p) {
   // The golden demo is the fidelity reference: paint it straight, uncached.
   if (view_.goldenDemo) {
     p.scale(sx, sy);
-    tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_);
+    aoide::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_);
     return;
   }
   ensureChassis();
   p.drawImage(QPointF(0, 0), chassis_);
   if (chassisIsFullPaint_) return;
   p.scale(sx, sy);
-  tramp::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_, tramp::BodyPaint::live,
+  aoide::paintMockupWindow(p, logical, spec_.id, title_, &logo_, view_, aoide::BodyPaint::live,
                            phases_);
 }
 
 void HostWindow::paintEvent(QPaintEvent*) {
-  const tramp::BlurCost blurBefore = tramp::blurCost();
+  const aoide::BlurCost blurBefore = aoide::blurCost();
   QElapsedTimer timer;
   timer.start();
   {
     QPainter p(this);
     paintChrome(p);
   }
-  const tramp::BlurCost blurAfter = tramp::blurCost();
+  const aoide::BlurCost blurAfter = aoide::blurCost();
   paintStats_.paints += 1;
   paintStats_.nanos += timer.nsecsElapsed();
   paintStats_.blurCalls += blurAfter.calls - blurBefore.calls;
@@ -489,16 +489,16 @@ void HostWindow::paintEvent(QPaintEvent*) {
 
 void HostWindow::showEvent(QShowEvent* event) {
   QWidget::showEvent(event);
-  if (spec_.id != tramp::WindowId::main) emit extraMapped();
+  if (spec_.id != aoide::WindowId::main) emit extraMapped();
 }
 
 void HostWindow::hideEvent(QHideEvent* event) {
   hideChromeTooltipNow();
   // A panel hidden under the pointer gets no leaveEvent, so without this the
   // button the cursor was over is still lit when the panel comes back.
-  phases_.releaseChannel(tramp::BtnChannel::hover);
-  phases_.releaseChannel(tramp::BtnChannel::press);
-  phases_.advance(tramp::kBtnTransitionMs);
+  phases_.releaseChannel(aoide::BtnChannel::hover);
+  phases_.releaseChannel(aoide::BtnChannel::press);
+  phases_.advance(aoide::kBtnTransitionMs);
   animTimer_.stop();
   QWidget::hideEvent(event);
 }
@@ -512,7 +512,7 @@ void HostWindow::changeEvent(QEvent* event) {
 }
 
 void HostWindow::closeEvent(QCloseEvent* event) {
-  if (spec_.id == tramp::WindowId::main) {
+  if (spec_.id == aoide::WindowId::main) {
     if (quitConfirmer_ && !quitConfirmer_()) {
       event->ignore();
       return;
@@ -534,45 +534,45 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
   const QPoint logical = logicalFrom(event->position());
   const auto hit = title_.hit(logical);
   switch (hit) {
-    case tramp::TitleChromeLayout::Hit::close:
+    case aoide::TitleChromeLayout::Hit::close:
       close();
       event->accept();
       return;
-    case tramp::TitleChromeLayout::Hit::minimize:
+    case aoide::TitleChromeLayout::Hit::minimize:
       if (QWidget* top = window()) top->showMinimized();
       event->accept();
       return;
-    case tramp::TitleChromeLayout::Hit::collapse:
+    case aoide::TitleChromeLayout::Hit::collapse:
       setShaded(!shaded_);
       event->accept();
       return;
-    case tramp::TitleChromeLayout::Hit::zoomOut:
+    case aoide::TitleChromeLayout::Hit::zoomOut:
       emit zoomOutRequested();
       event->accept();
       return;
-    case tramp::TitleChromeLayout::Hit::zoomIn:
+    case aoide::TitleChromeLayout::Hit::zoomIn:
       emit zoomInRequested();
       event->accept();
       return;
-    case tramp::TitleChromeLayout::Hit::drag:
+    case aoide::TitleChromeLayout::Hit::drag:
       emit titleDragStarted();
       draggingTitle_ = true;
       grabOffset_ = event->globalPosition().toPoint() - mapToGlobal(QPoint(0, 0));
       grabPointerIfAllowed();
       event->accept();
       return;
-    case tramp::TitleChromeLayout::Hit::none:
+    case aoide::TitleChromeLayout::Hit::none:
       break;
   }
 
-  const auto chrome = tramp::hitTest(spec_.id, spec_.logicalSize, logical, view_);
-  if (chrome.kind == tramp::ChromeHit::Kind::plResize) {
+  const auto chrome = aoide::hitTest(spec_.id, spec_.logicalSize, logical, view_);
+  if (chrome.kind == aoide::ChromeHit::Kind::plResize) {
     resizingPlaylist_ = true;
     grabPointerIfAllowed();
     event->accept();
     return;
   }
-  if (chrome.kind != tramp::ChromeHit::Kind::none && tramp::chromeHitEnabled(chrome, view_)) {
+  if (chrome.kind != aoide::ChromeHit::Kind::none && aoide::chromeHitEnabled(chrome, view_)) {
     draggingChrome_ = true;
     dragHit_ = chrome;
     emit chromePressed(chrome, event->modifiers(), logical);
@@ -639,8 +639,8 @@ void HostWindow::mouseReleaseEvent(QMouseEvent* event) {
 void HostWindow::mouseDoubleClickEvent(QMouseEvent* event) {
   if (event->button() != Qt::LeftButton) return;
   const QPoint logical = logicalFrom(event->position());
-  const auto chrome = tramp::hitTest(spec_.id, spec_.logicalSize, logical, view_);
-  if (chrome.kind == tramp::ChromeHit::Kind::plTrackRow) {
+  const auto chrome = aoide::hitTest(spec_.id, spec_.logicalSize, logical, view_);
+  if (chrome.kind == aoide::ChromeHit::Kind::plTrackRow) {
     emit trackActivated(chrome.index);
     event->accept();
     return;
@@ -660,10 +660,10 @@ void HostWindow::moveEvent(QMoveEvent* event) {
 
 void HostWindow::resizeEvent(QResizeEvent* event) {
   QWidget::resizeEvent(event);
-  if (spec_.id == tramp::WindowId::playlist && !shaded_) {
+  if (spec_.id == aoide::WindowId::playlist && !shaded_) {
     const qreal z = zoomPercent_ / 100.0;
     spec_.logicalSize = QSize(int(width() / z), int(height() / z));
-    title_ = tramp::TitleChromeLayout::forWindow(spec_.id, paintLogical());
+    title_ = aoide::TitleChromeLayout::forWindow(spec_.id, paintLogical());
     emit nativeResized(size());
   }
 }

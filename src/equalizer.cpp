@@ -3,7 +3,7 @@
 #include <QPair>
 #include <cmath>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 QString formatDb(double db) {
@@ -90,4 +90,4 @@ QString buildEqualizerAf(const EqualizerSettings& settings) {
   return QStringLiteral("lavfi=[%1]").arg(stages.join(QLatin1Char(',')));
 }
 
-}  // namespace tramp
+}  // namespace aoide

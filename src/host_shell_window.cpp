@@ -12,10 +12,10 @@
 #include <QWindow>
 
 HostShell::HostShell(QWidget* parent) : QWidget(parent) {
-  setWindowFlags(tramp::hostWindowFlags());
+  setWindowFlags(aoide::hostWindowFlags());
   setAttribute(Qt::WA_TranslucentBackground);
-  setWindowTitle(QStringLiteral("Tramp"));
-  setWindowIcon(tramp::appIcon());
+  setWindowTitle(QStringLiteral("Aoide"));
+  setWindowIcon(aoide::appIcon());
   bindDesktopScreens();
 }
 
@@ -34,7 +34,7 @@ void HostShell::bindDesktopScreens() {
   for (QScreen* screen : QGuiApplication::screens()) hook(screen);
 }
 
-void HostShell::applyLayout(const tramp::HostShellLayout& layout) {
+void HostShell::applyLayout(const aoide::HostShellLayout& layout) {
   lastLayout_ = layout;
   if (layout.screenRect.isNull() || layout.localMask.isEmpty()) {
     hide();
@@ -68,7 +68,7 @@ void HostShell::placePanels(const QVector<HostPanelPlacement>& panels) {
   QRegion dirty;
   for (const HostPanelPlacement& place : panels) {
     if (!place.widget) continue;
-    const QRect local(tramp::panelLocalTopLeft(place.screen.topLeft(), origin), place.screen.size());
+    const QRect local(aoide::panelLocalTopLeft(place.screen.topLeft(), origin), place.screen.size());
     const QRect old = place.widget->geometry();
     if (old != local) {
       if (!old.isEmpty()) dirty += old;
@@ -109,14 +109,14 @@ void HostShell::setAlwaysOnTop(bool on) {
 }
 
 void HostShell::scheduleCompositorKeepAbove() {
-  tramp::applyCompositorKeepAbove(windowHandle(), alwaysOnTop_);
+  aoide::applyCompositorKeepAbove(windowHandle(), alwaysOnTop_);
   // setWindowFlag recreates the native window. KWin only sees the new
   // xdg_toplevel after the map, so the keep-above request has to follow.
   QTimer::singleShot(0, this, [this]() {
-    tramp::applyCompositorKeepAbove(windowHandle(), alwaysOnTop_);
+    aoide::applyCompositorKeepAbove(windowHandle(), alwaysOnTop_);
   });
   QTimer::singleShot(150, this, [this]() {
-    tramp::applyCompositorKeepAbove(windowHandle(), alwaysOnTop_);
+    aoide::applyCompositorKeepAbove(windowHandle(), alwaysOnTop_);
   });
 }
 

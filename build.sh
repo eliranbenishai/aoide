@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 # runtime line use. Homebrew is not a substitute.
 # shellcheck source=tool/qt-env.sh
 source "$ROOT/tool/qt-env.sh"
-tramp_resolve_qt
+aoide_resolve_qt
 CXX="${CXX:-/home/linuxbrew/.linuxbrew/opt/llvm/bin/clang++}"
 CC="${CC:-/home/linuxbrew/.linuxbrew/opt/llvm/bin/clang}"
 BREW="${BREW:-/home/linuxbrew/.linuxbrew}"
@@ -16,7 +16,7 @@ STUB="$BUILD/mpv-stubs"
 STUB_SRC="$ROOT/src/mpv_stubs"
 mkdir -p "$BUILD" "$STUB"
 
-echo "build.sh: Qt $TRAMP_QT_VERSION at $QT"
+echo "build.sh: Qt $AOIDE_QT_VERSION at $QT"
 if [[ -d "$STUB_SRC" ]]; then
   for spec in libmujs.so.0.1 liblua-5.1.so libuchardet.so.0 libvapoursynth-script.so.0 libXpresent.so.1; do
     "$CC" -shared -fPIC -Wl,-soname,"$spec" -o "$STUB/$spec" "$STUB_SRC/$spec.c"
@@ -31,10 +31,10 @@ INC=(
 )
 VERSION="$(head -n 1 "$ROOT/VERSION" | tr -d '\r[:space:]')"
 DEFS=(
-  -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_DBUS_LIB -DTRAMP_HAVE_MPV -DTRAMP_HAVE_DBUS
-  -DTRAMP_VERSION="\"$VERSION\""
-  -DTRAMP_ASSET_DIR="\"$ROOT/assets\""
-  -DTRAMP_SKINS_DIR="\"$ROOT/skins\""
+  -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_DBUS_LIB -DAOIDE_HAVE_MPV -DAOIDE_HAVE_DBUS
+  -DAOIDE_VERSION="\"$VERSION\""
+  -DAOIDE_ASSET_DIR="\"$ROOT/assets\""
+  -DAOIDE_SKINS_DIR="\"$ROOT/skins\""
 )
 LIBS=(
   -L"$QT/lib" -L"$BREW/lib" -L"$MPV_LIB" -L"$STUB"
@@ -67,7 +67,7 @@ SRCS=(
   "$ROOT/src/host_shell_window.cpp"
   "$ROOT/src/compositor_keep_above.cpp"
   "$ROOT/src/mockup_draw.cpp"
-  "$ROOT/src/tramp_fonts.cpp"
+  "$ROOT/src/aoide_fonts.cpp"
   "$ROOT/src/chrome_anim.cpp"
   "$ROOT/src/chrome_paint.cpp"
   "$ROOT/src/chrome_bodies.cpp"
@@ -109,15 +109,15 @@ SRCS=(
   "$BUILD/moc_mpv_engine.cpp"
 )
 
-"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" "${DEFS[@]}" "${SRCS[@]}" "${LIBS[@]}" -o "$BUILD/tramp.next"
-mv -f "$BUILD/tramp.next" "$BUILD/tramp"
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" "${DEFS[@]}" "${SRCS[@]}" "${LIBS[@]}" -o "$BUILD/aoide.next"
+mv -f "$BUILD/aoide.next" "$BUILD/aoide"
 
 # Paint budget + optimisation guard. Drag smoothness is a paint-cost property,
 # so it belongs in the gate next to the tests.
-QT_QPA_PLATFORM=offscreen "$BUILD/tramp" --bench-chrome
+QT_QPA_PLATFORM=offscreen "$BUILD/aoide" --bench-chrome
 
 # Domain tests (playlist / playback / docking / collection)
-"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DTRAMP_HAVE_MPV \
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DAOIDE_HAVE_MPV \
   "$ROOT/src/m3u.cpp" "$ROOT/src/equalizer.cpp" "$ROOT/src/support_dir.cpp" \
   "$ROOT/src/wait_cursor.cpp" \
   "$ROOT/src/playlist.cpp" "$ROOT/src/transport.cpp" \
@@ -141,17 +141,17 @@ QT_QPA_PLATFORM=offscreen "$BUILD/tramp" --bench-chrome
 "$BUILD/domain_test"
 
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -DQT_GUI_LIB -DQT_CORE_LIB \
-  -DTRAMP_SKINS_DIR="\"$ROOT/skins\"" \
+  -DAOIDE_SKINS_DIR="\"$ROOT/skins\"" \
   "$ROOT/src/look.cpp" "$ROOT/src/settings.cpp" "$ROOT/src/equalizer.cpp" \
-  "$ROOT/src/tramp_fonts.cpp" \
+  "$ROOT/src/aoide_fonts.cpp" \
   "$ROOT/tests/look_test.cpp" \
   -L"$QT/lib" -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -Wl,-rpath,"$QT/lib" \
   -o "$BUILD/look_test"
 "$BUILD/look_test"
 
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -DQT_GUI_LIB -DQT_CORE_LIB \
-  -DTRAMP_ASSET_DIR="\"$ROOT/assets\"" -DTRAMP_SKINS_DIR="\"$ROOT/skins\"" \
-  "$ROOT/src/tramp_fonts.cpp" \
+  -DAOIDE_ASSET_DIR="\"$ROOT/assets\"" -DAOIDE_SKINS_DIR="\"$ROOT/skins\"" \
+  "$ROOT/src/aoide_fonts.cpp" \
   "$ROOT/tests/font_metrics_test.cpp" \
   -L"$QT/lib" -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
   -o "$BUILD/font_metrics_test"
@@ -185,10 +185,10 @@ QT_QPA_PLATFORM=offscreen "$BUILD/font_metrics_test"
 "$MOC" "$ROOT/src/host_shell_window.h" -o "$BUILD/moc_host_shell_window.cpp"
 "$MOC" "$ROOT/tests/host_shell_window_test.cpp" -o "$BUILD/host_shell_window_test.moc"
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
-  -DTRAMP_ASSET_DIR="\"$ROOT/assets\"" \
+  -DAOIDE_ASSET_DIR="\"$ROOT/assets\"" \
   "$ROOT/src/window_spec.cpp" "$ROOT/src/host_shell.cpp" "$ROOT/src/host_shell_window.cpp" \
   "$ROOT/src/compositor_keep_above.cpp" \
-  "$ROOT/src/app_icon.cpp" "$ROOT/src/tramp_fonts.cpp" \
+  "$ROOT/src/app_icon.cpp" "$ROOT/src/aoide_fonts.cpp" \
   "$BUILD/moc_host_shell_window.cpp" \
   "$ROOT/tests/host_shell_window_test.cpp" \
   -L"$QT/lib" -lQt6Test -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
@@ -199,7 +199,7 @@ QT_QPA_PLATFORM=offscreen "$BUILD/host_shell_window_test"
 "$MOC" "$ROOT/tests/host_window_move_test.cpp" -o "$BUILD/host_window_move_test.moc"
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" \
   -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
-  -DTRAMP_ASSET_DIR="\"$ROOT/assets\"" -DTRAMP_SKINS_DIR="\"$ROOT/skins\"" \
+  -DAOIDE_ASSET_DIR="\"$ROOT/assets\"" -DAOIDE_SKINS_DIR="\"$ROOT/skins\"" \
   "$ROOT/src/window_spec.cpp" "$ROOT/src/title_chrome.cpp" \
   "$ROOT/src/host_shell.cpp" "$ROOT/src/host_shell_window.cpp" \
   "$ROOT/src/compositor_keep_above.cpp" \
@@ -208,7 +208,7 @@ QT_QPA_PLATFORM=offscreen "$BUILD/host_shell_window_test"
   "$ROOT/src/chrome_anim.cpp" \
   "$ROOT/src/chrome_bodies.cpp" "$ROOT/src/chrome_hits.cpp" \
   "$ROOT/src/chrome_tooltip.cpp" \
-  "$ROOT/src/mockup_draw.cpp" "$ROOT/src/tramp_fonts.cpp" \
+  "$ROOT/src/mockup_draw.cpp" "$ROOT/src/aoide_fonts.cpp" \
   "$ROOT/src/session_view.cpp" "$ROOT/src/look.cpp" \
   "$ROOT/src/settings.cpp" "$ROOT/src/equalizer.cpp" \
   "$ROOT/src/wait_cursor.cpp" \
@@ -230,11 +230,11 @@ QT_QPA_PLATFORM=offscreen "$BUILD/wait_cursor_test"
 "$MOC" "$ROOT/tests/chrome_tooltip_test.cpp" -o "$BUILD/chrome_tooltip_test.moc"
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" \
   -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
-  -DTRAMP_ASSET_DIR="\"$ROOT/assets\"" -DTRAMP_SKINS_DIR="\"$ROOT/skins\"" \
+  -DAOIDE_ASSET_DIR="\"$ROOT/assets\"" -DAOIDE_SKINS_DIR="\"$ROOT/skins\"" \
   "$ROOT/src/window_spec.cpp" "$ROOT/src/title_chrome.cpp" \
   "$ROOT/src/chrome_tooltip.cpp" \
   "$ROOT/src/look.cpp" "$ROOT/src/settings.cpp" "$ROOT/src/equalizer.cpp" \
-  "$ROOT/src/tramp_fonts.cpp" \
+  "$ROOT/src/aoide_fonts.cpp" \
   "$ROOT/tests/chrome_tooltip_test.cpp" \
   -L"$QT/lib" -lQt6Test -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread \
   -Wl,-rpath,"$QT/lib" \
@@ -269,4 +269,4 @@ QT_QPA_PLATFORM=offscreen "$BUILD/chrome_tooltip_test"
   -o "$BUILD/chrome_command_test"
 "$BUILD/chrome_command_test"
 
-echo "built $BUILD/tramp"
+echo "built $BUILD/aoide"

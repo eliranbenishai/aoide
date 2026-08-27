@@ -45,16 +45,16 @@ int main(int argc, char** argv) {
   QApplication app(argc, argv);
   std::setlocale(LC_NUMERIC, "C");  // libmpv refuses to work under any other
 
-  const int rounds = envInt("TRAMP_QUIT_ROUNDS", 12);
-  const int fixedLiveMs = envInt("TRAMP_QUIT_LIVE_MS", 0);
-  const int sweepMs = envInt("TRAMP_QUIT_SWEEP_MS", 400);
-  const QStringList drops = filesIn(qEnvironmentVariable("TRAMP_QUIT_DROP_DIR"));
+  const int rounds = envInt("AOIDE_QUIT_ROUNDS", 12);
+  const int fixedLiveMs = envInt("AOIDE_QUIT_LIVE_MS", 0);
+  const int sweepMs = envInt("AOIDE_QUIT_SWEEP_MS", 400);
+  const QStringList drops = filesIn(qEnvironmentVariable("AOIDE_QUIT_DROP_DIR"));
 
   qint64 worstTeardownMs = 0;
   for (int round = 0; round < rounds; ++round) {
     const int liveMs = fixedLiveMs > 0 ? fixedLiveMs : (round * 37) % sweepMs;
 
-    auto session = std::make_unique<tramp::TrampSession>();
+    auto session = std::make_unique<aoide::AoideSession>();
     session->bootstrap({});   // restores the seeded playlist, starts the path verify
     session->playTrackAt(0);  // opens the track, which starts the spectrum decode
     if (!drops.isEmpty()) {

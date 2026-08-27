@@ -5,7 +5,7 @@
 #include <QVector>
 #include <optional>
 
-namespace tramp {
+namespace aoide {
 
 enum class RepeatMode { off, all, one };
 
@@ -89,4 +89,4 @@ inline QString formatTotalTime(qint64 ms) {
   return QStringLiteral("%1 m").arg(minutesTotal);
 }
 
-}  // namespace tramp
+}  // namespace aoide

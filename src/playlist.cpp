@@ -6,7 +6,7 @@
 #include <QSaveFile>
 #include <algorithm>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 int clampIndex(std::optional<int> index, int length) {
@@ -450,4 +450,4 @@ bool PlaylistController::savePlaylistFile(const QString& path, const M3uCodec& c
   return true;
 }
 
-}  // namespace tramp
+}  // namespace aoide

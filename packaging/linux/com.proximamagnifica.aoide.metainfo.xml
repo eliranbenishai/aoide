@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The display name every Linux installer shows. Without this file flatpak,
      GNOME Software and Discover have no name to read and fall back to the app
-     ID, so the app installs as "com.proximamagnifica.tramp". -->
+     ID, so the app installs as "com.proximamagnifica.aoide". -->
 <component type="desktop-application">
-  <id>com.proximamagnifica.tramp</id>
+  <id>com.proximamagnifica.aoide</id>
 
-  <name>Tramp</name>
+  <name>Aoide</name>
   <summary>Play your local music files</summary>
 
   <metadata_license>CC0-1.0</metadata_license>
@@ -17,29 +17,29 @@
 
   <description>
     <p>
-      Tramp is a music player for the files you already have. Open tracks and
+      Aoide is a music player for the files you already have. Open tracks and
       playlists from the file picker, drop them on the window, or hand them over
       from a file manager. There is no library to import and no account to make.
     </p>
     <p>
       Playlists are the heart of it: add, remove and reorder tracks, save them
       as M3U or M3U8 files of your own, and pick up where you left off next
-      time. Tramp shows the artist and album written into each file, a
+      time. Aoide shows the artist and album written into each file, a
       twenty-bar spectrum follows what is playing, and a ten-band equaliser with
       presets sits beside it.
     </p>
     <p>
-      Tramp draws its own window rather than borrowing your desktop's. Several
+      Aoide draws its own window rather than borrowing your desktop's. Several
       skins come with it, and more can be installed from a folder or a zip.
     </p>
   </description>
 
-  <launchable type="desktop-id">com.proximamagnifica.tramp.desktop</launchable>
+  <launchable type="desktop-id">com.proximamagnifica.aoide.desktop</launchable>
 
   <!-- Empty means checked and nothing to declare, which is not the same as absent. -->
   <content_rating type="oars-1.1" />
 
-  <url type="homepage">https://tramp.music</url>
+  <url type="homepage">https://aoide.music</url>
 
   <!-- Flathub requires screenshots, and <image> has to be a URL it can fetch, so
        there is no way to ship them inside the bundle. The pictures are generated
@@ -50,15 +50,15 @@
        release if one stops resolving.
   <screenshots>
     <screenshot type="default">
-      <image>https://tramp.music/screenshots/1.0/main_player_window.png</image>
+      <image>https://aoide.music/screenshots/1.0/main_player_window.png</image>
       <caption>Big clear controls, your track's details, and a live spectrum</caption>
     </screenshot>
     <screenshot>
-      <image>https://tramp.music/screenshots/1.0/playlist_window.png</image>
+      <image>https://aoide.music/screenshots/1.0/playlist_window.png</image>
       <caption>Your playlists, beside the songs inside them</caption>
     </screenshot>
     <screenshot>
-      <image>https://tramp.music/screenshots/1.0/equalizer_window.png</image>
+      <image>https://aoide.music/screenshots/1.0/equalizer_window.png</image>
       <caption>Ten bands, a shelf of presets, and the curve you're making</caption>
     </screenshot>
   </screenshots>

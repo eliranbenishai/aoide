@@ -3,7 +3,7 @@
 #include <QObject>
 #include <functional>
 
-namespace tramp {
+namespace aoide {
 
 struct WaitCursorHooks {
   std::function<void()> apply;
@@ -43,4 +43,4 @@ class WaitCursorPause {
   bool active_ = false;
 };
 
-}  // namespace tramp
+}  // namespace aoide

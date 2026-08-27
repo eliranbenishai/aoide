@@ -9,7 +9,7 @@
 #include <QVector>
 #include <optional>
 
-namespace tramp {
+namespace aoide {
 
 struct UsageCounters {
   int spins = 0;
@@ -62,8 +62,8 @@ class SupportStore {
 
   // Writes report whether the file actually landed. A failure leaves the
   // previous contents intact rather than truncating them.
-  TrampSettings readSettings() const;
-  bool writeSettings(const TrampSettings& s) const;
+  AoideSettings readSettings() const;
+  bool writeSettings(const AoideSettings& s) const;
 
   UsageCounters readUsage() const;
   bool writeUsage(const UsageCounters& u) const;
@@ -107,7 +107,7 @@ struct PersistHealth {
 /// The write path `persistNow` uses. Each attempted file updates only its own
 /// slot, so a later success on that file is what clears the mark.
 void writeSessionPersist(const SupportStore& store, PersistHealth& health,
-                         const TrampSettings& settings, const SessionResume& resume,
+                         const AoideSettings& settings, const SessionResume& resume,
                          const UsageCounters& usage, const QString& lastPlaylistPath,
                          const AlteredPlaylist* altered);
 
@@ -118,4 +118,4 @@ inline bool samePlaylistFile(const QString& a, const QString& b) {
   return normalizePlaylistPath(a) == normalizePlaylistPath(b);
 }
 
-}  // namespace tramp
+}  // namespace aoide

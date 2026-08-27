@@ -7,7 +7,7 @@
 #include <QSize>
 #include <QString>
 
-namespace tramp {
+namespace aoide {
 
 /// Logical-pixel hit map for mockup `.tbar`. Drag never includes `.wbtn`.
 struct TitleChromeLayout {
@@ -42,4 +42,4 @@ struct TitleChromeLayout {
 
 QString roleTitle(WindowId id);
 
-}  // namespace tramp
+}  // namespace aoide

@@ -5,7 +5,7 @@
 #include <QVector>
 #include <array>
 
-namespace tramp {
+namespace aoide {
 
 struct EqualizerSettings {
   static constexpr int kBandCount = 10;
@@ -34,4 +34,4 @@ struct EqualizerPresets {
 
 QString buildEqualizerAf(const EqualizerSettings& settings);
 
-}  // namespace tramp
+}  // namespace aoide

@@ -1,6 +1,6 @@
-# Tramp
+# Aoide
 
-Multi-platform desktop music player. See [`docs/tramp-v1-spec.md`](docs/tramp-v1-spec.md)
+Multi-platform desktop music player. See [`docs/aoide-v1-spec.md`](docs/aoide-v1-spec.md)
 for product scope.
 
 The app is **Qt 6** (QWidget + QPainter) in [`src/`](src/).
@@ -12,7 +12,7 @@ kit (once) into `.local/qt/` and will not link Homebrew or distro Qt.
 
 ```bash
 ./build.sh
-./build/tramp
+./build/aoide
 ```
 
 CMake, after the same kit is present (`./tool/fetch_qt.sh`):
@@ -21,7 +21,7 @@ CMake, after the same kit is present (`./tool/fetch_qt.sh`):
 cmake -S . -B build -G Ninja
 cmake --build build
 ctest --test-dir build --output-on-failure
-./build/tramp
+./build/aoide
 ```
 
 Linux still needs the usual build tools and libmpv headers:
@@ -47,30 +47,30 @@ a silent `NullEngine`.
 X11:
 
 ```bash
-QT_QPA_PLATFORM=xcb ./build/tramp
+QT_QPA_PLATFORM=xcb ./build/aoide
 ```
 
 Dump 1× logical chrome (no windows):
 
 ```bash
-QT_QPA_PLATFORM=offscreen ./build/tramp --dump-chrome /tmp/tramp-chrome
+QT_QPA_PLATFORM=offscreen ./build/aoide --dump-chrome /tmp/aoide-chrome
 ```
 
 Let the binary see `WAYLAND_DISPLAY` unless you opt into xcb. Drag the title
-strip (not the window buttons) to move a window. Closing **Tramp** (main) quits.
+strip (not the window buttons) to move a window. Closing **Aoide** (main) quits.
 
 ## Packaging
 
 Listener installers are built by GitHub Actions. See [`docs/distribution.md`](docs/distribution.md).
 
 A version tag `v*` (matching [`VERSION`](VERSION)) runs the Release workflow and
-attaches artifacts to a GitHub Release (a mirror; the product page is tramp.music).
+attaches artifacts to a GitHub Release (a mirror; the product page is aoide.music).
 
 ## Known v1 limits
 
 | Limit | Notes |
 |-------|--------|
-| Linux MPRIS | OS media keys / Now Playing via D-Bus not implemented. In-app media keys work when Tramp is focused. |
+| Linux MPRIS | OS media keys / Now Playing via D-Bus not implemented. In-app media keys work when Aoide is focused. |
 | Second-instance “Open with” | Cold-start argv and file associations work; a second running instance does not forward paths to the first. |
 | Spectrum | Real 20-bar analyser (offline PCM + STFT). Honest silence until the spectrogram for the current track is ready. |
 | macOS host | 1.1. Qt pairing comes after Linux + Windows. |
@@ -79,11 +79,11 @@ Windows Store and Flathub are 1.0 channels; the macOS DMG is 1.1. Mac App Store 
 
 ## v1 success criteria
 
-From [`docs/tramp-v1-spec.md`](docs/tramp-v1-spec.md).
+From [`docs/aoide-v1-spec.md`](docs/aoide-v1-spec.md).
 
 | Criterion | Status |
 |-----------|--------|
-| Install/run on Win/Linux (build artifacts) | Linux binary is `build/tramp`; Windows CI compiles the host; macOS is 1.1 |
+| Install/run on Win/Linux (build artifacts) | Linux binary is `build/aoide`; Windows CI compiles the host; macOS is 1.1 |
 | Open local audio + playlists | Implemented (file picker, DnD, argv, folder expand) |
 | Manage playlist (add/remove/reorder/save/restore) | Implemented (`PlaylistController`, M3U/M3U8) |
 | Transport chrome controls + tags when present | Implemented (Qt chrome + libmpv) |
@@ -94,16 +94,16 @@ Automated gate: `ctest` in `build/`.
 
 ## File associations
 
-Tramp accepts file paths on the command line. Double-click / “Open with” must
-register the OS handler to pass those paths to the executable (`Exec=tramp %F`).
+Aoide accepts file paths on the command line. Double-click / “Open with” must
+register the OS handler to pass those paths to the executable (`Exec=aoide %F`).
 
 ### Linux
 
-`packaging/linux/com.proximamagnifica.tramp.desktop` lists `MimeType=` entries for common
+`packaging/linux/com.proximamagnifica.aoide.desktop` lists `MimeType=` entries for common
 audio types and M3U playlists.
 
 ```bash
-xdg-mime default com.proximamagnifica.tramp.desktop audio/mpeg
+xdg-mime default com.proximamagnifica.aoide.desktop audio/mpeg
 update-desktop-database ~/.local/share/applications
 ```
 
@@ -122,18 +122,18 @@ wait on the Qt Mac host.
 
 Copyright (C) 2026 Proxima Magnifica
 
-Tramp is free software: you can redistribute it and/or modify it under
+Aoide is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
 Software Foundation, either version 3 of the License, or (at your option)
 any later version.
 
-Tramp is distributed in the hope that it is useful, but WITHOUT ANY
+Aoide is distributed in the hope that it is useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
 details.
 
 The full license is in [`LICENSE`](LICENSE). Other works shipped with
-Tramp are listed in [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
+Aoide are listed in [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
 
-The name Tramp, the maker’s plate, Proxima Magnifica, and tramp.music
+The name Aoide, the maker’s plate, Proxima Magnifica, and aoide.music
 are trademarks; the GPL does not grant trademark rights.

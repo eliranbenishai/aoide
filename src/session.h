@@ -30,28 +30,28 @@
 class HostWindow;
 class HostShell;
 
-namespace tramp {
+namespace aoide {
 
 /// Rows the options cog presents. Always-on-top and Quit stay off the openers;
-/// the check follows [TrampSettings::alwaysOnTop].
-inline QVector<ChromeMenuItem> optionsMenuItems(const TrampSettings& settings) {
+/// the check follows [AoideSettings::alwaysOnTop].
+inline QVector<ChromeMenuItem> optionsMenuItems(const AoideSettings& settings) {
   return {
       ChromeMenuItem::check(QStringLiteral("Always on top"), settings.alwaysOnTop),
       ChromeMenuItem::separator(),
       ChromeMenuItem::action(QStringLiteral("Open files…")),
       ChromeMenuItem::action(QStringLiteral("Settings…")),
       ChromeMenuItem::separator(),
-      ChromeMenuItem::action(QStringLiteral("About Tramp")),
+      ChromeMenuItem::action(QStringLiteral("About Aoide")),
       ChromeMenuItem::action(QStringLiteral("Quit")),
   };
 }
 
-class TrampSession : public QObject, public PanelSurfaces {
+class AoideSession : public QObject, public PanelSurfaces {
   Q_OBJECT
 
  public:
-  explicit TrampSession(QObject* parent = nullptr);
-  ~TrampSession() override;
+  explicit AoideSession(QObject* parent = nullptr);
+  ~AoideSession() override;
 
   void setWindows(const PanelWindows& windows);
   void setShell(HostShell* shell);
@@ -176,7 +176,7 @@ class TrampSession : public QObject, public PanelSurfaces {
 
   SupportStore store_;
   PersistHealth persistHealth_;
-  TrampSettings settings_;
+  AoideSettings settings_;
   PlaylistController playlist_;
   PlaylistCollection collection_;
   // The engine is declared first so it is destroyed last: MpvEngine's callbacks
@@ -240,4 +240,4 @@ class TrampSession : public QObject, public PanelSurfaces {
   WorkerCrew workers_;
 };
 
-}  // namespace tramp
+}  // namespace aoide

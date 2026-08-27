@@ -11,7 +11,7 @@ permissions:
 env:
   # Override with repo variable MSIX_PUBLISHER after Partner Center identity exists.
   MSIX_PUBLISHER_DEFAULT: "CN=Proxima Magnifica"
-  MSIX_IDENTITY_DEFAULT: "ProximaMagnifica.trampmusic"
+  MSIX_IDENTITY_DEFAULT: "ProximaMagnifica.aoidemusic"
 
   # The Qt pin lives in QT_VERSION (x.y.z). export-qt-pin.sh writes QT_VERSION
   # and QT_RUNTIME (x.y) into GITHUB_ENV. That is the same line as
@@ -64,7 +64,7 @@ jobs:
           cmake --build build --config Release
           ctest --test-dir build -C Release --output-on-failure
       - name: Paint budget
-        run: QT_QPA_PLATFORM=offscreen ./build/tramp --bench-chrome
+        run: QT_QPA_PLATFORM=offscreen ./build/aoide --bench-chrome
 
   windows:
     name: Windows EXE + MSIX
@@ -114,8 +114,8 @@ jobs:
             PATH="$(printf '%s\n' "$PATH" | tr ':' '\n' | grep -vxF "$qt_bin" | paste -sd ':' -)"
             export PATH
           fi
-          QT_QPA_PLATFORM=offscreen build/windows/stage/tramp.exe --bench-chrome
-          TRAMP_AUTO_QUIT=1 build/windows/stage/tramp.exe
+          QT_QPA_PLATFORM=offscreen build/windows/stage/aoide.exe --bench-chrome
+          AOIDE_AUTO_QUIT=1 build/windows/stage/aoide.exe
       - name: Inno Setup installer
         shell: pwsh
         run: |
@@ -125,7 +125,7 @@ jobs:
           $iscc = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Inno Setup *","${env:ProgramFiles}\Inno Setup *" -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue |
             Select-Object -First 1
           if (-not $iscc) { throw 'ISCC.exe not found' }
-          & $iscc.FullName "/DMyAppVersion=$ver" packaging\windows\tramp.iss
+          & $iscc.FullName "/DMyAppVersion=$ver" packaging\windows\aoide.iss
       - name: MSIX (unsigned, Store re-signs)
         shell: pwsh
         env:
@@ -181,14 +181,14 @@ jobs:
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --config Release
           ctest --test-dir build -C Release --output-on-failure
-          QT_QPA_PLATFORM=offscreen ./build/tramp --bench-chrome
+          QT_QPA_PLATFORM=offscreen ./build/aoide --bench-chrome
           ./packaging/linux/stage_bundle.sh
       - name: AppImage + tarball
         run: |
           ./packaging/linux/make_appimage.sh
           eval "$(./tool/version.sh)"
           tar -C build/linux -czf \
-            "build/linux/Tramp-${version}-linux-x86_64.tar.gz" bundle
+            "build/linux/Aoide-${version}-linux-x86_64.tar.gz" bundle
       # Run the things we are about to publish. ctest above ran the build tree,
       # which still resolves Qt and libmpv from the runner; only these runs prove
       # the artifacts carry their own. The tarball is extracted somewhere else
@@ -201,26 +201,26 @@ jobs:
           # Qt still starts — the check would pass for the wrong reason.
           unset LD_LIBRARY_PATH QT_PLUGIN_PATH QT_QPA_PLATFORM_PLUGIN_PATH
           export QT_QPA_PLATFORM=offscreen APPIMAGE_EXTRACT_AND_RUN=1
-          appimage="$(ls build/linux/Tramp-*-linux-x86_64.AppImage)"
-          tarball="$(ls build/linux/Tramp-*-linux-x86_64.tar.gz)"
+          appimage="$(ls build/linux/Aoide-*-linux-x86_64.AppImage)"
+          tarball="$(ls build/linux/Aoide-*-linux-x86_64.tar.gz)"
 
-          build/linux/bundle/tramp --bench-chrome
-          XDG_DATA_HOME="$(mktemp -d)" TRAMP_AUTO_QUIT=1 build/linux/bundle/tramp
+          build/linux/bundle/aoide --bench-chrome
+          XDG_DATA_HOME="$(mktemp -d)" AOIDE_AUTO_QUIT=1 build/linux/bundle/aoide
 
           "$appimage" --bench-chrome
-          XDG_DATA_HOME="$(mktemp -d)" TRAMP_AUTO_QUIT=1 "$appimage"
+          XDG_DATA_HOME="$(mktemp -d)" AOIDE_AUTO_QUIT=1 "$appimage"
 
           extracted="$(mktemp -d)"
           tar -C "$extracted" -xzf "$tarball"
-          "$extracted/bundle/tramp" --bench-chrome
-          XDG_DATA_HOME="$(mktemp -d)" TRAMP_AUTO_QUIT=1 "$extracted/bundle/tramp"
+          "$extracted/bundle/aoide" --bench-chrome
+          XDG_DATA_HOME="$(mktemp -d)" AOIDE_AUTO_QUIT=1 "$extracted/bundle/aoide"
       - uses: actions/upload-artifact@v6
         with:
           name: linux
           if-no-files-found: error
           path: |
-            build/linux/Tramp-*-linux-x86_64.AppImage
-            build/linux/Tramp-*-linux-x86_64.tar.gz
+            build/linux/Aoide-*-linux-x86_64.AppImage
+            build/linux/Aoide-*-linux-x86_64.tar.gz
 
   flatpak:
     name: Linux Flatpak bundle
@@ -283,29 +283,29 @@ jobs:
         run: |
           set -euo pipefail
           sudo flatpak install -y --noninteractive \
-            "$(ls build/linux/Tramp-*-linux-x86_64.flatpak)"
+            "$(ls build/linux/Aoide-*-linux-x86_64.flatpak)"
           # The name a listener actually sees. flatpak reads it from the AppStream
           # data composed out of /app/share/metainfo, and falls back to printing the
           # app ID when that is missing — which is silent everywhere else in this
           # build, since flatpak-builder skips its compose step without a word.
           name="$(flatpak list --app --columns=application,name \
-            | awk -F'\t' '$1 == "com.proximamagnifica.tramp" { print $2 }')"
-          if [ "$name" != "Tramp" ]; then
-            echo "installed name is '$name', expected 'Tramp'" >&2
+            | awk -F'\t' '$1 == "com.proximamagnifica.aoide" { print $2 }')"
+          if [ "$name" != "Aoide" ]; then
+            echo "installed name is '$name', expected 'Aoide'" >&2
             echo "the bundle is missing its AppStream metainfo" >&2
             exit 1
           fi
           # System install is fine; `sudo flatpak run` is not. Newer flatpak
           # refuses that form so the sandbox does not inherit sudo's env.
           flatpak run --env=QT_QPA_PLATFORM=offscreen \
-            com.proximamagnifica.tramp --bench-chrome
-          flatpak run --env=QT_QPA_PLATFORM=offscreen --env=TRAMP_AUTO_QUIT=1 \
-            com.proximamagnifica.tramp
+            com.proximamagnifica.aoide --bench-chrome
+          flatpak run --env=QT_QPA_PLATFORM=offscreen --env=AOIDE_AUTO_QUIT=1 \
+            com.proximamagnifica.aoide
       - uses: actions/upload-artifact@v6
         with:
           name: linux-flatpak
           if-no-files-found: error
-          path: build/linux/Tramp-*-linux-x86_64.flatpak
+          path: build/linux/Aoide-*-linux-x86_64.flatpak
 
   github-release:
     name: Assemble downloads
@@ -356,7 +356,7 @@ jobs:
           generate_release_notes: true
           draft: false
           body: |
-            Source: this tag. Product downloads: https://tramp.music
+            Source: this tag. Product downloads: https://aoide.music
 
             Windows Store and Flathub listings are submitted separately from these bits.
             macOS DMG is 1.1 and waits on the Qt Mac host.

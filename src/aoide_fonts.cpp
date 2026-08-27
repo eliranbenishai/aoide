@@ -1,4 +1,4 @@
-#include "tramp_fonts.h"
+#include "aoide_fonts.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -11,7 +11,7 @@
 #include <cmath>
 #include <cstring>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 QString g_chromeFamily = QStringLiteral("TrampCondensed");
@@ -28,16 +28,16 @@ QString bundledDataDir(const char* leaf) {
   if (QCoreApplication::instance()) {
     const QString appDir = QCoreApplication::applicationDirPath();
     roots << QDir(appDir).filePath(name);
-    roots << QDir::cleanPath(QDir(appDir).filePath(QStringLiteral("../share/tramp/") + name));
+    roots << QDir::cleanPath(QDir(appDir).filePath(QStringLiteral("../share/aoide/") + name));
   }
-#ifdef TRAMP_ASSET_DIR
+#ifdef AOIDE_ASSET_DIR
   if (std::strcmp(leaf, "assets") == 0) {
-    roots << QStringLiteral(TRAMP_ASSET_DIR);
+    roots << QStringLiteral(AOIDE_ASSET_DIR);
   }
 #endif
-#ifdef TRAMP_SKINS_DIR
+#ifdef AOIDE_SKINS_DIR
   if (std::strcmp(leaf, "skins") == 0) {
-    roots << QStringLiteral(TRAMP_SKINS_DIR);
+    roots << QStringLiteral(AOIDE_SKINS_DIR);
   }
 #endif
   for (const QString& root : roots) {
@@ -52,7 +52,7 @@ QString assetPath(const char* relative) {
   return QDir(bundledDataDir("assets")).filePath(QString::fromUtf8(relative));
 }
 
-void loadTrampFonts() {
+void loadAoideFonts() {
   const int condensed =
       QFontDatabase::addApplicationFont(assetPath("fonts/TrampCondensed-Bold.ttf"));
   const int mono =
@@ -148,4 +148,4 @@ void fitFontToWidth(QFont& font, const QString& text, qreal maxWidth) {
   }
 }
 
-}  // namespace tramp
+}  // namespace aoide

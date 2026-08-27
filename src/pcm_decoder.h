@@ -5,7 +5,7 @@
 #include <QString>
 #include <functional>
 
-namespace tramp {
+namespace aoide {
 
 class MpvPcmDecoder {
  public:
@@ -18,4 +18,4 @@ class MpvPcmDecoder {
   PcmBuffer decode(const QString& path, const CancelFn& stillWanted = {}) const;
 };
 
-}  // namespace tramp
+}  // namespace aoide

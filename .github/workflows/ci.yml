@@ -81,7 +81,7 @@ jobs:
       # of it unproven here and discovers it during a release instead.
       - name: Paint budget (Linux)
         if: runner.os == 'Linux'
-        run: QT_QPA_PLATFORM=offscreen ./build/tramp --bench-chrome
+        run: QT_QPA_PLATFORM=offscreen ./build/aoide --bench-chrome
         shell: bash
 
       - name: Paint budget (Windows)
@@ -91,8 +91,8 @@ jobs:
           set -euo pipefail
           # Multi-config generators put the binary under the config directory;
           # Ninja and Makefiles put it straight in the build tree.
-          exe=build/Release/tramp.exe
-          [ -f "$exe" ] || exe=build/tramp.exe
+          exe=build/Release/aoide.exe
+          [ -f "$exe" ] || exe=build/aoide.exe
           QT_QPA_PLATFORM=offscreen "$exe" --bench-chrome
 
   passed:

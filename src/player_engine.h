@@ -8,7 +8,7 @@
 #include <functional>
 #include <optional>
 
-namespace tramp {
+namespace aoide {
 
 struct AudioFormatInfo {
   std::optional<int> bitrateKbps;
@@ -98,4 +98,4 @@ class MissingAudioEngine : public PlayerEngine {
   QString reason_;
 };
 
-}  // namespace tramp
+}  // namespace aoide

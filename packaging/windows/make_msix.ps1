@@ -3,7 +3,7 @@
 param(
   [string]$Version = "1.0.0.0",
   [string]$Publisher = "CN=Proxima Magnifica",
-  [string]$IdentityName = "ProximaMagnifica.trampmusic"
+  [string]$IdentityName = "ProximaMagnifica.aoidemusic"
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,10 +14,10 @@ $Root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $Release = Join-Path $Root "build\windows\stage"
 $Stage = Join-Path $Root "build\windows\msix_stage"
 $OutDir = Join-Path $Root "build\windows\msix"
-$Png = Join-Path $Root "packaging\linux\icons\hicolor\256x256\apps\com.proximamagnifica.tramp.png"
+$Png = Join-Path $Root "packaging\linux\icons\hicolor\256x256\apps\com.proximamagnifica.aoide.png"
 
-if (-not (Test-Path (Join-Path $Release "tramp.exe"))) {
-  throw "Missing $Release\tramp.exe; run packaging/windows/stage.ps1 first"
+if (-not (Test-Path (Join-Path $Release "aoide.exe"))) {
+  throw "Missing $Release\aoide.exe; run packaging/windows/stage.ps1 first"
 }
 
 $makeappx = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\makeappx.exe" -ErrorAction SilentlyContinue |
@@ -50,7 +50,7 @@ $manifest = @"
   IgnorableNamespaces="uap rescap">
   <Identity Name="$IdentityName" Publisher="$Publisher" Version="$Version" ProcessorArchitecture="x64" />
   <Properties>
-    <DisplayName>tramp.music</DisplayName>
+    <DisplayName>aoide.music</DisplayName>
     <PublisherDisplayName>Proxima Magnifica</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -62,9 +62,9 @@ $manifest = @"
     <Resource Language="en-US" />
   </Resources>
   <Applications>
-    <Application Id="Tramp" Executable="tramp.exe" EntryPoint="Windows.FullTrustApplication">
+    <Application Id="Aoide" Executable="aoide.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
-        DisplayName="tramp.music"
+        DisplayName="aoide.music"
         Description="Desktop music player"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
@@ -73,7 +73,7 @@ $manifest = @"
       </uap:VisualElements>
       <Extensions>
         <uap:Extension Category="windows.fileTypeAssociation">
-          <uap:FileTypeAssociation Name="trampaudio">
+          <uap:FileTypeAssociation Name="aoideaudio">
             <uap:SupportedFileTypes>
               <uap:FileType>.mp3</uap:FileType>
               <uap:FileType>.m4a</uap:FileType>
@@ -86,7 +86,7 @@ $manifest = @"
           </uap:FileTypeAssociation>
         </uap:Extension>
         <uap:Extension Category="windows.fileTypeAssociation">
-          <uap:FileTypeAssociation Name="trampplaylist">
+          <uap:FileTypeAssociation Name="aoideplaylist">
             <uap:SupportedFileTypes>
               <uap:FileType>.m3u</uap:FileType>
               <uap:FileType>.m3u8</uap:FileType>
@@ -103,7 +103,7 @@ $manifest = @"
 "@
 Set-Content -Path (Join-Path $Stage "AppxManifest.xml") -Value $manifest -Encoding ascii
 
-$out = Join-Path $OutDir "Tramp-$Version-windows-x64.msix"
+$out = Join-Path $OutDir "Aoide-$Version-windows-x64.msix"
 
 & $makeappx.FullName pack /d $Stage /p $out /o
 if ($LASTEXITCODE -ne 0) { throw "makeappx failed ($LASTEXITCODE)" }

@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=qt-env.sh
 source "$ROOT/tool/qt-env.sh"
-tramp_resolve_qt
+aoide_resolve_qt
 CXX="${CXX:-/home/linuxbrew/.linuxbrew/opt/llvm/bin/clang++}"
 CC="${CC:-/home/linuxbrew/.linuxbrew/opt/llvm/bin/clang}"
 BREW="${BREW:-/home/linuxbrew/.linuxbrew}"
@@ -30,10 +30,10 @@ INC=(
 )
 VERSION="$(head -n 1 "$ROOT/VERSION" | tr -d '\r[:space:]')"
 DEFS=(
-  -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_DBUS_LIB -DTRAMP_HAVE_MPV -DTRAMP_HAVE_DBUS
-  -DTRAMP_VERSION="\"$VERSION\""
-  -DTRAMP_ASSET_DIR="\"$ROOT/assets\""
-  -DTRAMP_SKINS_DIR="\"$ROOT/skins\""
+  -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_DBUS_LIB -DAOIDE_HAVE_MPV -DAOIDE_HAVE_DBUS
+  -DAOIDE_VERSION="\"$VERSION\""
+  -DAOIDE_ASSET_DIR="\"$ROOT/assets\""
+  -DAOIDE_SKINS_DIR="\"$ROOT/skins\""
 )
 LIBS=(
   -L"$QT/lib" -L"$BREW/lib" -L"$MPV_LIB" -L"$STUB"
@@ -48,7 +48,7 @@ LIBS=(
   -Wl,--allow-shlib-undefined
   -Wl,-rpath,"$QT/lib" -Wl,-rpath,"$BREW/lib" -Wl,-rpath,"$MPV_LIB" -Wl,-rpath,"$STUB"
 )
-CXXFLAGS=(-std=c++17 "${TRAMP_OPT:--O2}" -fPIC -Wall -Wextra -Wno-unused-parameter)
+CXXFLAGS=(-std=c++17 "${AOIDE_OPT:--O2}" -fPIC -Wall -Wextra -Wno-unused-parameter)
 
 "$MOC" "$ROOT/src/host_window.h" -o "$BUILD/moc_host_window.cpp"
 "$MOC" "$ROOT/src/host_shell_window.h" -o "$BUILD/moc_host_shell_window.cpp"
@@ -63,7 +63,7 @@ SRCS=(
   "$ROOT/src/app_icon.cpp"
   "$ROOT/src/host_shell_window.cpp"
   "$ROOT/src/mockup_draw.cpp"
-  "$ROOT/src/tramp_fonts.cpp"
+  "$ROOT/src/aoide_fonts.cpp"
   "$ROOT/src/chrome_anim.cpp"
   "$ROOT/src/chrome_paint.cpp"
   "$ROOT/src/chrome_bodies.cpp"
@@ -105,6 +105,6 @@ SRCS=(
   "$BUILD/moc_mpv_engine.cpp"
 )
 
-"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" "${DEFS[@]}" "${SRCS[@]}" "${LIBS[@]}" -o "$BUILD/tramp.next"
-mv -f "$BUILD/tramp.next" "$BUILD/tramp"
-echo "built $BUILD/tramp"
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" "${DEFS[@]}" "${SRCS[@]}" "${LIBS[@]}" -o "$BUILD/aoide.next"
+mv -f "$BUILD/aoide.next" "$BUILD/aoide"
+echo "built $BUILD/aoide"

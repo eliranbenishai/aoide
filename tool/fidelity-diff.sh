@@ -14,14 +14,14 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REF="$ROOT/.scratch/fidelity/baseline"
 NEW="$ROOT/.scratch/fidelity/current"
 DIFF="$ROOT/.scratch/fidelity/diff"
-BIN="$ROOT/build/tramp"
+BIN="$ROOT/build/aoide"
 THRESHOLD="${THRESHOLD:-0.01}"
 
 dump() {
   local dir="$1"
   rm -rf "$dir"
   mkdir -p "$dir"
-  QT_QPA_PLATFORM=offscreen XDG_DATA_HOME=/tmp/tramp-bench-xdg "$BIN" --dump-chrome "$dir" >/dev/null
+  QT_QPA_PLATFORM=offscreen XDG_DATA_HOME=/tmp/aoide-bench-xdg "$BIN" --dump-chrome "$dir" >/dev/null
 }
 
 if [[ "${1:-}" == "--baseline" ]]; then

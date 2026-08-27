@@ -2,7 +2,7 @@
 
 #include "docking.h"
 #include "settings.h"
-#include "tramp_metrics.h"
+#include "aoide_metrics.h"
 #include "window_spec.h"
 
 #include <QSize>
@@ -14,7 +14,7 @@
 
 class HostWindow;
 
-namespace tramp {
+namespace aoide {
 
 /// One panel's fixed facts: everything about it that the rest of the app used
 /// to rediscover in a `switch (WindowId)` of its own. What it is called on its
@@ -54,7 +54,7 @@ struct PanelSpec {
   /// Which column of the first-run arrangement the panel is seeded into.
   int seedColumn = 0;
   /// This panel's frame inside a settings record...
-  WindowFrame TrampSettings::*settingsFrame = &TrampSettings::main;
+  WindowFrame AoideSettings::*settingsFrame = &AoideSettings::main;
   /// ...and inside a live layout.
   WindowFrame DockLayout::*layoutFrame = &DockLayout::main;
 };
@@ -67,7 +67,7 @@ inline const std::array<PanelSpec, kPanelCount>& panelSpecs() {
   static const std::array<PanelSpec, kPanelCount> specs = {{
       PanelSpec{
           WindowId::main,
-          QStringLiteral("Tramp"),
+          QStringLiteral("Aoide"),
           QStringLiteral("main"),
           QStringLiteral("main_player_window"),
           {QStringLiteral("main")},
@@ -76,7 +76,7 @@ inline const std::array<PanelSpec, kPanelCount>& panelSpecs() {
           true,
           DockSide::right,
           0,
-          &TrampSettings::main,
+          &AoideSettings::main,
           &DockLayout::main,
       },
       PanelSpec{
@@ -90,7 +90,7 @@ inline const std::array<PanelSpec, kPanelCount>& panelSpecs() {
           true,
           DockSide::bottom,
           0,
-          &TrampSettings::equalizer,
+          &AoideSettings::equalizer,
           &DockLayout::equalizer,
       },
       PanelSpec{
@@ -104,7 +104,7 @@ inline const std::array<PanelSpec, kPanelCount>& panelSpecs() {
           true,
           DockSide::right,
           1,
-          &TrampSettings::playlist,
+          &AoideSettings::playlist,
           &DockLayout::playlist,
       },
       PanelSpec{
@@ -118,7 +118,7 @@ inline const std::array<PanelSpec, kPanelCount>& panelSpecs() {
           false,
           DockSide::right,
           1,
-          &TrampSettings::settings,
+          &AoideSettings::settings,
           &DockLayout::settings,
       },
       PanelSpec{
@@ -132,7 +132,7 @@ inline const std::array<PanelSpec, kPanelCount>& panelSpecs() {
           false,
           DockSide::right,
           0,
-          &TrampSettings::about,
+          &AoideSettings::about,
           &DockLayout::about,
       },
       PanelSpec{
@@ -146,7 +146,7 @@ inline const std::array<PanelSpec, kPanelCount>& panelSpecs() {
           false,
           DockSide::right,
           1,
-          &TrampSettings::skins,
+          &AoideSettings::skins,
           &DockLayout::skins,
       },
   }};
@@ -189,16 +189,16 @@ class PanelWindows {
 /// Copy every panel's frame from a settings record into a live layout, or the
 /// other way: persist writes the layout back. The table is the list of frames,
 /// so a sixth panel is one more pointer pair, not another assignment.
-inline void copyPanelFrames(DockLayout& dest, const TrampSettings& src) {
+inline void copyPanelFrames(DockLayout& dest, const AoideSettings& src) {
   for (const PanelSpec& panel : panelSpecs()) {
     dest.*panel.layoutFrame = src.*panel.settingsFrame;
   }
 }
 
-inline void copyPanelFrames(TrampSettings& dest, const DockLayout& src) {
+inline void copyPanelFrames(AoideSettings& dest, const DockLayout& src) {
   for (const PanelSpec& panel : panelSpecs()) {
     dest.*panel.settingsFrame = src.*panel.layoutFrame;
   }
 }
 
-}  // namespace tramp
+}  // namespace aoide

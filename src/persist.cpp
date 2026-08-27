@@ -8,7 +8,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 QJsonObject trackToJson(const Track& t) {
@@ -41,7 +41,7 @@ Track trackFromJson(const QJsonObject& o) {
 }
 
 /// Everything the state files hold is keyed by path, and a relative one is
-/// keyed on whatever directory Tramp was started from. Absolute on the way in
+/// keyed on whatever directory Aoide was started from. Absolute on the way in
 /// and on the way out, so the same collection reads the same from anywhere.
 QString absoluteKey(const QString& path) {
   if (path.isEmpty()) return path;
@@ -94,7 +94,7 @@ QJsonObject SupportStore::readObject(const QString& name) const {
   if (!QFile::exists(aside)) {
     QFile::rename(path, aside);
   }
-  qWarning("tramp: %s is not valid JSON; kept a copy at %s", qPrintable(name),
+  qWarning("aoide: %s is not valid JSON; kept a copy at %s", qPrintable(name),
            qPrintable(aside));
   return {};
 }
@@ -104,29 +104,29 @@ bool SupportStore::writeObject(const QString& name, const QJsonObject& o) const 
   // an interrupted write leaves the previous file untouched instead of empty.
   QSaveFile file(filePath(name));
   if (!file.open(QIODevice::WriteOnly)) {
-    qWarning("tramp: cannot open %s for writing", qPrintable(name));
+    qWarning("aoide: cannot open %s for writing", qPrintable(name));
     return false;
   }
   const QByteArray payload = QJsonDocument(o).toJson(QJsonDocument::Compact);
   if (file.write(payload) != payload.size()) {
     file.cancelWriting();
-    qWarning("tramp: short write to %s", qPrintable(name));
+    qWarning("aoide: short write to %s", qPrintable(name));
     return false;
   }
   if (!file.commit()) {
-    qWarning("tramp: cannot commit %s", qPrintable(name));
+    qWarning("aoide: cannot commit %s", qPrintable(name));
     return false;
   }
   return true;
 }
 
-TrampSettings SupportStore::readSettings() const {
+AoideSettings SupportStore::readSettings() const {
   const QJsonObject o = readObject(QStringLiteral("settings.json"));
   if (o.isEmpty()) return {};
-  return TrampSettings::fromJson(o);
+  return AoideSettings::fromJson(o);
 }
 
-bool SupportStore::writeSettings(const TrampSettings& s) const {
+bool SupportStore::writeSettings(const AoideSettings& s) const {
   return writeObject(QStringLiteral("settings.json"), s.toJson());
 }
 
@@ -318,7 +318,7 @@ bool SupportStore::writeTrackSets(const CollectionTrackSets& sets) const {
 }
 
 void writeSessionPersist(const SupportStore& store, PersistHealth& health,
-                         const TrampSettings& settings, const SessionResume& resume,
+                         const AoideSettings& settings, const SessionResume& resume,
                          const UsageCounters& usage, const QString& lastPlaylistPath,
                          const AlteredPlaylist* altered) {
   health.settingsOk = store.writeSettings(settings);
@@ -332,4 +332,4 @@ void writeSessionPersist(const SupportStore& store, PersistHealth& health,
   }
 }
 
-}  // namespace tramp
+}  // namespace aoide

@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace tramp {
+namespace aoide {
 
 HostShellLayout hostShellLayout(QRect hostScreenRect, const QVector<QRect>& visiblePanelScreenRects) {
   if (visiblePanelScreenRects.isEmpty() || hostScreenRect.isNull()) {
@@ -45,4 +45,4 @@ QSize panelNativeSize(QSize logicalZoomed, QSize widgetSize) {
   return widgetSize;
 }
 
-}  // namespace tramp
+}  // namespace aoide

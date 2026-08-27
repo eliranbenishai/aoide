@@ -1,6 +1,6 @@
 #include "chrome_layout.h"
-#include "tramp_fonts.h"
-#include "tramp_metrics.h"
+#include "aoide_fonts.h"
+#include "aoide_metrics.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -98,8 +98,8 @@ int lastInkRow(const QFont& font, qreal boxH, bool clip) {
 }
 
 QString skinsFile(const char* relative) {
-#ifdef TRAMP_SKINS_DIR
-  return QDir(QStringLiteral(TRAMP_SKINS_DIR)).filePath(QString::fromUtf8(relative));
+#ifdef AOIDE_SKINS_DIR
+  return QDir(QStringLiteral(AOIDE_SKINS_DIR)).filePath(QString::fromUtf8(relative));
 #else
   return QString::fromUtf8(relative);
 #endif
@@ -111,43 +111,43 @@ int main(int argc, char** argv) {
   QGuiApplication app(argc, argv);
 
   const QString spaceMono = loadFamily(skinsFile("gamma/fonts/lcd.ttf"));
-  const QString trampMono = loadFamily(tramp::assetPath("fonts/TrampMono-Medium.ttf"));
+  const QString aoideMono = loadFamily(aoide::assetPath("fonts/TrampMono-Medium.ttf"));
   REQUIRE(!spaceMono.isEmpty());
-  REQUIRE(!trampMono.isEmpty());
+  REQUIRE(!aoideMono.isEmpty());
 
   {
-    const QFont unfitted = lcdProbe(spaceMono, tramp::kElapsedTimePx);
-    const int clipped = lastInkRow(unfitted, tramp::kElapsedTimeBoxH, true);
-    const int unclipped = lastInkRow(unfitted, tramp::kElapsedTimeBoxH, false);
+    const QFont unfitted = lcdProbe(spaceMono, aoide::kElapsedTimePx);
+    const int clipped = lastInkRow(unfitted, aoide::kElapsedTimeBoxH, true);
+    const int unclipped = lastInkRow(unfitted, aoide::kElapsedTimeBoxH, false);
     REQUIRE(unclipped > clipped);
   }
 
   {
-    const QFont probe = lcdProbe(spaceMono, tramp::kElapsedTimePx);
-    const int px = tramp::pixelSizeFittingLineHeight(probe, tramp::kElapsedTimePx,
-                                                     tramp::kElapsedTimeBoxH);
+    const QFont probe = lcdProbe(spaceMono, aoide::kElapsedTimePx);
+    const int px = aoide::pixelSizeFittingLineHeight(probe, aoide::kElapsedTimePx,
+                                                     aoide::kElapsedTimeBoxH);
     const QFont fitted = lcdProbe(spaceMono, px);
-    const int clipped = lastInkRow(fitted, tramp::kElapsedTimeBoxH, true);
-    const int unclipped = lastInkRow(fitted, tramp::kElapsedTimeBoxH, false);
+    const int clipped = lastInkRow(fitted, aoide::kElapsedTimeBoxH, true);
+    const int unclipped = lastInkRow(fitted, aoide::kElapsedTimeBoxH, false);
     REQUIRE(clipped == unclipped);
-    REQUIRE(unclipped < tramp::kElapsedTimeBoxH);
-    REQUIRE(px <= tramp::kElapsedTimePx);
-    REQUIRE(px < tramp::kElapsedTimePx);
+    REQUIRE(unclipped < aoide::kElapsedTimeBoxH);
+    REQUIRE(px <= aoide::kElapsedTimePx);
+    REQUIRE(px < aoide::kElapsedTimePx);
     const qreal inkH =
         QFontMetricsF(fitted).tightBoundingRect(QStringLiteral("2:41")).height();
     REQUIRE(inkH >= 30);
   }
 
   {
-    const QFont probe = lcdProbe(trampMono, tramp::kElapsedTimePx);
-    const int px = tramp::pixelSizeFittingLineHeight(probe, tramp::kElapsedTimePx,
-                                                     tramp::kElapsedTimeBoxH);
-    REQUIRE(px == tramp::kElapsedTimePx);
+    const QFont probe = lcdProbe(aoideMono, aoide::kElapsedTimePx);
+    const int px = aoide::pixelSizeFittingLineHeight(probe, aoide::kElapsedTimePx,
+                                                     aoide::kElapsedTimeBoxH);
+    REQUIRE(px == aoide::kElapsedTimePx);
   }
 
   {
     const QString heading = QStringLiteral("NO SAVED PLAYLISTS");
-    const qreal boxW = tramp::playlistEmptyWellTextWidth(tramp::kPlaylistCollectionMinWidth);
+    const qreal boxW = aoide::playlistEmptyWellTextWidth(aoide::kPlaylistCollectionMinWidth);
     REQUIRE(boxW > 0);
 
     auto checkFace = [&](const QString& family) {
@@ -158,7 +158,7 @@ int main(int argc, char** argv) {
       REQUIRE(unclipped > clipped);
 
       QFont fitted = designed;
-      tramp::fitFontToWidth(fitted, heading, boxW);
+      aoide::fitFontToWidth(fitted, heading, boxW);
       REQUIRE(QFontMetricsF(fitted).horizontalAdvance(heading) <= boxW);
       REQUIRE(headingInkPixels(fitted, heading, boxW, true) ==
               headingInkPixels(fitted, heading, boxW, false));
@@ -170,17 +170,17 @@ int main(int argc, char** argv) {
   }
 
   {
-    REQUIRE(QFileInfo::exists(tramp::assetPath("fonts/Anton-Regular.ttf")));
-    tramp::loadTrampFonts();
-    const QString brand = tramp::brandFamily();
+    REQUIRE(QFileInfo::exists(aoide::assetPath("fonts/Anton-Regular.ttf")));
+    aoide::loadAoideFonts();
+    const QString brand = aoide::brandFamily();
     REQUIRE(brand == QStringLiteral("Anton"));
     REQUIRE(QFontInfo(QFont(brand)).family() == QStringLiteral("Anton"));
-    const QString chrome = tramp::chromeFamily();
-    tramp::setLookFamilies(tramp::lcdFamily(), tramp::lcdFamily());
-    REQUIRE(tramp::chromeFamily() == tramp::lcdFamily());
-    REQUIRE(tramp::brandFamily() == brand);
-    tramp::setLookFamilies({}, {});
-    REQUIRE(tramp::chromeFamily() == chrome);
+    const QString chrome = aoide::chromeFamily();
+    aoide::setLookFamilies(aoide::lcdFamily(), aoide::lcdFamily());
+    REQUIRE(aoide::chromeFamily() == aoide::lcdFamily());
+    REQUIRE(aoide::brandFamily() == brand);
+    aoide::setLookFamilies({}, {});
+    REQUIRE(aoide::chromeFamily() == chrome);
   }
 
   if (gFails) {

@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-namespace tramp {
+namespace aoide {
 
 /// Background threads their owner can wait for.
 ///
@@ -83,4 +83,4 @@ class WorkerCrew {
   std::shared_ptr<std::atomic_bool> alive_ = std::make_shared<std::atomic_bool>(true);
 };
 
-}  // namespace tramp
+}  // namespace aoide

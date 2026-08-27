@@ -4,7 +4,7 @@
 #include <QSizeF>
 #include <QtGlobal>
 
-namespace tramp {
+namespace aoide {
 
 inline constexpr int kDefaultZoomPercent = 75;
 inline constexpr int kZoomSteps[] = {75, 100, 125, 150};
@@ -107,9 +107,9 @@ inline QSize chromePaintBufferSize(QSize widget, qreal devicePixelRatio) {
 }
 
 /// Rounded 75% seed used as the native unmapped default (same as Dart
-/// `TrampMetrics.nativeUnmappedSeed`).
+/// `AoideMetrics.nativeUnmappedSeed`).
 inline QSize nativeUnmappedSeed(QSize logical) {
   return zoomed(logical, kDefaultZoomPercent);
 }
 
-}  // namespace tramp
+}  // namespace aoide

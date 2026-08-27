@@ -4,7 +4,7 @@
 
 #include <cmath>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 bool flush(double a, double b, double slack) { return std::abs(a - b) <= slack; }
@@ -318,4 +318,4 @@ void DockingCoordinator::trySnap(WindowId id) {
   if (bestH) addEdge(*bestH);
 }
 
-}  // namespace tramp
+}  // namespace aoide

@@ -7,7 +7,7 @@
 #include <cmath>
 #include <iterator>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 QVector<WindowId> allPanelIds() {
@@ -172,4 +172,4 @@ void LayoutSync::place() {
   placing_ = false;
 }
 
-}  // namespace tramp
+}  // namespace aoide

@@ -1,13 +1,13 @@
 #include "duration_probe.h"
 
 #include <QFile>
-#ifdef TRAMP_HAVE_MPV
+#ifdef AOIDE_HAVE_MPV
 #include <mpv/client.h>
 #include <QByteArray>
 #endif
 #include <QtEndian>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 /// A run with no cancel function is one nobody can call off.
@@ -26,7 +26,7 @@ bool eq4(const QByteArray& bytes, int offset, const char* ascii) {
          bytes[offset + 2] == ascii[2] && bytes[offset + 3] == ascii[3];
 }
 
-#ifdef TRAMP_HAVE_MPV
+#ifdef AOIDE_HAVE_MPV
 void check(int rc) {
   if (rc < 0) throw rc;
 }
@@ -156,7 +156,7 @@ std::optional<qint64> probeAudioDurationMs(const QString& path) {
   if (!file.open(QIODevice::ReadOnly)) return std::nullopt;
   const QByteArray head = file.read(64 * 1024);
   if (const auto wav = probeWavDurationMs(head, file.size())) return wav;
-#ifdef TRAMP_HAVE_MPV
+#ifdef AOIDE_HAVE_MPV
   mpv_handle* mpv = createProbeMpv();
   if (!mpv) return std::nullopt;
   std::optional<qint64> ms;
@@ -175,7 +175,7 @@ std::optional<qint64> probeAudioDurationMs(const QString& path) {
 void probeAudioDurations(const QStringList& paths, const ProbeCancelFn& stillWanted,
                          const std::function<void(const QString&, const ProbedAudio&)>& onProbed,
                          const ProbeOneFn& probeOne) {
-#ifdef TRAMP_HAVE_MPV
+#ifdef AOIDE_HAVE_MPV
   mpv_handle* mpv = nullptr;
 #endif
   for (const QString& path : paths) {
@@ -194,7 +194,7 @@ void probeAudioDurations(const QStringList& paths, const ProbeCancelFn& stillWan
         continue;
       }
     }
-#ifdef TRAMP_HAVE_MPV
+#ifdef AOIDE_HAVE_MPV
     if (!mpv) mpv = createProbeMpv();
     if (!mpv) continue;
     try {
@@ -203,9 +203,9 @@ void probeAudioDurations(const QStringList& paths, const ProbeCancelFn& stillWan
     }
 #endif
   }
-#ifdef TRAMP_HAVE_MPV
+#ifdef AOIDE_HAVE_MPV
   if (mpv) mpv_terminate_destroy(mpv);
 #endif
 }
 
-}  // namespace tramp
+}  // namespace aoide

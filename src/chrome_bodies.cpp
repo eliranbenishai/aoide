@@ -3,9 +3,9 @@
 #include "chrome_layout.h"
 #include "look.h"
 #include "mockup_draw.h"
-#include "tramp_fonts.h"
-#include "tramp_metrics.h"
-#include "tramp_version.h"
+#include "aoide_fonts.h"
+#include "aoide_metrics.h"
+#include "aoide_version.h"
 
 #include <QDateTime>
 #include <QFileInfo>
@@ -17,7 +17,7 @@
 #include <array>
 #include <cmath>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 /// Every panel painter below leaves the painter as it found it, the contract
@@ -1018,7 +1018,7 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
   drawDiscLogo(p, badge, logo, false);
 
   const qreal textLeft = badge.right() + 15;
-  drawStyledText(p, QRectF(badge.right() + 18, inner.top() + 4, 220, 32), QStringLiteral("TRAMP"),
+  drawStyledText(p, QRectF(badge.right() + 18, inner.top() + 4, 220, 32), QStringLiteral("AOIDE"),
                  brandFont(28), T().wordmark, Qt::AlignLeft | Qt::AlignVCenter,
                  {
                      {withAlpha(T().hoverLift, 77), QPointF(0, -1), 0},
@@ -1046,7 +1046,7 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
     tx += fm.horizontalAdvance(rest);
   }
 
-  const QString ver = QLatin1String("V ") + QLatin1String(TRAMP_VERSION);
+  const QString ver = QLatin1String("V ") + QLatin1String(AOIDE_VERSION);
   const QFont verFont = monoFont(10, 0.1);
   const qreal verW = 7 + textWidth(verFont, ver) + 7;
   const qreal verH = 22;
@@ -1149,7 +1149,7 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
   p.setPen(T().inkDim);
   p.drawText(QRectF(companyLeft, plate.top() + 26, 220, 14), Qt::AlignLeft | Qt::AlignVCenter,
              QStringLiteral("© 2026 Free Forever"));
-  const QString web = QStringLiteral("tramp.music");
+  const QString web = QStringLiteral("aoide.music");
   const QFont webFont = monoFont(10);
   const QRectF webBox = aboutWebPill(plate, textWidth(webFont, web));
   fillRound(p, webBox, 3, QColor(T().well.red(), T().well.green(), T().well.blue(), 217));
@@ -1190,4 +1190,4 @@ void paintWindowBody(QPainter& painter, WindowId id, QSize logical, const QImage
   }
 }
 
-}  // namespace tramp
+}  // namespace aoide

@@ -3,7 +3,7 @@
 #include <QString>
 #include <QVector>
 
-namespace tramp {
+namespace aoide {
 
 struct AudioOutputDevice {
   QString name;
@@ -45,4 +45,4 @@ inline QVector<AudioOutputDevice> withAutoAudioDevice(QVector<AudioOutputDevice>
   return devices;
 }
 
-}  // namespace tramp
+}  // namespace aoide

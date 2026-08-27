@@ -8,7 +8,7 @@
 #include <functional>
 #include <optional>
 
-namespace tramp {
+namespace aoide {
 
 class PlaybackController {
  public:
@@ -101,4 +101,4 @@ class PlaybackController {
   std::function<void(QString, qint64)> onTrackDuration_;
 };
 
-}  // namespace tramp
+}  // namespace aoide

@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 constexpr double kPi = 3.14159265358979323846;
@@ -170,4 +170,4 @@ double StftBandFolder::bandCenterHz(int index, int sampleRateHz) {
   return std::sqrt(edgesHz[size_t(index)] * edgesHz[size_t(index + 1)]);
 }
 
-}  // namespace tramp
+}  // namespace aoide

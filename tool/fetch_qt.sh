@@ -6,8 +6,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=qt-env.sh
 source "$ROOT/tool/qt-env.sh"
-tramp_read_qt_pin
-PREFIX="$(tramp_qt_prefix)"
+aoide_read_qt_pin
+PREFIX="$(aoide_qt_prefix)"
 
 if [[ "$(uname -s)" != Linux ]]; then
   echo "fetch_qt.sh installs the Linux desktop kit. On Windows, CI uses install-qt-action." >&2
@@ -15,7 +15,7 @@ if [[ "$(uname -s)" != Linux ]]; then
 fi
 
 if [[ -e "$PREFIX/lib/libQt6Core.so" || -e "$PREFIX/lib/libQt6Core.so.6" ]]; then
-  echo "Qt $TRAMP_QT_VERSION already at $PREFIX"
+  echo "Qt $AOIDE_QT_VERSION already at $PREFIX"
   exit 0
 fi
 
@@ -44,9 +44,9 @@ fi
 "$VENV/bin/python" -m pip install -q -U pip
 "$VENV/bin/python" -m pip install -q 'aqtinstall==3.3.0'
 
-echo "Installing Qt $TRAMP_QT_VERSION (qtbase qtwayland icu) into $ROOT/.local/qt"
+echo "Installing Qt $AOIDE_QT_VERSION (qtbase qtwayland icu) into $ROOT/.local/qt"
 # linux_gcc_64 is the 6.7+ arch name. qtwayland is a base archive, not a module.
-"$VENV/bin/python" -m aqt install-qt linux desktop "$TRAMP_QT_VERSION" linux_gcc_64 \
+"$VENV/bin/python" -m aqt install-qt linux desktop "$AOIDE_QT_VERSION" linux_gcc_64 \
   --outputdir "$ROOT/.local/qt" \
   --archives qtbase qtwayland icu
 
@@ -54,4 +54,4 @@ if [[ ! -e "$PREFIX/lib/libQt6Core.so" && ! -e "$PREFIX/lib/libQt6Core.so.6" ]];
   echo "aqt finished but $PREFIX has no libQt6Core" >&2
   exit 1
 fi
-echo "Qt $TRAMP_QT_VERSION ready at $PREFIX"
+echo "Qt $AOIDE_QT_VERSION ready at $PREFIX"

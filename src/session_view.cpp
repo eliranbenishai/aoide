@@ -2,7 +2,7 @@
 
 #include "chrome_layout.h"
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 /// Two token sets paint alike when the look they were resolved from is alike:
@@ -154,7 +154,7 @@ SessionView goldenDemoView() {
   v.goldenDemo = true;
 
   // Real tracks, from the Chronoton catalogue. The screenshots this view feeds
-  // are the ones on tramp.music and in the AppStream metainfo, and a store
+  // are the ones on aoide.music and in the AppStream metainfo, and a store
   // listing showing invented band names is a listing showing music nobody can
   // buy. Durations are the released ones, so the footer totals below add up.
   v.positionMs = 112000;
@@ -225,4 +225,4 @@ SessionView goldenDemoView() {
   return v;
 }
 
-}  // namespace tramp
+}  // namespace aoide

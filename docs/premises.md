@@ -1,8 +1,8 @@
 # Product premises
 
-Eight decisions the rest of Tramp is built on. Every one is defensible; not one was reached by measurement. This file exists so they get revisited **on purpose** rather than inherited by default, and so a reader of [`CONTEXT.md`](../CONTEXT.md) can tell a settled term from a bet written in the same confident voice. Glossary entries that rest on one of these carry a `_Premise_` line pointing at the section number here.
+Eight decisions the rest of Aoide is built on. Every one is defensible; not one was reached by measurement. This file exists so they get revisited **on purpose** rather than inherited by default, and so a reader of [`CONTEXT.md`](../CONTEXT.md) can tell a settled term from a bet written in the same confident voice. Glossary entries that rest on one of these carry a `_Premise_` line pointing at the section number here.
 
-**There is no telemetry.** No counters, anonymous or otherwise; nothing transmitted, nothing recorded locally to answer these questions. Tramp is **Free Forever** with no funding model, and shipping measurement infrastructure to settle a product argument is not a trade this project makes. Two of these premises look like they want a single counter each (§3 and §4). They are settled the other way instead: by a dated note saying they are unsettled, which is the honest version.
+**There is no telemetry.** No counters, anonymous or otherwise; nothing transmitted, nothing recorded locally to answer these questions. Aoide is **Free Forever** with no funding model, and shipping measurement infrastructure to settle a product argument is not a trade this project makes. Two of these premises look like they want a single counter each (§3 and §4). They are settled the other way instead: by a dated note saying they are unsettled, which is the honest version.
 
 That decision puts all the weight on the triggers, so every trigger below is something a human notices without instrumentation — a support request, an issue, a store review, an hour of maintainer time, or the code getting harder to change. A trigger nobody will notice is the same as no trigger, so the last section grades them and names the weak ones.
 
@@ -23,9 +23,9 @@ A premise stays open until a trigger fires or someone replaces the record with e
 
 Recorded 2026-08-21 · **Status:** accepted without evidence
 
-**The bet.** The listener Tramp is for already lives in folders and playlists — DJs, archivists, anyone with music curated on disk — so open, drag-and-drop, argv and M3U are enough. A scanned catalog would be effort spent on a listener the product has not met.
+**The bet.** The listener Aoide is for already lives in folders and playlists — DJs, archivists, anyone with music curated on disk — so open, drag-and-drop, argv and M3U are enough. A scanned catalog would be effort spent on a listener the product has not met.
 
-**Known.** Only that it is an explicit v1 non-goal ([`tramp-v1-spec.md`](tramp-v1-spec.md): How music enters, Non-goals), and that **library** is reserved rather than repurposed, so nothing has quietly claimed the word. Which listener actually arrives is unknown.
+**Known.** Only that it is an explicit v1 non-goal ([`aoide-v1-spec.md`](aoide-v1-spec.md): How music enters, Non-goals), and that **library** is reserved rather than repurposed, so nothing has quietly claimed the word. Which listener actually arrives is unknown.
 
 **Cost.** Nothing visible until someone arrives expecting scan-and-browse. One thing is closer than it looks, though: `playlist_tracks.json` already maps each track path in the collection to its duration and tag title, and About reports figures derived from it. That is a persisted catalog of known tracks — one browse surface short of the definition the word **library** is parked for.
 
@@ -42,7 +42,7 @@ The second is the code-side one and the more reliable: it fires the moment the c
 
 Recorded 2026-08-21 · **Status:** accepted without evidence
 
-**The bet.** Track lines are hints, not addresses; Tramp resolves them on add and Refresh and never rewrites the listener's file. This is worth more to a playlist-centric listener than the confusion it creates.
+**The bet.** Track lines are hints, not addresses; Aoide resolves them on add and Refresh and never rewrites the listener's file. This is worth more to a playlist-centric listener than the confusion it creates.
 
 **Known.** The mechanism is real and documented (`CONTEXT.md`: **Playlist file**, **Disabled playlist**, **Disabled track**; [`architecture.md`](architecture.md): Playlist, Collection). Its cost is legible in the vocabulary itself: two entries exist only to name states that arise because paths are hints — **disabled playlist** and **disabled track** — and a third, **unplayable track**, names the engine's version of the same disappointment. How often a listener meets any of them is unknown.
 
@@ -85,7 +85,7 @@ Recorded 2026-08-21 · **Status:** constraint evidenced, bet unevidenced
 
 **The bet.** A skin community forms around retinting the mockup chrome — palette, a few named materials, font roles — with layout and art left alone.
 
-**Known.** The format ships and is documented: `skin.json` (legacy `look.json` accepted), the embedded **Tramp** default plus seven bundled homage skins, install from a folder or a zip. Also known, and this half is fact rather than guess: the existing Winamp skin community's artefacts are **WSZ** files, and v1 does not read them ([`tramp-v1-spec.md`](tramp-v1-spec.md): Non-goals). The body of work the community already has is precisely the body of work Tramp cannot open.
+**Known.** The format ships and is documented: `skin.json` (legacy `look.json` accepted), the embedded **Aoide** default plus seven bundled homage skins, install from a folder or a zip. Also known, and this half is fact rather than guess: the existing Winamp skin community's artefacts are **WSZ** files, and v1 does not read them ([`aoide-v1-spec.md`](aoide-v1-spec.md): Non-goals). The body of work the community already has is precisely the body of work Aoide cannot open.
 
 **Cost.** A skin format carried, documented and version-tolerated for authors who may not exist, and a "no" to every WSZ request that arrives holding an artefact someone already made.
 
@@ -99,7 +99,7 @@ Recorded 2026-08-21 · **Status:** accepted without evidence
 
 **The bet.** People want a dense, control-forward, playlist-centric player that is good on its own terms. The homage is a shape, not a promise of feature parity.
 
-**Known.** What the homage attracts cannot be known before it attracts anyone. What v1 refuses is written down and unambiguous: WSZ skins, visualisation modes and plugins (clutterbar **V**), doublesize (**D**), a plugin ecosystem, streaming. Global hotkeys are absent too — the whole keyboard surface is Space, Ctrl+A, Delete/Backspace, the four media keys, the options menu's own arrows and Enter/Escape, and Shift or Ctrl qualifying a mouse gesture ([`tramp-v1-spec.md`](tramp-v1-spec.md): Accessibility).
+**Known.** What the homage attracts cannot be known before it attracts anyone. What v1 refuses is written down and unambiguous: WSZ skins, visualisation modes and plugins (clutterbar **V**), doublesize (**D**), a plugin ecosystem, streaming. Global hotkeys are absent too — the whole keyboard surface is Space, Ctrl+A, Delete/Backspace, the four media keys, the options menu's own arrows and Enter/Escape, and Shift or Ctrl qualifying a mouse gesture ([`aoide-v1-spec.md`](aoide-v1-spec.md): Accessibility).
 
 **Cost.** The first wave of attention is the wave most likely to want exactly the five things v1 does not do, and it arrives at the moment the product has the least slack to answer.
 
@@ -107,20 +107,17 @@ Recorded 2026-08-21 · **Status:** accepted without evidence
 
 ---
 
-## 6. A Store listing named `tramp.music` for a product called Tramp
+## 6. A Store listing named `aoide.music` for a product called Aoide
 
-Recorded 2026-08-21 · **Status:** constraint evidenced, consequence unevidenced
+Recorded 2026-08-21 · **Status:** listing name chosen, consequence unevidenced
 
-**The bet.** A listener searching the Microsoft Store for Tramp finds `tramp.music`, recognises it, and installs it; the split between wordmark and catalog title costs nothing.
+**The bet.** A listener searching the Microsoft Store for Aoide finds `aoide.music`, recognises it, and installs it; the split between wordmark and catalog title costs nothing.
 
-**Known, and this one is a fact rather than an assumption.** The bare name was taken. That is why the reservation is `tramp.music`, why the MSIX display name is `tramp.music` while the website EXE and the in-app chrome stay **Tramp** ([`distribution.md`](distribution.md)), and why `CONTEXT.md` carries the split explicitly instead of pretending it away. The listing name is also the official download domain, which is the cheapest mitigation available: the two names at least spell the same thing.
+**Known.** The product is **Aoide**. The Store listing and official download domain are `aoide.music`; the MSIX identity is `ProximaMagnifica.aoidemusic` ([`distribution.md`](distribution.md)). The website EXE and in-app chrome stay **Aoide**. The previous listing `tramp.music` is retired (historical: the bare word Tramp was taken). The listing name matching the domain is the cheapest way to keep the two names spelling the same thing.
 
 **Cost.** Two names for one product, in the one channel where the listener cannot see the website that reconciles them.
 
-**Trigger.** Reopen when either:
-
-- a support request or store review shows the split confusing someone — "I installed tramp.music, where is Tramp"; or
-- the bare name frees up. This one is free to check and should be attached to a step that already happens by hand: every Store upload requires bumping `x.y.z` in Partner Center, so re-check the name reservation there. Nobody will discover it any other way.
+**Trigger.** Reopen when a support request or store review shows the split confusing someone — "I installed aoide.music, where is Aoide".
 
 ---
 
@@ -170,7 +167,7 @@ The most expensive premise here, and the one most likely to be right.
 
 - a compositor update breaks dragging again after it was fixed, or Wayland and compositor issues outnumber product issues across a release cycle;
 - a wanted feature cannot be built without changing the host shape. The shape is load-bearing for the layout and command-routing work already queued behind it, and every addition raises the price of reversing it;
-- someone who needs a screen reader or the keyboard reports that Tramp is unusable. This is a **lagging** trigger and a poor one — it only fires after the harm — which is an argument for closing the accessibility gap on its own schedule rather than waiting for this premise to be reopened.
+- someone who needs a screen reader or the keyboard reports that Aoide is unusable. This is a **lagging** trigger and a poor one — it only fires after the harm — which is an argument for closing the accessibility gap on its own schedule rather than waiting for this premise to be reopened.
 
 ---
 

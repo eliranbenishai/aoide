@@ -3,7 +3,7 @@
 #include <QByteArray>
 #include <QVector>
 
-namespace tramp {
+namespace aoide {
 
 struct PcmBuffer {
   QVector<double> samples;
@@ -15,4 +15,4 @@ class WavReader {
   PcmBuffer read(const QByteArray& bytes) const;
 };
 
-}  // namespace tramp
+}  // namespace aoide

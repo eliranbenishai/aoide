@@ -10,14 +10,14 @@
 #include <QStandardPaths>
 #include <QWindow>
 
-#if defined(Q_OS_LINUX) && defined(TRAMP_HAVE_DBUS)
+#if defined(Q_OS_LINUX) && defined(AOIDE_HAVE_DBUS)
 #include "native_file_dialog_p.h"
 
 #include <QDBusConnection>
 #include <QDBusMessage>
 #endif
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 enum class ChooserStatus { picked, cancelled, unavailable };
@@ -163,7 +163,7 @@ ChooserResult kdialogPick(const FilePick& pick) {
   return ok;
 }
 
-#if defined(TRAMP_HAVE_DBUS)
+#if defined(AOIDE_HAVE_DBUS)
 
 QString portalParentWindow(QWidget* parent) {
   if (!parent) return {};
@@ -183,7 +183,7 @@ ChooserResult portalPick(const FilePick& pick) {
   if (!bus.isConnected()) return {};
 
   const QString token =
-      QStringLiteral("tramp%1").arg(QRandomGenerator::global()->generate(), 8, 16, QLatin1Char('0'));
+      QStringLiteral("aoide%1").arg(QRandomGenerator::global()->generate(), 8, 16, QLatin1Char('0'));
   QString sender = bus.baseService();
   if (sender.startsWith(QLatin1Char(':'))) sender.remove(0, 1);
   sender.replace(QLatin1Char('.'), QLatin1Char('_'));
@@ -244,13 +244,13 @@ ChooserResult portalPick(const FilePick& pick) {
   return out;
 }
 
-#endif  // TRAMP_HAVE_DBUS
+#endif  // AOIDE_HAVE_DBUS
 #endif  // Q_OS_LINUX
 
 }  // namespace
 
 QStringList pickFiles(const FilePick& pick) {
-#if defined(Q_OS_LINUX) && defined(TRAMP_HAVE_DBUS)
+#if defined(Q_OS_LINUX) && defined(AOIDE_HAVE_DBUS)
   const ChooserResult portal = portalPick(pick);
   if (portal.status != ChooserStatus::unavailable) return portal.paths;
 #endif
@@ -265,4 +265,4 @@ QStringList pickFiles(const FilePick& pick) {
   return widgetPick(pick).paths;
 }
 
-}  // namespace tramp
+}  // namespace aoide

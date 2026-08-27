@@ -11,7 +11,7 @@
 #include <sys/xattr.h>
 #endif
 
-namespace tramp {
+namespace aoide {
 
 bool isDocumentPortalPath(const QString& path, const QString& runtimeDir) {
   if (path.isEmpty() || runtimeDir.isEmpty()) return false;
@@ -56,4 +56,4 @@ QStringList durablePaths(const QStringList& paths) {
   return durablePaths(paths, QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation));
 }
 
-}  // namespace tramp
+}  // namespace aoide

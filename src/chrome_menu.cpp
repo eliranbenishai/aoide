@@ -1,7 +1,7 @@
 #include "chrome_menu.h"
 
 #include "mockup_draw.h"
-#include "tramp_metrics.h"
+#include "aoide_metrics.h"
 
 #include <QCloseEvent>
 #include <QColor>
@@ -23,7 +23,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 QPoint clampToWorkArea(QPoint pos, const QSize& size, const QRect& anchorGlobal) {
@@ -257,4 +257,4 @@ int execChromeMenu(QWidget* owner, const QVector<ChromeMenuItem>& items,
   return menu.run(anchorGlobal, anchor);
 }
 
-}  // namespace tramp
+}  // namespace aoide

@@ -1,6 +1,6 @@
 # Full libmpv bundle
 
-Tramp ships **full** libmpv (+ FFmpeg filter graph support), not a compressed
+Aoide ships **full** libmpv (+ FFmpeg filter graph support), not a compressed
 “audio-default” / slim build. See [`docs/architecture.md`](../../docs/architecture.md).
 
 Slim builds often embed `--disable-filters`. That removes `aresample` from
@@ -33,7 +33,7 @@ and checks the DLL hash.
 
 Both files are needed and neither is optional: the import library is what the
 Windows build links against, and the DLL is what the loader resolves at run time
-and what ships. `CMakeLists.txt` only turns `TRAMP_HAVE_MPV` on for Windows when
+and what ships. `CMakeLists.txt` only turns `AOIDE_HAVE_MPV` on for Windows when
 it finds both.
 
 Requires Visual Studio’s CMake (`cmake -E tar`) on PATH, or the VS 2022
@@ -55,7 +55,7 @@ Community CMake path used by the script.
 
 | Platform | Hook |
 |----------|------|
-| Windows | Root `CMakeLists.txt` links `libmpv.dll.a` and copies `libmpv-2.dll` beside the binaries it builds and into the install prefix; `packaging/windows/stage.ps1` copies it next to `tramp.exe` when present. |
+| Windows | Root `CMakeLists.txt` links `libmpv.dll.a` and copies `libmpv-2.dll` beside the binaries it builds and into the install prefix; `packaging/windows/stage.ps1` copies it next to `aoide.exe` when present. |
 | Linux | Root `CMakeLists.txt` install stages `third_party/libmpv/linux/x86_64/libmpv.so*` into the bundle `lib/` when present (else system libmpv). |
 | macOS | After `fetch_full_libmpv.sh`, the Qt Mac host will load the staged frameworks. Do not ship slim `audio-default`. |
 

@@ -20,7 +20,7 @@ class HostShell : public QWidget {
  public:
   explicit HostShell(QWidget* parent = nullptr);
 
-  void applyLayout(const tramp::HostShellLayout& layout);
+  void applyLayout(const aoide::HostShellLayout& layout);
   /// Places children and punches the host to their union, on every call. The
   /// punch is not optional and must not be deferred: on KWin the mask is the
   /// hole the compositor actually shows and hits, so a mask left on the old
@@ -49,7 +49,7 @@ class HostShell : public QWidget {
   void bindDesktopScreens();
   void scheduleCompositorKeepAbove();
 
-  tramp::HostShellLayout lastLayout_{};
+  aoide::HostShellLayout lastLayout_{};
   QRect lastRequestedVirtual_{};
   QWidget* primaryPanel_ = nullptr;
   bool alwaysOnTop_ = false;

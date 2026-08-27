@@ -2,11 +2,11 @@
 
 #include "audio_output.h"
 #include "panel_registry.h"
-#include "tramp_metrics.h"
+#include "aoide_metrics.h"
 
 #include <QJsonArray>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 QString sideName(DockSide side) {
@@ -113,15 +113,15 @@ QJsonObject curveToJson(const EqualizerSettings& s) {
 
 }  // namespace
 
-WindowFrame* frameFor(TrampSettings& s, WindowId id) {
+WindowFrame* frameFor(AoideSettings& s, WindowId id) {
   return &(s.*panelSpec(id).settingsFrame);
 }
 
-const WindowFrame* frameFor(const TrampSettings& s, WindowId id) {
-  return frameFor(const_cast<TrampSettings&>(s), id);
+const WindowFrame* frameFor(const AoideSettings& s, WindowId id) {
+  return frameFor(const_cast<AoideSettings&>(s), id);
 }
 
-QJsonObject TrampSettings::toJson() const {
+QJsonObject AoideSettings::toJson() const {
   QJsonObject o;
   o.insert(QStringLiteral("zoomPercent"), zoomPercent);
   o.insert(QStringLiteral("alwaysOnTop"), alwaysOnTop);
@@ -159,8 +159,8 @@ QJsonObject TrampSettings::toJson() const {
   return o;
 }
 
-TrampSettings TrampSettings::fromJson(const QJsonObject& json) {
-  TrampSettings s;
+AoideSettings AoideSettings::fromJson(const QJsonObject& json) {
+  AoideSettings s;
   // A listener who ran an earlier build has a retired step saved here. Dropping
   // it to the default threw their choice away; snap to the nearest step the
   // ladder still carries instead.
@@ -240,4 +240,4 @@ TrampSettings TrampSettings::fromJson(const QJsonObject& json) {
   return s;
 }
 
-}  // namespace tramp
+}  // namespace aoide

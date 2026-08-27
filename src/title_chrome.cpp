@@ -1,8 +1,8 @@
 #include "title_chrome.h"
 
-#include "tramp_metrics.h"
+#include "aoide_metrics.h"
 
-namespace tramp {
+namespace aoide {
 
 namespace {
 
@@ -98,4 +98,4 @@ TitleChromeLayout::Hit TitleChromeLayout::hit(QPoint p) const {
   return Hit::none;
 }
 
-}  // namespace tramp
+}  // namespace aoide

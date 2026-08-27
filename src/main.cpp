@@ -10,9 +10,9 @@
 #include "session_view.h"
 #include "support_dir.h"
 #include "title_chrome.h"
-#include "tramp_fonts.h"
-#include "tramp_metrics.h"
-#include "tramp_version.h"
+#include "aoide_fonts.h"
+#include "aoide_metrics.h"
+#include "aoide_version.h"
 #include "window_spec.h"
 
 #include <QApplication>
@@ -39,23 +39,23 @@
 
 namespace {
 
-QString dumpName(tramp::WindowId id) { return tramp::panelSpec(id).dumpName; }
+QString dumpName(aoide::WindowId id) { return aoide::panelSpec(id).dumpName; }
 
 int dumpChrome(const QString& dirPath) {
   QDir().mkpath(dirPath);
-  tramp::loadTrampFonts();
-  QImage logo = tramp::loadTrampLogo();
-  const tramp::SessionView golden = tramp::goldenDemoView();
+  aoide::loadAoideFonts();
+  QImage logo = aoide::loadAoideLogo();
+  const aoide::SessionView golden = aoide::goldenDemoView();
 
-  auto shoot = [&](const tramp::WindowSpec& spec, const tramp::SessionView& view,
+  auto shoot = [&](const aoide::WindowSpec& spec, const aoide::SessionView& view,
                    const QString& name) {
     QImage img(spec.logicalSize, QImage::Format_ARGB32_Premultiplied);
     img.fill(Qt::transparent);
     QPainter p(&img);
     p.setRenderHint(QPainter::Antialiasing);
     p.setRenderHint(QPainter::TextAntialiasing);
-    const auto title = tramp::TitleChromeLayout::forWindow(spec.id, spec.logicalSize);
-    tramp::paintMockupWindow(p, spec.logicalSize, spec.id, title, &logo, view);
+    const auto title = aoide::TitleChromeLayout::forWindow(spec.id, spec.logicalSize);
+    aoide::paintMockupWindow(p, spec.logicalSize, spec.id, title, &logo, view);
     p.end();
     const QRgb tl = img.pixel(0, 0);
     const QRgb tr = img.pixel(img.width() - 1, 0);
@@ -67,13 +67,13 @@ int dumpChrome(const QString& dirPath) {
     return img.save(QDir(dirPath).filePath(name + QStringLiteral(".png")));
   };
 
-  for (const tramp::WindowSpec& spec : tramp::windowSpecs()) {
+  for (const aoide::WindowSpec& spec : aoide::windowSpecs()) {
     if (!shoot(spec, golden, dumpName(spec.id))) return 1;
-    if (spec.id == tramp::WindowId::main) {
+    if (spec.id == aoide::WindowId::main) {
       // The pairing host withdraws zoom-in at the default three-panel stack.
       // The golden dump keeps the buttons live so that picture stays the
       // demo; this is the dead zoom-in face that dump has to watch.
-      tramp::SessionView zoomDisabled = golden;
+      aoide::SessionView zoomDisabled = golden;
       zoomDisabled.zoomInEnabled = false;
       if (!shoot(spec, zoomDisabled, dumpName(spec.id) + QStringLiteral("_zoom_disabled")))
         return 1;
@@ -81,8 +81,8 @@ int dumpChrome(const QString& dirPath) {
     // Collapsing the collection is persisted, so a listener can spend every
     // session in it, and it lays the panel out differently. Dumping only the
     // default state left that layout with nothing watching it.
-    if (spec.id == tramp::WindowId::playlist) {
-      tramp::SessionView collapsed = golden;
+    if (spec.id == aoide::WindowId::playlist) {
+      aoide::SessionView collapsed = golden;
       collapsed.collectionCollapsed = true;
       if (!shoot(spec, collapsed, dumpName(spec.id) + QStringLiteral("_collapsed"))) return 1;
 
@@ -90,10 +90,10 @@ int dumpChrome(const QString& dirPath) {
       // shows fewer, which is what puts the track scrollbar, its thumb, and the
       // row the well's bottom edge clips under the gate. A disabled row of each
       // kind rides along: both paint faint, and neither had a picture either.
-      tramp::WindowSpec smallest = spec;
-      smallest.logicalSize = tramp::kPlaylistMinWithCollection;
-      tramp::SessionView clamped = golden;
-      clamped.collectionWidth = tramp::kPlaylistCollectionMinWidth;
+      aoide::WindowSpec smallest = spec;
+      smallest.logicalSize = aoide::kPlaylistMinWithCollection;
+      aoide::SessionView clamped = golden;
+      clamped.collectionWidth = aoide::kPlaylistCollectionMinWidth;
       clamped.trackScroll = 2;
       clamped.tracks[3].disabled = true;
       clamped.collection[2].disabled = true;
@@ -108,24 +108,24 @@ int dumpChrome(const QString& dirPath) {
       // only when there are no tracks and no saved playlists, with the
       // collection column still open — a different view, not the golden
       // list with words painted over it.
-      tramp::SessionView empty;
+      aoide::SessionView empty;
       empty.goldenDemo = true;
       empty.collectionCollapsed = false;
       if (!shoot(spec, empty, dumpName(spec.id) + QStringLiteral("_empty"))) return 1;
     }
     // Audio paints its own pane; it shares no pixel with General.
-    if (spec.id == tramp::WindowId::settings) {
-      tramp::SessionView audio = golden;
+    if (spec.id == aoide::WindowId::settings) {
+      aoide::SessionView audio = golden;
       audio.settingsTab = 1;
       if (!shoot(spec, audio, dumpName(spec.id) + QStringLiteral("_audio"))) return 1;
     }
     // The Skins panel's matrix, scrollbar, footer glyphs and error line need a
     // picture of their own. The catalogue is longer than the viewport on purpose
     // — a grid that fits would leave the scrollbar unphotographed.
-    if (spec.id == tramp::WindowId::skins) {
-      tramp::SessionView skins = golden;
+    if (spec.id == aoide::WindowId::skins) {
+      aoide::SessionView skins = golden;
       skins.skins = {
-          {QStringLiteral("builtin"), QStringLiteral("Tramp"),
+          {QStringLiteral("builtin"), QStringLiteral("Aoide"),
            QStringLiteral("Proxima Magnifica")},
           {QStringLiteral("copper-rain"), QStringLiteral("Copper Rain"),
            QStringLiteral("Velvet Static")},
@@ -171,37 +171,37 @@ int benchChrome() {
 #else
   constexpr bool optimized = false;
 #endif
-  tramp::loadTrampFonts();
-  QImage logo = tramp::loadTrampLogo();
-  tramp::SessionView view = tramp::goldenDemoView();
-  const tramp::WindowSpec spec = tramp::windowSpecs().front();
-  const auto title = tramp::TitleChromeLayout::forWindow(spec.id, spec.logicalSize);
+  aoide::loadAoideFonts();
+  QImage logo = aoide::loadAoideLogo();
+  aoide::SessionView view = aoide::goldenDemoView();
+  const aoide::WindowSpec spec = aoide::windowSpecs().front();
+  const auto title = aoide::TitleChromeLayout::forWindow(spec.id, spec.logicalSize);
 
-  auto paintPass = [&](tramp::BodyPaint pass) {
+  auto paintPass = [&](aoide::BodyPaint pass) {
     QImage img(spec.logicalSize, QImage::Format_ARGB32_Premultiplied);
     img.fill(Qt::transparent);
     QPainter p(&img);
     p.setRenderHint(QPainter::Antialiasing);
     p.setRenderHint(QPainter::TextAntialiasing);
-    tramp::paintMockupWindow(p, spec.logicalSize, spec.id, title, &logo, view, pass);
+    aoide::paintMockupWindow(p, spec.logicalSize, spec.id, title, &logo, view, pass);
     p.end();
   };
 
-  paintPass(tramp::BodyPaint::full);
+  paintPass(aoide::BodyPaint::full);
 
   QElapsedTimer timer;
   constexpr int kFull = 8;
   timer.start();
-  for (int i = 0; i < kFull; ++i) paintPass(tramp::BodyPaint::full);
+  for (int i = 0; i < kFull; ++i) paintPass(aoide::BodyPaint::full);
   const qint64 fullNs = timer.nsecsElapsed();
 
   timer.restart();
-  paintPass(tramp::BodyPaint::chassis);
+  paintPass(aoide::BodyPaint::chassis);
   const qint64 chassisNs = timer.nsecsElapsed();
 
   constexpr int kLive = 30;
   timer.restart();
-  for (int i = 0; i < kLive; ++i) paintPass(tramp::BodyPaint::live);
+  for (int i = 0; i < kLive; ++i) paintPass(aoide::BodyPaint::live);
   const qint64 liveNs = timer.nsecsElapsed();
 
   const double fullMs = (fullNs / 1e6) / kFull;
@@ -211,18 +211,18 @@ int benchChrome() {
                "chrome bench: full %.2f ms/frame, chassis %.2f ms, live %.2f ms/frame\n",
                fullMs, chassisMs, liveMs);
 
-  auto paintSpec = [&](const tramp::WindowSpec& s) {
+  auto paintSpec = [&](const aoide::WindowSpec& s) {
     QImage img(s.logicalSize, QImage::Format_ARGB32_Premultiplied);
     img.fill(Qt::transparent);
     QPainter p(&img);
     p.setRenderHint(QPainter::Antialiasing);
     p.setRenderHint(QPainter::TextAntialiasing);
-    const auto t = tramp::TitleChromeLayout::forWindow(s.id, s.logicalSize);
-    tramp::paintMockupWindow(p, s.logicalSize, s.id, t, &logo, view);
+    const auto t = aoide::TitleChromeLayout::forWindow(s.id, s.logicalSize);
+    aoide::paintMockupWindow(p, s.logicalSize, s.id, t, &logo, view);
     p.end();
   };
 
-  const auto specs = tramp::windowSpecs();
+  const auto specs = aoide::windowSpecs();
   paintSpec(specs[1]);
   constexpr int kEq = 8;
   timer.restart();
@@ -237,20 +237,20 @@ int benchChrome() {
   }
   const double allMs = (timer.nsecsElapsed() / 1e6) / kAll;
 
-  const tramp::WindowSpec eqSpec = specs[1];
-  const auto eqTitle = tramp::TitleChromeLayout::forWindow(eqSpec.id, eqSpec.logicalSize);
-  auto paintEqPass = [&](tramp::BodyPaint pass) {
+  const aoide::WindowSpec eqSpec = specs[1];
+  const auto eqTitle = aoide::TitleChromeLayout::forWindow(eqSpec.id, eqSpec.logicalSize);
+  auto paintEqPass = [&](aoide::BodyPaint pass) {
     QImage img(eqSpec.logicalSize, QImage::Format_ARGB32_Premultiplied);
     img.fill(Qt::transparent);
     QPainter p(&img);
     p.setRenderHint(QPainter::Antialiasing);
     p.setRenderHint(QPainter::TextAntialiasing);
-    tramp::paintMockupWindow(p, eqSpec.logicalSize, eqSpec.id, eqTitle, &logo, view, pass);
+    aoide::paintMockupWindow(p, eqSpec.logicalSize, eqSpec.id, eqTitle, &logo, view, pass);
     p.end();
   };
-  paintEqPass(tramp::BodyPaint::live);
+  paintEqPass(aoide::BodyPaint::live);
   timer.restart();
-  for (int i = 0; i < kLive; ++i) paintEqPass(tramp::BodyPaint::live);
+  for (int i = 0; i < kLive; ++i) paintEqPass(aoide::BodyPaint::live);
   const double eqLiveMs = (timer.nsecsElapsed() / 1e6) / kLive;
   std::fprintf(stdout,
                "chrome bench: eq %.2f ms/frame, eq-live %.2f ms/frame, all-six %.2f ms/frame\n",
@@ -339,27 +339,27 @@ QStringList launchFiles(const QStringList& args) {
 struct DragBenchOptions {
   bool on = false;
   bool resize = false;
-  tramp::WindowId panel = tramp::WindowId::main;
+  aoide::WindowId panel = aoide::WindowId::main;
   int moves = 60;
   bool setVisible = false;
-  QSet<tramp::WindowId> visible;
+  QSet<aoide::WindowId> visible;
 };
 
-bool panelFromName(const QString& name, tramp::WindowId* out) {
-  const auto id = tramp::panelForName(name);
+bool panelFromName(const QString& name, aoide::WindowId* out) {
+  const auto id = aoide::panelForName(name);
   if (!id) return false;
   *out = *id;
   return true;
 }
 
-QString panelName(tramp::WindowId id) { return tramp::panelSpec(id).commandNames.first(); }
+QString panelName(aoide::WindowId id) { return aoide::panelSpec(id).commandNames.first(); }
 
 DragBenchOptions parseDragBench(const QStringList& args) {
   DragBenchOptions opts;
   if (args.contains(QStringLiteral("--bench-resize"))) {
     opts.on = true;
     opts.resize = true;
-    opts.panel = tramp::WindowId::playlist;
+    opts.panel = aoide::WindowId::playlist;
   }
   const int at = args.indexOf(QStringLiteral("--bench-drag"));
   if (at < 0 && !opts.on) return opts;
@@ -374,7 +374,7 @@ DragBenchOptions parseDragBench(const QStringList& args) {
   if (visAt >= 0 && visAt + 1 < args.size()) {
     opts.setVisible = true;
     for (const QString& part : args.at(visAt + 1).split(QLatin1Char(','), Qt::SkipEmptyParts)) {
-      tramp::WindowId id = tramp::WindowId::main;
+      aoide::WindowId id = aoide::WindowId::main;
       if (panelFromName(part.trimmed(), &id)) opts.visible.insert(id);
     }
   }
@@ -389,13 +389,13 @@ void pumpFor(int ms) {
   } while (clock.elapsed() < ms);
 }
 
-int runDragBench(const DragBenchOptions& opts, tramp::TrampSession& session, HostShell& shell,
+int runDragBench(const DragBenchOptions& opts, aoide::AoideSession& session, HostShell& shell,
                  const std::vector<HostWindow*>& windows, SnapshotMeter& snapshots) {
   pumpFor(700);  // let the host map and the first full paints settle
 
   if (opts.setVisible) {
     for (HostWindow* w : windows) {
-      if (w->id() == tramp::WindowId::main) continue;
+      if (w->id() == aoide::WindowId::main) continue;
       session.setWindowVisible(w->id(), opts.visible.contains(w->id()));
     }
     pumpFor(400);
@@ -534,7 +534,7 @@ QString writeBenchPlaylist(const QDir& dir, int tracks) {
   return list;
 }
 
-int runInvalidateBench(int trackCount, int reps, tramp::TrampSession& session,
+int runInvalidateBench(int trackCount, int reps, aoide::AoideSession& session,
                        const std::vector<HostWindow*>& windows, SnapshotMeter& snapshots) {
   QTemporaryDir tmp;
   if (!tmp.isValid()) {
@@ -549,13 +549,13 @@ int runInvalidateBench(int trackCount, int reps, tramp::TrampSession& session,
 
   pumpFor(700);  // let the host map and the first full paints settle
   for (HostWindow* w : windows) {
-    if (w->id() != tramp::WindowId::main) session.setWindowVisible(w->id(), true);
+    if (w->id() != aoide::WindowId::main) session.setWindowVisible(w->id(), true);
   }
   pumpFor(400);
   session.applyDroppedPaths({list}, true);
   // Empty files will not play, but the open tries to; stop it so the spectrum
   // timer is not ticking through the measurement.
-  session.handleHit(tramp::WindowId::main, {tramp::ChromeHit::Kind::stop, -1, {}}, Qt::NoModifier,
+  session.handleHit(aoide::WindowId::main, {aoide::ChromeHit::Kind::stop, -1, {}}, Qt::NoModifier,
                     {});
   pumpFor(900);
 
@@ -597,37 +597,37 @@ int runInvalidateBench(int trackCount, int reps, tramp::TrampSession& session,
   // The floor: whatever the timers cost with nobody touching anything. Every
   // row below is only worth reading against this one.
   measure("idle", [](int) { pumpFor(8); });
-  measure("scroll", [&](int) { session.handleWheel(tramp::WindowId::playlist, -120); });
+  measure("scroll", [&](int) { session.handleWheel(aoide::WindowId::playlist, -120); });
   measure("select", [&](int i) {
-    tramp::ChromeHit hit;
-    hit.kind = tramp::ChromeHit::Kind::plTrackRow;
+    aoide::ChromeHit hit;
+    hit.kind = aoide::ChromeHit::Kind::plTrackRow;
     hit.index = i % qMax(1, trackCount);
-    session.handleHit(tramp::WindowId::playlist, hit, Qt::NoModifier, QPoint(200, 100));
+    session.handleHit(aoide::WindowId::playlist, hit, Qt::NoModifier, QPoint(200, 100));
   });
   measure("mono", [&](int) {
-    session.handleHit(tramp::WindowId::main, {tramp::ChromeHit::Kind::mono, -1, {}},
+    session.handleHit(aoide::WindowId::main, {aoide::ChromeHit::Kind::mono, -1, {}},
                       Qt::NoModifier, {});
   });
   measure("divider", [&](int i) {
-    tramp::ChromeHit hit;
-    hit.kind = tramp::ChromeHit::Kind::plDivider;
-    session.handleDrag(tramp::WindowId::playlist, hit, QPoint(180 + (i % 40) * 6, 200));
+    aoide::ChromeHit hit;
+    hit.kind = aoide::ChromeHit::Kind::plDivider;
+    session.handleDrag(aoide::WindowId::playlist, hit, QPoint(180 + (i % 40) * 6, 200));
   });
-  session.handleRelease(tramp::WindowId::playlist);
+  session.handleRelease(aoide::WindowId::playlist);
   return 0;
 }
 
 }  // namespace
 
 int main(int argc, char** argv) {
-  tramp::sanitizeInheritedQtPluginPath();
+  aoide::sanitizeInheritedQtPluginPath();
   QApplication app(argc, argv);
   std::setlocale(LC_NUMERIC, "C");
-  app.setApplicationName(QStringLiteral("Tramp"));
-  app.setApplicationVersion(QLatin1String(TRAMP_VERSION));
+  app.setApplicationName(QStringLiteral("Aoide"));
+  app.setApplicationVersion(QLatin1String(AOIDE_VERSION));
   app.setOrganizationName(QStringLiteral("Proxima Magnifica"));
-  app.setDesktopFileName(QString::fromLatin1(tramp::kApplicationId));
-  app.setWindowIcon(tramp::appIcon());
+  app.setDesktopFileName(QString::fromLatin1(aoide::kApplicationId));
+  app.setWindowIcon(aoide::appIcon());
   app.setQuitOnLastWindowClosed(false);
 
   const QStringList args = app.arguments();
@@ -649,31 +649,31 @@ int main(int argc, char** argv) {
     if (n > 0) benchTracks = n;
   }
   // A bench run must never write the listener's settings.
-  if (dragBench.on || invalidateBench) qputenv("TRAMP_AUTO_QUIT", "1");
+  if (dragBench.on || invalidateBench) qputenv("AOIDE_AUTO_QUIT", "1");
 
-  tramp::loadTrampFonts();
-  tramp::TrampSession session;
+  aoide::loadAoideFonts();
+  aoide::AoideSession session;
 
   HostShell hostShell;
   session.setShell(&hostShell);
 
   std::vector<HostWindow*> windows;
-  windows.reserve(tramp::kPanelCount);
-  tramp::PanelWindows panels;
-  for (const tramp::WindowSpec& spec : tramp::windowSpecs()) {
+  windows.reserve(aoide::kPanelCount);
+  aoide::PanelWindows panels;
+  for (const aoide::WindowSpec& spec : aoide::windowSpecs()) {
     auto* window = new HostWindow(spec, &hostShell);
     windows.push_back(window);
     panels.set(spec.id, window);
   }
-  HostWindow* mainWindow = panels[tramp::WindowId::main];
-  HostWindow* settingsWindow = panels[tramp::WindowId::settings];
-  HostWindow* skinsWindow = panels[tramp::WindowId::skins];
+  HostWindow* mainWindow = panels[aoide::WindowId::main];
+  HostWindow* settingsWindow = panels[aoide::WindowId::settings];
+  HostWindow* skinsWindow = panels[aoide::WindowId::skins];
   session.setWindows(panels);
   hostShell.setPrimaryPanel(mainWindow);
   mainWindow->setQuitConfirmer([&]() {
     if (!session.confirmQuit()) return true;
-    const auto answer = QMessageBox::question(&hostShell, QStringLiteral("Quit Tramp"),
-                                              QStringLiteral("Quit Tramp?"));
+    const auto answer = QMessageBox::question(&hostShell, QStringLiteral("Quit Aoide"),
+                                              QStringLiteral("Quit Aoide?"));
     return answer == QMessageBox::Yes;
   });
 
@@ -692,41 +692,41 @@ int main(int argc, char** argv) {
   auto refresh = [&]() {
     QElapsedTimer clock;
     clock.start();
-    const tramp::SessionView view = session.view();
+    const aoide::SessionView view = session.view();
     snapshots.nanos += clock.nsecsElapsed();
     snapshots.builds += 1;
     for (HostWindow* window : windows) window->setSessionView(view);
   };
 
-  QObject::connect(&session, &tramp::TrampSession::chromeChanged, mainWindow, refresh);
-  QObject::connect(&session, &tramp::TrampSession::mainChromeChanged, mainWindow, [&]() {
+  QObject::connect(&session, &aoide::AoideSession::chromeChanged, mainWindow, refresh);
+  QObject::connect(&session, &aoide::AoideSession::mainChromeChanged, mainWindow, [&]() {
     mainWindow->applyLiveReadouts(session.mainLive());
   });
-  QObject::connect(&session, &tramp::TrampSession::zoomChanged, mainWindow, [&](int z) {
+  QObject::connect(&session, &aoide::AoideSession::zoomChanged, mainWindow, [&](int z) {
     for (HostWindow* window : windows) window->setZoomPercent(z);
   });
-  QObject::connect(&session, &tramp::TrampSession::requestShow, mainWindow, [&](tramp::WindowId id) {
+  QObject::connect(&session, &aoide::AoideSession::requestShow, mainWindow, [&](aoide::WindowId id) {
     if (HostWindow* w = panels[id]) {
       w->show();
       w->raise();
     }
-    if (id != tramp::WindowId::settings && settingsWindow->isVisible()) {
+    if (id != aoide::WindowId::settings && settingsWindow->isVisible()) {
       settingsWindow->raise();
     }
-    if (id != tramp::WindowId::skins && skinsWindow->isVisible()) {
+    if (id != aoide::WindowId::skins && skinsWindow->isVisible()) {
       skinsWindow->raise();
     }
     refresh();
   });
-  QObject::connect(&session, &tramp::TrampSession::requestHide, mainWindow, [&](tramp::WindowId id) {
+  QObject::connect(&session, &aoide::AoideSession::requestHide, mainWindow, [&](aoide::WindowId id) {
     // Main is the host's reason to exist and cannot be hidden; the layout says
     // so too, so a request naming it is one nothing should have sent.
-    if (id != tramp::WindowId::main) {
+    if (id != aoide::WindowId::main) {
       if (HostWindow* w = panels[id]) w->hide();
     }
     refresh();
   });
-  QObject::connect(&session, &tramp::TrampSession::requestRaise, mainWindow, [&](tramp::WindowId id) {
+  QObject::connect(&session, &aoide::AoideSession::requestRaise, mainWindow, [&](aoide::WindowId id) {
     if (HostWindow* w = panels[id]) w->raise();
   });
 
@@ -743,11 +743,11 @@ int main(int argc, char** argv) {
       if (const std::optional<int> step = session.zoomStepUp()) applyZoom(*step);
     });
     QObject::connect(window, &HostWindow::chromePressed, mainWindow,
-                     [&, window](tramp::ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical) {
+                     [&, window](aoide::ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical) {
                        session.handleHit(window->id(), hit, mods, logical);
                      });
     QObject::connect(window, &HostWindow::chromeDragged, mainWindow,
-                     [&, window](tramp::ChromeHit hit, QPoint logical) {
+                     [&, window](aoide::ChromeHit hit, QPoint logical) {
                        session.handleDrag(window->id(), hit, logical);
                      });
     QObject::connect(window, &HostWindow::chromeReleased, mainWindow,
@@ -762,7 +762,7 @@ int main(int argc, char** argv) {
                      [&, window]() { session.titleDragEnded(window->id()); });
     QObject::connect(window, &HostWindow::nativeResized, mainWindow,
                      [&, window](QSize size) {
-                       if (window->id() == tramp::WindowId::playlist) session.playlistResized(size);
+                       if (window->id() == aoide::WindowId::playlist) session.playlistResized(size);
                      });
     QObject::connect(window, &HostWindow::filesDropped, mainWindow, [&](const QStringList& paths) {
       session.applyDroppedPaths(paths, false);
@@ -801,15 +801,15 @@ int main(int argc, char** argv) {
                  [&]() { session.togglePlayPause(); });
   addAppShortcut(QKeySequence(Qt::Key_MediaPause), [&]() { session.togglePlayPause(); });
   addAppShortcut(QKeySequence(Qt::Key_MediaStop), [&]() {
-    session.handleHit(tramp::WindowId::main, {tramp::ChromeHit::Kind::stop, -1, {}},
+    session.handleHit(aoide::WindowId::main, {aoide::ChromeHit::Kind::stop, -1, {}},
                       Qt::NoModifier, {});
   });
   addAppShortcut(QKeySequence(Qt::Key_MediaNext), [&]() {
-    session.handleHit(tramp::WindowId::main, {tramp::ChromeHit::Kind::next, -1, {}},
+    session.handleHit(aoide::WindowId::main, {aoide::ChromeHit::Kind::next, -1, {}},
                       Qt::NoModifier, {});
   });
   addAppShortcut(QKeySequence(Qt::Key_MediaPrevious), [&]() {
-    session.handleHit(tramp::WindowId::main, {tramp::ChromeHit::Kind::prev, -1, {}},
+    session.handleHit(aoide::WindowId::main, {aoide::ChromeHit::Kind::prev, -1, {}},
                       Qt::NoModifier, {});
   });
 
@@ -827,7 +827,7 @@ int main(int argc, char** argv) {
     return runInvalidateBench(benchTracks, 20, session, windows, snapshots);
   }
 
-  if (qEnvironmentVariable("TRAMP_AUTO_QUIT") == QLatin1String("1")) {
+  if (qEnvironmentVariable("AOIDE_AUTO_QUIT") == QLatin1String("1")) {
     session.persistNow();
     QTimer::singleShot(0, &app, &QCoreApplication::quit);
   }

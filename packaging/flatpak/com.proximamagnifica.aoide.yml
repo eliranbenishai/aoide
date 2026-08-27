@@ -1,12 +1,12 @@
 # Binary Flatpak of the staged Qt Linux bundle. Flathub listing is a human PR;
 # this is the sandbox/permissions contract and a local test bundle.
-app-id: com.proximamagnifica.tramp
+app-id: com.proximamagnifica.aoide
 runtime: org.kde.Platform
 # Must equal QT_RUNTIME from QT_VERSION (major.minor). The pin is the same
 # official kit CI and local builds use.
 runtime-version: "6.10"
 sdk: org.kde.Sdk
-command: tramp
+command: aoide
 finish-args:
   - --share=ipc
   - --share=network
@@ -18,27 +18,27 @@ finish-args:
   # see, so the file has to live in a directory shared at one absolute path on
   # both sides; this shares that one directory and nothing else. Without it
   # loadScript succeeds on a path KWin cannot read and the window never rises.
-  - --filesystem=xdg-run/tramp:create
+  - --filesystem=xdg-run/aoide:create
   - --socket=pulseaudio
   - --device=dri
   - --filesystem=host
 modules:
-  - name: tramp
+  - name: aoide
     buildsystem: simple
     build-commands:
-      - install -d /app/tramp /app/bin
-      - cp -a . /app/tramp/
-      - chmod +x /app/tramp/tramp
+      - install -d /app/aoide /app/bin
+      - cp -a . /app/aoide/
+      - chmod +x /app/aoide/aoide
       - |
         printf '%s\n' '#!/bin/sh' \
-          'export LD_LIBRARY_PATH=/app/tramp/lib:${LD_LIBRARY_PATH:-}' \
-          'exec /app/tramp/tramp "$@"' > /app/bin/tramp
-      - chmod +x /app/bin/tramp
+          'export LD_LIBRARY_PATH=/app/aoide/lib:${LD_LIBRARY_PATH:-}' \
+          'exec /app/aoide/aoide "$@"' > /app/bin/aoide
+      - chmod +x /app/bin/aoide
       - |
         # The whole tree, not a list of subdirectories. CMake decides what ships,
         # and a manifest that enumerates share/ silently drops whatever is added
         # next -- which is how share/metainfo went missing, leaving flatpak with no
-        # name to show and the app installing as com.proximamagnifica.tramp.
+        # name to show and the app installing as com.proximamagnifica.aoide.
         # flatpak-builder only composes AppStream data from /app/share/metainfo, so
         # the depth matters as much as the presence.
         if [ -d share ]; then
@@ -47,9 +47,9 @@ modules:
         fi
         # Exec must name the /app/bin wrapper, whatever the shared desktop file says
         # for the tarball and the AppImage.
-        if [ -f /app/share/applications/com.proximamagnifica.tramp.desktop ]; then
-          sed -i 's|^Exec=.*|Exec=tramp %F|' \
-            /app/share/applications/com.proximamagnifica.tramp.desktop
+        if [ -f /app/share/applications/com.proximamagnifica.aoide.desktop ]; then
+          sed -i 's|^Exec=.*|Exec=aoide %F|' \
+            /app/share/applications/com.proximamagnifica.aoide.desktop
         fi
     sources:
       # Staged by packaging/linux/make_flatpak.sh with stage_bundle.sh --no-qt,

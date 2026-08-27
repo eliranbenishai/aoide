@@ -1,10 +1,10 @@
 #include "app_icon.h"
 
-#include "tramp_fonts.h"
+#include "aoide_fonts.h"
 
 #include <QPixmap>
 
-namespace tramp {
+namespace aoide {
 
 QIcon appIcon() {
   const QPixmap source(assetPath("branding/app_icon.png"));
@@ -18,4 +18,4 @@ QIcon appIcon() {
   return icon;
 }
 
-}  // namespace tramp
+}  // namespace aoide

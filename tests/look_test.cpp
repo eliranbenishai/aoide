@@ -1,7 +1,7 @@
 #include "look.h"
 
 #include "mockup_tokens.h"
-#include "tramp_metrics.h"
+#include "aoide_metrics.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -58,14 +58,14 @@ void writePack(const QString& dir, const QString& folder, const QString& json,
 }  // namespace
 
 int main() {
-  using tramp::ChromeTokens;
-  using tramp::LookError;
-  using tramp::SkinConflictChoice;
-  using tramp::SkinController;
-  using tramp::TrampSettings;
-  using tramp::parseLookManifest;
-  using tramp::resolveLook;
-  using tramp::scanLookCatalog;
+  using aoide::ChromeTokens;
+  using aoide::LookError;
+  using aoide::SkinConflictChoice;
+  using aoide::SkinController;
+  using aoide::AoideSettings;
+  using aoide::parseLookManifest;
+  using aoide::resolveLook;
+  using aoide::scanLookCatalog;
 
   {
     const auto m = parseLookManifest(obj(QStringLiteral(R"({
@@ -154,12 +154,12 @@ int main() {
   }
 
   {
-    REQUIRE_EQ(tramp::rectangularCornerRadius(QSizeF(100, 100), 0), 0);
-    REQUIRE_EQ(tramp::rectangularCornerRadius(QSizeF(100, 100), 10), 10);
-    REQUIRE_EQ(tramp::rectangularCornerRadius(QSizeF(100, 100), 40), 25);
-    REQUIRE_EQ(tramp::rectangularCornerRadius(QSizeF(200, 80), 40), 20);
-    REQUIRE_EQ(tramp::rectangularCornerRadius(QSizeF(825, 348), 200), 87);
-    REQUIRE_EQ(tramp::rectangularCornerRadius(QSizeF(0, 80), 10), 0);
+    REQUIRE_EQ(aoide::rectangularCornerRadius(QSizeF(100, 100), 0), 0);
+    REQUIRE_EQ(aoide::rectangularCornerRadius(QSizeF(100, 100), 10), 10);
+    REQUIRE_EQ(aoide::rectangularCornerRadius(QSizeF(100, 100), 40), 25);
+    REQUIRE_EQ(aoide::rectangularCornerRadius(QSizeF(200, 80), 40), 20);
+    REQUIRE_EQ(aoide::rectangularCornerRadius(QSizeF(825, 348), 200), 87);
+    REQUIRE_EQ(aoide::rectangularCornerRadius(QSizeF(0, 80), 10), 0);
   }
 
   {
@@ -226,11 +226,11 @@ int main() {
   }
 
   {
-    tramp::LookManifest a;
+    aoide::LookManifest a;
     a.id = QStringLiteral("a");
     a.name = QStringLiteral("A");
     a.extendsId = QStringLiteral("b");
-    tramp::LookManifest b;
+    aoide::LookManifest b;
     b.id = QStringLiteral("b");
     b.name = QStringLiteral("B");
     b.extendsId = QStringLiteral("a");
@@ -244,9 +244,9 @@ int main() {
   }
 
   {
-    QVector<tramp::LookManifest> installed;
+    QVector<aoide::LookManifest> installed;
     for (int i = 0; i < 9; ++i) {
-      tramp::LookManifest m;
+      aoide::LookManifest m;
       m.id = QStringLiteral("pack-%1").arg(i);
       m.name = QStringLiteral("Pack %1").arg(i);
       m.extendsId = i == 0 ? QStringLiteral("builtin") : QStringLiteral("pack-%1").arg(i - 1);
@@ -262,12 +262,12 @@ int main() {
   }
 
   {
-    REQUIRE_EQ(tramp::builtinLookManifest().name, QStringLiteral("Tramp"));
-    REQUIRE_EQ(tramp::builtinLookManifest().author, QStringLiteral("Proxima Magnifica"));
-    tramp::SkinController skins;
+    REQUIRE_EQ(aoide::builtinLookManifest().name, QStringLiteral("Aoide"));
+    REQUIRE_EQ(aoide::builtinLookManifest().author, QStringLiteral("Proxima Magnifica"));
+    aoide::SkinController skins;
     REQUIRE_EQ(skins.catalog().size(), 1);
     REQUIRE_EQ(skins.catalog()[0].id, QStringLiteral("builtin"));
-    REQUIRE_EQ(skins.catalog()[0].name, QStringLiteral("Tramp"));
+    REQUIRE_EQ(skins.catalog()[0].name, QStringLiteral("Aoide"));
     REQUIRE_EQ(skins.catalog()[0].author, QStringLiteral("Proxima Magnifica"));
   }
 
@@ -303,7 +303,7 @@ int main() {
     REQUIRE_EQ(hex(t.eqThumbHi), QStringLiteral("#757c8f"));
     REQUIRE_EQ(hex(t.scrollThumbHi), QStringLiteral("#7d8496"));
     REQUIRE(t.spectrumStops.size() == 4);
-    REQUIRE_EQ(hex(t.phos), hex(tramp::kPhos));
+    REQUIRE_EQ(hex(t.phos), hex(aoide::kPhos));
     REQUIRE_EQ(t.radii.window, 6);
     REQUIRE_EQ(t.radii.surface, 6);
     REQUIRE_EQ(t.radii.button, 4);
@@ -312,7 +312,7 @@ int main() {
   }
 
   {
-    tramp::LookManifest overlay = parseLookManifest(obj(QStringLiteral(R"({
+    aoide::LookManifest overlay = parseLookManifest(obj(QStringLiteral(R"({
       "formatVersion": 1, "id": "amber-shift", "name": "Amber", "extends": "builtin",
       "colors": { "shell": { "highlight": "#3a3228", "mid": "#1c1812" } }
     })")));
@@ -357,20 +357,20 @@ int main() {
     QTemporaryDir support;
     QTemporaryDir bundled;
     writePack(bundled.path(), QStringLiteral("gamma"), QStringLiteral(R"({
-      "formatVersion": 1, "id": "gamma", "name": "Gamma", "author": "Tramp",
+      "formatVersion": 1, "id": "gamma", "name": "Gamma", "author": "Aoide",
       "extends": "builtin",
       "colors": { "phosphor": { "default": "#5cff4d", "hot": "#c8ff9a", "dim": "#2a8a22", "deep": "#143c10" } }
     })"));
     writePack(bundled.path(), QStringLiteral("thunder"), QStringLiteral(R"({
-      "formatVersion": 1, "id": "thunder", "name": "Thunder", "author": "Tramp",
+      "formatVersion": 1, "id": "thunder", "name": "Thunder", "author": "Aoide",
       "extends": "builtin"
     })"));
-    TrampSettings settings;
+    AoideSettings settings;
     SkinController skins;
     skins.bootstrap(support.path(), bundled.path(), settings);
     REQUIRE(skins.catalog().size() >= 3);
     REQUIRE_EQ(skins.catalog()[0].id, QStringLiteral("builtin"));
-    REQUIRE_EQ(skins.catalog()[0].name, QStringLiteral("Tramp"));
+    REQUIRE_EQ(skins.catalog()[0].name, QStringLiteral("Aoide"));
     REQUIRE_EQ(skins.catalog()[1].id, QStringLiteral("thunder"));
     REQUIRE_EQ(skins.catalog()[2].id, QStringLiteral("gamma"));
     REQUIRE(skins.activate(QStringLiteral("gamma"), settings));
@@ -393,7 +393,7 @@ int main() {
     writePack(bundled.path(), QStringLiteral("arc"), QStringLiteral(R"({
       "formatVersion": 1, "id": "arc", "name": "Arc", "extends": "builtin"
     })"));
-    TrampSettings settings;
+    AoideSettings settings;
     settings.activeSkinId = QStringLiteral("amber-terminal");
     SkinController skins;
     skins.bootstrap(support.path(), bundled.path(), settings);
@@ -413,7 +413,7 @@ int main() {
     writePack(bundled.path(), QStringLiteral("mind"), QStringLiteral(R"({
       "formatVersion": 1, "id": "mind", "name": "Mind", "extends": "builtin"
     })"));
-    TrampSettings settings;
+    AoideSettings settings;
     settings.activeSkinId = QStringLiteral("chaos");
     SkinController skins;
     skins.bootstrap(support.path(), bundled.path(), settings);
@@ -431,7 +431,7 @@ int main() {
     writePack(custom.path(), QStringLiteral("arc"), QStringLiteral(R"({
       "formatVersion": 1, "id": "arc", "name": "Arc", "extends": "builtin"
     })"));
-    TrampSettings settings;
+    AoideSettings settings;
     settings.skinsDirectory = custom.path();
     settings.activeSkinId = QStringLiteral("violet-pulse");
     SkinController skins;
@@ -444,7 +444,7 @@ int main() {
 
   {
     QTemporaryDir support;
-    TrampSettings settings;
+    AoideSettings settings;
     settings.activeSkinId = QStringLiteral("missing-pack");
     SkinController skins;
     skins.bootstrap(support.path(), {}, settings);
@@ -459,11 +459,11 @@ int main() {
       "formatVersion": 1, "id": "neon-cyan", "name": "Neon Cyan", "extends": "builtin",
       "colors": { "phosphor": { "default": "#112233", "hot": "#b8f6ff", "dim": "#1a7a88", "deep": "#0d3d46" } }
     })"));
-    TrampSettings settings;
+    AoideSettings settings;
     SkinController skins;
     skins.bootstrap(support.path(), {}, settings);
     REQUIRE(skins.installDirectory(QDir(incoming.path()).filePath(QStringLiteral("neon-cyan")),
-                                   [](const tramp::SkinConflict&) {
+                                   [](const aoide::SkinConflict&) {
                                      return SkinConflictChoice::cancel;
                                    }));
     REQUIRE(skins.activate(QStringLiteral("neon-cyan"), settings));
@@ -471,7 +471,7 @@ int main() {
   }
 
   {
-    TrampSettings saved;
+    AoideSettings saved;
     saved.main.left = 640;
     saved.main.top = 200;
     saved.equalizer.left = 640;
@@ -482,8 +482,8 @@ int main() {
     saved.playlist.height = 696;
     const QByteArray compact =
         QJsonDocument(saved.toJson()).toJson(QJsonDocument::Compact);
-    const TrampSettings loaded =
-        TrampSettings::fromJson(QJsonDocument::fromJson(compact).object());
+    const AoideSettings loaded =
+        AoideSettings::fromJson(QJsonDocument::fromJson(compact).object());
     REQUIRE_EQ(loaded.main.left, 640.0);
     REQUIRE_EQ(loaded.main.top, 200.0);
     REQUIRE_EQ(loaded.equalizer.left, 640.0);
@@ -494,23 +494,23 @@ int main() {
   }
 
   {
-    TrampSettings saved;
+    AoideSettings saved;
     saved.showElapsed = false;
     saved.scrollTitle = false;
-    const TrampSettings loaded = TrampSettings::fromJson(saved.toJson());
+    const AoideSettings loaded = AoideSettings::fromJson(saved.toJson());
     REQUIRE(!loaded.showElapsed);
     REQUIRE(!loaded.scrollTitle);
     REQUIRE(loaded.toJson().value(QStringLiteral("showElapsed")).toBool() == false);
   }
 
   {
-    const TrampSettings defaults = TrampSettings::fromJson(QJsonObject{});
+    const AoideSettings defaults = AoideSettings::fromJson(QJsonObject{});
     REQUIRE(defaults.showElapsed);
     REQUIRE(defaults.scrollTitle);
   }
 
   {
-    const TrampSettings remain = TrampSettings::fromJson(obj(QStringLiteral(R"({
+    const AoideSettings remain = AoideSettings::fromJson(obj(QStringLiteral(R"({
       "showElapsed": false
     })")));
     REQUIRE(!remain.showElapsed);
@@ -518,7 +518,7 @@ int main() {
   }
 
   {
-    const TrampSettings loaded = TrampSettings::fromJson(obj(QStringLiteral(R"({
+    const AoideSettings loaded = AoideSettings::fromJson(obj(QStringLiteral(R"({
       "main": {"visible": true, "shaded": false, "left": 120, "top": 80},
       "equalizer": {"visible": true, "shaded": false, "left": 120, "top": 428},
       "playlist": {"visible": true, "shaded": false, "left": 0, "top": 776, "width": 900, "height": 500}
@@ -532,9 +532,9 @@ int main() {
     REQUIRE(loaded.playlist.width && *loaded.playlist.width == 900.0);
   }
 
-#ifdef TRAMP_SKINS_DIR
+#ifdef AOIDE_SKINS_DIR
   {
-    const auto bundled = scanLookCatalog(QStringLiteral(TRAMP_SKINS_DIR));
+    const auto bundled = scanLookCatalog(QStringLiteral(AOIDE_SKINS_DIR));
     REQUIRE(bundled.warnings.isEmpty());
     REQUIRE_EQ(bundled.manifests.size(), 7);
     QStringList ids;
@@ -557,11 +557,11 @@ int main() {
     REQUIRE(arcTokens.closeGlyph.hslHue() >= 0);
     REQUIRE(qAbs(arcTokens.closeGlyph.hslHue() - accentHue) <= 40);
     QTemporaryDir support;
-    TrampSettings settings;
+    AoideSettings settings;
     SkinController skins;
-    skins.bootstrap(support.path(), QStringLiteral(TRAMP_SKINS_DIR), settings);
+    skins.bootstrap(support.path(), QStringLiteral(AOIDE_SKINS_DIR), settings);
     REQUIRE_EQ(skins.catalog().size(), 8);
-    REQUIRE_EQ(skins.catalog()[0].name, QStringLiteral("Tramp"));
+    REQUIRE_EQ(skins.catalog()[0].name, QStringLiteral("Aoide"));
     REQUIRE_EQ(skins.catalog()[1].id, QStringLiteral("arc"));
     REQUIRE_EQ(skins.catalog()[2].id, QStringLiteral("shield"));
     REQUIRE_EQ(skins.catalog()[3].id, QStringLiteral("thunder"));
@@ -573,7 +573,7 @@ int main() {
 #endif
 
   {
-    tramp::LookManifest overlay = parseLookManifest(obj(QStringLiteral(R"({
+    aoide::LookManifest overlay = parseLookManifest(obj(QStringLiteral(R"({
       "formatVersion": 1, "id": "green-close", "name": "Green", "extends": "builtin",
       "colors": { "accent": { "default": "#00cc44", "dim": "#007722" } }
     })")));
@@ -587,7 +587,7 @@ int main() {
   }
 
   {
-    tramp::LookManifest overlay = parseLookManifest(obj(QStringLiteral(R"({
+    aoide::LookManifest overlay = parseLookManifest(obj(QStringLiteral(R"({
       "formatVersion": 1, "id": "arc-ink", "name": "Arc Ink", "extends": "builtin",
       "colors": {
         "ink": { "default": "#ff2d3a", "dim": "#c45a62", "faint": "#8a3e44" },
@@ -612,7 +612,7 @@ int main() {
     writePack(bundled.path(), QStringLiteral("gamma"), QStringLiteral(R"({
       "formatVersion": 1, "id": "gamma", "name": "Gamma", "extends": "builtin"
     })"));
-    TrampSettings settings;
+    AoideSettings settings;
     SkinController skins;
     skins.bootstrap(support.path(), bundled.path(), settings);
     REQUIRE(skins.catalog().size() >= 3);
@@ -634,19 +634,19 @@ int main() {
     writePack(incoming.path(), QStringLiteral("dusk"), QStringLiteral(R"({
       "formatVersion": 1, "id": "dusk", "name": "Dusk", "extends": "neon-cyan"
     })"));
-    TrampSettings settings;
+    AoideSettings settings;
     SkinController skins;
     skins.bootstrap(support.path(), {}, settings);
     REQUIRE(skins.installDirectory(QDir(incoming.path()).filePath(QStringLiteral("neon-cyan")),
-                                   [](const tramp::SkinConflict&) {
+                                   [](const aoide::SkinConflict&) {
                                      return SkinConflictChoice::cancel;
                                    }));
     REQUIRE(skins.installDirectory(QDir(incoming.path()).filePath(QStringLiteral("dusk")),
-                                   [](const tramp::SkinConflict&) {
+                                   [](const aoide::SkinConflict&) {
                                      return SkinConflictChoice::cancel;
                                    }));
     int writes = 0;
-    auto writeStub = [&](const QString&, const QString& path, const QVector<tramp::LookManifest>&,
+    auto writeStub = [&](const QString&, const QString& path, const QVector<aoide::LookManifest>&,
                          QString*) {
       ++writes;
       QDir().mkpath(QFileInfo(path).absolutePath());
@@ -698,7 +698,7 @@ int main() {
     }
     {
       QFile::remove(skins.previewPath(QStringLiteral("builtin")));
-      auto failWrite = [&](const QString&, const QString&, const QVector<tramp::LookManifest>&,
+      auto failWrite = [&](const QString&, const QString&, const QVector<aoide::LookManifest>&,
                            QString* error) {
         if (error) *error = QStringLiteral("disk full");
         return false;

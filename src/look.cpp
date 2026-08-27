@@ -1,7 +1,7 @@
 #include "look.h"
 
 #include "mockup_tokens.h"
-#include "tramp_fonts.h"
+#include "aoide_fonts.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -16,7 +16,7 @@
 #include <QTemporaryDir>
 #include <cmath>
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 thread_local const ChromeTokens* g_currentLook = nullptr;
@@ -439,7 +439,7 @@ LookManifest builtinLookManifest() {
   static const char* kJson = R"({
     "formatVersion": 1,
     "id": "builtin",
-    "name": "Tramp",
+    "name": "Aoide",
     "author": "Proxima Magnifica",
     "extends": "builtin",
     "colors": {
@@ -761,7 +761,7 @@ LookCatalogResult scanLookCatalog(const QString& skinsDir) {
 }
 
 void SkinController::bootstrap(const QString& supportDir, const QString& bundledSkinsDir,
-                               TrampSettings& settings) {
+                               AoideSettings& settings) {
   supportDir_ = supportDir;
   bundledDir_ = bundledSkinsDir;
   skinsDir_ = settings.skinsDirectory.isEmpty() ? defaultSkinsDirectory(supportDir)
@@ -808,11 +808,11 @@ void SkinController::seedBundled() {
   }
 }
 
-bool SkinController::activate(const QString& id, TrampSettings& settings) {
+bool SkinController::activate(const QString& id, AoideSettings& settings) {
   return activateInternal(canonicalActiveSkinId(id), settings);
 }
 
-bool SkinController::activateInternal(const QString& id, TrampSettings& settings) {
+bool SkinController::activateInternal(const QString& id, AoideSettings& settings) {
   try {
     resolved_ = resolveLook(id, installed_);
     applyFonts(id);
@@ -1007,10 +1007,10 @@ void SkinController::ensurePreviews(const SkinPreviewWriter& write) {
   writePreviewGeneration();
 }
 
-bool SkinController::remove(const QString& id, const TrampSettings& settings) {
+bool SkinController::remove(const QString& id, const AoideSettings& settings) {
   if (!canRemoveId(id, canonicalActiveSkinId(settings.activeSkinId))) {
     if (id == QLatin1String("builtin")) {
-      lastError_ = QStringLiteral("Tramp cannot be removed.");
+      lastError_ = QStringLiteral("Aoide cannot be removed.");
     } else if (canonicalActiveSkinId(settings.activeSkinId) == id) {
       lastError_ = QStringLiteral("The active skin cannot be removed.");
     } else {
@@ -1034,7 +1034,7 @@ bool SkinController::remove(const QString& id, const TrampSettings& settings) {
   return true;
 }
 
-void SkinController::setSkinsDirectory(const QString& path, TrampSettings& settings) {
+void SkinController::setSkinsDirectory(const QString& path, AoideSettings& settings) {
   settings.skinsDirectory = path;
   skinsDir_ = path.isEmpty() ? defaultSkinsDirectory(supportDir_) : path;
   QDir().mkpath(skinsDir_);
@@ -1111,7 +1111,7 @@ bool SkinController::installDirectory(const QString& path, ConflictFn onConflict
 }
 
 bool SkinController::installZip(const QString& path, ConflictFn onConflict) {
-  QTemporaryDir temp(QDir::temp().filePath(QStringLiteral("tramp-skin-XXXXXX")));
+  QTemporaryDir temp(QDir::temp().filePath(QStringLiteral("aoide-skin-XXXXXX")));
   if (!temp.isValid()) {
     lastError_ = QStringLiteral("failed to create temp directory");
     return false;
@@ -1149,4 +1149,4 @@ bool SkinController::installZip(const QString& path, ConflictFn onConflict) {
   return installDirectory(root, std::move(onConflict));
 }
 
-}  // namespace tramp
+}  // namespace aoide

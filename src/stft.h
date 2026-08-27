@@ -5,7 +5,7 @@
 #include <QVector>
 #include <array>
 
-namespace tramp {
+namespace aoide {
 
 class StftBandFolder {
  public:
@@ -21,4 +21,4 @@ class StftBandFolder {
   int framesPerSecond_ = 30;
 };
 
-}  // namespace tramp
+}  // namespace aoide

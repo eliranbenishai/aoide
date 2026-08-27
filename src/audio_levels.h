@@ -2,7 +2,7 @@
 
 #include <array>
 
-namespace tramp {
+namespace aoide {
 
 struct AudioLevels {
   static constexpr int kBandCount = 20;
@@ -18,4 +18,4 @@ struct AudioLevels {
   static AudioLevels silent() { return {}; }
 };
 
-}  // namespace tramp
+}  // namespace aoide

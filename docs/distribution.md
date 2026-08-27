@@ -1,6 +1,6 @@
 # Distribution and CI
 
-How Tramp is built and handed to listeners. Product page: `https://tramp.music`. GitHub Releases on a version tag are a **mirror**, not the product surface.
+How Aoide is built and handed to listeners. Product page: `https://aoide.music`. GitHub Releases on a version tag are a **mirror**, not the product surface.
 
 ## Workflows
 
@@ -19,7 +19,7 @@ isn't one.
 Every packaging job **runs the thing it packaged** before it is published: the
 staged binary, the AppImage, the extracted tarball and the installed `.flatpak`
 each get `--bench-chrome` (links, finds its assets and fonts, is optimised) and
-a `TRAMP_AUTO_QUIT=1` session start. `ctest` runs against the build tree, which
+a `AOIDE_AUTO_QUIT=1` session start. `ctest` runs against the build tree, which
 still resolves Qt and libmpv from the runner — only these runs prove the
 artifact carries its own, so they clear the runner's Qt out of the environment
 first. Libraries and **plugins** are found by different mechanisms, so both have
@@ -50,14 +50,14 @@ agreeing to.
 
 | File | Installs to | Supplies |
 |---|---|---|
-| `com.proximamagnifica.tramp.desktop` | `share/applications` | Launcher entry, `MimeType=` associations, `Exec=tramp %F` |
-| `com.proximamagnifica.tramp.metainfo.xml` | `share/metainfo` | The **name**, summary and description an installer shows |
-| `icons/hicolor/*/apps/com.proximamagnifica.tramp.png` | `share/icons` | Eight sizes, 16 through 512 |
+| `com.proximamagnifica.aoide.desktop` | `share/applications` | Launcher entry, `MimeType=` associations, `Exec=aoide %F` |
+| `com.proximamagnifica.aoide.metainfo.xml` | `share/metainfo` | The **name**, summary and description an installer shows |
+| `icons/hicolor/*/apps/com.proximamagnifica.aoide.png` | `share/icons` | Eight sizes, 16 through 512 |
 
 The metainfo file is not optional decoration. A `.desktop` file's `Name=` never
 reaches `flatpak`, GNOME Software or KDE Discover; AppStream data is what they
 read, and without it they fall back to printing the app ID — so the app
-installed as `com.proximamagnifica.tramp` rather than `Tramp`. Nothing in the
+installed as `com.proximamagnifica.aoide` rather than `Aoide`. Nothing in the
 build said so: `flatpak-builder` only composes AppStream data when it finds
 `/app/share/metainfo/<app-id>.metainfo.xml`, and when it does not it skips the
 step silently, after which `flatpak build-bundle` embeds neither the name nor
@@ -68,11 +68,11 @@ it used to name `share/applications` and `share/icons` one by one, which is how
 Two gates hold it: `tool/check-metainfo.sh` runs `appstreamcli validate` and
 checks the newest `<release>` against `VERSION` (in `ci.yml` and in the release
 `test` job that fronts every packaging job), and the Flatpak smoke test asserts
-that the *installed* app's name is `Tramp`. Validation is `--no-net`, so a moved
+that the *installed* app's name is `Aoide`. Validation is `--no-net`, so a moved
 screenshot host cannot fail a build over an input that is not in the repo.
 
-`StartupWMClass=Tramp`, not the app ID: Qt builds X11 `WM_CLASS` from argv[0]'s
-basename and `applicationName`, giving `"tramp", "Tramp"`, so the app ID matched
+`StartupWMClass=Aoide`, not the app ID: Qt builds X11 `WM_CLASS` from argv[0]'s
+basename and `applicationName`, giving `"aoide", "Aoide"`, so the app ID matched
 neither field and the key did nothing there. Wayland does not need it — `app_id`
 already equals the desktop file's basename, which is what xdg-shell asks for and
 what GNOME and KWin match on.
@@ -84,12 +84,12 @@ requires screenshots and AppStream `<image>` must be a URL a store can fetch, so
 they cannot ride inside the bundle. The pictures are generated, not committed:
 
 ```bash
-QT_QPA_PLATFORM=offscreen ./build/tramp --dump-chrome /tmp/shots
+QT_QPA_PLATFORM=offscreen ./build/aoide --dump-chrome /tmp/shots
 ```
 
 Take `main_player_window.png`, `playlist_window.png` and
 `equalizer_window.png`, upload them under
-`https://tramp.music/screenshots/<version>/`, then uncomment the `<screenshots>`
+`https://aoide.music/screenshots/<version>/`, then uncomment the `<screenshots>`
 block in the metainfo file. `check-metainfo.sh --check-urls` — which the release
 `test` job runs — fetches every declared `<image>` and fails on anything that is
 not a 200. While the block stays commented it reports that none are declared, so
@@ -99,7 +99,7 @@ broken listing.
 `--socket=pulseaudio` in the manifest is why installers warn about microphone
 access. Flatpak has exactly one audio permission and it covers capture and
 playback together, so there is nothing to narrow; every music player on Flathub
-carries it. Tramp has no recording path.
+carries it. Aoide has no recording path.
 
 `--filesystem=host` **stays**, decided rather than deferred. It is what rates the
 app *potentially unsafe*, where the microphone row is only *probably safe*, so
@@ -109,7 +109,7 @@ it buys, and the cost is reach.
 Narrowing means naming directories, and every path outside them becomes a dead
 row until the user re-grants it through a picker. `xdg-music` is not where music
 actually is: a download sits in `~/Downloads`, a collection often sits on an
-external drive under `/run/media`. Tramp opens the files you already have, which
+external drive under `/run/media`. Aoide opens the files you already have, which
 is the whole premise, so a permission that assumes they are filed tidily is the
 wrong trade.
 
@@ -162,7 +162,7 @@ something narrowing would undo.
 `org.kde.Platform` 6.10 ships it, and `look.cpp` already declines a zip it
 cannot unpack instead of failing.
 
-`--filesystem=xdg-run/tramp:create` exists for one file: the KWin script behind
+`--filesystem=xdg-run/aoide:create` exists for one file: the KWin script behind
 always-on-top. KWin opens it by path from its own process, and a sandbox's
 `$XDG_RUNTIME_DIR` is a private mount the host cannot see, so the script has to
 live in a directory shared at the same absolute path on both sides. This shares
@@ -177,7 +177,7 @@ The [`QT_VERSION`](../QT_VERSION) file is the authority: one official desktop
 kit, built and tested against everywhere something ships, and the same kit
 `./build.sh` compiles against. It is **6.10.3**. `QT_RUNTIME` is its
 major.minor (`6.10`), which is what
-[`packaging/flatpak/com.proximamagnifica.tramp.yml`](../packaging/flatpak/com.proximamagnifica.tramp.yml)
+[`packaging/flatpak/com.proximamagnifica.aoide.yml`](../packaging/flatpak/com.proximamagnifica.aoide.yml)
 and `org.kde.Platform` use. KDE's 6.8 runtime is end-of-life; 6.10 is the
 supported line that still matches a current official `6.10.x` kit (the
 runtime currently ships 6.10.3). Workflows read the file via
@@ -214,12 +214,12 @@ The tag name without `v` must equal the `VERSION` file.
 
 | File | Channel |
 |------|---------|
-| `Tramp-<ver>-windows-x64.exe` | Official download (unsigned Inno; SmartScreen click-through) |
-| `Tramp-<ver>-windows-x64.msix` | Microsoft Store listing **tramp.music** (unsigned here; Store re-signs). Identity version is four-part `x.y.z.0` from `VERSION` (`1.0` → `1.0.0.0`); the fourth number must be **0** or Partner Center rejects the package. Bump `VERSION` for each Store upload. |
-| `Tramp-<ver>-linux-x86_64.AppImage` | Official download |
-| `Tramp-<ver>-linux-x86_64.tar.gz` | Input for a Flathub recipe |
-| `Tramp-<ver>-linux-x86_64.flatpak` | Optional CI bundle (job may fail without blocking the rest) |
-| `Tramp-<ver>-macos-universal.dmg` | Official download in **1.1**, once the Qt Mac host exists (notarized when secrets are set) |
+| `Aoide-<ver>-windows-x64.exe` | Official download (unsigned Inno; SmartScreen click-through) |
+| `Aoide-<ver>-windows-x64.msix` | Microsoft Store listing **aoide.music** (unsigned here; Store re-signs). Identity version is four-part `x.y.z.0` from `VERSION` (`1.0` → `1.0.0.0`); the fourth number must be **0** or Partner Center rejects the package. Bump `VERSION` for each Store upload. |
+| `Aoide-<ver>-linux-x86_64.AppImage` | Official download |
+| `Aoide-<ver>-linux-x86_64.tar.gz` | Input for a Flathub recipe |
+| `Aoide-<ver>-linux-x86_64.flatpak` | Optional CI bundle (job may fail without blocking the rest) |
+| `Aoide-<ver>-macos-universal.dmg` | Official download in **1.1**, once the Qt Mac host exists (notarized when secrets are set) |
 
 Partner Center and Flathub submit stay **human**. Packaging scripts live under `packaging/`.
 
@@ -261,9 +261,9 @@ ruleset does not require code-owner review yet, so today it only auto-requests i
 | Variable | Purpose |
 |----------|---------|
 | `MSIX_PUBLISHER` | Store identity `CN=...` from Partner Center **Identity details**. Default `CN=Proxima Magnifica`. |
-| `MSIX_IDENTITY_NAME` | Package identity name from those same details. Default `ProximaMagnifica.trampmusic` until Partner Center shows the real one. |
+| `MSIX_IDENTITY_NAME` | Package identity name from those same details. Default `ProximaMagnifica.aoidemusic` until Partner Center shows the real one. |
 
-The MSIX **display name** is `tramp.music` (the reserved Store listing). Paste Publisher and Identity Name from Partner Center into those variables as soon as the app exists there; a mismatch fails certification. The website EXE and in-app chrome stay **Tramp**.
+The MSIX **display name** is `aoide.music` (the reserved Store listing). Paste Publisher and Identity Name from Partner Center into those variables as soon as the app exists there; a mismatch fails certification. The website EXE and in-app chrome stay **Aoide**.
 
 ### Secrets (macOS notarization)
 
@@ -324,4 +324,4 @@ and the AppImage need. One script and one code path for all three; do not give
 the Flatpak its own staging script or strip Qt out afterwards, because then two
 places have to agree on what Qt is.
 
-Windows (on a Windows host): `tool/fetch_full_libmpv.ps1`, CMake Release build, then `packaging/windows/stage.ps1`, Inno (`packaging/windows/tramp.iss`) and `packaging/windows/make_msix.ps1`. The EXE installer runs `vc_redist.x64.exe` when `MSVCP140.dll` / `VCRUNTIME140.dll` are missing. The MSIX declares `Microsoft.VCLibs.140.00.UWPDesktop` so the Store supplies that runtime. Keep the `.ps1` files ASCII: Windows PowerShell 5.1 (what `powershell` is on the runner) reads UTF-8 source as ANSI, and an em-dash inside a string is decoded as a closing quote.
+Windows (on a Windows host): `tool/fetch_full_libmpv.ps1`, CMake Release build, then `packaging/windows/stage.ps1`, Inno (`packaging/windows/aoide.iss`) and `packaging/windows/make_msix.ps1`. The EXE installer runs `vc_redist.x64.exe` when `MSVCP140.dll` / `VCRUNTIME140.dll` are missing. The MSIX declares `Microsoft.VCLibs.140.00.UWPDesktop` so the Store supplies that runtime. Keep the `.ps1` files ASCII: Windows PowerShell 5.1 (what `powershell` is on the runner) reads UTF-8 source as ANSI, and an em-dash inside a string is decoded as a closing quote.

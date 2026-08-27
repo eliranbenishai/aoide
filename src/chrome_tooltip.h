@@ -8,7 +8,7 @@
 #include <QPoint>
 #include <QString>
 
-namespace tramp {
+namespace aoide {
 
 inline constexpr int kTooltipWaitMs = 450;
 
@@ -28,4 +28,4 @@ void showChromeTooltip(QPoint globalAbove, const QString& text, int zoomPercent,
                        const ChromeTokens& look);
 void hideChromeTooltip();
 
-}  // namespace tramp
+}  // namespace aoide

@@ -4,7 +4,7 @@
 #include <QGuiApplication>
 #include <QWindow>
 
-#if defined(Q_OS_LINUX) && defined(TRAMP_HAVE_DBUS)
+#if defined(Q_OS_LINUX) && defined(AOIDE_HAVE_DBUS)
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusInterface>
@@ -16,7 +16,7 @@
 #include <QStandardPaths>
 #endif
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 QString jsString(QStringView text) {
@@ -31,7 +31,7 @@ QString jsString(QStringView text) {
   return out;
 }
 
-#if defined(Q_OS_LINUX) && defined(TRAMP_HAVE_DBUS)
+#if defined(Q_OS_LINUX) && defined(AOIDE_HAVE_DBUS)
 
 void applyKWinKeepAbove(QWindow* window, bool on) {
   QDBusConnection bus = QDBusConnection::sessionBus();
@@ -44,7 +44,7 @@ void applyKWinKeepAbove(QWindow* window, bool on) {
   if (path.isEmpty() || !QDir().mkpath(QFileInfo(path).path())) return;
   QFile file(path);
   if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) return;
-  const QString caption = window && !window->title().isEmpty() ? window->title() : QStringLiteral("Tramp");
+  const QString caption = window && !window->title().isEmpty() ? window->title() : QStringLiteral("Aoide");
   const QString desktop = QGuiApplication::desktopFileName();
   file.write(kwinKeepAboveScript(QCoreApplication::applicationPid(), caption, desktop, on).toUtf8());
   file.close();
@@ -52,9 +52,9 @@ void applyKWinKeepAbove(QWindow* window, bool on) {
   QDBusInterface scripting(QStringLiteral("org.kde.KWin"), QStringLiteral("/Scripting"),
                            QStringLiteral("org.kde.kwin.Scripting"), bus);
   if (!scripting.isValid()) return;
-  scripting.call(QStringLiteral("unloadScript"), QStringLiteral("tramp-keep-above"));
+  scripting.call(QStringLiteral("unloadScript"), QStringLiteral("aoide-keep-above"));
   const QDBusReply<int> id =
-      scripting.call(QStringLiteral("loadScript"), path, QStringLiteral("tramp-keep-above"));
+      scripting.call(QStringLiteral("loadScript"), path, QStringLiteral("aoide-keep-above"));
   if (!id.isValid() || id.value() < 0) return;
   QDBusInterface script(QStringLiteral("org.kde.KWin"),
                         QStringLiteral("/Scripting/Script%1").arg(id.value()),
@@ -83,10 +83,10 @@ QString kwinKeepAboveScriptPath(const QString& runtimeDir) {
   // The subdirectory is the whole point, not tidiness. KWin opens this path in
   // its own process; a Flatpak's $XDG_RUNTIME_DIR is a private mount, so a file
   // written at its root is invisible to the host and loadScript fails on a path
-  // that looks right. `--filesystem=xdg-run/tramp:create` shares this directory
+  // that looks right. `--filesystem=xdg-run/aoide:create` shares this directory
   // at one absolute path on both sides, so the file KWin reads is the file the
   // app just wrote.
-  return QDir(runtimeDir).filePath(QStringLiteral("tramp/keep-above.js"));
+  return QDir(runtimeDir).filePath(QStringLiteral("aoide/keep-above.js"));
 }
 
 QString kwinKeepAboveScript(qint64 pid, QStringView caption, QStringView desktopFile, bool on) {
@@ -107,7 +107,7 @@ QString kwinKeepAboveScript(qint64 pid, QStringView caption, QStringView desktop
              "  const desk = String(w.desktopFileName || \"\");\n"
              "  const cap = String(w.caption || \"\");\n"
              "  const cls = String(w.resourceClass || \"\").toLowerCase();\n"
-             "  if (w.pid === pid || cap === caption || desk === desktop || cls === \"tramp\") {\n"
+             "  if (w.pid === pid || cap === caption || desk === desktop || cls === \"aoide\") {\n"
              "    w.keepAbove = want;\n"
              "  }\n"
              "}\n")
@@ -120,9 +120,9 @@ void applyCompositorKeepAbove(QWindow* window, bool on) {
     window->setFlag(Qt::WindowStaysOnTopHint, on);
     if (on) window->raise();
   }
-#if defined(Q_OS_LINUX) && defined(TRAMP_HAVE_DBUS)
+#if defined(Q_OS_LINUX) && defined(AOIDE_HAVE_DBUS)
   applyKWinKeepAbove(window, on);
 #endif
 }
 
-}  // namespace tramp
+}  // namespace aoide

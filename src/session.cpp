@@ -12,7 +12,7 @@
 #include "m3u.h"
 #include "skin_preview.h"
 #include "native_file_dialog.h"
-#ifdef TRAMP_HAVE_MPV
+#ifdef AOIDE_HAVE_MPV
 #include "mpv_engine.h"
 #include "pcm_decoder.h"
 #endif
@@ -21,8 +21,8 @@
 #include "popup_anchor.h"
 #include "support_dir.h"
 #include "wait_cursor.h"
-#include "tramp_fonts.h"
-#include "tramp_metrics.h"
+#include "aoide_fonts.h"
+#include "aoide_metrics.h"
 
 #include <QDesktopServices>
 #include <QDir>
@@ -47,7 +47,7 @@
 #include <unistd.h>
 #endif
 
-namespace tramp {
+namespace aoide {
 namespace {
 
 /// Probe answers come back in batches. Small enough that the first rows fill in
@@ -58,11 +58,11 @@ constexpr int kProbeBatchMs = 120;
 
 }  // namespace
 
-TrampSession::TrampSession(QObject* parent)
-    : QObject(parent), store_(trampSupportDirectory()) {
+AoideSession::AoideSession(QObject* parent)
+    : QObject(parent), store_(aoideSupportDirectory()) {
   settings_ = store_.readSettings();
   collection_.load(store_);
-#ifdef TRAMP_HAVE_MPV
+#ifdef AOIDE_HAVE_MPV
   auto* mpv = new MpvEngine();
   if (mpv->available()) {
     engine_.reset(mpv);
@@ -79,7 +79,7 @@ TrampSession::TrampSession(QObject* parent)
 #endif
   playback_ = std::make_unique<PlaybackController>(&playlist_, engine_.get());
   playback_->setSpins(store_.readUsage().spins);
-#ifdef TRAMP_HAVE_MPV
+#ifdef AOIDE_HAVE_MPV
   analyzer_ = SpectrumAnalyzer(SpectrumAnalyzer::CancellablePcmLoader(
       [](const QString& path, const SpectrumAnalyzer::CancelFn& stillWanted) {
         return MpvPcmDecoder().decode(path, stillWanted);
@@ -155,13 +155,13 @@ TrampSession::TrampSession(QObject* parent)
   applyEq();
   {
     WaitCursorScope wait;
-    skins_.bootstrap(trampSupportDirectory(), bundledSkinsDir(), settings_);
+    skins_.bootstrap(aoideSupportDirectory(), bundledSkinsDir(), settings_);
     refreshSkinPreviews();
   }
   syncTitleMarquee();
 }
 
-TrampSession::~TrampSession() {
+AoideSession::~AoideSession() {
   // Cancel, then wait. Bumping the generations first means a worker already past
   // its alive check still bails at its next iteration; the join is what makes the
   // raw `this` in a worker body safe, because the destructor cannot get to the
@@ -176,13 +176,13 @@ TrampSession::~TrampSession() {
   persistNow();
 }
 
-void TrampSession::detachWindows() {
+void AoideSession::detachWindows() {
   persistNow();
   windows_.clear();
   shell_ = nullptr;
 }
 
-void TrampSession::bindPlayback() {
+void AoideSession::bindPlayback() {
   playback_->setOnChanged([this]() {
     syncSpectrum();
     syncTitleMarquee();
@@ -200,7 +200,7 @@ void TrampSession::bindPlayback() {
   });
 }
 
-void TrampSession::syncSpectrum() {
+void AoideSession::syncSpectrum() {
   QString path;
   if (const auto track = playback_->currentTrack()) {
     path = track->path;
@@ -230,7 +230,7 @@ void TrampSession::syncSpectrum() {
   if (!spectrumHold_.atRest() && !spectrumTimer_.isActive()) spectrumTimer_.start();
 }
 
-void TrampSession::tickSpectrum() {
+void AoideSession::tickSpectrum() {
   playback_->pollClock();
   if (playback_->playing() || playback_->paused()) {
     const AudioLevels frame =
@@ -246,7 +246,7 @@ void TrampSession::tickSpectrum() {
   emit mainChromeChanged();
 }
 
-void TrampSession::syncTitleMarquee() {
+void AoideSession::syncTitleMarquee() {
   QString id;
   if (const auto track = playback_->currentTrack()) {
     id = track->path + QLatin1Char('\n') + track->displayTitle() + QLatin1Char('\n') +
@@ -263,12 +263,12 @@ void TrampSession::syncTitleMarquee() {
   }
 }
 
-qint64 TrampSession::titleScrollMs() const {
+qint64 AoideSession::titleScrollMs() const {
   if (!settings_.scrollTitle || !marqueeClock_.isValid()) return 0;
   return marqueeClock_.elapsed();
 }
 
-void TrampSession::startSpectrumDecode(const QString& path, int gen) {
+void AoideSession::startSpectrumDecode(const QString& path, int gen) {
   const SpectrumAnalyzer analyzer = analyzer_;
   const auto alive = workers_.alive();
   workers_.start([this, path, gen, analyzer, alive]() {
@@ -298,9 +298,9 @@ void TrampSession::startSpectrumDecode(const QString& path, int gen) {
   });
 }
 
-void TrampSession::setWindows(const PanelWindows& windows) { windows_ = windows; }
+void AoideSession::setWindows(const PanelWindows& windows) { windows_ = windows; }
 
-void TrampSession::setShell(HostShell* shell) {
+void AoideSession::setShell(HostShell* shell) {
   if (shell_ == shell) return;
   if (shell_) disconnect(shell_, nullptr, this, nullptr);
   shell_ = shell;
@@ -312,7 +312,7 @@ void TrampSession::setShell(HostShell* shell) {
   }
 }
 
-void TrampSession::bootstrap(const QStringList& argvFiles) {
+void AoideSession::bootstrap(const QStringList& argvFiles) {
   {
     WaitCursorScope wait;
     collection_.validateReferences();
@@ -351,33 +351,33 @@ void TrampSession::bootstrap(const QStringList& argvFiles) {
   refreshChrome();
 }
 
-void TrampSession::applyEq() { engine_->setEqualizerAf(buildEqualizerAf(settings_.equalizerCurve)); }
+void AoideSession::applyEq() { engine_->setEqualizerAf(buildEqualizerAf(settings_.equalizerCurve)); }
 
-void TrampSession::scheduleApplyEq() {
+void AoideSession::scheduleApplyEq() {
   if (!eqApplyTimer_.isActive()) eqApplyTimer_.start();
 }
 
-void TrampSession::refreshEqChrome() {
+void AoideSession::refreshEqChrome() {
   if (HostWindow* eq = windowFor(WindowId::equalizer)) eq->applyEqualizer(settings_.equalizerCurve);
 }
 
-bool TrampSession::confirmQuit() const { return settings_.confirmBeforeQuit; }
+bool AoideSession::confirmQuit() const { return settings_.confirmBeforeQuit; }
 
-bool TrampSession::windowShouldShow(WindowId id) const {
+bool AoideSession::windowShouldShow(WindowId id) const {
   return layout_.layout().frameOf(id).visible;
 }
 
-void TrampSession::applyAlwaysOnTop() {
+void AoideSession::applyAlwaysOnTop() {
   if (shell_) shell_->setAlwaysOnTop(settings_.alwaysOnTop);
 }
 
-void TrampSession::refreshAboutFigures() {
+void AoideSession::refreshAboutFigures() {
   figures_ = collection_.readFigures();
   figuresLoaded_ = true;
   refreshChrome();
 }
 
-void TrampSession::persistCollectionCache() {
+void AoideSession::persistCollectionCache() {
   collection_.saveIndex(store_);
   collection_.saveTrackSets(store_);
   figures_ = collection_.readFigures();
@@ -389,14 +389,14 @@ void TrampSession::persistCollectionCache() {
 /// Rows first, durations later. `collection_.add` reads the file and fills in
 /// whatever the cache already knows; the rest is a question for a worker, and
 /// the caller asks it once it has decided what the list is.
-QVector<Track> TrampSession::ingestPlaylistFile(const QString& path) {
+QVector<Track> AoideSession::ingestPlaylistFile(const QString& path) {
   const QVector<Track> tracks = collection_.add(path);
   collection_.addWritten(path, tracks);
   persistCollectionCache();
   return tracks;
 }
 
-void TrampSession::schedulePathVerify() {
+void AoideSession::schedulePathVerify() {
   const QVector<Track> tracks = playlist_.tracks();
   ++verifyGen_;
   if (tracks.isEmpty()) return;
@@ -422,7 +422,7 @@ void TrampSession::schedulePathVerify() {
   });
 }
 
-void TrampSession::refreshCurrentPlaylist() {
+void AoideSession::refreshCurrentPlaylist() {
   const QString path = playlist_.sourcePath();
   if (path.isEmpty() || !QFileInfo::exists(path)) return;
   if (!confirmReplaceAltered(QStringLiteral(
@@ -450,7 +450,7 @@ void TrampSession::refreshCurrentPlaylist() {
   refreshChrome();
 }
 
-void TrampSession::startDurationProbe(const QVector<Track>& tracks, bool overwrite) {
+void AoideSession::startDurationProbe(const QVector<Track>& tracks, bool overwrite) {
   QStringList paths;
   QSet<QString> seen;
   auto ask = [&](const QString& path) {
@@ -515,7 +515,7 @@ void TrampSession::startDurationProbe(const QVector<Track>& tracks, bool overwri
   });
 }
 
-void TrampSession::applyProbedBatch(const QVector<ProbedTrack>& batch, int gen, bool overwrite) {
+void AoideSession::applyProbedBatch(const QVector<ProbedTrack>& batch, int gen, bool overwrite) {
   // A batch from a superseded run is not wrong; it is about a list nobody is
   // looking at any more.
   if (gen != durationGen_.load()) return;
@@ -575,20 +575,20 @@ void TrampSession::applyProbedBatch(const QVector<ProbedTrack>& batch, int gen, 
   }
 }
 
-void TrampSession::probeFinished(int gen) {
+void AoideSession::probeFinished(int gen) {
   if (gen != durationGen_.load()) return;
   probeOutstanding_.clear();
   setIngesting(false);
 }
 
-void TrampSession::setIngesting(bool ingesting) {
+void AoideSession::setIngesting(bool ingesting) {
   if (ingesting_ == ingesting) return;
   ingesting_ = ingesting;
   refreshChrome();
 }
 
-void TrampSession::persistNow() {
-  if (qEnvironmentVariable("TRAMP_AUTO_QUIT") == QLatin1String("1")) return;
+void AoideSession::persistNow() {
+  if (qEnvironmentVariable("AOIDE_AUTO_QUIT") == QLatin1String("1")) return;
   if (!windowFor(WindowId::main)) return;
   // The settings are a view of the layout taken at the moment of writing, not a
   // second copy kept level with it. Nothing reads a frame back out of a widget:
@@ -618,23 +618,23 @@ void TrampSession::persistNow() {
   if (persistHealth_.anyFailed() != wasFailed) refreshChrome();
 }
 
-void TrampSession::schedulePersist() { persistTimer_.start(); }
-void TrampSession::scheduleAltered() { alteredTimer_.start(); }
-void TrampSession::scheduleUsage() { usageTimer_.start(); }
+void AoideSession::schedulePersist() { persistTimer_.start(); }
+void AoideSession::scheduleAltered() { alteredTimer_.start(); }
+void AoideSession::scheduleUsage() { usageTimer_.start(); }
 
-HostWindow* TrampSession::windowFor(WindowId id) const { return windows_[id]; }
+HostWindow* AoideSession::windowFor(WindowId id) const { return windows_[id]; }
 
 /// A dialog belongs to the panel it was raised from, so it lands over that
 /// panel rather than wherever the window manager felt like. Main stands in when
 /// the panel has no window — the dump and bench paths run with fewer than five.
-QWidget* TrampSession::dialogParent(WindowId id) const {
+QWidget* AoideSession::dialogParent(WindowId id) const {
   if (HostWindow* window = windowFor(id)) return window;
   return windowFor(WindowId::main);
 }
 
-QRect TrampSession::hostRect() const { return shell_ ? shell_->virtualDesktop() : QRect(); }
+QRect AoideSession::hostRect() const { return shell_ ? shell_->virtualDesktop() : QRect(); }
 
-QRect TrampSession::workAreaFor(QRect clusterNative) const {
+QRect AoideSession::workAreaFor(QRect clusterNative) const {
   // An L-shaped monitor arrangement leaves dead zones inside the virtual
   // desktop that belong to no screen, so a cluster's centre can land on
   // nothing. The primary screen is the honest answer then: it is the display a
@@ -645,7 +645,7 @@ QRect TrampSession::workAreaFor(QRect clusterNative) const {
   return screen ? screen->availableGeometry() : QRect();
 }
 
-SessionView TrampSession::view() const {
+SessionView AoideSession::view() const {
   SessionView v;
   v.eqOn = layout_.layout().equalizer.visible;
   v.plOn = layout_.layout().playlist.visible;
@@ -762,7 +762,7 @@ SessionView TrampSession::view() const {
   return v;
 }
 
-MainLiveReadouts TrampSession::mainLive() const {
+MainLiveReadouts AoideSession::mainLive() const {
   MainLiveReadouts live;
   live.positionMs = playback_->positionMs();
   live.durationMs = playback_->durationMs();
@@ -773,7 +773,7 @@ MainLiveReadouts TrampSession::mainLive() const {
   return live;
 }
 
-void TrampSession::refreshChrome() {
+void AoideSession::refreshChrome() {
   if (holdChrome_) {
     chromeHeld_ = true;
     return;
@@ -781,7 +781,7 @@ void TrampSession::refreshChrome() {
   emit chromeChanged();
 }
 
-void TrampSession::setZoomPercent(int percent) {
+void AoideSession::setZoomPercent(int percent) {
   // The zoom buttons walk the ladder, so an off-ladder value, or a step the
   // display cannot hold, only arrives from a caller that did not ask first.
   // Refusing it here is what makes a disabled step disabled, rather than
@@ -793,7 +793,7 @@ void TrampSession::setZoomPercent(int percent) {
   layout_.place();
 }
 
-void TrampSession::setWindowVisible(WindowId id, bool visible) {
+void AoideSession::setWindowVisible(WindowId id, bool visible) {
   layout_.docking().setVisible(id, visible);
   if (visible) {
     layout_.docking().nudgeOffMainIfStacked(id);
@@ -817,13 +817,13 @@ void TrampSession::setWindowVisible(WindowId id, bool visible) {
   refreshChrome();
 }
 
-void TrampSession::setShaded(WindowId id, bool shaded) {
+void AoideSession::setShaded(WindowId id, bool shaded) {
   layout_.docking().setShaded(id, shaded);
   schedulePersist();
   layout_.place();
 }
 
-void TrampSession::extraClosed(WindowId id) {
+void AoideSession::extraClosed(WindowId id) {
   layout_.docking().setVisible(id, false);
   applyAlwaysOnTop();
   layout_.place();
@@ -831,7 +831,7 @@ void TrampSession::extraClosed(WindowId id) {
   refreshChrome();
 }
 
-void TrampSession::mainMinimized(bool minimized) {
+void AoideSession::mainMinimized(bool minimized) {
   if (!settings_.minimizeHidesSecondaries) return;
   layout_.setMainMinimized(minimized);
   if (!minimized) applyAlwaysOnTop();
@@ -839,30 +839,30 @@ void TrampSession::mainMinimized(bool minimized) {
   if (!minimized) raiseSettingsIfShowing();
 }
 
-void TrampSession::mainActivated() { raiseSettingsIfShowing(); }
+void AoideSession::mainActivated() { raiseSettingsIfShowing(); }
 
 /// Settings sits above the cluster: anything that brings main forward has to
 /// bring it along, or it disappears behind the player it configures.
-void TrampSession::raiseSettingsIfShowing() {
+void AoideSession::raiseSettingsIfShowing() {
   HostWindow* settings = windowFor(WindowId::settings);
   if (settings && settings->isVisible()) settings->raise();
   HostWindow* skins = windowFor(WindowId::skins);
   if (skins && skins->isVisible()) skins->raise();
 }
 
-void TrampSession::playTrackAt(int index) {
+void AoideSession::playTrackAt(int index) {
   const auto tracks = playlist_.tracks();
   if (index < 0 || index >= tracks.size() || tracks[index].disabled) return;
   playback_->playIndex(index);
 }
 /// Space and the play media key are a single toggle, unlike the separate Play and
 /// Pause faces on the chrome. Routing them at K::play only ever started playback.
-void TrampSession::togglePlayPause() { playback_->playPause(); }
+void AoideSession::togglePlayPause() { playback_->playPause(); }
 
-void TrampSession::selectAllTracks() { playlist_.selectAll(); }
-void TrampSession::removeSelectedTracks() { playlist_.removeSelected(); }
+void AoideSession::selectAllTracks() { playlist_.selectAll(); }
+void AoideSession::removeSelectedTracks() { playlist_.removeSelected(); }
 
-void TrampSession::windowMoved(WindowId id, QPoint nativeTopLeft, bool finalize) {
+void AoideSession::windowMoved(WindowId id, QPoint nativeTopLeft, bool finalize) {
   if (layout_.placing()) return;
   // Shift undocks. The modifier is read here rather than carried on the move
   // signal because the drag is app-owned: what matters is whether Shift is down
@@ -877,12 +877,12 @@ void TrampSession::windowMoved(WindowId id, QPoint nativeTopLeft, bool finalize)
   schedulePersist();
 }
 
-void TrampSession::titleDragBegan(WindowId id) {
+void AoideSession::titleDragBegan(WindowId id) {
   Q_UNUSED(id);
   titleDragging_ = true;
 }
 
-void TrampSession::titleDragEnded(WindowId id) {
+void AoideSession::titleDragEnded(WindowId id) {
   if (!titleDragging_) return;
   titleDragging_ = false;
   HostWindow* w = windowFor(id);
@@ -890,16 +890,16 @@ void TrampSession::titleDragEnded(WindowId id) {
   else schedulePersist();
 }
 
-void TrampSession::extraWasMapped(WindowId id) {
+void AoideSession::extraWasMapped(WindowId id) {
   if (id == WindowId::main) return;
   layout_.place();
 }
 
-void TrampSession::reapplyWindowFrames() {
+void AoideSession::reapplyWindowFrames() {
   layout_.place();
 }
 
-void TrampSession::placePanels(const QVector<PanelPlacement>& panels) {
+void AoideSession::placePanels(const QVector<PanelPlacement>& panels) {
   QVector<HostPanelPlacement> shown;
   shown.reserve(panels.size());
   for (const PanelPlacement& panel : panels) {
@@ -926,7 +926,7 @@ void TrampSession::placePanels(const QVector<PanelPlacement>& panels) {
   }
 }
 
-void TrampSession::playlistResized(QSize native) {
+void AoideSession::playlistResized(QSize native) {
   if (layout_.placing()) return;
   const qreal z = layout_.zoomPercent() / 100.0;
   layout_.docking().resizePlaylist(QSizeF(native.width() / z, native.height() / z));
@@ -935,11 +935,11 @@ void TrampSession::playlistResized(QSize native) {
   schedulePersist();
 }
 
-void TrampSession::applyDroppedPaths(const QStringList& paths, bool replace) {
+void AoideSession::applyDroppedPaths(const QStringList& paths, bool replace) {
   openPaths(paths, !replace && !playlist_.tracks().isEmpty());
 }
 
-void TrampSession::openPaths(const QStringList& paths, bool enqueue) {
+void AoideSession::openPaths(const QStringList& paths, bool enqueue) {
   // Every path from outside the app arrives here -- argv, a drop, a pick -- and
   // some of them are document-portal exports that expire at logout. Trade them
   // for the paths they stand in for before anything writes them down. A
@@ -982,7 +982,7 @@ void TrampSession::openPaths(const QStringList& paths, bool enqueue) {
   if (playFirst) playback_->playFrom(0);
 }
 
-QString TrampSession::pickAudio(bool multiple) {
+QString AoideSession::pickAudio(bool multiple) {
   FilePick pick;
   pick.parent = windowFor(WindowId::main);
   pick.title = multiple ? QStringLiteral("Add audio files") : QStringLiteral("Open audio");
@@ -992,7 +992,7 @@ QString TrampSession::pickAudio(bool multiple) {
   return pickFile(pick);
 }
 
-QString TrampSession::pickPlaylist(bool save) {
+QString AoideSession::pickPlaylist(bool save) {
   FilePick pick;
   pick.parent = windowFor(WindowId::main);
   pick.filter = QStringLiteral("Playlists (*.m3u *.m3u8)");
@@ -1007,7 +1007,7 @@ QString TrampSession::pickPlaylist(bool save) {
   return pickFile(pick);
 }
 
-void TrampSession::loadCollectionRow(int index) {
+void AoideSession::loadCollectionRow(int index) {
   const auto entries = collection_.entries();
   if (index < 0 || index >= entries.size()) return;
   SavedPlaylist e;
@@ -1029,7 +1029,7 @@ void TrampSession::loadCollectionRow(int index) {
   refreshChrome();
 }
 
-void TrampSession::handleRelease(WindowId id) {
+void AoideSession::handleRelease(WindowId id) {
   sliderKind_ = ChromeHit::Kind::none;
   if (eqApplyTimer_.isActive()) {
     eqApplyTimer_.stop();
@@ -1040,7 +1040,7 @@ void TrampSession::handleRelease(WindowId id) {
   }
 }
 
-void TrampSession::handleWheel(WindowId id, int delta) {
+void AoideSession::handleWheel(WindowId id, int delta) {
   if (id == WindowId::skins) {
     const QRectF viewport = skinsListViewport(skinsPane(kSkins));
     const int maxScroll = skinsListMaxScroll(skins_.catalog().size(), viewport);
@@ -1059,7 +1059,7 @@ void TrampSession::handleWheel(WindowId id, int delta) {
   refreshChrome();
 }
 
-void TrampSession::handleDrag(WindowId id, ChromeHit hit, QPoint logical) {
+void AoideSession::handleDrag(WindowId id, ChromeHit hit, QPoint logical) {
   auto band = [](const QRect& r, int y) {
     const double t = sliderFractionY(r, y);
     return EqualizerSettings::kGainLimit - t * (EqualizerSettings::kGainLimit * 2);
@@ -1118,7 +1118,7 @@ void TrampSession::handleDrag(WindowId id, ChromeHit hit, QPoint logical) {
   }
 }
 
-void TrampSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowId id,
+void AoideSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowId id,
                                         const ChromeHit& hit, QPoint logical) {
   if (out.beginSlider) {
     sliderKind_ = out.sliderKind;
@@ -1187,7 +1187,7 @@ void TrampSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
       presentAudioDevices(hit);
       break;
     case ChromeIntent::openWebsite:
-      QDesktopServices::openUrl(QUrl(QStringLiteral("https://tramp.music")));
+      QDesktopServices::openUrl(QUrl(QStringLiteral("https://aoide.music")));
       break;
     case ChromeIntent::resetSettings:
       presentResetSettings();
@@ -1232,7 +1232,7 @@ void TrampSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
   }
 }
 
-void TrampSession::presentPlCreateMenu(const ChromeHit& hit) {
+void AoideSession::presentPlCreateMenu(const ChromeHit& hit) {
   enum Row { kFromCurrent, kFromSelection };
   const QVector<ChromeMenuItem> items{
       ChromeMenuItem::action(QStringLiteral("From current playlist"),
@@ -1264,7 +1264,7 @@ void TrampSession::presentPlCreateMenu(const ChromeHit& hit) {
   refreshChrome();
 }
 
-void TrampSession::createPlaylistFromCurrent() {
+void AoideSession::createPlaylistFromCurrent() {
   const QString path = pickPlaylist(true);
   if (path.isEmpty()) return;
   if (reportPlaylistWriteFailure(playlist_.savePlaylistFile(path), path)) {
@@ -1275,7 +1275,7 @@ void TrampSession::createPlaylistFromCurrent() {
   }
 }
 
-void TrampSession::saveCurrentPlaylist() {
+void AoideSession::saveCurrentPlaylist() {
   if (!playlist_.altered()) return;
   if (playlist_.sourcePath().isEmpty()) {
     createPlaylistFromCurrent();
@@ -1291,7 +1291,7 @@ void TrampSession::saveCurrentPlaylist() {
   refreshChrome();
 }
 
-void TrampSession::presentPlRename() {
+void AoideSession::presentPlRename() {
   if (collection_.selectedPath().isEmpty()) return;
   QString current;
   for (const SavedPlaylist& e : collection_.entries()) {
@@ -1310,7 +1310,7 @@ void TrampSession::presentPlRename() {
   refreshChrome();
 }
 
-void TrampSession::presentPlSortMenu(const ChromeHit& hit) {
+void AoideSession::presentPlSortMenu(const ChromeHit& hit) {
   enum Row { kTitle, kArtist, kDuration, kPath, kReverse };
   const QVector<ChromeMenuItem> items{
       ChromeMenuItem::action(QStringLiteral("Title")),
@@ -1340,7 +1340,7 @@ void TrampSession::presentPlSortMenu(const ChromeHit& hit) {
   }
 }
 
-void TrampSession::presentPlOptionsMenu(const ChromeHit& hit) {
+void AoideSession::presentPlOptionsMenu(const ChromeHit& hit) {
   enum Row { kSelectAll, kInvertSelection, kSave, kClear };
   const QVector<ChromeMenuItem> items{
       ChromeMenuItem::action(QStringLiteral("Select all")),
@@ -1374,11 +1374,11 @@ void TrampSession::presentPlOptionsMenu(const ChromeHit& hit) {
   }
 }
 
-void TrampSession::refreshAudioOutputs() {
+void AoideSession::refreshAudioOutputs() {
   audioOutputs_ = withAutoAudioDevice(engine_->listAudioOutputs());
 }
 
-void TrampSession::presentAudioDevices(const ChromeHit& hit) {
+void AoideSession::presentAudioDevices(const ChromeHit& hit) {
   refreshAudioOutputs();
   const QString current = normalizeAudioDeviceName(settings_.audioDevice);
   QVector<ChromeMenuItem> items;
@@ -1397,7 +1397,7 @@ void TrampSession::presentAudioDevices(const ChromeHit& hit) {
   refreshChrome();
 }
 
-void TrampSession::presentEqPresets(const ChromeHit& hit) {
+void AoideSession::presentEqPresets(const ChromeHit& hit) {
   const auto& presets = EqualizerPresets::builtIn();
   QVector<ChromeMenuItem> items;
   items.reserve(presets.size());
@@ -1413,7 +1413,7 @@ void TrampSession::presentEqPresets(const ChromeHit& hit) {
   refreshEqChrome();
 }
 
-void TrampSession::presentResetSettings() {
+void AoideSession::presentResetSettings() {
   resetSettingsExceptSkins(settings_);
   {
     WaitCursorScope wait;
@@ -1431,7 +1431,7 @@ void TrampSession::presentResetSettings() {
   refreshChrome();
 }
 
-void TrampSession::presentSkinInstallMenu(const ChromeHit& hit) {
+void AoideSession::presentSkinInstallMenu(const ChromeHit& hit) {
   enum Row { kZip, kFolder };
   const QVector<ChromeMenuItem> items{
       ChromeMenuItem::action(QStringLiteral("Install ZIP")),
@@ -1446,7 +1446,7 @@ void TrampSession::presentSkinInstallMenu(const ChromeHit& hit) {
   if (chosen == kFolder) presentSkinFolderInstall();
 }
 
-void TrampSession::presentSkinZipInstall() {
+void AoideSession::presentSkinZipInstall() {
   FilePick pick;
   pick.parent = windowFor(WindowId::skins);
   pick.title = QStringLiteral("Install skin");
@@ -1463,7 +1463,7 @@ void TrampSession::presentSkinZipInstall() {
   refreshChrome();
 }
 
-void TrampSession::presentSkinFolderInstall() {
+void AoideSession::presentSkinFolderInstall() {
   FilePick pick;
   pick.parent = windowFor(WindowId::skins);
   pick.title = QStringLiteral("Install skin folder");
@@ -1479,14 +1479,14 @@ void TrampSession::presentSkinFolderInstall() {
   refreshChrome();
 }
 
-void TrampSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical) {
+void AoideSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical) {
   dragOrigin_ = logical;
   ChromeCommandRouter router(*playback_, playlist_, settings_, collection_, *engine_,
                              layout_.docking());
   presentChromeOutcome(router.handle(id, hit, mods, logical), id, hit, logical);
 }
 
-void TrampSession::showOptionsMenu(QRect logicalHit) {
+void AoideSession::showOptionsMenu(QRect logicalHit) {
   // The rules keep the window toggle and the destructive row away from the
   // openers. Row indices count them, hence the members.
   enum Row { kAlwaysOnTop, kRuleTop, kOpenFiles, kSettings, kRuleAbout, kAbout, kQuit };
@@ -1518,7 +1518,7 @@ void TrampSession::showOptionsMenu(QRect logicalHit) {
   }
 }
 
-int TrampSession::execAnchoredMenu(const QVector<ChromeMenuItem>& items, HostWindow* host,
+int AoideSession::execAnchoredMenu(const QVector<ChromeMenuItem>& items, HostWindow* host,
                                    QRect logicalHit, PopupAnchor anchor) {
   if (!host) return kChromeMenuNone;
   if (logicalHit.isEmpty()) logicalHit = QRect(0, 0, 1, 1);
@@ -1527,7 +1527,7 @@ int TrampSession::execAnchoredMenu(const QVector<ChromeMenuItem>& items, HostWin
   return execChromeMenu(host, items, global, anchor, layout_.zoomPercent(), skins_.tokens());
 }
 
-void TrampSession::showTrackInfo() {
+void AoideSession::showTrackInfo() {
   const auto track = playback_->currentTrack();
   QString message = QStringLiteral("No track loaded.");
   if (track) {
@@ -1545,17 +1545,17 @@ void TrampSession::showTrackInfo() {
   QMessageBox::information(windowFor(WindowId::main), QStringLiteral("Track info"), message);
 }
 
-bool TrampSession::reportPlaylistWriteFailure(bool wrote, const QString& path) {
+bool AoideSession::reportPlaylistWriteFailure(bool wrote, const QString& path) {
   if (wrote) return true;
   QMessageBox::warning(
       windowFor(WindowId::main), QStringLiteral("Playlist not saved"),
-      QStringLiteral("Tramp could not write %1.\n\nThe playlist still has its "
+      QStringLiteral("Aoide could not write %1.\n\nThe playlist still has its "
                      "unsaved changes, and the file on disk is unchanged.")
           .arg(QDir::toNativeSeparators(path)));
   return false;
 }
 
-bool TrampSession::confirmReplaceAltered(const QString& consequence) {
+bool AoideSession::confirmReplaceAltered(const QString& consequence) {
   if (!playlist_.altered()) return true;
   QMessageBox box(windowFor(WindowId::main));
   box.setWindowTitle(QStringLiteral("Save the current playlist?"));
@@ -1586,20 +1586,20 @@ bool TrampSession::confirmReplaceAltered(const QString& consequence) {
   return true;
 }
 
-void TrampSession::quitFromMenu() {
+void AoideSession::quitFromMenu() {
   if (HostWindow* main = windowFor(WindowId::main)) main->close();
 }
 
-QString TrampSession::bundledSkinsDir() const { return tramp::bundledSkinsDir(); }
+QString AoideSession::bundledSkinsDir() const { return aoide::bundledSkinsDir(); }
 
-void TrampSession::refreshSkinPreviews() {
+void AoideSession::refreshSkinPreviews() {
   skins_.ensurePreviews([](const QString& id, const QString& path,
                            const QVector<LookManifest>& installed, QString* error) {
     return writeSkinPreviewPng(id, installed, path, error);
   });
 }
 
-void TrampSession::presentSkinRemove(int index) {
+void AoideSession::presentSkinRemove(int index) {
   const auto catalog = skins_.catalog();
   if (index < 0 || index >= catalog.size()) return;
   const SkinCatalogEntry& entry = catalog[index];
@@ -1625,7 +1625,7 @@ void TrampSession::presentSkinRemove(int index) {
   refreshChrome();
 }
 
-SkinController::ConflictFn TrampSession::skinConflictPrompt() {
+SkinController::ConflictFn AoideSession::skinConflictPrompt() {
   return [this](const SkinConflict& conflict) {
     QWidget* parent = dialogParent(WindowId::skins);
     const QString text =
@@ -1645,4 +1645,4 @@ SkinController::ConflictFn TrampSession::skinConflictPrompt() {
   };
 }
 
-}  // namespace tramp
+}  // namespace aoide

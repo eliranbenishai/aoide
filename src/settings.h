@@ -8,7 +8,7 @@
 #include <QVector>
 #include <optional>
 
-namespace tramp {
+namespace aoide {
 
 enum class DockSide { left, right, top, bottom };
 enum class DockSnapStrength { off, normal, strong };
@@ -47,7 +47,7 @@ struct DockEdge {
   DockSide side = DockSide::bottom;
 };
 
-struct TrampSettings {
+struct AoideSettings {
   int zoomPercent = 75;
   bool alwaysOnTop = false;
   bool forceMono = false;
@@ -73,18 +73,18 @@ struct TrampSettings {
   bool audioExclusive = false;
 
   QJsonObject toJson() const;
-  static TrampSettings fromJson(const QJsonObject& json);
+  static AoideSettings fromJson(const QJsonObject& json);
 };
 
 /// Factory settings, keeping the active skin. The skins directory goes back
 /// with the rest; the session re-seeds the bundled packs when it applies this.
-inline void resetSettingsExceptSkins(TrampSettings& s) {
+inline void resetSettingsExceptSkins(AoideSettings& s) {
   const QString skin = s.activeSkinId;
-  s = TrampSettings{};
+  s = AoideSettings{};
   s.activeSkinId = skin;
 }
 
-WindowFrame* frameFor(TrampSettings& s, WindowId id);
-const WindowFrame* frameFor(const TrampSettings& s, WindowId id);
+WindowFrame* frameFor(AoideSettings& s, WindowId id);
+const WindowFrame* frameFor(const AoideSettings& s, WindowId id);
 
-}  // namespace tramp
+}  // namespace aoide

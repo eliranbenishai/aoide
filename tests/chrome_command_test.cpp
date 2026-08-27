@@ -9,7 +9,7 @@
 #include <QTest>
 
 /// The router is the seam: a transport command and a playlist command without
-/// constructing a HostWindow or a TrampSession. Expected values are the
+/// constructing a HostWindow or a AoideSession. Expected values are the
 /// product rules in handleHit — which hits persist, which mark the list
 /// altered — not a restatement of the router's internals.
 class ChromeCommandTest : public QObject {
@@ -43,26 +43,26 @@ class ChromeCommandTest : public QObject {
 namespace {
 
 struct Fixture {
-  tramp::PlaylistController playlist;
-  tramp::NullEngine engine;
-  tramp::PlaybackController playback;
-  tramp::TrampSettings settings;
-  tramp::PlaylistCollection collection;
-  tramp::DockingCoordinator docking;
+  aoide::PlaylistController playlist;
+  aoide::NullEngine engine;
+  aoide::PlaybackController playback;
+  aoide::AoideSettings settings;
+  aoide::PlaylistCollection collection;
+  aoide::DockingCoordinator docking;
 
   Fixture() : playback(&playlist, &engine) {
-    tramp::Track track;
+    aoide::Track track;
     track.path = QStringLiteral("/tmp/router-track.mp3");
     playlist.setTracks({track});
   }
 
-  tramp::ChromeCommandRouter router() {
+  aoide::ChromeCommandRouter router() {
     return {playback, playlist, settings, collection, engine, docking};
   }
 };
 
-tramp::ChromeHit hit(tramp::ChromeHit::Kind kind) {
-  tramp::ChromeHit out;
+aoide::ChromeHit hit(aoide::ChromeHit::Kind kind) {
+  aoide::ChromeHit out;
   out.kind = kind;
   return out;
 }
@@ -71,20 +71,20 @@ tramp::ChromeHit hit(tramp::ChromeHit::Kind kind) {
 
 void ChromeCommandTest::playStartsPlaybackAndDoesNotAskToPersist() {
   Fixture f;
-  const tramp::ChromeCommandOutcome out =
-      f.router().handle(tramp::WindowId::main, hit(tramp::ChromeHit::Kind::play), Qt::NoModifier, {});
+  const aoide::ChromeCommandOutcome out =
+      f.router().handle(aoide::WindowId::main, hit(aoide::ChromeHit::Kind::play), Qt::NoModifier, {});
   QVERIFY(out.handled);
   QVERIFY(f.playback.playing());
   QVERIFY(!out.persist);
-  QCOMPARE(out.intent, tramp::ChromeIntent::none);
+  QCOMPARE(out.intent, aoide::ChromeIntent::none);
 }
 
 void ChromeCommandTest::playDoesNotPauseATrackThatIsAlreadyGoing() {
   Fixture f;
   f.playback.playPause();
   QVERIFY(f.playback.playing());
-  const tramp::ChromeCommandOutcome out =
-      f.router().handle(tramp::WindowId::main, hit(tramp::ChromeHit::Kind::play), Qt::NoModifier, {});
+  const aoide::ChromeCommandOutcome out =
+      f.router().handle(aoide::WindowId::main, hit(aoide::ChromeHit::Kind::play), Qt::NoModifier, {});
   QVERIFY(out.handled);
   QVERIFY(f.playback.playing());
   QVERIFY(!out.persist);
@@ -92,34 +92,34 @@ void ChromeCommandTest::playDoesNotPauseATrackThatIsAlreadyGoing() {
 
 void ChromeCommandTest::ejectAsksForFilesAndLeavesTransportAndSettingsAlone() {
   Fixture f;
-  const tramp::ChromeCommandOutcome out =
-      f.router().handle(tramp::WindowId::main, hit(tramp::ChromeHit::Kind::eject), Qt::NoModifier,
+  const aoide::ChromeCommandOutcome out =
+      f.router().handle(aoide::WindowId::main, hit(aoide::ChromeHit::Kind::eject), Qt::NoModifier,
                         {});
   QVERIFY(out.handled);
-  QCOMPARE(out.intent, tramp::ChromeIntent::pickAudio);
+  QCOMPARE(out.intent, aoide::ChromeIntent::pickAudio);
   QVERIFY(!f.playback.playing());
   QVERIFY(!out.persist);
 }
 
 void ChromeCommandTest::volumePressBeginsASliderAndDoesNotPersist() {
   Fixture f;
-  const tramp::ChromeCommandOutcome out = f.router().handle(
-      tramp::WindowId::main, hit(tramp::ChromeHit::Kind::volume), Qt::NoModifier, QPoint(10, 10));
+  const aoide::ChromeCommandOutcome out = f.router().handle(
+      aoide::WindowId::main, hit(aoide::ChromeHit::Kind::volume), Qt::NoModifier, QPoint(10, 10));
   QVERIFY(out.handled);
   QVERIFY(out.beginSlider);
-  QCOMPARE(out.sliderKind, tramp::ChromeHit::Kind::volume);
+  QCOMPARE(out.sliderKind, aoide::ChromeHit::Kind::volume);
   QVERIFY(!out.persist);
 }
 
 void ChromeCommandTest::eqBandPressRemembersWhichBand() {
   Fixture f;
-  tramp::ChromeHit band = hit(tramp::ChromeHit::Kind::eqBand);
+  aoide::ChromeHit band = hit(aoide::ChromeHit::Kind::eqBand);
   band.index = 3;
-  const tramp::ChromeCommandOutcome out =
-      f.router().handle(tramp::WindowId::equalizer, band, Qt::NoModifier, QPoint(8, 40));
+  const aoide::ChromeCommandOutcome out =
+      f.router().handle(aoide::WindowId::equalizer, band, Qt::NoModifier, QPoint(8, 40));
   QVERIFY(out.handled);
   QVERIFY(out.beginSlider);
-  QCOMPARE(out.sliderKind, tramp::ChromeHit::Kind::eqBand);
+  QCOMPARE(out.sliderKind, aoide::ChromeHit::Kind::eqBand);
   QCOMPARE(out.sliderIndex, 3);
   QVERIFY(!out.persist);
 }
@@ -128,8 +128,8 @@ void ChromeCommandTest::removingATrackMarksThePlaylistAlteredAndDoesNotPersistSe
   Fixture f;
   QVERIFY(!f.playlist.altered());
   f.playlist.select(0);
-  const tramp::ChromeCommandOutcome out = f.router().handle(
-      tramp::WindowId::playlist, hit(tramp::ChromeHit::Kind::plRemove), Qt::NoModifier, {});
+  const aoide::ChromeCommandOutcome out = f.router().handle(
+      aoide::WindowId::playlist, hit(aoide::ChromeHit::Kind::plRemove), Qt::NoModifier, {});
   QVERIFY(out.handled);
   QVERIFY(f.playlist.tracks().isEmpty());
   QVERIFY(f.playlist.altered());
@@ -140,8 +140,8 @@ void ChromeCommandTest::removingATrackMarksThePlaylistAlteredAndDoesNotPersistSe
 void ChromeCommandTest::collapsingTheCollectionPersistsAndAsksForARefresh() {
   Fixture f;
   QVERIFY(!f.settings.playlistCollectionCollapsed);
-  const tramp::ChromeCommandOutcome out = f.router().handle(
-      tramp::WindowId::playlist, hit(tramp::ChromeHit::Kind::plCollapse), Qt::NoModifier, {});
+  const aoide::ChromeCommandOutcome out = f.router().handle(
+      aoide::WindowId::playlist, hit(aoide::ChromeHit::Kind::plCollapse), Qt::NoModifier, {});
   QVERIFY(out.handled);
   QVERIFY(f.settings.playlistCollectionCollapsed);
   QVERIFY(out.persist);
@@ -152,8 +152,8 @@ void ChromeCommandTest::collapsingTheCollectionPersistsAndAsksForARefresh() {
 void ChromeCommandTest::togglingElapsedTimePersistsAndAsksForARefresh() {
   Fixture f;
   QVERIFY(f.settings.showElapsed);
-  const tramp::ChromeCommandOutcome out = f.router().handle(
-      tramp::WindowId::main, hit(tramp::ChromeHit::Kind::timeToggle), Qt::NoModifier, {});
+  const aoide::ChromeCommandOutcome out = f.router().handle(
+      aoide::WindowId::main, hit(aoide::ChromeHit::Kind::timeToggle), Qt::NoModifier, {});
   QVERIFY(out.handled);
   QVERIFY(!f.settings.showElapsed);
   QVERIFY(out.persist);
@@ -163,8 +163,8 @@ void ChromeCommandTest::togglingElapsedTimePersistsAndAsksForARefresh() {
 void ChromeCommandTest::monoPersistsAndDoesNotMarkThePlaylistAltered() {
   Fixture f;
   QVERIFY(!f.settings.forceMono);
-  const tramp::ChromeCommandOutcome out =
-      f.router().handle(tramp::WindowId::main, hit(tramp::ChromeHit::Kind::mono), Qt::NoModifier, {});
+  const aoide::ChromeCommandOutcome out =
+      f.router().handle(aoide::WindowId::main, hit(aoide::ChromeHit::Kind::mono), Qt::NoModifier, {});
   QVERIFY(out.handled);
   QVERIFY(f.settings.forceMono);
   QVERIFY(out.persist);
@@ -174,122 +174,122 @@ void ChromeCommandTest::monoPersistsAndDoesNotMarkThePlaylistAltered() {
 
 void ChromeCommandTest::skinsAddButtonAsksForTheInstallMenu() {
   Fixture f;
-  const tramp::ChromeCommandOutcome out = f.router().handle(
-      tramp::WindowId::skins, hit(tramp::ChromeHit::Kind::settingsSkinAdd), Qt::NoModifier, {});
+  const aoide::ChromeCommandOutcome out = f.router().handle(
+      aoide::WindowId::skins, hit(aoide::ChromeHit::Kind::settingsSkinAdd), Qt::NoModifier, {});
   QVERIFY(out.handled);
-  QCOMPARE(out.intent, tramp::ChromeIntent::showSkinInstallMenu);
+  QCOMPARE(out.intent, aoide::ChromeIntent::showSkinInstallMenu);
   QVERIFY(!out.persist);
 }
 
 void ChromeCommandTest::skinsFolderButtonOpensTheDirectory() {
   Fixture f;
-  const tramp::ChromeCommandOutcome out = f.router().handle(
-      tramp::WindowId::skins, hit(tramp::ChromeHit::Kind::settingsSkinsFolder), Qt::NoModifier,
+  const aoide::ChromeCommandOutcome out = f.router().handle(
+      aoide::WindowId::skins, hit(aoide::ChromeHit::Kind::settingsSkinsFolder), Qt::NoModifier,
       {});
   QVERIFY(out.handled);
-  QCOMPARE(out.intent, tramp::ChromeIntent::openSkinsDirectory);
+  QCOMPARE(out.intent, aoide::ChromeIntent::openSkinsDirectory);
   QVERIFY(!out.persist);
 }
 
 void ChromeCommandTest::skinsRefreshButtonAsksToRescan() {
   Fixture f;
-  const tramp::ChromeCommandOutcome out = f.router().handle(
-      tramp::WindowId::skins, hit(tramp::ChromeHit::Kind::settingsSkinsRefresh), Qt::NoModifier,
+  const aoide::ChromeCommandOutcome out = f.router().handle(
+      aoide::WindowId::skins, hit(aoide::ChromeHit::Kind::settingsSkinsRefresh), Qt::NoModifier,
       {});
   QVERIFY(out.handled);
-  QCOMPARE(out.intent, tramp::ChromeIntent::rescanSkins);
+  QCOMPARE(out.intent, aoide::ChromeIntent::rescanSkins);
   QVERIFY(!out.persist);
 }
 
 void ChromeCommandTest::clickingASkinPreviewAsksToActivate() {
   Fixture f;
-  tramp::ChromeHit row = hit(tramp::ChromeHit::Kind::settingsSkinRow);
+  aoide::ChromeHit row = hit(aoide::ChromeHit::Kind::settingsSkinRow);
   row.index = 2;
-  const tramp::ChromeCommandOutcome out =
-      f.router().handle(tramp::WindowId::skins, row, Qt::NoModifier, {});
+  const aoide::ChromeCommandOutcome out =
+      f.router().handle(aoide::WindowId::skins, row, Qt::NoModifier, {});
   QVERIFY(out.handled);
-  QCOMPARE(out.intent, tramp::ChromeIntent::activateSkin);
+  QCOMPARE(out.intent, aoide::ChromeIntent::activateSkin);
   QCOMPARE(out.collectionRow, 2);
 }
 
 void ChromeCommandTest::trashcanAsksToRemove() {
   Fixture f;
-  tramp::ChromeHit trash = hit(tramp::ChromeHit::Kind::settingsSkinRemove);
+  aoide::ChromeHit trash = hit(aoide::ChromeHit::Kind::settingsSkinRemove);
   trash.index = 1;
-  const tramp::ChromeCommandOutcome out =
-      f.router().handle(tramp::WindowId::skins, trash, Qt::NoModifier, {});
+  const aoide::ChromeCommandOutcome out =
+      f.router().handle(aoide::WindowId::skins, trash, Qt::NoModifier, {});
   QVERIFY(out.handled);
-  QCOMPARE(out.intent, tramp::ChromeIntent::removeSkin);
+  QCOMPARE(out.intent, aoide::ChromeIntent::removeSkin);
   QCOMPARE(out.collectionRow, 1);
 }
 
 void ChromeCommandTest::skinsScrollbarBeginsASlider() {
   Fixture f;
-  const tramp::ChromeCommandOutcome out = f.router().handle(
-      tramp::WindowId::skins, hit(tramp::ChromeHit::Kind::settingsSkinScroll), Qt::NoModifier, {});
+  const aoide::ChromeCommandOutcome out = f.router().handle(
+      aoide::WindowId::skins, hit(aoide::ChromeHit::Kind::settingsSkinScroll), Qt::NoModifier, {});
   QVERIFY(out.handled);
   QVERIFY(out.beginSlider);
-  QCOMPARE(out.sliderKind, tramp::ChromeHit::Kind::settingsSkinScroll);
+  QCOMPARE(out.sliderKind, aoide::ChromeHit::Kind::settingsSkinScroll);
 }
 
 void ChromeCommandTest::skinsButtonTogglesTheSkinsPanel() {
   Fixture f;
-  const tramp::ChromeCommandOutcome out =
-      f.router().handle(tramp::WindowId::main, hit(tramp::ChromeHit::Kind::skins), Qt::NoModifier,
+  const aoide::ChromeCommandOutcome out =
+      f.router().handle(aoide::WindowId::main, hit(aoide::ChromeHit::Kind::skins), Qt::NoModifier,
                         {});
   QVERIFY(out.handled);
-  QCOMPARE(out.toggleVisible, tramp::WindowId::skins);
+  QCOMPARE(out.toggleVisible, aoide::WindowId::skins);
 }
 
 void ChromeCommandTest::trackInfoAsksToShowWhenATrackIsLoaded() {
   Fixture f;
   f.playback.playPause();
   QVERIFY(f.playback.currentTrack());
-  const tramp::ChromeCommandOutcome out = f.router().handle(
-      tramp::WindowId::main, hit(tramp::ChromeHit::Kind::trackInfo), Qt::NoModifier, {});
+  const aoide::ChromeCommandOutcome out = f.router().handle(
+      aoide::WindowId::main, hit(aoide::ChromeHit::Kind::trackInfo), Qt::NoModifier, {});
   QVERIFY(out.handled);
-  QCOMPARE(out.intent, tramp::ChromeIntent::showTrackInfo);
+  QCOMPARE(out.intent, aoide::ChromeIntent::showTrackInfo);
 }
 
 void ChromeCommandTest::trackInfoDoesNothingWhenNothingIsLoaded() {
   Fixture f;
   QVERIFY(!f.playback.currentTrack());
-  const tramp::ChromeCommandOutcome out = f.router().handle(
-      tramp::WindowId::main, hit(tramp::ChromeHit::Kind::trackInfo), Qt::NoModifier, {});
+  const aoide::ChromeCommandOutcome out = f.router().handle(
+      aoide::WindowId::main, hit(aoide::ChromeHit::Kind::trackInfo), Qt::NoModifier, {});
   QVERIFY(out.handled);
-  QCOMPARE(out.intent, tramp::ChromeIntent::none);
+  QCOMPARE(out.intent, aoide::ChromeIntent::none);
 }
 
 void ChromeCommandTest::savingAnAlteredListAsksTheSessionToWriteIt() {
   Fixture f;
-  tramp::Track extra;
+  aoide::Track extra;
   extra.path = QStringLiteral("/tmp/router-extra.mp3");
   f.playlist.addTracks({extra});
   QVERIFY(f.playlist.altered());
-  const tramp::ChromeCommandOutcome out = f.router().handle(
-      tramp::WindowId::playlist, hit(tramp::ChromeHit::Kind::plSave), Qt::NoModifier, {});
+  const aoide::ChromeCommandOutcome out = f.router().handle(
+      aoide::WindowId::playlist, hit(aoide::ChromeHit::Kind::plSave), Qt::NoModifier, {});
   QVERIFY(out.handled);
-  QCOMPARE(out.intent, tramp::ChromeIntent::saveCurrentPlaylist);
+  QCOMPARE(out.intent, aoide::ChromeIntent::saveCurrentPlaylist);
   QVERIFY(!out.persist);
 }
 
 void ChromeCommandTest::savingAnUnalteredListDoesNothing() {
   Fixture f;
   QVERIFY(!f.playlist.altered());
-  const tramp::ChromeCommandOutcome out = f.router().handle(
-      tramp::WindowId::playlist, hit(tramp::ChromeHit::Kind::plSave), Qt::NoModifier, {});
+  const aoide::ChromeCommandOutcome out = f.router().handle(
+      aoide::WindowId::playlist, hit(aoide::ChromeHit::Kind::plSave), Qt::NoModifier, {});
   QVERIFY(out.handled);
-  QCOMPARE(out.intent, tramp::ChromeIntent::none);
+  QCOMPARE(out.intent, aoide::ChromeIntent::none);
 }
 
 void ChromeCommandTest::audioDeviceAsksForTheDeviceMenuAndDoesNotPersist() {
   Fixture f;
   QVERIFY(!f.settings.audioExclusive);
-  const tramp::ChromeCommandOutcome out = f.router().handle(
-      tramp::WindowId::settings, hit(tramp::ChromeHit::Kind::settingsAudioDevice), Qt::NoModifier,
+  const aoide::ChromeCommandOutcome out = f.router().handle(
+      aoide::WindowId::settings, hit(aoide::ChromeHit::Kind::settingsAudioDevice), Qt::NoModifier,
       {});
   QVERIFY(out.handled);
-  QCOMPARE(out.intent, tramp::ChromeIntent::showAudioDevices);
+  QCOMPARE(out.intent, aoide::ChromeIntent::showAudioDevices);
   QVERIFY(!out.persist);
   QVERIFY(!out.refreshChrome);
   QCOMPARE(f.settings.audioDevice, QString());
@@ -298,13 +298,13 @@ void ChromeCommandTest::audioDeviceAsksForTheDeviceMenuAndDoesNotPersist() {
 void ChromeCommandTest::exclusiveOutputTogglesPersistsAndAsksForARefresh() {
   Fixture f;
   QVERIFY(!f.settings.audioExclusive);
-  const tramp::ChromeCommandOutcome out = f.router().handle(
-      tramp::WindowId::settings, hit(tramp::ChromeHit::Kind::settingsExclusive), Qt::NoModifier, {});
+  const aoide::ChromeCommandOutcome out = f.router().handle(
+      aoide::WindowId::settings, hit(aoide::ChromeHit::Kind::settingsExclusive), Qt::NoModifier, {});
   QVERIFY(out.handled);
   QVERIFY(f.settings.audioExclusive);
   QVERIFY(out.persist);
   QVERIFY(out.refreshChrome);
-  QCOMPARE(out.intent, tramp::ChromeIntent::none);
+  QCOMPARE(out.intent, aoide::ChromeIntent::none);
 }
 
 QTEST_APPLESS_MAIN(ChromeCommandTest)

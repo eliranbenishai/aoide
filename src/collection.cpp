@@ -5,7 +5,7 @@
 #include <QFile>
 #include <QFileInfo>
 
-namespace tramp {
+namespace aoide {
 
 void PlaylistCollection::load(const SupportStore& store) {
   entries_ = store.readCollectionIndex();
@@ -332,4 +332,4 @@ QVector<Track> dropMissingTrackFiles(const QVector<Track>& tracks) {
   return kept;
 }
 
-}  // namespace tramp
+}  // namespace aoide

@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <optional>
 
-namespace tramp {
+namespace aoide {
 
 struct ChromeHit {
   enum class Kind {
@@ -126,4 +126,4 @@ QRect mainOptionsHit(QSize logical);
 QRect mainEqHit(QSize logical);
 QRect mainPlHit(QSize logical);
 
-}  // namespace tramp
+}  // namespace aoide

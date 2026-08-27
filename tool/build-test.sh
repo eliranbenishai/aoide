@@ -8,7 +8,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=qt-env.sh
 source "$ROOT/tool/qt-env.sh"
-tramp_resolve_qt
+aoide_resolve_qt
 CXX="${CXX:-/home/linuxbrew/.linuxbrew/opt/llvm/bin/clang++}"
 BREW="${BREW:-/home/linuxbrew/.linuxbrew}"
 MPV_INC="$ROOT/third_party/libmpv/include"
@@ -19,12 +19,12 @@ NAME="${1:-domain}"
 
 INC=(-I"$QT/include" -I"$QT/include/QtWidgets" -I"$QT/include/QtGui" -I"$QT/include/QtCore"
      -I"$MPV_INC" -I"$ROOT/src" -I"$BUILD")
-CXXFLAGS=(-std=c++17 "${TRAMP_OPT:--O2}" -fPIC -Wall -Wextra -Wno-unused-parameter)
+CXXFLAGS=(-std=c++17 "${AOIDE_OPT:--O2}" -fPIC -Wall -Wextra -Wno-unused-parameter)
 
 case "$NAME" in
   domain)
     "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
-      -DTRAMP_HAVE_MPV \
+      -DAOIDE_HAVE_MPV \
       "$ROOT/src/m3u.cpp" "$ROOT/src/equalizer.cpp" "$ROOT/src/support_dir.cpp" \
       "$ROOT/src/wait_cursor.cpp" "$ROOT/src/playlist.cpp" "$ROOT/src/transport.cpp" \
       "$ROOT/src/wav_reader.cpp" "$ROOT/src/stft.cpp" "$ROOT/src/spectrum.cpp" \
@@ -44,9 +44,9 @@ case "$NAME" in
     ;;
   look)
     "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -DQT_GUI_LIB -DQT_CORE_LIB \
-      -DTRAMP_SKINS_DIR="\"$ROOT/skins\"" \
+      -DAOIDE_SKINS_DIR="\"$ROOT/skins\"" \
       "$ROOT/src/look.cpp" "$ROOT/src/settings.cpp" "$ROOT/src/equalizer.cpp" \
-      "$ROOT/src/tramp_fonts.cpp" "$ROOT/tests/look_test.cpp" \
+      "$ROOT/src/aoide_fonts.cpp" "$ROOT/tests/look_test.cpp" \
       -L"$QT/lib" -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -Wl,-rpath,"$QT/lib" \
       -o "$BUILD/look_test"
     "$BUILD/look_test"

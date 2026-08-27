@@ -5,7 +5,7 @@
 #include <QFileInfo>
 #include <QRegularExpression>
 
-namespace tramp {
+namespace aoide {
 
 QString decodeM3uBytes(const QByteArray& bytes) {
   if (bytes.startsWith("\xEF\xBB\xBF")) {
@@ -160,4 +160,4 @@ QString M3uCodec::encode(const QVector<Track>& tracks) const {
   return buf;
 }
 
-}  // namespace tramp
+}  // namespace aoide

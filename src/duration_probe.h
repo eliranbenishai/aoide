@@ -8,7 +8,7 @@
 #include <functional>
 #include <optional>
 
-namespace tramp {
+namespace aoide {
 
 struct ProbedAudio {
   QString title;
@@ -72,4 +72,4 @@ void probeAudioDurations(const QStringList& paths, const ProbeCancelFn& stillWan
                          const std::function<void(const QString&, const ProbedAudio&)>& onProbed,
                          const ProbeOneFn& probeOne = {});
 
-}  // namespace tramp
+}  // namespace aoide

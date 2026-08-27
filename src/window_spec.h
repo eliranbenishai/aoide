@@ -7,7 +7,7 @@
 #include <QString>
 #include <Qt>
 
-namespace tramp {
+namespace aoide {
 
 enum class WindowId { main, equalizer, playlist, settings, about, skins };
 
@@ -28,4 +28,4 @@ std::array<WindowSpec, kPanelCount> windowSpecs();
 /// Frameless host shell. Qt::Window only — never Tool, Dialog, or Popup.
 Qt::WindowFlags hostWindowFlags();
 
-}  // namespace tramp
+}  // namespace aoide
