@@ -65,7 +65,8 @@ bool paintsSame(WindowId id, const SessionView& a, const SessionView& b) {
                playlistRefreshing, settingsTab, resumeLastSession, confirmBeforeQuit, scrollTitle,
                titleScrollMs, minimizeHidesSecondaries, dockSnap, aboutPlaylists, aboutTracks,
                aboutTimeMs, aboutSpins, aboutMeasured, look, skins, activeSkinId, skinsError,
-               skinsScroll, spectrumUnmeasured, noAudioEngine, persistWriteFailed] = a;
+               skinsScroll, spectrumUnmeasured, noAudioEngine, persistWriteFailed,
+               audioDeviceLabel, audioExclusive] = a;
 
   // No painter reads these three. The playlist rows carry their own `selected`
   // flag, so `selectedIndices` is the session's copy; `aboutMeasured` is read
@@ -136,7 +137,8 @@ bool paintsSame(WindowId id, const SessionView& a, const SessionView& b) {
       return settingsTab == b.settingsTab && resumeLastSession == b.resumeLastSession &&
              confirmBeforeQuit == b.confirmBeforeQuit && scrollTitle == b.scrollTitle &&
              minimizeHidesSecondaries == b.minimizeHidesSecondaries && dockSnap == b.dockSnap &&
-             persistWriteFailed == b.persistWriteFailed;
+             persistWriteFailed == b.persistWriteFailed &&
+             audioDeviceLabel == b.audioDeviceLabel && audioExclusive == b.audioExclusive;
     case WindowId::skins:
       return activeSkinId == b.activeSkinId && skinsScroll == b.skinsScroll &&
              skinsError == b.skinsError && sameCatalog(skins, b.skins);

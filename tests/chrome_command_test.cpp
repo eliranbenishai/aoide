@@ -36,6 +36,8 @@ class ChromeCommandTest : public QObject {
   void trackInfoDoesNothingWhenNothingIsLoaded();
   void savingAnAlteredListAsksTheSessionToWriteIt();
   void savingAnUnalteredListDoesNothing();
+  void audioDeviceAsksForTheDeviceMenuAndDoesNotPersist();
+  void exclusiveOutputTogglesPersistsAndAsksForARefresh();
 };
 
 namespace {
@@ -277,6 +279,31 @@ void ChromeCommandTest::savingAnUnalteredListDoesNothing() {
   const tramp::ChromeCommandOutcome out = f.router().handle(
       tramp::WindowId::playlist, hit(tramp::ChromeHit::Kind::plSave), Qt::NoModifier, {});
   QVERIFY(out.handled);
+  QCOMPARE(out.intent, tramp::ChromeIntent::none);
+}
+
+void ChromeCommandTest::audioDeviceAsksForTheDeviceMenuAndDoesNotPersist() {
+  Fixture f;
+  QVERIFY(!f.settings.audioExclusive);
+  const tramp::ChromeCommandOutcome out = f.router().handle(
+      tramp::WindowId::settings, hit(tramp::ChromeHit::Kind::settingsAudioDevice), Qt::NoModifier,
+      {});
+  QVERIFY(out.handled);
+  QCOMPARE(out.intent, tramp::ChromeIntent::showAudioDevices);
+  QVERIFY(!out.persist);
+  QVERIFY(!out.refreshChrome);
+  QCOMPARE(f.settings.audioDevice, QString());
+}
+
+void ChromeCommandTest::exclusiveOutputTogglesPersistsAndAsksForARefresh() {
+  Fixture f;
+  QVERIFY(!f.settings.audioExclusive);
+  const tramp::ChromeCommandOutcome out = f.router().handle(
+      tramp::WindowId::settings, hit(tramp::ChromeHit::Kind::settingsExclusive), Qt::NoModifier, {});
+  QVERIFY(out.handled);
+  QVERIFY(f.settings.audioExclusive);
+  QVERIFY(out.persist);
+  QVERIFY(out.refreshChrome);
   QCOMPARE(out.intent, tramp::ChromeIntent::none);
 }
 

@@ -127,6 +127,8 @@ struct SessionView {
   /// A settings or state-file write has not yet succeeded. Settings-row mark
   /// that stays until that file writes.
   bool persistWriteFailed = false;
+  QString audioDeviceLabel = QStringLiteral("Auto");
+  bool audioExclusive = false;
 };
 
 /// Whether the display well's marquee is moving rather than held at the start.

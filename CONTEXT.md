@@ -147,7 +147,7 @@ Freestanding panel (shade + close, no snap) that holds a **2-column matrix** of 
 _Avoid_: Skins tab (retired home), look packs dialog; Reset folder (retired — Reset Settings re-seeds)
 
 **Settings**:
-Freestanding panel with side tabs **General** | **Audio**. Audio is an empty stake. **Reset Settings** restores factory `settings.json` except `activeSkinId`, and re-seeds the skins directory.
+Freestanding panel with side tabs **General** | **Audio**. Audio holds the output device and exclusive output. **Reset Settings** restores factory `settings.json` except `activeSkinId`, and re-seeds the skins directory.
 _Avoid_: Skins as a Settings tab; Reset folder as a Skins-panel action
 
 **Phosphor**:

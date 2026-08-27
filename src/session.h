@@ -153,6 +153,8 @@ class TrampSession : public QObject, public PanelSurfaces {
   void presentPlSortMenu(const ChromeHit& hit);
   void presentPlOptionsMenu(const ChromeHit& hit);
   void presentEqPresets(const ChromeHit& hit);
+  void presentAudioDevices(const ChromeHit& hit);
+  void refreshAudioOutputs();
   void presentResetSettings();
   void presentSkinInstallMenu(const ChromeHit& hit);
   void presentSkinZipInstall();
@@ -223,6 +225,11 @@ class TrampSession : public QObject, public PanelSurfaces {
   bool ingesting_ = false;
   /// True when the session installed `MissingAudioEngine`.
   bool noAudioEngine_ = false;
+  /// Last list from the engine. `view()` must not ask mpv on every snapshot —
+  /// spectrum ticks would pay for a device enumeration the Settings button
+  /// only reads. Refreshed at boot, when Settings opens, and when the picker
+  /// does.
+  QVector<AudioOutputDevice> audioOutputs_;
   /// Set while a batch of probe answers is being applied: every answer touches
   /// the list, and every touch would otherwise rebuild the view and hand it to
   /// panels. One batch is one change as far as the chrome is concerned.

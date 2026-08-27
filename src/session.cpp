@@ -1,5 +1,6 @@
 #include "session.h"
 
+#include "audio_output.h"
 #include "chrome_command.h"
 #include "chrome_layout.h"
 #include "document_portal.h"
@@ -148,6 +149,9 @@ TrampSession::TrampSession(QObject* parent)
   });
   bindPlayback();
   engine_->setForceMono(settings_.forceMono);
+  engine_->setAudioDevice(normalizeAudioDeviceName(settings_.audioDevice));
+  engine_->setAudioExclusive(settings_.audioExclusive);
+  refreshAudioOutputs();
   applyEq();
   {
     WaitCursorScope wait;
@@ -682,6 +686,8 @@ SessionView TrampSession::view() const {
   v.scrollTitle = settings_.scrollTitle;
   v.minimizeHidesSecondaries = settings_.minimizeHidesSecondaries;
   v.dockSnap = int(settings_.dockSnapStrength);
+  v.audioDeviceLabel = audioDeviceDisplayLabel(settings_.audioDevice, audioOutputs_);
+  v.audioExclusive = settings_.audioExclusive;
   v.aboutPlaylists = figures_.playlists;
   v.aboutTracks = figures_.tracks;
   v.aboutTimeMs = figures_.totalDurationMs;
@@ -795,6 +801,7 @@ void TrampSession::setWindowVisible(WindowId id, bool visible) {
     layout_.clampToHost(id);
     layout_.place();
     if (id == WindowId::settings || id == WindowId::skins) emit requestRaise(id);
+    if (id == WindowId::settings) refreshAudioOutputs();
     if (id == WindowId::skins) {
       WaitCursorScope wait;
       skins_.rescan();
@@ -1121,7 +1128,10 @@ void TrampSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
   if (out.toggleVisible) {
     setWindowVisible(*out.toggleVisible, !windowShouldShow(*out.toggleVisible));
   }
-  if (out.settingsTab) settingsTab_ = *out.settingsTab;
+  if (out.settingsTab) {
+    settingsTab_ = *out.settingsTab;
+    if (settingsTab_ == 1) refreshAudioOutputs();
+  }
   if (out.applyEq) applyEq();
   if (out.applyAlwaysOnTop) applyAlwaysOnTop();
   if (out.syncTitleMarquee) syncTitleMarquee();
@@ -1172,6 +1182,9 @@ void TrampSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
       break;
     case ChromeIntent::showEqPresets:
       presentEqPresets(hit);
+      break;
+    case ChromeIntent::showAudioDevices:
+      presentAudioDevices(hit);
       break;
     case ChromeIntent::openWebsite:
       QDesktopServices::openUrl(QUrl(QStringLiteral("https://tramp.music")));
@@ -1361,6 +1374,29 @@ void TrampSession::presentPlOptionsMenu(const ChromeHit& hit) {
   }
 }
 
+void TrampSession::refreshAudioOutputs() {
+  audioOutputs_ = withAutoAudioDevice(engine_->listAudioOutputs());
+}
+
+void TrampSession::presentAudioDevices(const ChromeHit& hit) {
+  refreshAudioOutputs();
+  const QString current = normalizeAudioDeviceName(settings_.audioDevice);
+  QVector<ChromeMenuItem> items;
+  items.reserve(audioOutputs_.size());
+  for (const AudioOutputDevice& device : audioOutputs_) {
+    items.push_back(ChromeMenuItem::check(
+        audioDeviceDisplayLabel(device.name, audioOutputs_),
+        normalizeAudioDeviceName(device.name) == current));
+  }
+  const int chosen =
+      execAnchoredMenu(items, windowFor(WindowId::settings), hit.rect, PopupAnchor::belowLeft);
+  if (chosen == kChromeMenuNone || chosen < 0 || chosen >= audioOutputs_.size()) return;
+  settings_.audioDevice = normalizeAudioDeviceName(audioOutputs_[chosen].name);
+  engine_->setAudioDevice(settings_.audioDevice);
+  schedulePersist();
+  refreshChrome();
+}
+
 void TrampSession::presentEqPresets(const ChromeHit& hit) {
   const auto& presets = EqualizerPresets::builtIn();
   QVector<ChromeMenuItem> items;
@@ -1386,6 +1422,8 @@ void TrampSession::presentResetSettings() {
   }
   applyEq();
   engine_->setForceMono(false);
+  engine_->setAudioDevice(kDefaultAudioDeviceName());
+  engine_->setAudioExclusive(false);
   layout_.docking().setSnapThreshold(snapPixels(settings_.dockSnapStrength));
   applyAlwaysOnTop();
   syncTitleMarquee();

@@ -3,6 +3,8 @@
 #include "player_engine.h"
 
 #include <QObject>
+#include <QString>
+#include <QVector>
 #include <atomic>
 
 struct mpv_handle;
@@ -26,6 +28,9 @@ class MpvEngine : public QObject, public PlayerEngine {
   void setVolume(double volume) override;
   void setForceMono(bool enabled) override;
   void setEqualizerAf(const QString& af) override;
+  QVector<AudioOutputDevice> listAudioOutputs() override;
+  void setAudioDevice(const QString& name) override;
+  void setAudioExclusive(bool enabled) override;
   void dispose() override;
   qint64 queryPositionMs() override;
 
@@ -41,6 +46,8 @@ class MpvEngine : public QObject, public PlayerEngine {
   QString pendingAf_;
   double pendingVolume_ = 1.0;
   bool pendingMono_ = false;
+  QString pendingDevice_ = kDefaultAudioDeviceName();
+  bool pendingExclusive_ = false;
   QString currentPath_;
 };
 

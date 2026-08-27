@@ -226,12 +226,22 @@ ChromeHit hitSettings(QSize logical, QPoint pos, const SessionView& view) {
       h.kind != ChromeHit::Kind::none) {
     return h;
   }
-  const QRect reset(int(body.left() + 12), int(body.bottom() - 36), 160, 24);
+  const QRectF pane = settingsPane(logical);
+  const QRect reset =
+      toHitRect(settingsResetBtn(pane, labelBtnWidth(QStringLiteral("Reset Settings"))));
   if (auto h = hitIf(reset, pos, ChromeHit::Kind::settingsReset); h.kind != ChromeHit::Kind::none) {
     return h;
   }
-  const QRectF pane = settingsPane(logical);
   if (view.settingsTab == 1) {
+    if (auto h = hitIf(toHitRect(settingsAudioDeviceBtn(pane)), pos,
+                       ChromeHit::Kind::settingsAudioDevice);
+        h.kind != ChromeHit::Kind::none) {
+      return h;
+    }
+    if (auto h = hitIf(toHitRect(settingsExclusiveRow(pane)), pos, ChromeHit::Kind::settingsExclusive);
+        h.kind != ChromeHit::Kind::none) {
+      return h;
+    }
     return {};
   }
   const ChromeHit::Kind toggles[] = {ChromeHit::Kind::settingsResume, ChromeHit::Kind::settingsConfirm,

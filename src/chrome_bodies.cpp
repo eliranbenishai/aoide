@@ -817,34 +817,11 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
   tab(body.top() + 42, QStringLiteral("Audio"), K::settingsAudio, tabIndex == 1);
 
   const QRectF pane = settingsPane(body);
-  auto paintReset = [&]() {
-    p.setFont(condensedFont(12, 0.1));
-    p.setPen(T().accent);
-    p.drawText(QRectF(body.left() + 12, body.bottom() - 36, 160, 24), Qt::AlignVCenter,
-               QStringLiteral("Reset Settings"));
-  };
-  if (tabIndex == 1) {
-    paintReset();
-    return;
-  }
-  struct Toggle {
-    QString label;
-    ChromeHit::Kind kind;
-    bool on;
-  };
-  const Toggle rows[] = {
-      {resumePlaybackLabel(), K::settingsResume, resume},
-      {QStringLiteral("Confirm before quit"), K::settingsConfirm, confirm},
-      {QStringLiteral("Scroll title"), K::settingsScroll, scroll},
-      {QStringLiteral("Minimize hides secondaries"), K::settingsMinimize, minimize},
-  };
-  for (const Toggle& toggle : rows) {
-    const int i = int(&toggle - rows);
-    const QRectF row(pane.left() + 16, pane.top() + 12 + i * 36, pane.width() - 32, 32);
+  auto paintSwitch = [&](const QRectF& row, const QString& label, ChromeHit::Kind kind, bool on) {
     p.setFont(condensedFont(12, 0.08));
     p.setPen(T().ink);
-    p.drawText(row, Qt::AlignVCenter, toggle.label);
-    const BtnFace face = faceOf(phases, toggle.kind, toggle.on);
+    p.drawText(row, Qt::AlignVCenter, label);
+    const BtnFace face = faceOf(phases, kind, on);
     const QRectF sw(row.right() - 40, row.center().y() - 10, 36, 20);
     // The thumb slides the width of the track rather than teleporting between
     // its ends, which is the whole reason this switch is worth animating.
@@ -855,28 +832,66 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
     p.setPen(Qt::NoPen);
     const qreal travel = sw.width() - 20;
     p.drawEllipse(QPointF(sw.left() + 10 + travel * face.on, sw.center().y()), 7, 7);
+  };
+
+  if (tabIndex == 1) {
+    p.setFont(condensedFont(12, 0.08));
+    p.setPen(T().ink);
+    p.drawText(QRectF(pane.left() + 16, pane.top() + 12, pane.width() - 32, 20),
+               Qt::AlignVCenter, QStringLiteral("Output device"));
+    const QRectF device = settingsAudioDeviceBtn(pane);
+    const BtnFace face = faceOf(phases, K::settingsAudioDevice, false);
+    drawBtn(p, device, face, {});
+    p.setFont(condensedFont(13, 0.18));
+    p.setPen(mix(T().btnLabelIdle, T().btnOnInk, face.on));
+    const QRectF text = device.adjusted(10, 0, -16, 0);
+    p.drawText(text, Qt::AlignVCenter | Qt::AlignLeft,
+               QFontMetricsF(p.font()).elidedText(view.audioDeviceLabel, Qt::ElideRight,
+                                                  text.width()));
+    drawMenuCaret(p, device);
+    paintSwitch(settingsExclusiveRow(pane), QStringLiteral("Exclusive output"),
+                K::settingsExclusive, view.audioExclusive);
+  } else {
+    struct Toggle {
+      QString label;
+      ChromeHit::Kind kind;
+      bool on;
+    };
+    const Toggle rows[] = {
+        {resumePlaybackLabel(), K::settingsResume, resume},
+        {QStringLiteral("Confirm before quit"), K::settingsConfirm, confirm},
+        {QStringLiteral("Scroll title"), K::settingsScroll, scroll},
+        {QStringLiteral("Minimize hides secondaries"), K::settingsMinimize, minimize},
+    };
+    for (const Toggle& toggle : rows) {
+      const int i = int(&toggle - rows);
+      const QRectF row(pane.left() + 16, pane.top() + 12 + i * 36, pane.width() - 32, 32);
+      paintSwitch(row, toggle.label, toggle.kind, toggle.on);
+    }
+    p.setFont(condensedFont(12, 0.08));
+    p.setPen(T().ink);
+    p.drawText(QRectF(pane.left() + 16, pane.top() + 168, pane.width() - 32, 20),
+               Qt::AlignVCenter, QStringLiteral("Dock snap strength"));
+    const char* segs[] = {"Off", "Normal", "Strong"};
+    const ChromeHit::Kind segKinds[] = {K::settingsSnapOff, K::settingsSnapNormal,
+                                        K::settingsSnapStrong};
+    qreal sx = pane.left() + 16;
+    for (int i = 0; i < 3; ++i) {
+      drawBtn(p, QRectF(sx, pane.top() + 194, 88, 28), faceOf(phases, segKinds[i], i == snap),
+              QString::fromLatin1(segs[i]));
+      sx += 96;
+    }
+    if (view.persistWriteFailed) {
+      const QRectF mark = settingsPersistMark(pane);
+      p.setFont(monoFont(10));
+      p.setPen(T().accent);
+      p.drawText(mark, Qt::AlignVCenter | Qt::AlignLeft,
+                 QStringLiteral("Could not write settings"));
+    }
   }
-  p.setFont(condensedFont(12, 0.08));
-  p.setPen(T().ink);
-  p.drawText(QRectF(pane.left() + 16, pane.top() + 168, pane.width() - 32, 20),
-             Qt::AlignVCenter, QStringLiteral("Dock snap strength"));
-  const char* segs[] = {"Off", "Normal", "Strong"};
-  const ChromeHit::Kind segKinds[] = {K::settingsSnapOff, K::settingsSnapNormal,
-                                      K::settingsSnapStrong};
-  qreal sx = pane.left() + 16;
-  for (int i = 0; i < 3; ++i) {
-    drawBtn(p, QRectF(sx, pane.top() + 194, 88, 28), faceOf(phases, segKinds[i], i == snap),
-            QString::fromLatin1(segs[i]));
-    sx += 96;
-  }
-  if (view.persistWriteFailed) {
-    const QRectF mark = settingsPersistMark(pane);
-    p.setFont(monoFont(10));
-    p.setPen(T().accent);
-    p.drawText(mark, Qt::AlignVCenter | Qt::AlignLeft,
-               QStringLiteral("Could not write settings"));
-  }
-  paintReset();
+
+  drawBtn(p, settingsResetBtn(pane, labelBtnWidth(QStringLiteral("Reset Settings"))),
+          faceOf(phases, K::settingsReset, false), QStringLiteral("Reset Settings"));
 }
 
 /// Name and author on the preview itself. The hover label used to say the

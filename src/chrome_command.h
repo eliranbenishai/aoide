@@ -31,6 +31,7 @@ enum class ChromeIntent {
   showOptionsMenu,
   showTrackInfo,
   showEqPresets,
+  showAudioDevices,
   openWebsite,
   resetSettings,
   rescanSkins,

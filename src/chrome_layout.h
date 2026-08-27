@@ -397,6 +397,18 @@ inline QRectF settingsPane(const QRectF& body) {
 
 inline QRectF settingsPane(QSize logical) { return settingsPane(panelBody(logical)); }
 
+inline QRectF settingsResetBtn(const QRectF& pane, qreal width) {
+  return QRectF(pane.left() + 16, pane.bottom() + 6, width, 28);
+}
+
+inline QRectF settingsAudioDeviceBtn(const QRectF& pane) {
+  return QRectF(pane.left() + 16, pane.top() + 36, pane.width() - 32, 28);
+}
+
+inline QRectF settingsExclusiveRow(const QRectF& pane) {
+  return QRectF(pane.left() + 16, pane.top() + 80, pane.width() - 32, 32);
+}
+
 /// The dedicated Skins panel owns the whole body: no tab rail, no Reset footer.
 inline QRectF skinsPane(const QRectF& body) {
   return QRectF(body.left(), body.top(), body.width(), body.height());

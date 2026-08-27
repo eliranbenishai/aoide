@@ -235,6 +235,7 @@ void HostWindow::syncLatchedPhases(bool snap) {
       aim(K::settingsSnapOff, view_.dockSnap == 0);
       aim(K::settingsSnapNormal, view_.dockSnap == 1);
       aim(K::settingsSnapStrong, view_.dockSnap == 2);
+      aim(K::settingsExclusive, view_.audioExclusive);
       break;
     case tramp::WindowId::about:
       break;

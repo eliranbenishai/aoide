@@ -113,7 +113,7 @@ int dumpChrome(const QString& dirPath) {
       empty.collectionCollapsed = false;
       if (!shoot(spec, empty, dumpName(spec.id) + QStringLiteral("_empty"))) return 1;
     }
-    // Audio is an empty stake; it shares no pixel with General.
+    // Audio paints its own pane; it shares no pixel with General.
     if (spec.id == tramp::WindowId::settings) {
       tramp::SessionView audio = golden;
       audio.settingsTab = 1;

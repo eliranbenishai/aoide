@@ -202,6 +202,10 @@ void ChromeTooltipTest::settingsAndAboutNameControls() {
   QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsSnapStrong), view),
            QStringLiteral("Dock snap strong"));
   QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsReset), view), QStringLiteral("Reset Settings"));
+  QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsAudioDevice), view),
+           QStringLiteral("Output device"));
+  QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsExclusive), view),
+           QStringLiteral("Exclusive output"));
   QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsSkinAdd), view),
            QStringLiteral("Install skin"));
   QCOMPARE(tramp::chromeTooltip({}, kind(K::settingsSkinsFolder), view),

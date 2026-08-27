@@ -24,7 +24,6 @@ bool takesPointerFeedback(ChromeHit::Kind kind) {
     case ChromeHit::Kind::settingsSkinScroll:
     // Bare text and readouts: no face to light.
     case ChromeHit::Kind::timeToggle:
-    case ChromeHit::Kind::settingsReset:
     case ChromeHit::Kind::aboutWeb:
       return false;
 
@@ -69,6 +68,9 @@ bool takesPointerFeedback(ChromeHit::Kind kind) {
     case ChromeHit::Kind::settingsSnapOff:
     case ChromeHit::Kind::settingsSnapNormal:
     case ChromeHit::Kind::settingsSnapStrong:
+    case ChromeHit::Kind::settingsReset:
+    case ChromeHit::Kind::settingsAudioDevice:
+    case ChromeHit::Kind::settingsExclusive:
     case ChromeHit::Kind::settingsSkinRow:
     case ChromeHit::Kind::settingsSkinRemove:
     case ChromeHit::Kind::settingsSkinAdd:

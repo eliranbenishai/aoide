@@ -1,8 +1,10 @@
 #pragma once
 
+#include "audio_output.h"
 #include "track.h"
 
 #include <QString>
+#include <QVector>
 #include <functional>
 #include <optional>
 
@@ -25,6 +27,9 @@ class PlayerEngine {
   virtual void setVolume(double volume) = 0;
   virtual void setForceMono(bool enabled) = 0;
   virtual void setEqualizerAf(const QString& af) = 0;
+  virtual QVector<AudioOutputDevice> listAudioOutputs() { return {}; }
+  virtual void setAudioDevice(const QString& name) { Q_UNUSED(name); }
+  virtual void setAudioExclusive(bool enabled) { Q_UNUSED(enabled); }
   virtual void dispose() = 0;
   /// Snapshot of the playback clock. `-1` means the engine has no reading.
   virtual qint64 queryPositionMs() { return -1; }

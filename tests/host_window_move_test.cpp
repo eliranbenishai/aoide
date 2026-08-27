@@ -362,6 +362,25 @@ void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
       tramp::aboutMakerPlate(tramp::aboutInner(tramp::panelBody(about))), textW);
   grabCoversPaint(tramp::WindowId::about, about, pill, tramp::ChromeHit::Kind::aboutWeb,
                   "the tramp.music pill");
+
+  const QSize settings = specs[3].logicalSize;
+  const QRectF pane = tramp::settingsPane(settings);
+  const QRectF reset = tramp::settingsResetBtn(
+      pane, tramp::labelBtnWidth(QStringLiteral("Reset Settings")));
+  grabCoversPaint(tramp::WindowId::settings, settings, reset, tramp::ChromeHit::Kind::settingsReset,
+                  "Reset Settings");
+  tramp::SessionView audio = view;
+  audio.settingsTab = 1;
+  assertPaintIsGrabbable(tramp::WindowId::settings, settings, audio, reset,
+                         tramp::ChromeHit::Kind::settingsReset, -1,
+                         QStringLiteral("Reset Settings on the Audio tab"));
+  assertPaintIsGrabbable(tramp::WindowId::settings, settings, audio,
+                         tramp::settingsAudioDeviceBtn(pane),
+                         tramp::ChromeHit::Kind::settingsAudioDevice, -1,
+                         QStringLiteral("the output device button"));
+  assertPaintIsGrabbable(tramp::WindowId::settings, settings, audio,
+                         tramp::settingsExclusiveRow(pane), tramp::ChromeHit::Kind::settingsExclusive,
+                         -1, QStringLiteral("Exclusive output"));
   const tramp::ChromeHit web =
       tramp::hitTest(tramp::WindowId::about, about, pill.center().toPoint(), view);
   QCOMPARE(web.kind, tramp::ChromeHit::Kind::aboutWeb);
@@ -785,6 +804,10 @@ std::vector<FieldChange> everyFieldOfTheSnapshot() {
       {"skinsScroll", "skins", [](tramp::SessionView& v) { v.skinsScroll = 12; }},
       {"persistWriteFailed", "settings",
        [](tramp::SessionView& v) { v.persistWriteFailed = !v.persistWriteFailed; }},
+      {"audioDeviceLabel", "settings",
+       [](tramp::SessionView& v) { v.audioDeviceLabel = QStringLiteral("HDMI"); }},
+      {"audioExclusive", "settings",
+       [](tramp::SessionView& v) { v.audioExclusive = !v.audioExclusive; }},
 
       // About: the four figures in the stats well.
       {"aboutPlaylists", "about", [](tramp::SessionView& v) { v.aboutPlaylists += 1; }},

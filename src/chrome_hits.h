@@ -65,6 +65,8 @@ struct ChromeHit {
     settingsSnapNormal,
     settingsSnapStrong,
     settingsReset,
+    settingsAudioDevice,
+    settingsExclusive,
     settingsSkinRow,
     settingsSkinRemove,
     settingsSkinScroll,

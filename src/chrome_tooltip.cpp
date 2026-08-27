@@ -147,6 +147,10 @@ QString chromeKindTip(const ChromeHit& chrome, const SessionView& view) {
       return QStringLiteral("Dock snap strong");
     case K::settingsReset:
       return QStringLiteral("Reset Settings");
+    case K::settingsAudioDevice:
+      return QStringLiteral("Output device");
+    case K::settingsExclusive:
+      return QStringLiteral("Exclusive output");
     case K::settingsSkinAdd:
       return QStringLiteral("Install skin");
     case K::settingsSkinsFolder:

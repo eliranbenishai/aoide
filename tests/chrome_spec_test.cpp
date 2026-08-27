@@ -496,6 +496,9 @@ void ChromeSpecTest::pointerFeedbackSkipsSlidersAndListRows() {
   QVERIFY(tramp::takesPointerFeedback(K::plSort));
   QVERIFY(tramp::takesPointerFeedback(K::plSave));
   QVERIFY(tramp::takesPointerFeedback(K::eqPresets));
+  QVERIFY(tramp::takesPointerFeedback(K::settingsReset));
+  QVERIFY(tramp::takesPointerFeedback(K::settingsAudioDevice));
+  QVERIFY(tramp::takesPointerFeedback(K::settingsExclusive));
   // Hovering these would rebuild a whole panel chassis per mouse move.
   QVERIFY(!tramp::takesPointerFeedback(K::plTrackRow));
   QVERIFY(!tramp::takesPointerFeedback(K::plCollectionRow));

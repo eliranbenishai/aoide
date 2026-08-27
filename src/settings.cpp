@@ -1,5 +1,6 @@
 #include "settings.h"
 
+#include "audio_output.h"
 #include "panel_registry.h"
 #include "tramp_metrics.h"
 
@@ -153,6 +154,8 @@ QJsonObject TrampSettings::toJson() const {
   o.insert(QStringLiteral("dockSnapStrength"), snap);
   o.insert(QStringLiteral("playlistCollectionWidth"), playlistCollectionWidth);
   o.insert(QStringLiteral("playlistCollectionCollapsed"), playlistCollectionCollapsed);
+  o.insert(QStringLiteral("audioDevice"), normalizeAudioDeviceName(audioDevice));
+  o.insert(QStringLiteral("audioExclusive"), audioExclusive);
   return o;
 }
 
@@ -210,6 +213,13 @@ TrampSettings TrampSettings::fromJson(const QJsonObject& json) {
   }
   if (json.value(QStringLiteral("playlistCollectionCollapsed")).isBool()) {
     s.playlistCollectionCollapsed = json.value(QStringLiteral("playlistCollectionCollapsed")).toBool();
+  }
+  if (json.contains(QStringLiteral("audioDevice")) &&
+      json.value(QStringLiteral("audioDevice")).isString()) {
+    s.audioDevice = json.value(QStringLiteral("audioDevice")).toString();
+  }
+  if (json.value(QStringLiteral("audioExclusive")).isBool()) {
+    s.audioExclusive = json.value(QStringLiteral("audioExclusive")).toBool();
   }
   const QString skin = json.value(QStringLiteral("activeSkinId")).toString();
   if (!skin.isEmpty()) s.activeSkinId = skin;

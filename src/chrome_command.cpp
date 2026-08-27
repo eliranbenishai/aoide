@@ -247,6 +247,17 @@ ChromeCommandOutcome ChromeCommandRouter::handle(WindowId id, const ChromeHit& h
       out.handled = true;
       out.intent = ChromeIntent::resetSettings;
       break;
+    case K::settingsAudioDevice:
+      out.handled = true;
+      out.intent = ChromeIntent::showAudioDevices;
+      break;
+    case K::settingsExclusive:
+      settings_.audioExclusive = !settings_.audioExclusive;
+      engine_.setAudioExclusive(settings_.audioExclusive);
+      out.handled = true;
+      out.persist = true;
+      out.refreshChrome = true;
+      break;
     case K::aboutWeb:
       out.handled = true;
       out.intent = ChromeIntent::openWebsite;

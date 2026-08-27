@@ -1,3 +1,4 @@
+#include "audio_output.h"
 #include "chrome_hits.h"
 #include "collection.h"
 #include "document_portal.h"
@@ -24,6 +25,8 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMap>
 #include <QTemporaryDir>
 #include <QByteArray>
@@ -2453,6 +2456,61 @@ int main() {
     REQUIRE(settings.skinsDirectory.isEmpty());
     REQUIRE_EQ(settings.zoomPercent, 75);
     REQUIRE(!settings.alwaysOnTop);
+  }
+
+  {
+    tramp::TrampSettings defaults;
+    REQUIRE((defaults.audioDevice.isEmpty() ||
+             defaults.audioDevice == tramp::kDefaultAudioDeviceName()));
+    REQUIRE(!defaults.audioExclusive);
+
+    tramp::TrampSettings saved;
+    saved.audioDevice = QStringLiteral("pulse/alsa_output.pci-0000_00_1f.3.analog-stereo");
+    saved.audioExclusive = true;
+    const tramp::TrampSettings loaded = tramp::TrampSettings::fromJson(saved.toJson());
+    REQUIRE_EQ(loaded.audioDevice, saved.audioDevice);
+    REQUIRE(loaded.audioExclusive);
+    REQUIRE_EQ(saved.toJson().value(QStringLiteral("audioDevice")).toString(), saved.audioDevice);
+    REQUIRE(saved.toJson().value(QStringLiteral("audioExclusive")).toBool());
+
+    const tramp::TrampSettings missing = tramp::TrampSettings::fromJson(QJsonObject{});
+    REQUIRE((missing.audioDevice.isEmpty() ||
+             missing.audioDevice == tramp::kDefaultAudioDeviceName()));
+    REQUIRE(!missing.audioExclusive);
+
+    tramp::TrampSettings reset;
+    reset.activeSkinId = QStringLiteral("gamma");
+    reset.audioDevice = QStringLiteral("wasapi/{guid}");
+    reset.audioExclusive = true;
+    tramp::resetSettingsExceptSkins(reset);
+    REQUIRE_EQ(reset.activeSkinId, QStringLiteral("gamma"));
+    REQUIRE((reset.audioDevice.isEmpty() ||
+             reset.audioDevice == tramp::kDefaultAudioDeviceName()));
+    REQUIRE(!reset.audioExclusive);
+
+    const QVector<tramp::AudioOutputDevice> devices{
+        {QStringLiteral("auto"), QStringLiteral("Autoselect device")},
+        {QStringLiteral("pulse/speakers"), QStringLiteral("Built-in Speakers")},
+    };
+    REQUIRE_EQ(tramp::audioDeviceDisplayLabel(QString(), devices), QStringLiteral("Auto"));
+    REQUIRE_EQ(tramp::audioDeviceDisplayLabel(QStringLiteral("auto"), devices),
+               QStringLiteral("Auto"));
+    REQUIRE_EQ(tramp::audioDeviceDisplayLabel(QStringLiteral("pulse/speakers"), devices),
+               QStringLiteral("Built-in Speakers"));
+    REQUIRE_EQ(tramp::audioDeviceDisplayLabel(QStringLiteral("wasapi/{gone}"), devices),
+               QStringLiteral("wasapi/{gone}"));
+    REQUIRE_EQ(tramp::audioDeviceDisplayLabel(QStringLiteral("pulse/nameless"),
+                                              {{QStringLiteral("pulse/nameless"), QString()}}),
+               QStringLiteral("pulse/nameless"));
+    REQUIRE_EQ(tramp::normalizeAudioDeviceName(QString()), tramp::kDefaultAudioDeviceName());
+    REQUIRE_EQ(tramp::kDefaultAudioDeviceName(), QStringLiteral("auto"));
+
+    const QVector<tramp::AudioOutputDevice> withAuto = tramp::withAutoAudioDevice(
+        {{QStringLiteral("pulse/speakers"), QStringLiteral("Speakers")},
+         {QStringLiteral("auto"), QStringLiteral("Autoselect device")}});
+    REQUIRE_EQ(withAuto.size(), 2);
+    REQUIRE_EQ(withAuto.front().name, QStringLiteral("auto"));
+    REQUIRE_EQ(tramp::withAutoAudioDevice({}).front().name, QStringLiteral("auto"));
   }
 
   if (gFails != 0) {

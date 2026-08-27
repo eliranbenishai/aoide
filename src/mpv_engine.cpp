@@ -1,5 +1,7 @@
 #include "mpv_engine.h"
 
+#include "audio_output.h"
+
 #include <QByteArray>
 #include <QMetaObject>
 #include <algorithm>
@@ -108,10 +110,50 @@ void MpvEngine::setEqualizerAf(const QString& af) {
   mpv_set_property_string(mpv_, "af", af.toUtf8().constData());
 }
 
+QVector<AudioOutputDevice> MpvEngine::listAudioOutputs() {
+  if (!mpv_) return {};
+  mpv_node root{};
+  if (mpv_get_property(mpv_, "audio-device-list", MPV_FORMAT_NODE, &root) < 0) return {};
+  QVector<AudioOutputDevice> devices;
+  if (root.format == MPV_FORMAT_NODE_ARRAY && root.u.list) {
+    const mpv_node_list* list = root.u.list;
+    for (int i = 0; i < list->num; ++i) {
+      const mpv_node& item = list->values[i];
+      if (item.format != MPV_FORMAT_NODE_MAP || !item.u.list) continue;
+      AudioOutputDevice device;
+      const mpv_node_list* map = item.u.list;
+      for (int k = 0; k < map->num; ++k) {
+        const char* key = map->keys[k];
+        const mpv_node& val = map->values[k];
+        if (!key || val.format != MPV_FORMAT_STRING || !val.u.string) continue;
+        if (QByteArray(key) == "name") device.name = QString::fromUtf8(val.u.string);
+        if (QByteArray(key) == "description") device.description = QString::fromUtf8(val.u.string);
+      }
+      if (!device.name.isEmpty()) devices.push_back(device);
+    }
+  }
+  mpv_free_node_contents(&root);
+  return devices;
+}
+
+void MpvEngine::setAudioDevice(const QString& name) {
+  pendingDevice_ = normalizeAudioDeviceName(name);
+  if (!mpv_) return;
+  mpv_set_property_string(mpv_, "audio-device", pendingDevice_.toUtf8().constData());
+}
+
+void MpvEngine::setAudioExclusive(bool enabled) {
+  pendingExclusive_ = enabled;
+  if (!mpv_) return;
+  mpv_set_property_string(mpv_, "audio-exclusive", enabled ? "yes" : "no");
+}
+
 void MpvEngine::applyPending() {
   setVolume(pendingVolume_);
   setForceMono(pendingMono_);
   setEqualizerAf(pendingAf_);
+  setAudioDevice(pendingDevice_);
+  setAudioExclusive(pendingExclusive_);
 }
 
 qint64 MpvEngine::queryPositionMs() {

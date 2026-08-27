@@ -69,6 +69,8 @@ struct TrampSettings {
   DockSnapStrength dockSnapStrength = DockSnapStrength::normal;
   double playlistCollectionWidth = 240;
   bool playlistCollectionCollapsed = false;
+  QString audioDevice;
+  bool audioExclusive = false;
 
   QJsonObject toJson() const;
   static TrampSettings fromJson(const QJsonObject& json);
