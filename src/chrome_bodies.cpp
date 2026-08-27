@@ -799,9 +799,9 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
   const bool minimize = view.minimizeHidesSecondaries;
   const int snap = view.dockSnap;
 
-  p.fillRect(QRectF(body.left(), body.top(), 108, body.height()), T().shellDeep);
+  p.fillRect(QRectF(body.left(), body.top(), kSettingsRailW, body.height()), T().shellDeep);
   auto tab = [&](qreal y, const QString& label, ChromeHit::Kind kind, bool on) {
-    const QRectF r(body.left(), y, 108, 42);
+    const QRectF r(body.left(), y, kSettingsRailW, 42);
     const BtnFace face = faceOf(phases, kind, on);
     const int wash = int(std::lround(102 * face.on + 44 * face.hover));
     if (wash > 0) p.fillRect(r, withAlpha(T().shellHi, wash));
@@ -890,8 +890,8 @@ void paintSettings(QPainter& p, const QRectF& body, const SessionView& view,
     }
   }
 
-  drawBtn(p, settingsResetBtn(pane, labelBtnWidth(QStringLiteral("Reset Settings"))),
-          faceOf(phases, K::settingsReset, false), QStringLiteral("Reset Settings"));
+  drawGlyphBtn(p, settingsResetBtn(body), MockupIcon::refresh,
+               faceOf(phases, K::settingsReset, false), 16);
 }
 
 /// Name and author on the preview itself. The hover label used to say the

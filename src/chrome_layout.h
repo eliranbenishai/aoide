@@ -391,14 +391,20 @@ inline QRectF panelBody(QSize logical) {
   return QRectF(0, kTitleBar, logical.width(), logical.height() - kTitleBar);
 }
 
+inline constexpr qreal kSettingsRailW = 108;
+
 inline QRectF settingsPane(const QRectF& body) {
-  return QRectF(body.left() + 108, body.top(), body.width() - 108, body.height() - 40);
+  return QRectF(body.left() + kSettingsRailW, body.top(), body.width() - kSettingsRailW,
+                body.height());
 }
 
 inline QRectF settingsPane(QSize logical) { return settingsPane(panelBody(logical)); }
 
-inline QRectF settingsResetBtn(const QRectF& pane, qreal width) {
-  return QRectF(pane.left() + 16, pane.bottom() + 6, width, 28);
+/// Reload glyph under the tab stack. It lives in the rail so it is a panel
+/// action, not something that belongs to the tab that is showing.
+inline QRectF settingsResetBtn(const QRectF& body) {
+  return QRectF(body.left() + (kSettingsRailW - kMainOptionsSize) / 2,
+                body.bottom() - 12 - kMainOptionsSize, kMainOptionsSize, kMainOptionsSize);
 }
 
 inline QRectF settingsAudioDeviceBtn(const QRectF& pane) {

@@ -216,19 +216,18 @@ ChromeHit hitPlaylist(QSize logical, QPoint pos, const SessionView& view) {
 
 ChromeHit hitSettings(QSize logical, QPoint pos, const SessionView& view) {
   const QRectF body = panelBody(logical);
-  if (auto h = hitIf(QRect(int(body.left()), int(body.top()), 108, 42), pos,
+  if (auto h = hitIf(QRect(int(body.left()), int(body.top()), int(kSettingsRailW), 42), pos,
                      ChromeHit::Kind::settingsGeneral);
       h.kind != ChromeHit::Kind::none) {
     return h;
   }
-  if (auto h = hitIf(QRect(int(body.left()), int(body.top() + 42), 108, 42), pos,
+  if (auto h = hitIf(QRect(int(body.left()), int(body.top() + 42), int(kSettingsRailW), 42), pos,
                      ChromeHit::Kind::settingsAudio);
       h.kind != ChromeHit::Kind::none) {
     return h;
   }
   const QRectF pane = settingsPane(logical);
-  const QRect reset =
-      toHitRect(settingsResetBtn(pane, labelBtnWidth(QStringLiteral("Reset Settings"))));
+  const QRect reset = toHitRect(settingsResetBtn(body));
   if (auto h = hitIf(reset, pos, ChromeHit::Kind::settingsReset); h.kind != ChromeHit::Kind::none) {
     return h;
   }

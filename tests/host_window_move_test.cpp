@@ -365,8 +365,11 @@ void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
 
   const QSize settings = specs[3].logicalSize;
   const QRectF pane = tramp::settingsPane(settings);
-  const QRectF reset = tramp::settingsResetBtn(
-      pane, tramp::labelBtnWidth(QStringLiteral("Reset Settings")));
+  const QRectF reset = tramp::settingsResetBtn(tramp::panelBody(settings));
+  QVERIFY2(reset.left() >= 0 && reset.right() <= tramp::kSettingsRailW,
+           "Reset Settings lives under the tabs, not on the pane");
+  QVERIFY2(reset.top() > tramp::panelBody(settings).top() + 84,
+           "Reset Settings sits below the tab stack");
   grabCoversPaint(tramp::WindowId::settings, settings, reset, tramp::ChromeHit::Kind::settingsReset,
                   "Reset Settings");
   tramp::SessionView audio = view;
