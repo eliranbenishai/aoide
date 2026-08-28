@@ -2407,7 +2407,7 @@ int main() {
             asked.push_back(p);
             for (int tick = 0; tick < 200; ++tick) {
               if (stillWanted && !stillWanted()) return std::optional<aoide::ProbedAudio>();
-              std::this_thread::sleep_for(std::chrono::milliseconds(1));
+              std::this_thread::sleep_for(std::chrono::milliseconds(5));
             }
             aoide::ProbedAudio probed;
             probed.durationMs = 1000;
@@ -2418,9 +2418,16 @@ int main() {
     live.store(false);
     worker.join();
 
-    // One file is 200 ms and the whole run is four seconds; stopping has to cost
-    // a tick, not a file, and nothing after the cancelled file gets asked at all.
-    REQUIRE(clock.elapsed() < 150);
+    // One file is a second and the whole run is the twenty that used to be
+    // uninterruptible; stopping has to cost a tick, not a file, and nothing
+    // after the cancelled file gets asked at all.
+    //
+    // `asked` is the assertion that proves that — one file entered, none after.
+    // The clock is the same claim in wall time, so it is budgeted for a busy
+    // shared runner rather than for the ~35 ms this actually takes: a macOS CI
+    // job missed a 150 ms bound against a 200 ms file. Waiting out even one
+    // file is still 1 s, so the defect this guards cannot slip under 400 ms.
+    REQUIRE(clock.elapsed() < 400);
     REQUIRE_EQ(asked.size(), 1);
     REQUIRE(said.isEmpty());
   }
