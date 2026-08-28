@@ -179,12 +179,19 @@ fi
 # smoke test runs the staged tree under, and that test clears QT_PLUGIN_PATH so
 # a stage missing its plugins cannot borrow the runner's. Same reason
 # stage.ps1 / stage_bundle.sh take the offscreen plugin on the other hosts.
+# install-qt-action exports QT_ROOT_DIR, not QT or QTDIR, so keying only on
+# those skipped this copy on every CI run. macdeployqt's own prefix is the
+# reliable answer: it lives at PREFIX/bin, beside PREFIX/plugins.
 qt_plugins=""
-if [[ -n "${QT:-}" && -d "$QT/plugins/platforms" ]]; then
-  qt_plugins="$QT/plugins"
-elif [[ -n "${QTDIR:-}" && -d "$QTDIR/plugins/platforms" ]]; then
-  qt_plugins="$QTDIR/plugins"
-fi
+for qt_cand in \
+    "${QT:-}" \
+    "${QTDIR:-}" \
+    "${QT_ROOT_DIR:-}" \
+    "$(cd "$(dirname "$MACDEPLOYQT")/.." && pwd)"; do
+  [[ -n "$qt_cand" && -d "$qt_cand/plugins/platforms" ]] || continue
+  qt_plugins="$qt_cand/plugins"
+  break
+done
 if [[ -n "$qt_plugins" && -f "$qt_plugins/platforms/libqoffscreen.dylib" ]]; then
   mkdir -p "$APP/Contents/PlugIns/platforms"
   cp -f "$qt_plugins/platforms/libqoffscreen.dylib" \
