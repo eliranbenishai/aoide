@@ -1,5 +1,6 @@
 #include "audio_output.h"
 #include "chrome_hits.h"
+#include "chrome_layout.h"
 #include "collection.h"
 #include "document_portal.h"
 #include "duration_probe.h"
@@ -374,14 +375,42 @@ int main() {
             pinned);
     REQUIRE(resolveLinuxSupportPath({{QStringLiteral("HOME"), home}}, only({})) == pinned);
 
-    const QString winPinned =
+    const QString macPinned =
         QStringLiteral("/Users/listener/Library/Application Support/Proxima Magnifica/Aoide");
-    const QString winLegacy =
+    const QString macLegacy =
         QStringLiteral("/Users/listener/Library/Application Support/Proxima Magnifica/Tramp");
-    REQUIRE(resolveNonLinuxSupportPath(winPinned, only({winPinned})) == winPinned);
-    REQUIRE(resolveNonLinuxSupportPath(winPinned, only({winLegacy})) == winLegacy);
-    REQUIRE(resolveNonLinuxSupportPath(winPinned, only({winPinned, winLegacy})) == winPinned);
-    REQUIRE(resolveNonLinuxSupportPath(winPinned, only({})) == winPinned);
+    REQUIRE(resolveNonLinuxSupportPath(macPinned, only({macPinned})) == macPinned);
+    REQUIRE(resolveNonLinuxSupportPath(macPinned, only({macLegacy})) == macLegacy);
+    REQUIRE(resolveNonLinuxSupportPath(macPinned, only({macPinned, macLegacy})) == macPinned);
+    REQUIRE(resolveNonLinuxSupportPath(macPinned, only({})) == macPinned);
+  }
+
+  {
+    int carry = 0;
+    const int th = int(qRound(aoide::kPlaylistRowStride));
+    REQUIRE(aoide::wheelRowSteps(0, 120, carry, th) == -1);
+    REQUIRE(carry == 0);
+    REQUIRE(aoide::wheelRowSteps(0, -120, carry, th) == 1);
+    REQUIRE(aoide::wheelRowSteps(0, 240, carry, th) == -1);
+    REQUIRE(aoide::wheelRowSteps(0, 0, carry, th) == 0);
+    carry = 0;
+    REQUIRE(aoide::wheelRowSteps(10, 0, carry, th) == 0);
+    REQUIRE(carry == 10);
+    REQUIRE(aoide::wheelRowSteps(27, 0, carry, th) == -1);
+    REQUIRE(carry == 0);
+    REQUIRE(aoide::wheelRowSteps(80, 0, carry, th) == -2);
+    REQUIRE(carry == 6);
+    REQUIRE(aoide::wheelRowSteps(-6, 0, carry, th) == 0);
+    REQUIRE(carry == 0);
+    REQUIRE(aoide::wheelRowSteps(-80, 0, carry, th) == 2);
+    REQUIRE(carry == -6);
+    carry = 20;
+    REQUIRE(aoide::wheelRowSteps(0, 120, carry, th) == -1);
+    REQUIRE(carry == 0);
+    carry = 20;
+    REQUIRE(aoide::wheelRowSteps(50, 120, carry, th) == -1);
+    REQUIRE(carry == 0);
+    REQUIRE(aoide::wheelRowSteps(10, 0, carry, 0) == 0);
   }
 
   {

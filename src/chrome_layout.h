@@ -865,4 +865,22 @@ inline QRectF playlistListThumb(const QRectF& track, int count, int scrollRows, 
                 thumbH);
 }
 
+/// Signed playlist/skins rows for one wheel event. A non-zero angle is always
+/// one row: Linux/Windows notch mice already treated a 240° tick as a single
+/// step, and scaling by magnitude would change that. Pixel-only motion
+/// (trackpads that send angle 0) adds [pixelY] to [pixelCarry] and emits a
+/// row per [pixelThreshold] pixels — otherwise a flick is one row per pixel.
+/// Zero angle and zero pixels yield zero; a zero delta used to scroll down.
+inline int wheelRowSteps(int pixelY, int angleY, int& pixelCarry, int pixelThreshold) {
+  if (angleY != 0) {
+    pixelCarry = 0;
+    return angleY > 0 ? -1 : 1;
+  }
+  if (pixelY == 0 || pixelThreshold <= 0) return 0;
+  pixelCarry += pixelY;
+  const int rows = pixelCarry / pixelThreshold;
+  pixelCarry -= rows * pixelThreshold;
+  return -rows;
+}
+
 }  // namespace aoide

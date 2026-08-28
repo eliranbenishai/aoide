@@ -138,6 +138,7 @@ class HostWindow : public QWidget {
   bool draggingTitle_ = false;
   bool resizingPlaylist_ = false;
   bool grabbedPointer_ = false;
+  int wheelPixelCarry_ = 0;
   QPoint grabOffset_;
   aoide::ChromeHit dragHit_;
   aoide::ChromePhases phases_;

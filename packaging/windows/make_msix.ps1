@@ -3,7 +3,7 @@
 param(
   [string]$Version = "1.0.0.0",
   [string]$Publisher = "CN=Proxima Magnifica",
-  [string]$IdentityName = "ProximaMagnifica.aoidemusic"
+  [string]$IdentityName = "ProximaMagnifica.aoide"
 )
 
 $ErrorActionPreference = "Stop"

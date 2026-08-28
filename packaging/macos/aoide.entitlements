@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Not sandboxed. Hardened runtime is what codesign's "options runtime"
+	     turns on; these keys are the exceptions that runtime actually needs.
+	     Keep double hyphens out of these comment bodies: XML forbids them
+	     there, and a malformed entitlements plist fails signing. -->
+
+	<!-- FFmpeg (inside libmpv) codegen on Apple Silicon uses MAP_JIT. Without
+	     this, hardened runtime kills the decoder the first time a codec that
+	     jits tries to run — playback looks like a missing engine. -->
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+
+	<!-- FFmpeg's runtime codegen predates MAP_JIT and still writes executable
+	     pages on some paths. allow-jit alone is not enough for those. -->
+	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+	<true/>
+
+	<!-- Library validation rejects any image not signed by Apple or this Team
+	     ID. Qt plugins and the media-kit FFmpeg frameworks are signed in the
+	     same pass, but libmpv also dlopens filter binaries by name and a
+	     validation miss is silent (EQ / aresample vanish). -->
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+</dict>
+</plist>

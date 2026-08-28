@@ -11,7 +11,7 @@ permissions:
 env:
   # Override with repo variable MSIX_PUBLISHER after Partner Center identity exists.
   MSIX_PUBLISHER_DEFAULT: "CN=Proxima Magnifica"
-  MSIX_IDENTITY_DEFAULT: "ProximaMagnifica.aoidemusic"
+  MSIX_IDENTITY_DEFAULT: "ProximaMagnifica.aoide"
 
   # The Qt pin lives in QT_VERSION (x.y.z). export-qt-pin.sh writes QT_VERSION
   # and QT_RUNTIME (x.y) into GITHUB_ENV. That is the same line as
@@ -222,6 +222,75 @@ jobs:
             build/linux/Aoide-*-linux-x86_64.AppImage
             build/linux/Aoide-*-linux-x86_64.tar.gz
 
+  # Unverified on real hardware: this packaging lane (CMake bundle, stage_app.sh,
+  # notarize.sh, make_dmg.sh) has never been executed on a Mac. continue-on-error
+  # so a failure here cannot fail a Windows/Linux release. github-release lists
+  # this job in needs so a produced DMG is flattened, but does not require
+  # needs.macos.result == success.
+  macos:
+    name: macOS universal DMG
+    needs: test
+    runs-on: macos-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - name: Qt pin
+        run: bash tool/export-qt-pin.sh >> "$GITHUB_ENV"
+      # fetch_qt.sh exits 1 on Darwin. Same action and pin as the Windows job;
+      # host/arch request the official mac desktop kit (clang_64 is the
+      # universal Qt 6.5+ layout).
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: mac
+          target: desktop
+          arch: clang_64
+          cache: true
+          # macdeployqt lives in qttools. windeployqt is in qtbase, which is why
+          # the Windows job can slice to qtbase alone.
+          archives: qtbase qttools
+      - name: Fetch full libmpv
+        run: |
+          chmod +x tool/*.sh packaging/macos/*.sh
+          ./tool/fetch_full_libmpv.sh
+      - name: Configure and build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+          ctest --test-dir build -C Release --output-on-failure
+      - name: Stage
+        env:
+          AOIDE_BUILD_DIR: ${{ github.workspace }}/build
+        run: ./packaging/macos/stage_app.sh
+      - name: Sign, notarize, wrap DMG
+        env:
+          AOIDE_MAC_APP: ${{ github.workspace }}/build/macos/stage/Aoide.app
+          MACOS_CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          eval "$(./tool/version.sh)"
+          export AOIDE_MAC_DMG="${GITHUB_WORKSPACE}/build/macos/Aoide-${version}-macos-universal.dmg"
+          # notarize.sh no-ops (exit 0) when the certificate secrets are unset
+          # and does not write a DMG. When they are set it signs the app, then
+          # calls make_dmg.sh itself so the sealed bundle is what gets wrapped.
+          # Calling make_dmg.sh unconditionally as well would rebuild the image.
+          ./packaging/macos/notarize.sh "$AOIDE_MAC_DMG"
+          if [[ ! -f "$AOIDE_MAC_DMG" ]]; then
+            ./packaging/macos/make_dmg.sh
+          fi
+      - uses: actions/upload-artifact@v6
+        with:
+          name: macos
+          if-no-files-found: error
+          path: build/macos/Aoide-*-macos-universal.dmg
+
   flatpak:
     name: Linux Flatpak bundle
     needs: test
@@ -315,9 +384,10 @@ jobs:
     # been their first execution. Assembling is now unconditional and only the publish
     # step is tag-only.
     #
-    # flatpak is in needs so the flatten glob can actually see a .flatpak. That job is
-    # continue-on-error, so waiting on it does not make it required.
-    needs: [windows, linux, flatpak]
+    # flatpak and macos are in needs so the flatten glob can actually see a
+    # .flatpak / .dmg. Both jobs are continue-on-error, so waiting on them does
+    # not make them required — only windows and linux must succeed.
+    needs: [windows, linux, flatpak, macos]
     if: >
       !cancelled() &&
       needs.windows.result == 'success' &&
@@ -339,8 +409,9 @@ jobs:
         run: |
           set -euo pipefail
           # A release that is short one asset ships fewer platforms than the download
-          # page offers, and nothing upstream of here says so. The Flatpak is absent
-          # from this list on purpose: its job is allowed to fail.
+          # page offers, and nothing upstream of here says so. The Flatpak and the
+          # macOS DMG are absent from this list on purpose: those jobs are allowed
+          # to fail.
           missing=0
           for pattern in '*.exe' '*.msix' '*.AppImage' '*.tar.gz'; do
             if ! ls upload/$pattern >/dev/null 2>&1; then
@@ -359,4 +430,5 @@ jobs:
             Source: this tag. Product downloads: https://aoide.music
 
             Windows Store and Flathub listings are submitted separately from these bits.
-            macOS DMG is 1.1 and waits on the Qt Mac host.
+            macOS DMG is 1.1. The lane exists; it is unsigned until Developer ID
+            secrets are set, and it has never been executed on a Mac.

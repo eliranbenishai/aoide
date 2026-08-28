@@ -15,9 +15,20 @@ third_party/libmpv/
   windows/x86_64/libmpv-2.dll   # fetched, not committed by default
   windows/x86_64/libmpv.dll.a   # import library, same fetch
   linux/x86_64/libmpv.so*       # optional bundle override
-  macos/universal/              # full xcframework contents (fetched)
+  macos/universal/              # audio-full xcframeworks (fetched, flattened)
+    Mpv.xcframework/macos-arm64_x86_64/Mpv.framework
+    Avcodec.xcframework/ … Avfilter Avformat Avutil
+    Swresample.xcframework/ Swscale.xcframework/
+    Mbedcrypto.xcframework/ Mbedtls.xcframework/ Mbedx509.xcframework/
   .cache/                       # download/extract scratch (gitignored)
 ```
+
+The media-kit archive wraps those xcframeworks in a versioned directory.
+`tool/fetch_full_libmpv.sh` lifts that wrapper (and verifies `archiveSha256`)
+so CMake can look at `macos/universal/Mpv.xcframework` without baking the pin
+name into the build. Each framework's install name is
+`@rpath/<Name>.framework/Versions/A/<Name>`; the app's rpath is
+`@executable_path/../Frameworks`.
 
 ## Fetch (Windows)
 
@@ -46,7 +57,8 @@ Community CMake path used by the script.
 ```
 
 - **macOS:** downloads `audio-full` xcframeworks into `macos/universal/` (see
-  `pins.json`). Used when the Qt Mac host exists.
+  `pins.json`), verifies the archive hash, and refuses a slim `--disable-filters`
+  build the same way the Windows fetcher does.
 - **Linux:** documents system package expectation; optionally copies a local
   full `libmpv.so*` if you place it under `linux/x86_64/`. Prefer
   `./tool/stage_linux_libmpv.sh` to copy the distro full libmpv into that dir.
@@ -57,7 +69,7 @@ Community CMake path used by the script.
 |----------|------|
 | Windows | Root `CMakeLists.txt` links `libmpv.dll.a` and copies `libmpv-2.dll` beside the binaries it builds and into the install prefix; `packaging/windows/stage.ps1` copies it next to `aoide.exe` when present. |
 | Linux | Root `CMakeLists.txt` install stages `third_party/libmpv/linux/x86_64/libmpv.so*` into the bundle `lib/` when present (else system libmpv). |
-| macOS | After `fetch_full_libmpv.sh`, the Qt Mac host will load the staged frameworks. Do not ship slim `audio-default`. |
+| macOS | Root `CMakeLists.txt` links `Mpv.framework` from the staged xcframework and copies the whole `@rpath` graph into `Aoide.app/Contents/Frameworks`. `packaging/macos/stage_app.sh` runs `macdeployqt` and fails if libmpv is still missing. Do not ship slim `audio-default`. |
 
 ## Do not commit slim libs
 

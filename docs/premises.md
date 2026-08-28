@@ -113,7 +113,7 @@ Recorded 2026-08-21 · **Status:** listing name chosen, consequence unevidenced
 
 **The bet.** A listener searching the Microsoft Store for Aoide finds `aoide.music`, recognises it, and installs it; the split between wordmark and catalog title costs nothing.
 
-**Known.** The product is **Aoide**. The Store listing and official download domain are `aoide.music`; the MSIX identity is `ProximaMagnifica.aoidemusic` ([`distribution.md`](distribution.md)). The website EXE and in-app chrome stay **Aoide**. The previous listing `tramp.music` is retired (historical: the bare word Tramp was taken). The listing name matching the domain is the cheapest way to keep the two names spelling the same thing.
+**Known.** The product is **Aoide**. The Store listing and official download domain are `aoide.music`; the MSIX identity is `ProximaMagnifica.aoide` ([`distribution.md`](distribution.md)). The website EXE and in-app chrome stay **Aoide**. The previous listing `tramp.music` is retired (historical: the bare word Tramp was taken). The listing name matching the domain is the cheapest way to keep the two names spelling the same thing.
 
 **Cost.** Two names for one product, in the one channel where the listener cannot see the website that reconciles them.
 
@@ -127,7 +127,7 @@ Recorded 2026-08-21 · **Status:** cost structure partly evidenced, capacity une
 
 **The bet.** One maintainer can carry a GPL-3.0-or-later desktop player across five install channels indefinitely, at no price to the listener, and never need money to do it.
 
-**Known.** The release surface is real, and human at both ends: Partner Center and Flathub submit stay manual, the MSIX identity version has to be bumped per upload, and macOS notarization needs a Developer ID certificate — which means a paid Apple Developer Program membership. 1.0 ships four channels (Store, website EXE, Flathub, AppImage); the fifth (macOS DMG) is 1.1, which is when that Apple bill arrives. So **Free Forever** is a price to the listener that already has a recurring bill behind it and no named payer. Maintainer capacity over twelve months is unknown; there is no twelve months of history to look at.
+**Known.** The release surface is real, and human at both ends: Partner Center and Flathub submit stay manual, the MSIX identity version has to be bumped per upload, and macOS notarization needs a Developer ID certificate — which means a paid Apple Developer Program membership. The unsigned macOS pipeline (`Aoide.app`, `stage_app.sh`, `make_dmg.sh`, a `continue-on-error` release job) is in the tree; it has never been executed on a Mac. 1.0 ships four channels (Store, website EXE, Flathub, AppImage); the fifth (macOS DMG) is still 1.1, which is when that Apple bill arrives. So **Free Forever** is a price to the listener that already has a recurring bill behind it and no named payer. Maintainer capacity over twelve months is unknown; there is no twelve months of history to look at.
 
 **Cost.** Whatever release and store chores cost, paid out of the same hours the product would otherwise get.
 

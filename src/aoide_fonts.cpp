@@ -29,6 +29,12 @@ QString bundledDataDir(const char* leaf) {
     const QString appDir = QCoreApplication::applicationDirPath();
     roots << QDir(appDir).filePath(name);
     roots << QDir::cleanPath(QDir(appDir).filePath(QStringLiteral("../share/aoide/") + name));
+#ifdef Q_OS_MACOS
+    // applicationDirPath() is Contents/MacOS; the bundle install puts assets/
+    // and skins/ in Contents/Resources. Without this the compile-time source
+    // tree wins on a developer machine and users get empty fonts and skins.
+    roots << QDir::cleanPath(QDir(appDir).filePath(QStringLiteral("../Resources/") + name));
+#endif
   }
 #ifdef AOIDE_ASSET_DIR
   if (std::strcmp(leaf, "assets") == 0) {

@@ -29,6 +29,16 @@ QSize playlistMinNative(const aoide::SessionView& view, int zoomPercent) {
   return aoide::zoomed(aoide::playlistMinLogical(col, totalW), zoomPercent);
 }
 
+bool platformAllowsPointerGrab() {
+  const QString name = QGuiApplication::platformName();
+  // Qt Wayland prints a warning and does nothing on a non-popup toplevel.
+  if (name == QLatin1String("wayland")) return false;
+  // Unverified on a punched virtual-desktop host. Enable if a title-bar drag
+  // loses the pointer off the panel; keep skipped if grabMouse sticks.
+  if (name == QLatin1String("cocoa")) return false;
+  return true;
+}
+
 }  // namespace
 
 HostWindow::HostWindow(const aoide::WindowSpec& spec, QWidget* parent)
@@ -270,7 +280,7 @@ void HostWindow::trackPointer(std::optional<QPointF> widgetPos, bool pressed) {
 }
 
 void HostWindow::grabPointerIfAllowed() {
-  if (QGuiApplication::platformName() == QLatin1String("wayland")) return;
+  if (!platformAllowsPointerGrab()) return;
   grabMouse();
   grabbedPointer_ = true;
 }
@@ -649,7 +659,16 @@ void HostWindow::mouseDoubleClickEvent(QMouseEvent* event) {
 }
 
 void HostWindow::wheelEvent(QWheelEvent* event) {
-  emit wheelScrolled(event->angleDelta().y());
+  const int angleY = event->angleDelta().y();
+  const int rows = aoide::wheelRowSteps(event->pixelDelta().y(), angleY, wheelPixelCarry_,
+                                        int(qRound(aoide::kPlaylistRowStride)));
+  if (rows == 0) return;
+  if (angleY != 0) {
+    emit wheelScrolled(angleY);
+    return;
+  }
+  const int notch = rows < 0 ? 120 : -120;
+  for (int i = 0; i < qAbs(rows); ++i) emit wheelScrolled(notch);
 }
 
 void HostWindow::moveEvent(QMoveEvent* event) {

@@ -20,6 +20,7 @@
 #include <QDir>
 #include <QElapsedTimer>
 #include <QEventLoop>
+#include <QFileOpenEvent>
 #include <QGuiApplication>
 #include <QImage>
 #include <QMessageBox>
@@ -29,7 +30,13 @@
 #include <QShortcut>
 #include <QTemporaryDir>
 #include <QTimer>
+#include <QUrl>
 #include <QVector>
+#ifdef Q_OS_MACOS
+#include <QAction>
+#include <QMenu>
+#include <QMenuBar>
+#endif
 #include <algorithm>
 #include <clocale>
 #include <cstdio>
@@ -617,11 +624,52 @@ int runInvalidateBench(int trackCount, int reps, aoide::AoideSession& session,
   return 0;
 }
 
+/// macOS delivers Finder "Open With", Dock drops, and reopen-while-running as
+/// QFileOpenEvent, which never appears in argv. Those used to be dropped.
+class AoideApplication : public QApplication {
+ public:
+  using QApplication::QApplication;
+
+  QStringList takeQueuedFileOpens() {
+    QStringList out;
+    queuedFileOpens_.swap(out);
+    return out;
+  }
+
+  void setFileOpenHandler(std::function<void(const QStringList&)> handler) {
+    fileOpenHandler_ = std::move(handler);
+    if (fileOpenHandler_ && !queuedFileOpens_.isEmpty()) {
+      fileOpenHandler_(takeQueuedFileOpens());
+    }
+  }
+
+ protected:
+  bool event(QEvent* event) override {
+    if (event->type() == QEvent::FileOpen) {
+      const auto* openEvent = static_cast<const QFileOpenEvent*>(event);
+      QString path = openEvent->file();
+      if (path.isEmpty()) path = openEvent->url().toLocalFile();
+      if (path.isEmpty()) return true;
+      if (fileOpenHandler_) {
+        fileOpenHandler_({path});
+      } else {
+        queuedFileOpens_ << path;
+      }
+      return true;
+    }
+    return QApplication::event(event);
+  }
+
+ private:
+  std::function<void(const QStringList&)> fileOpenHandler_;
+  QStringList queuedFileOpens_;
+};
+
 }  // namespace
 
 int main(int argc, char** argv) {
   aoide::sanitizeInheritedQtPluginPath();
-  QApplication app(argc, argv);
+  AoideApplication app(argc, argv);
   std::setlocale(LC_NUMERIC, "C");
   app.setApplicationName(QStringLiteral("Aoide"));
   app.setApplicationVersion(QLatin1String(AOIDE_VERSION));
@@ -813,9 +861,34 @@ int main(int argc, char** argv) {
                       Qt::NoModifier, {});
   });
 
-  session.bootstrap(launchFiles(args));
+#ifdef Q_OS_MACOS
+  auto* menuBar = new QMenuBar;
+  menuBar->setNativeMenuBar(true);
+  auto* appMenu = menuBar->addMenu(QStringLiteral("Aoide"));
+  auto* aboutAction = appMenu->addAction(QStringLiteral("About Aoide"));
+  aboutAction->setMenuRole(QAction::AboutRole);
+  QObject::connect(aboutAction, &QAction::triggered, &hostShell, [&]() {
+    session.setWindowVisible(aoide::WindowId::about, true);
+  });
+  auto* settingsAction = appMenu->addAction(QStringLiteral("Settings…"));
+  settingsAction->setMenuRole(QAction::PreferencesRole);
+  QObject::connect(settingsAction, &QAction::triggered, &hostShell, [&]() {
+    session.setWindowVisible(aoide::WindowId::settings, true);
+  });
+  auto* quitAction = appMenu->addAction(QStringLiteral("Quit Aoide"));
+  quitAction->setMenuRole(QAction::QuitRole);
+  // Cmd+Q must take the same confirmer as the chrome close box; the role
+  // action would otherwise quit without asking.
+  QObject::connect(quitAction, &QAction::triggered, &hostShell, [&]() { mainWindow->close(); });
+#endif
+
+  QStringList startupFiles = launchFiles(args);
+  startupFiles.append(app.takeQueuedFileOpens());
+  session.bootstrap(startupFiles);
   applyZoom(session.zoomPercent());
   refresh();
+  app.setFileOpenHandler(
+      [&](const QStringList& paths) { session.applyDroppedPaths(paths, false); });
 
   hostShell.show();
   session.reapplyWindowFrames();

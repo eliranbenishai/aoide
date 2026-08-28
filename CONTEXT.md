@@ -29,7 +29,7 @@ How listeners obtain Aoide — the website (`https://aoide.music`). Not GitHub. 
 _Avoid_: GitHub Release as the product surface, treating Store or Flathub as the only install, shipping from the repo
 
 **Store listing name**:
-The Microsoft Store catalog title: **aoide.music**. The product is still Aoide. MSIX identity **ProximaMagnifica.aoidemusic**. The previous listing `tramp.music` is retired.
+The Microsoft Store catalog title: **aoide.music**. The product is still Aoide. MSIX identity **ProximaMagnifica.aoide**. The previous listing `tramp.music` is retired.
 _Premise_ (2026-08-21, consequence unevidenced): that a listener searching the Store finds and recognises `aoide.music` as Aoide. Revisit if support meets "I installed aoide.music, where is Aoide" — `docs/premises.md` §6.
 _Avoid_: renaming the product, using this as the wordmark, assuming the website EXE listing is named aoide.music, treating tramp.music as current
 

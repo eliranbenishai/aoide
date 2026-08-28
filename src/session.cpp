@@ -1041,6 +1041,9 @@ void AoideSession::handleRelease(WindowId id) {
 }
 
 void AoideSession::handleWheel(WindowId id, int delta) {
+  // A zero delta used to scroll down one row; Mac trackpads send that with
+  // a non-zero pixelDelta that the window now consumes.
+  if (delta == 0) return;
   if (id == WindowId::skins) {
     const QRectF viewport = skinsListViewport(skinsPane(kSkins));
     const int maxScroll = skinsListMaxScroll(skins_.catalog().size(), viewport);

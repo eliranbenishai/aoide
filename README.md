@@ -73,7 +73,7 @@ attaches artifacts to a GitHub Release (a mirror; the product page is aoide.musi
 | Linux MPRIS | OS media keys / Now Playing via D-Bus not implemented. In-app media keys work when Aoide is focused. |
 | Second-instance “Open with” | Cold-start argv and file associations work; a second running instance does not forward paths to the first. |
 | Spectrum | Real 20-bar analyser (offline PCM + STFT). Honest silence until the spectrogram for the current track is ready. |
-| macOS host | 1.1. Qt pairing comes after Linux + Windows. |
+| macOS host | 1.1. The bundle and DMG pipeline is in the tree, unsigned and never executed on a Mac. |
 
 Windows Store and Flathub are 1.0 channels; the macOS DMG is 1.1. Mac App Store and Snap are not.
 
@@ -109,8 +109,8 @@ update-desktop-database ~/.local/share/applications
 
 ### Windows / macOS
 
-Windows file-type registration lives in the Inno script. macOS document types
-wait on the Qt Mac host.
+Windows file-type registration lives in the Inno script. macOS document types are
+declared in `packaging/macos/Info.plist.in` (audio plus M3U/M3U8), unverified in Finder.
 
 ## Related docs
 

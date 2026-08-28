@@ -9,36 +9,43 @@ How Aoide is built and handed to listeners. Product page: `https://aoide.music`.
 | [`.github/workflows/open-pr.yml`](../.github/workflows/open-pr.yml) | Push to a feature branch | Opens a PR against `main` if one is missing (`research/*`, `spike/*`, `wip/*` skipped) |
 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PR and `main` | CMake build + `ctest` on Ubuntu and Windows; PR review comment with the result |
 | [`.github/workflows/merge-if-green.yml`](../.github/workflows/merge-if-green.yml) | CI completed | Squash-merges a same-repo, non-draft PR at that SHA when CI is green. Skips forks, drafts, and `do-not-merge` |
-| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Tag `v*` or **Run workflow** | Test, then Windows / Linux packages, then assemble the downloads; a tag also publishes them as a GitHub Release |
+| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Tag `v*` or **Run workflow** | Test, then Windows / Linux packages and an unverified macOS DMG job (`continue-on-error`), then assemble the downloads; a tag also publishes them as a GitHub Release |
 
 Merging happens **only** in `merge-if-green.yml`. It runs from the default branch
 on `workflow_run`, so the branch being judged cannot rewrite the gate that judges
 it — which is exactly what a `merge` job inside `ci.yml` would allow, so there
 isn't one.
 
-Every packaging job **runs the thing it packaged** before it is published: the
-staged binary, the AppImage, the extracted tarball and the installed `.flatpak`
-each get `--bench-chrome` (links, finds its assets and fonts, is optimised) and
-a `AOIDE_AUTO_QUIT=1` session start. `ctest` runs against the build tree, which
-still resolves Qt and libmpv from the runner — only these runs prove the
-artifact carries its own, so they clear the runner's Qt out of the environment
-first. Libraries and **plugins** are found by different mechanisms, so both have
-to go: Linux unsets `LD_LIBRARY_PATH` and `QT_PLUGIN_PATH`, and Windows drops
-Qt's `bin` from `PATH` *and* unsets `QT_PLUGIN_PATH`. Deleting one library or one
-platform plugin from the staging directory fails the job. That is why
-`stage.ps1` deploys `qoffscreen` alongside `qwindows` and asserts both landed:
-the smoke test runs the stage headless, and it is no longer allowed to borrow the
-runner's copy. The Flatpak run proves the opposite property, that it can get Qt
-from its runtime, and the job also asserts no `libQt6*` reached its staging
-directory. That run is `flatpak run`, not `sudo flatpak run`: newer flatpak
-refuses the sudo form so the sandbox does not inherit root's environment.
+Every Windows and Linux packaging job **runs the thing it packaged** before it
+is published: the staged binary, the AppImage, the extracted tarball and the
+installed `.flatpak` each get `--bench-chrome` (links, finds its assets and
+fonts, is optimised) and a `AOIDE_AUTO_QUIT=1` session start. `ctest` runs
+against the build tree, which still resolves Qt and libmpv from the runner —
+only these runs prove the artifact carries its own, so they clear the runner's
+Qt out of the environment first. Libraries and **plugins** are found by
+different mechanisms, so both have to go: Linux unsets `LD_LIBRARY_PATH` and
+`QT_PLUGIN_PATH`, and Windows drops Qt's `bin` from `PATH` *and* unsets
+`QT_PLUGIN_PATH`. Deleting one library or one platform plugin from the staging
+directory fails the job. That is why `stage.ps1` deploys `qoffscreen` alongside
+`qwindows` and asserts both landed: the smoke test runs the stage headless, and
+it is no longer allowed to borrow the runner's copy. The Flatpak run proves the
+opposite property, that it can get Qt from its runtime, and the job also asserts
+no `libQt6*` reached its staging directory. That run is `flatpak run`, not
+`sudo flatpak run`: newer flatpak refuses the sudo form so the sandbox does not
+inherit root's environment.
+
+The macOS job does **not** smoke the staged `Aoide.app`. That lane has never
+been executed on a Mac; a headless start we cannot interpret must not be what
+decides whether a DMG is uploaded. The job is `continue-on-error` for the same
+reason: it must not be able to fail a Windows/Linux release.
 
 Uploads use `if-no-files-found: error`, and the assemble job then requires an
 EXE, an MSIX, an AppImage and a tarball to be present before anything is
 published — a packaging step that quietly produced nothing used to make a green
-job and a release short one platform. Assembling runs on **every** release run,
-not only on a tag, so the download and the completeness check are exercised by
-**Run workflow** rather than first attempted during a real release.
+job and a release short one platform. A DMG is copied into the upload set when
+the macOS job produced one; it is not required. Assembling runs on **every**
+release run, not only on a tag, so the download and the completeness check are
+exercised by **Run workflow** rather than first attempted during a real release.
 
 ## Desktop metadata
 
@@ -198,6 +205,13 @@ module. The module of that name does not exist on 6.10 — `qtwaylandcompositor`
 does, and that is a compositor SDK, not the plugin. `icu` is the bundled ICU
 the official Linux `qtbase` links against.
 
+`./tool/fetch_qt.sh` is **Linux only** — it exits 1 on Darwin. The macOS
+release job installs the same pin with `jurplel/install-qt-action` (`host: mac`,
+`target: desktop`, `arch: clang_64`, archives `qtbase qttools`). `qttools` is
+there for `macdeployqt`; on Windows that tool lives in `qtbase`, which is why
+the Windows job can slice further. A local Mac host places the official desktop
+kit under `.local/qt/<QT_VERSION>/macos` or points `CMAKE_PREFIX_PATH` at it.
+
 [`build.sh`](../build.sh) fetches the pin into `.local/qt/` if it is missing
 and refuses to link any other version. CMake does the same check.
 
@@ -219,7 +233,7 @@ The tag name without `v` must equal the `VERSION` file.
 | `Aoide-<ver>-linux-x86_64.AppImage` | Official download |
 | `Aoide-<ver>-linux-x86_64.tar.gz` | Input for a Flathub recipe |
 | `Aoide-<ver>-linux-x86_64.flatpak` | Optional CI bundle (job may fail without blocking the rest) |
-| `Aoide-<ver>-macos-universal.dmg` | Official download in **1.1**, once the Qt Mac host exists (notarized when secrets are set) |
+| `Aoide-<ver>-macos-universal.dmg` | Official download in **1.1**. The release job builds `Aoide.app` (universal, min 13.0) and wraps it; the image is unsigned until Developer ID secrets are set. The lane exists in the tree and has never been executed on a Mac. |
 
 Partner Center and Flathub submit stay **human**. Packaging scripts live under `packaging/`.
 
@@ -261,13 +275,17 @@ ruleset does not require code-owner review yet, so today it only auto-requests i
 | Variable | Purpose |
 |----------|---------|
 | `MSIX_PUBLISHER` | Store identity `CN=...` from Partner Center **Identity details**. Default `CN=Proxima Magnifica`. |
-| `MSIX_IDENTITY_NAME` | Package identity name from those same details. Default `ProximaMagnifica.aoidemusic` until Partner Center shows the real one. |
+| `MSIX_IDENTITY_NAME` | Package identity name from those same details. Default `ProximaMagnifica.aoide`. |
 
 The MSIX **display name** is `aoide.music` (the reserved Store listing). Paste Publisher and Identity Name from Partner Center into those variables as soon as the app exists there; a mismatch fails certification. The website EXE and in-app chrome stay **Aoide**.
 
 ### Secrets (macOS notarization)
 
-Skip any of these and the Mac job still uploads a DMG; it will not be notarized. The Mac job itself waits on the Qt Mac host.
+Skip any of these and the Mac job still uploads an unsigned DMG;
+`packaging/macos/notarize.sh` no-ops with a warning when the certificate pair
+is unset. Signing and notarization are unavailable until someone pays for the
+Apple Developer Program ([`premises.md`](premises.md) §7). The job is `continue-on-error`
+because this lane has never run on a Mac.
 
 | Secret | Purpose |
 |--------|---------|
@@ -325,3 +343,27 @@ the Flatpak its own staging script or strip Qt out afterwards, because then two
 places have to agree on what Qt is.
 
 Windows (on a Windows host): `tool/fetch_full_libmpv.ps1`, CMake Release build, then `packaging/windows/stage.ps1`, Inno (`packaging/windows/aoide.iss`) and `packaging/windows/make_msix.ps1`. The EXE installer runs `vc_redist.x64.exe` when `MSVCP140.dll` / `VCRUNTIME140.dll` are missing. The MSIX declares `Microsoft.VCLibs.140.00.UWPDesktop` so the Store supplies that runtime. Keep the `.ps1` files ASCII: Windows PowerShell 5.1 (what `powershell` is on the runner) reads UTF-8 source as ANSI, and an em-dash inside a string is decoded as a closing quote.
+
+macOS (on a Mac — this path has never been run on one):
+
+```bash
+# Qt is the official desktop kit at the QT_VERSION pin, not ./tool/fetch_qt.sh
+./tool/fetch_full_libmpv.sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+./packaging/macos/stage_app.sh
+# notarize.sh signs the staged Aoide.app, then calls make_dmg.sh so the
+# sealed bundle is what gets wrapped. Without MACOS_CERTIFICATE_BASE64 /
+# MACOS_CERTIFICATE_PASSWORD it no-ops and does not write a DMG.
+./packaging/macos/notarize.sh
+# only if that no-op'd:
+./packaging/macos/make_dmg.sh
+```
+
+`stage_app.sh` honours `AOIDE_BUILD_DIR`, `AOIDE_BUNDLE_DIR`, and
+`AOIDE_MAC_APP`. `make_dmg.sh` / `notarize.sh` honour `AOIDE_MAC_APP` and
+`AOIDE_MAC_DMG`. The default image is
+`build/macos/Aoide-<ver>-macos-universal.dmg`. The bundle is **`Aoide.app`**,
+not `aoide.app`. `packaging/macos/aoide.entitlements` is the hardened-runtime
+exceptions (`allow-jit`, `allow-unsigned-executable-memory`,
+`disable-library-validation`) applied only when signing actually runs.

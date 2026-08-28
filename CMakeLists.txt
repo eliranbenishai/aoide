@@ -1,6 +1,22 @@
 cmake_minimum_required(VERSION 3.16)
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" AOIDE_VERSION_RAW LIMIT_COUNT 1)
 string(STRIP "${AOIDE_VERSION_RAW}" AOIDE_VERSION)
+
+# APPLE is not defined until project(). These must be set before it so the
+# toolchain records the deployment target. 13.0 is Qt 6.10's official floor;
+# never lower it — a binary built for 12 will not load that Qt. Raise via the
+# cache if a future kit requires it. The DMG is named -universal; the default
+# architectures are what make that true. Override when the Qt kit or libmpv is
+# single-arch: a universal link against a thin library fails at configure.
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+  if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "Minimum macOS version")
+  endif()
+  if(NOT CMAKE_OSX_ARCHITECTURES)
+    set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "macOS architectures")
+  endif()
+endif()
+
 project(aoide VERSION ${AOIDE_VERSION} LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -15,7 +31,15 @@ endif()
 
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/QT_VERSION" AOIDE_QT_VERSION LIMIT_COUNT 1)
 string(STRIP "${AOIDE_QT_VERSION}" AOIDE_QT_VERSION)
-if(UNIX AND NOT APPLE)
+if(APPLE)
+  # Official Qt 6.5+ desktop kits unpack as macos/, same pin layout as Linux
+  # gcc_64. fetch_qt.sh does not install this; a Mac host places the kit here
+  # or points CMAKE_PREFIX_PATH at it.
+  set(_aoide_qt_pin "${CMAKE_CURRENT_SOURCE_DIR}/.local/qt/${AOIDE_QT_VERSION}/macos")
+  if(EXISTS "${_aoide_qt_pin}/lib/cmake/Qt6/Qt6Config.cmake")
+    list(PREPEND CMAKE_PREFIX_PATH "${_aoide_qt_pin}")
+  endif()
+elseif(UNIX)
   set(_aoide_qt_pin "${CMAKE_CURRENT_SOURCE_DIR}/.local/qt/${AOIDE_QT_VERSION}/gcc_64")
   if(EXISTS "${_aoide_qt_pin}/lib/cmake/Qt6/Qt6Config.cmake")
     list(PREPEND CMAKE_PREFIX_PATH "${_aoide_qt_pin}")
@@ -28,6 +52,11 @@ if(NOT Qt6_VERSION VERSION_EQUAL AOIDE_QT_VERSION)
   message(FATAL_ERROR
     "Aoide is pinned to Qt ${AOIDE_QT_VERSION} (QT_VERSION). Found ${Qt6_VERSION}. "
     "On Linux run ./tool/fetch_qt.sh and reconfigure.")
+endif()
+if(APPLE AND CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS "13.0")
+  message(FATAL_ERROR
+    "CMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET} is below "
+    "Qt ${AOIDE_QT_VERSION}'s macOS 13 floor. Do not lower it.")
 endif()
 message(STATUS "Qt ${Qt6_VERSION} matches QT_VERSION")
 find_package(PkgConfig QUIET)
@@ -113,21 +142,60 @@ elseif(WIN32 AND EXISTS "${BUNDLED_MPV_IMPLIB}" AND EXISTS "${AOIDE_WIN_MPV_DLL}
   set(AOIDE_MPV_IMPLIB "${CMAKE_CURRENT_BINARY_DIR}/mpv.lib")
   configure_file("${BUNDLED_MPV_IMPLIB}" "${AOIDE_MPV_IMPLIB}" COPYONLY)
   list(APPEND AOIDE_MPV_LIBS "${AOIDE_MPV_IMPLIB}")
+elseif(APPLE)
+  # fetch_full_libmpv.sh lifts the archive's versioned wrapper so xcframeworks
+  # sit directly under macos/universal/. The second glob is the raw tar layout,
+  # in case someone extracted by hand. Reconfigure after a fetch: GLOB does not.
+  set(_aoide_mac_mpv_root "${AOIDE_MPV_ROOT}/macos/universal")
+  file(GLOB _aoide_mac_mpv_fw
+    "${_aoide_mac_mpv_root}/Mpv.xcframework/macos-*/*.framework")
+  if(NOT _aoide_mac_mpv_fw)
+    file(GLOB _aoide_mac_mpv_fw
+      "${_aoide_mac_mpv_root}/*/Mpv.xcframework/macos-*/*.framework")
+  endif()
+  if(_aoide_mac_mpv_fw)
+    list(GET _aoide_mac_mpv_fw 0 AOIDE_MAC_MPV_FRAMEWORK)
+    if(EXISTS "${AOIDE_MAC_MPV_FRAMEWORK}/Versions/A/Mpv")
+      set(AOIDE_HAVE_MPV ON)
+      list(APPEND AOIDE_MPV_LIBS "${AOIDE_MAC_MPV_FRAMEWORK}")
+      file(GLOB AOIDE_MAC_MPV_FRAMEWORKS
+        "${_aoide_mac_mpv_root}/*.xcframework/macos-*/*.framework"
+        "${_aoide_mac_mpv_root}/*/*.xcframework/macos-*/*.framework")
+      list(REMOVE_DUPLICATES AOIDE_MAC_MPV_FRAMEWORKS)
+      # One rpath for the whole @rpath/*.framework graph (Mpv + FFmpeg + mbed).
+      # Contents/Frameworks gets the real copies at POST_BUILD; this directory
+      # is what domain_test — not a bundle — uses from the build tree.
+      set(AOIDE_MAC_MPV_RPATH_DIR "${CMAKE_CURRENT_BINARY_DIR}/mpv-frameworks")
+      file(MAKE_DIRECTORY "${AOIDE_MAC_MPV_RPATH_DIR}")
+      foreach(_fw IN LISTS AOIDE_MAC_MPV_FRAMEWORKS)
+        get_filename_component(_fw_name "${_fw}" NAME)
+        set(_fw_link "${AOIDE_MAC_MPV_RPATH_DIR}/${_fw_name}")
+        if(EXISTS "${_fw_link}")
+          file(REMOVE "${_fw_link}")
+        endif()
+        file(CREATE_LINK "${_fw}" "${_fw_link}" SYMBOLIC)
+      endforeach()
+    endif()
+  endif()
 endif()
 
 # A music player that cannot play music must not be packageable by accident.
-# AOIDE_HAVE_MPV only turns on via pkg-config or the bundled Linux .so, so a
-# Windows configure silently produced a binary with no engine — which then
-# shipped next to libmpv-2.dll and looked healthy. Opt in explicitly to build
+# AOIDE_HAVE_MPV only turns on via pkg-config, the bundled Linux .so, the
+# Windows import library plus DLL, or the macOS xcframework, so a configure
+# that found none of those used to produce a binary with no engine — which
+# then shipped next to libmpv and looked healthy. Opt in explicitly to build
 # one, and never opt in for a release.
 option(AOIDE_ALLOW_NO_AUDIO "Build without an audio engine (playback disabled)" OFF)
 if(NOT AOIDE_HAVE_MPV AND NOT AOIDE_ALLOW_NO_AUDIO)
   message(FATAL_ERROR
     "No audio engine: libmpv was not found, so this build could not play anything.\n"
-    "  Linux/macOS: install libmpv development files (pkg-config must find 'mpv'),\n"
-    "               or place the bundle at third_party/libmpv/linux/x86_64/libmpv.so.\n"
-    "  Windows:     run tool/fetch_full_libmpv.ps1, which installs libmpv-2.dll and\n"
-    "               its import library into third_party/libmpv/windows/x86_64.\n"
+    "  Linux:   install libmpv development files (pkg-config must find 'mpv'),\n"
+    "           or place the bundle at third_party/libmpv/linux/x86_64/libmpv.so.\n"
+    "  macOS:   brew install mpv (pkg-config must find 'mpv'), or run\n"
+    "           ./tool/fetch_full_libmpv.sh to stage the audio-full xcframeworks\n"
+    "           at third_party/libmpv/macos/universal.\n"
+    "  Windows: run tool/fetch_full_libmpv.ps1, which installs libmpv-2.dll and\n"
+    "           its import library into third_party/libmpv/windows/x86_64.\n"
     "Configure with -DAOIDE_ALLOW_NO_AUDIO=ON to build a deliberately silent binary.")
 endif()
 
@@ -192,13 +260,70 @@ if(WIN32)
   configure_file(packaging/windows/aoide.rc.in "${CMAKE_CURRENT_BINARY_DIR}/aoide.rc" @ONLY)
   list(APPEND AOIDE_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/aoide.rc")
 endif()
-qt_add_executable(aoide WIN32 ${AOIDE_SOURCES})
+if(APPLE)
+  set(AOIDE_MAC_ICNS "${CMAKE_CURRENT_SOURCE_DIR}/packaging/macos/aoide.icns")
+  set_source_files_properties("${AOIDE_MAC_ICNS}" PROPERTIES
+    MACOSX_PACKAGE_LOCATION "Resources")
+  list(APPEND AOIDE_SOURCES "${AOIDE_MAC_ICNS}")
+  # OUTPUT_NAME Aoide makes the bundle Aoide.app — the Mac convention and
+  # CFBundleName. packaging/macos/*.sh must use that name, not aoide.app.
+  set(AOIDE_MAC_BUNDLE_NAME "Aoide")
+  set(AOIDE_MAC_GUI_IDENTIFIER "com.proximamagnifica.aoide")
+  set(AOIDE_MAC_ICON_FILE "aoide.icns")
+  set(AOIDE_MAC_EXECUTABLE "Aoide")
+  set(AOIDE_MAC_COPYRIGHT "Copyright (C) 2026 Proxima Magnifica")
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/packaging/macos/Info.plist.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/Info.plist"
+    @ONLY)
+endif()
+qt_add_executable(aoide WIN32 MACOSX_BUNDLE ${AOIDE_SOURCES})
 target_include_directories(aoide PRIVATE src "${AOIDE_MPV_ROOT}/include")
 target_compile_definitions(aoide PRIVATE
   AOIDE_VERSION="${PROJECT_VERSION}"
   AOIDE_ASSET_DIR="${AOIDE_ASSET_DIR}"
   AOIDE_SKINS_DIR="${AOIDE_SKINS_DIR}"
 )
+if(APPLE)
+  set_target_properties(aoide PROPERTIES
+    OUTPUT_NAME "Aoide"
+    MACOSX_BUNDLE_BUNDLE_NAME "Aoide"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "com.proximamagnifica.aoide"
+    MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+    MACOSX_BUNDLE_ICON_FILE "aoide.icns"
+    MACOSX_BUNDLE_COPYRIGHT "Copyright (C) 2026 Proxima Magnifica"
+    MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_BINARY_DIR}/Info.plist"
+    INSTALL_RPATH "@executable_path/../Frameworks"
+  )
+  set_property(TARGET aoide APPEND PROPERTY BUILD_RPATH
+    "@executable_path/../Frameworks")
+  add_custom_command(TARGET aoide POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+      "${CMAKE_CURRENT_SOURCE_DIR}/assets"
+      "$<TARGET_BUNDLE_CONTENT_DIR:aoide>/Resources/assets"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+      "${CMAKE_CURRENT_SOURCE_DIR}/skins"
+      "$<TARGET_BUNDLE_CONTENT_DIR:aoide>/Resources/skins"
+    VERBATIM)
+  if(AOIDE_MAC_MPV_FRAMEWORKS)
+    set(_aoide_fw_copy COMMAND ${CMAKE_COMMAND} -E make_directory
+      "$<TARGET_BUNDLE_CONTENT_DIR:aoide>/Frameworks")
+    foreach(_fw IN LISTS AOIDE_MAC_MPV_FRAMEWORKS)
+      # cp -a, not cmake -E copy_directory: CMake < 3.26 follows framework
+      # version symlinks and duplicates the binary, which breaks the bundle.
+      list(APPEND _aoide_fw_copy
+        COMMAND /bin/cp -a "${_fw}"
+          "$<TARGET_BUNDLE_CONTENT_DIR:aoide>/Frameworks/")
+    endforeach()
+    add_custom_command(TARGET aoide POST_BUILD ${_aoide_fw_copy} VERBATIM)
+    set_property(TARGET aoide APPEND PROPERTY BUILD_RPATH
+      "${AOIDE_MAC_MPV_RPATH_DIR}")
+  endif()
+  message(STATUS
+    "macOS bundle Aoide.app (min ${CMAKE_OSX_DEPLOYMENT_TARGET}, "
+    "arch ${CMAKE_OSX_ARCHITECTURES})")
+endif()
 if(AOIDE_HAVE_MPV)
   target_compile_definitions(aoide PRIVATE AOIDE_HAVE_MPV)
   target_link_libraries(aoide PRIVATE ${AOIDE_MPV_LIBS})
@@ -371,6 +496,10 @@ if(AOIDE_HAVE_MPV)
       "-Wl,-rpath,${CMAKE_CURRENT_BINARY_DIR}/mpv-stubs"
     )
   endif()
+  if(APPLE AND AOIDE_MAC_MPV_RPATH_DIR)
+    set_property(TARGET domain_test APPEND PROPERTY BUILD_RPATH
+      "${AOIDE_MAC_MPV_RPATH_DIR}")
+  endif()
 endif()
 
 qt_add_executable(look_test
@@ -448,9 +577,16 @@ add_test(NAME font_metrics COMMAND font_metrics_test)
 set_tests_properties(host_shell_window host_window_move chrome_tooltip wait_cursor font_metrics
   PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
-install(TARGETS aoide RUNTIME DESTINATION .)
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/assets" DESTINATION .)
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/skins" DESTINATION .)
+if(APPLE)
+  # BUNDLE copies the built .app, which already has Resources and Frameworks
+  # from MACOSX_PACKAGE_LOCATION / POST_BUILD. Installing assets/ to `.` here
+  # would put them next to the .app, which is where bundledDataDir does not look.
+  install(TARGETS aoide BUNDLE DESTINATION .)
+else()
+  install(TARGETS aoide RUNTIME DESTINATION .)
+  install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/assets" DESTINATION .)
+  install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/skins" DESTINATION .)
+endif()
 if(UNIX AND NOT APPLE)
   install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/packaging/linux/com.proximamagnifica.aoide.desktop"
     DESTINATION share/applications)

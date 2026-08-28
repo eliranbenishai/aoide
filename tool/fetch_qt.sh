@@ -10,7 +10,11 @@ aoide_read_qt_pin
 PREFIX="$(aoide_qt_prefix)"
 
 if [[ "$(uname -s)" != Linux ]]; then
-  echo "fetch_qt.sh installs the Linux desktop kit. On Windows, CI uses install-qt-action." >&2
+  echo "fetch_qt.sh installs the Linux desktop kit into .local/qt." >&2
+  echo "On Windows, CI uses jurplel/install-qt-action." >&2
+  echo "On macOS, install official Qt $AOIDE_QT_VERSION (Xcode 15+, macOS 13 SDK)" >&2
+  echo "and point CMake at it, or place the kit at .local/qt/${AOIDE_QT_VERSION}/macos." >&2
+  echo "aqtinstall: aqt install-qt mac desktop $AOIDE_QT_VERSION clang_64 --outputdir .local/qt" >&2
   exit 1
 fi
 
