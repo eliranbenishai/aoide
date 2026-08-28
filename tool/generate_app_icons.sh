@@ -17,9 +17,11 @@ fi
 raster() {
   local size="$1" dest="$2"
   mkdir -p "$(dirname "$dest")"
+  # These PNGs are committed artifacts, so the timestamp chunks ImageMagick
+  # writes by default would churn their bytes on every regeneration.
   "$MAGICK" -background none -density 384 "$SVG" \
     -resize "${size}x${size}" -gravity center -extent "${size}x${size}" \
-    -depth 8 "png32:${dest}"
+    -depth 8 -define png:exclude-chunk=date,time "png32:${dest}"
 }
 
 BRAND="$ROOT/assets/branding"
@@ -32,7 +34,7 @@ for size in 16 24 32 48 64 128 256 512; do
   raster "$size" "$HICOLOR/${size}x${size}/apps/${APP_ID}.png"
 done
 
-"$MAGICK" "$BRAND/app_icon.png" -define icon:auto-resize=256,48,32,16 \
+"$MAGICK" "$BRAND/app_icon.png" -define icon:auto-resize=256,128,64,48,32,16 \
   "$ROOT/packaging/windows/app_icon.ico"
 
 python3 - "$HICOLOR" "$APP_ID" "$ROOT/packaging/macos/aoide.icns" <<'PY'
