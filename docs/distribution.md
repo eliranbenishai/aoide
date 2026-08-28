@@ -34,10 +34,11 @@ no `libQt6*` reached its staging directory. That run is `flatpak run`, not
 `sudo flatpak run`: newer flatpak refuses the sudo form so the sandbox does not
 inherit root's environment.
 
-The macOS job does **not** smoke the staged `Aoide.app`. That lane has never
-been executed on a Mac; a headless start we cannot interpret must not be what
-decides whether a DMG is uploaded. The job is `continue-on-error` for the same
-reason: it must not be able to fail a Windows/Linux release.
+The macOS job does **not** smoke the staged `Aoide.app`. Nobody has launched the
+app on a Mac, so nothing yet says what a passing start looks like there, and a
+headless start we cannot interpret must not be what decides whether a DMG is
+uploaded. The job is `continue-on-error` for the same reason: it must not be
+able to fail a Windows/Linux release.
 
 Uploads use `if-no-files-found: error`, and the assemble job then requires an
 EXE, an MSIX, an AppImage and a tarball to be present before anything is
@@ -233,7 +234,7 @@ The tag name without `v` must equal the `VERSION` file.
 | `Aoide-<ver>-linux-x86_64.AppImage` | Official download |
 | `Aoide-<ver>-linux-x86_64.tar.gz` | Input for a Flathub recipe |
 | `Aoide-<ver>-linux-x86_64.flatpak` | Optional CI bundle (job may fail without blocking the rest) |
-| `Aoide-<ver>-macos-universal.dmg` | Official download in **1.1**. The release job builds `Aoide.app` (universal, min 13.0), wraps it, and now has the Developer ID secrets to sign and notarize it. The lane has never been executed on a Mac, so treat the first run as the experiment it is. |
+| `Aoide-<ver>-macos-universal.dmg` | Official download in **1.1**. The release job builds `Aoide.app` (universal, min 13.0), wraps it, and has now signed and notarized a DMG in CI. Nobody has opened that DMG or launched the app, so treat the product as the experiment it is. |
 
 Partner Center and Flathub submit stay **human**. Packaging scripts live under `packaging/`.
 
@@ -283,10 +284,10 @@ The MSIX **display name** is `aoide.music` (the reserved Store listing). Paste P
 
 All five signing and notary secrets are **set** on the repository as of
 2026-08-28, from a Developer ID Application certificate on the G2 chain valid to
-2031 ([`premises.md`](premises.md) §7). So the next release run will attempt a real
-signature rather than skipping — but nothing here has been exercised on a Mac,
-which is why the job stays `continue-on-error`. Read its log; do not read a
-green tick as proof.
+2031 ([`premises.md`](premises.md) §7). A release run has now signed and notarized
+a DMG rather than skipping — but nobody has launched the app on a Mac, which is
+why the job stays `continue-on-error`. Read its log; do not read a green tick as
+proof.
 
 Skip any of these and the Mac job still uploads an unsigned DMG;
 `packaging/macos/notarize.sh` no-ops with a warning when the certificate pair
@@ -349,7 +350,7 @@ places have to agree on what Qt is.
 
 Windows (on a Windows host): `tool/fetch_full_libmpv.ps1`, CMake Release build, then `packaging/windows/stage.ps1`, Inno (`packaging/windows/aoide.iss`) and `packaging/windows/make_msix.ps1`. The EXE installer runs `vc_redist.x64.exe` when `MSVCP140.dll` / `VCRUNTIME140.dll` are missing. The MSIX declares `Microsoft.VCLibs.140.00.UWPDesktop` so the Store supplies that runtime. Keep the `.ps1` files ASCII: Windows PowerShell 5.1 (what `powershell` is on the runner) reads UTF-8 source as ANSI, and an em-dash inside a string is decoded as a closing quote.
 
-macOS (on a Mac — this path has never been run on one):
+macOS (on a Mac — CI has now run this path; nobody has launched the app):
 
 ```bash
 # Qt is the official desktop kit at the QT_VERSION pin, not ./tool/fetch_qt.sh

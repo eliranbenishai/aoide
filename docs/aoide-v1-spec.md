@@ -56,7 +56,7 @@ Must decode and play: **MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus**.
 
 ### Engine
 
-- Bundle **full libmpv** (+ required FFmpeg) on Windows, Linux, and macOS — features first; binary size later. macOS uses the pinned audio-full xcframework (`tool/fetch_full_libmpv.sh`); shipping that DMG stays **1.1**, and the packaging lane has never been executed on a Mac.
+- Bundle **full libmpv** (+ required FFmpeg) on Windows, Linux, and macOS — features first; binary size later. macOS uses the pinned audio-full xcframework (`tool/fetch_full_libmpv.sh`); shipping that DMG stays **1.1**. CI has now built and notarized a DMG; nobody has launched the app on a Mac.
 - Talk to libmpv through the in-process `PlayerEngine` seam (`MpvEngine`).
 - **Audible 10-band EQ** (measurement-gated before the UI claims it), **real** LCD spectrum (**20** bars), and **Mono** (force downmix when on). Synthetic spectrum levels are a failure/dev signal, not the product end-state — an unmeasured spectrogram (including a decode past its 120 s deadline) is a **transient notice** in the display well. A build with no usable audio engine keeps the panel subtitle and a durable **persistent indicator** in that well. A settings or state-file write that fails is a Settings-row mark until that file writes. Vocabulary: [`CONTEXT.md`](../CONTEXT.md): **Failure surface**.
 
