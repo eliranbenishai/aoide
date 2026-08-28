@@ -94,14 +94,45 @@ PY
       echo "fetch_full_libmpv: Mpv.xcframework has no Versions/A/Mpv binary" >&2
       exit 1
     fi
-    if grep -a -q -- '--disable-filters' "$mpv_bin"; then
-      echo "fetch_full_libmpv: staged Mpv looks slim (--disable-filters). Refusing." >&2
+    # The Windows fetcher greps one monolithic DLL, so it can ask libmpv-2.dll
+    # about FFmpeg. Here FFmpeg is separate frameworks and Mpv answers neither
+    # question: 'aresample' is a libavfilter filter and lives only in Avfilter,
+    # and the FFmpeg configure line lives in Avutil/Avcodec/Avfilter. Grepping
+    # Mpv alone failed every fetch on the resample marker while the slim check
+    # silently passed whatever it was given. Search the staged set instead.
+    if [[ ! -d "$OUT/Avfilter.xcframework" ]]; then
+      echo "fetch_full_libmpv: no Avfilter.xcframework — no filter graph, so no EQ." >&2
       exit 1
     fi
-    if ! grep -a -q 'aresample' "$mpv_bin" || ! grep -a -q 'equalizer' "$mpv_bin"; then
-      echo "fetch_full_libmpv: staged Mpv missing aresample/equalizer markers." >&2
+    staged_bins=()
+    shopt -s nullglob
+    for fwdir in "$OUT"/*.xcframework/macos-*/*.framework; do
+      fw_name="$(basename "$fwdir")"
+      fw_name="${fw_name%.framework}"
+      [[ -f "$fwdir/Versions/A/$fw_name" ]] && staged_bins+=("$fwdir/Versions/A/$fw_name")
+    done
+    shopt -u nullglob
+    if ((${#staged_bins[@]} == 0)); then
+      echo "fetch_full_libmpv: staged xcframeworks carry no framework binaries" >&2
       exit 1
     fi
+    staged_has() {
+      local needle="$1" b
+      for b in "${staged_bins[@]}"; do
+        grep -a -q -- "$needle" "$b" && return 0
+      done
+      return 1
+    }
+    if staged_has '--disable-filters'; then
+      echo "fetch_full_libmpv: staged FFmpeg is slim (--disable-filters). Refusing." >&2
+      exit 1
+    fi
+    for marker in aresample equalizer; do
+      if ! staged_has "$marker"; then
+        echo "fetch_full_libmpv: no '$marker' in any staged framework — slim build. Refusing." >&2
+        exit 1
+      fi
+    done
     echo "Staged macOS full frameworks under $OUT"
     ;;
   Linux)

@@ -58,7 +58,10 @@ Community CMake path used by the script.
 
 - **macOS:** downloads `audio-full` xcframeworks into `macos/universal/` (see
   `pins.json`), verifies the archive hash, and refuses a slim `--disable-filters`
-  build the same way the Windows fetcher does.
+  build. It checks the whole staged framework set, not `Mpv` alone: here FFmpeg
+  is separate xcframeworks, so `aresample` lives only in `Avfilter` and the
+  configure line only in `Avutil`/`Avcodec`/`Avfilter`. Windows can interrogate
+  `libmpv-2.dll` by itself only because FFmpeg is linked into that one file.
 - **Linux:** documents system package expectation; optionally copies a local
   full `libmpv.so*` if you place it under `linux/x86_64/`. Prefer
   `./tool/stage_linux_libmpv.sh` to copy the distro full libmpv into that dir.
