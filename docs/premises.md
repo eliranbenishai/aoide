@@ -123,18 +123,18 @@ Recorded 2026-08-21 · **Status:** listing name chosen, consequence unevidenced
 
 ## 7. "Free Forever" with no funding model
 
-Recorded 2026-08-21 · **Status:** cost structure partly evidenced, capacity unevidenced
+Recorded 2026-08-21 · Updated 2026-08-28 · **Status:** the one identified bill has a payer and is non-incremental; capacity unevidenced
 
 **The bet.** One maintainer can carry a GPL-3.0-or-later desktop player across five install channels indefinitely, at no price to the listener, and never need money to do it.
 
-**Known.** The release surface is real, and human at both ends: Partner Center and Flathub submit stay manual, the MSIX identity version has to be bumped per upload, and macOS notarization needs a Developer ID certificate — which means a paid Apple Developer Program membership. The unsigned macOS pipeline (`Aoide.app`, `stage_app.sh`, `make_dmg.sh`, a `continue-on-error` release job) is in the tree; it has never been executed on a Mac. 1.0 ships four channels (Store, website EXE, Flathub, AppImage); the fifth (macOS DMG) is still 1.1, which is when that Apple bill arrives. So **Free Forever** is a price to the listener that already has a recurring bill behind it and no named payer. Maintainer capacity over twelve months is unknown; there is no twelve months of history to look at.
+**Known.** The release surface is real, and human at both ends: Partner Center and Flathub submit stay manual, and the MSIX identity version has to be bumped per upload. macOS notarization needs a Developer ID certificate, which means a paid Apple Developer Program membership — and on 2026-08-28 that stopped being an open question. The maintainer already holds that membership for reasons unrelated to Aoide, so the recurring bill this premise worried about has a named payer **and is not incremental to this project**: cancelling Aoide would not save it. A Developer ID Application certificate (G2 chain, valid to 2031) and the five signing and notary secrets are in place. What is still missing is a Mac — the pipeline has never been executed on one, so no notarized DMG exists yet. 1.0 ships four channels (Store, website EXE, Flathub, AppImage); the fifth (macOS DMG) is still 1.1. Maintainer capacity over twelve months is unknown; there is no twelve months of history to look at.
 
 **Cost.** Whatever release and store chores cost, paid out of the same hours the product would otherwise get.
 
 **Trigger.** Reopen when any of:
 
 - two consecutive releases slip because the human submit steps had nobody;
-- a recurring bill comes due with no decided payer — the Apple membership is the first one, and it arrives with the notarized DMG;
+- a recurring bill comes due with no decided payer — the Apple membership was the candidate and is settled, being pre-existing and non-incremental, so what to watch now is a cost this project would *add*;
 - release and store chores take more maintainer time in a month than the product does.
 
 All three are noticed by the person doing the work, which is the only measuring instrument this project has and, for this premise, a sufficient one.

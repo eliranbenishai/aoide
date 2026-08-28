@@ -233,7 +233,7 @@ The tag name without `v` must equal the `VERSION` file.
 | `Aoide-<ver>-linux-x86_64.AppImage` | Official download |
 | `Aoide-<ver>-linux-x86_64.tar.gz` | Input for a Flathub recipe |
 | `Aoide-<ver>-linux-x86_64.flatpak` | Optional CI bundle (job may fail without blocking the rest) |
-| `Aoide-<ver>-macos-universal.dmg` | Official download in **1.1**. The release job builds `Aoide.app` (universal, min 13.0) and wraps it; the image is unsigned until Developer ID secrets are set. The lane exists in the tree and has never been executed on a Mac. |
+| `Aoide-<ver>-macos-universal.dmg` | Official download in **1.1**. The release job builds `Aoide.app` (universal, min 13.0), wraps it, and now has the Developer ID secrets to sign and notarize it. The lane has never been executed on a Mac, so treat the first run as the experiment it is. |
 
 Partner Center and Flathub submit stay **human**. Packaging scripts live under `packaging/`.
 
@@ -281,11 +281,16 @@ The MSIX **display name** is `aoide.music` (the reserved Store listing). Paste P
 
 ### Secrets (macOS notarization)
 
+All five signing and notary secrets are **set** on the repository as of
+2026-08-28, from a Developer ID Application certificate on the G2 chain valid to
+2031 ([`premises.md`](premises.md) §7). So the next release run will attempt a real
+signature rather than skipping — but nothing here has been exercised on a Mac,
+which is why the job stays `continue-on-error`. Read its log; do not read a
+green tick as proof.
+
 Skip any of these and the Mac job still uploads an unsigned DMG;
 `packaging/macos/notarize.sh` no-ops with a warning when the certificate pair
-is unset. Signing and notarization are unavailable until someone pays for the
-Apple Developer Program ([`premises.md`](premises.md) §7). The job is `continue-on-error`
-because this lane has never run on a Mac.
+is unset.
 
 | Secret | Purpose |
 |--------|---------|

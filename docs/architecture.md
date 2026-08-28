@@ -39,7 +39,7 @@ flowchart LR
   FH --> Flatpak[Linux Flatpak x86_64]
 ```
 
-CI-built. Workflows and secrets: [`distribution.md`](distribution.md). The macOS channel stays **1.1**: the bundle, staging, DMG and release job exist in the tree, but that lane has never run on a Mac, and signing/notarization wait on a paid Apple Developer Program membership. In-app update follows **install channel**.
+CI-built. Workflows and secrets: [`distribution.md`](distribution.md). The macOS channel stays **1.1**: the bundle, staging, DMG and release job exist in the tree, and the Developer ID signing and notary secrets are set, but that lane has never run on a Mac. In-app update follows **install channel**.
 
 One Qt for everything that ships **and** for the local tree — the `QT_VERSION` file. That is the official desktop kit CI installs, the line `org.kde.Platform` tracks (`QT_RUNTIME` is its major.minor), and what `./tool/fetch_qt.sh` puts under `.local/qt/` on Linux (`fetch_qt.sh` exits on Darwin; a Mac host or the release job's `install-qt-action` supplies the same pin). `build.sh` and CMake refuse any other version. Nothing reaches a Windows or Linux artifact upload without being **run**: staged binary, AppImage and extracted tarball each take `--bench-chrome` and a `AOIDE_AUTO_QUIT=1` start, with the runner's Qt — libraries *and* plugins — stripped from the environment so an artifact can only use what it carries. The macOS job does not do that run: the lane is unverified, and a smoke we cannot interpret must not be what decides whether a DMG is uploaded. Nothing reaches a release without being **complete**: assembly happens on every run, and it requires an EXE, an MSIX, an AppImage and a tarball before the tag-only publish step. A DMG is attached when the macOS job produced one; it is not required.
 
@@ -170,7 +170,7 @@ Playlist bytes are decoded by `decodeM3uBytes`: UTF-8 or UTF-16 by byte-order ma
 ## Known v1 gaps
 
 - Mockup fidelity / `--dump-chrome` vs `player-mockup-2.html` still hardening
-- macOS packaging is **implemented, not verified**: CMake emits `Aoide.app`, `stage_app.sh` / `make_dmg.sh` / `notarize.sh` exist, and the release workflow has a `continue-on-error` job. None of that has run on a Mac. Signing and notarization stay blocked on an unpaid Apple Developer Program membership. The product channel is still **1.1**
+- macOS packaging is **implemented, not verified**: CMake emits `Aoide.app`, `stage_app.sh` / `make_dmg.sh` / `notarize.sh` exist, and the release workflow has a `continue-on-error` job. Signing is no longer the gap — the Developer ID certificate and notary key are in place — but none of it has run on a Mac, so the whole lane is unproven end to end. The product channel is still **1.1**
 - The Flatpak takes Qt from its runtime but still bundles libmpv's whole closure, so it carries copies of libraries `org.kde.Platform` also ships and could shadow them. Removing Qt was the shadowing risk worth closing first; trimming the rest needs a list of what the runtime provides
 - Linux MPRIS; second-instance “Open with”
 - Spectrum: second `ao=pcm` pass per open; long tracks analyse in the background, and a quit cancels that analysis rather than waiting it out
