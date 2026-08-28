@@ -12,10 +12,12 @@
   },
   "macos": {
     "universal": {
-      "archive": "libmpv-xcframeworks_v0.6.0_macos-universal-audio-full.tar.gz",
-      "url": "https://github.com/media-kit/libmpv-darwin-build/releases/download/v0.6.0/libmpv-xcframeworks_v0.6.0_macos-universal-audio-full.tar.gz",
-      "archiveSha256": "A5E71742139C2940945B68F9B9C893B0ECFEF723196A4EE5B488EB134B72E07E",
-      "notes": "Prefer audio-full over media_kit's audio-default. fetch_full_libmpv.sh lifts the versioned wrapper so xcframeworks sit at macos/universal/*.xcframework."
+      "archive": "libmpv-xcframeworks_v0.7.2_macos-universal-audio-full.tar.gz",
+      "url": "https://github.com/media-kit/libmpv-darwin-build/releases/download/v0.7.2/libmpv-xcframeworks_v0.7.2_macos-universal-audio-full.tar.gz",
+      "archiveSha256": "287D5A0BDA2276027330E9FDFD7C019AEAD2A62269E0272361BE2008158B70CF",
+      "mpvVersion": "0.36.0",
+      "clientApiVersion": "2.1",
+      "notes": "Prefer audio-full over media_kit's audio-default. fetch_full_libmpv.sh lifts the versioned wrapper so xcframeworks sit at macos/universal/*.xcframework. This project has never published past mpv 0.36.0, so client API 2.1 is the ceiling on macOS and therefore the version include/mpv is pinned to — see README."
     }
   },
   "linux": {

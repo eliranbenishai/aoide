@@ -12,6 +12,7 @@ binaries under this tree (or a distro full libmpv) instead.
 ```text
 third_party/libmpv/
   pins.json                 # pinned URLs + hashes (committed)
+  include/mpv/*.h               # vendored client API headers (committed)
   windows/x86_64/libmpv-2.dll   # fetched, not committed by default
   windows/x86_64/libmpv.dll.a   # import library, same fetch
   linux/x86_64/libmpv.so*       # optional bundle override
@@ -65,6 +66,35 @@ Community CMake path used by the script.
 - **Linux:** documents system package expectation; optionally copies a local
   full `libmpv.so*` if you place it under `linux/x86_64/`. Prefer
   `./tool/stage_linux_libmpv.sh` to copy the distro full libmpv into that dir.
+
+## Vendored headers are pinned to client API 2.1 — do not raise them
+
+`include/mpv/` is committed and is the only include path the build uses on all
+three platforms; the macOS xcframeworks ship no usable headers for us, and none
+of the pinned binaries is a source of truth for what the *other* two can run.
+
+Those headers are upstream mpv 0.36.0, declaring `MPV_CLIENT_API_VERSION` **2.1**.
+That is deliberately the **lowest** API any pinned platform provides, not the
+highest:
+
+| Platform | Pinned binary | Client API |
+|----------|---------------|-----------|
+| macOS | media-kit `v0.7.2` (mpv 0.36.0) | **2.1** |
+| Linux | distro / staged `libmpv.so.2.5.0` | 2.5 |
+| Windows | shinchiro `mpv-dev` | 2.5 |
+
+macOS is the floor and cannot currently be raised: `media-kit/libmpv-darwin-build`
+has never published past mpv 0.36.0, so every release in that project — including
+the newest — is API 2.1. Pinning the headers to that floor means calling anything
+mpv 0.36 lacks is a **compile error on every platform**, caught on Linux by the
+developer who wrote it. Raising them to 2.5 to match Linux moves that failure to
+run time on macOS, the platform with the least CI coverage, where an unknown
+option passed to `mpv_set_option_string` is a silent no-op rather than an error.
+
+The whole 2.1→2.5 delta is one function, `mpv_get_time_ns`, which nothing calls.
+
+Raise these headers only together with a macOS libmpv that actually provides the
+higher API — which today means building libmpv from source, not changing a pin.
 
 ## Packaging hooks
 
