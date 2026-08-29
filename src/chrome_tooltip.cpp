@@ -19,9 +19,9 @@ namespace {
 /// on a dead button says what it would have done, which is the reading the
 /// disabled face exists to prevent. So a withdrawn step says why instead, and
 /// the two reasons are not the same answer — the floor of the ladder is where
-/// Aoide ends, and a step that will not fit is where this display ends. At the
-/// shipped default both are out at once on a short screen, and a whole cluster
-/// greyed for one unexplained reason is what reads as broken chrome.
+/// Aoide ends, and a step that will not fit is where this display ends. On the
+/// floor of a short screen both are out at once, and a whole cluster greyed for
+/// one unexplained reason is what reads as broken chrome.
 QString zoomFloorTip(const SessionView& view) {
   return QStringLiteral("%1% is as small as Aoide goes").arg(view.zoomPercent);
 }

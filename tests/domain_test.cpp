@@ -1285,10 +1285,9 @@ int main() {
   }
 
   {
-    // A listener who ran the eight-step ladder has 200% or 50% saved. Restoring
-    // a percent the ladder no longer carries would leave the readout on a number
-    // the zoom buttons cannot get back to, so it snaps to the nearest surviving
-    // step rather than being thrown away for the default.
+    // A percent the ladder dropped snaps to the nearest survivor so the readout
+    // is a number the zoom buttons can still reach. A percent it still carries,
+    // including 50% from an older eight-step file, is kept.
     QTemporaryDir tmp;
     REQUIRE(tmp.isValid());
     aoide::SupportStore store(tmp.path());
@@ -1303,7 +1302,7 @@ int main() {
     };
     REQUIRE_EQ(restoredZoom(200), 150);
     REQUIRE_EQ(restoredZoom(300), 150);
-    REQUIRE_EQ(restoredZoom(50), 75);
+    REQUIRE_EQ(restoredZoom(50), 50);
     REQUIRE_EQ(restoredZoom(125), 125);
   }
 

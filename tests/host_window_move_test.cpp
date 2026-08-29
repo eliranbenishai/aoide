@@ -176,11 +176,13 @@ QMap<QPair<int, int>, ClaimedRegion> claimedRegions(aoide::WindowId id, QSize lo
 }
 
 /// Every extreme and midpoint pixel of what the chrome paints for one control
-/// must land on that control, at both shipping zooms.
+/// must land on that control, at every step of the zoom ladder. Reading the
+/// ladder rather than naming percentages is what keeps a step that is added
+/// later from shipping without ever having been grabbed.
 void assertPaintIsGrabbable(aoide::WindowId id, QSize logical, const aoide::SessionView& view,
                             const QRectF& painted, aoide::ChromeHit::Kind kind, int index,
                             const QString& what) {
-  for (int zoom : {75, 150}) {
+  for (int zoom : aoide::kZoomSteps) {
     for (const QPointF& at : paintedSamples(logical, painted, zoom)) {
       const aoide::ChromeHit hit =
           aoide::hitTest(id, logical, logicalAtZoom(logical, zoom, at), view);
@@ -403,7 +405,7 @@ void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
 // at any zoom divides down to a logical pixel, so a panel that has no overlap
 // here has none at any zoom. What zoom does change is which logical pixels a
 // pointer can reach, so each region is then required to still win its corners
-// through the widget-pixel division at both shipping zooms.
+// through the widget-pixel division at every step of the zoom ladder.
 void HostWindowMoveTest::hitRegionsDoNotOverlap() {
   const auto specs = aoide::windowSpecs();
 
@@ -453,7 +455,7 @@ void HostWindowMoveTest::hitRegionsDoNotOverlap() {
                                 .arg(carried.top())));
       }
 
-      for (int zoom : {75, 150}) {
+      for (int zoom : aoide::kZoomSteps) {
         for (const QPointF& at : paintedSamples(logical, it->bounds, zoom)) {
           const aoide::ChromeHit hit =
               aoide::hitTest(id, logical, logicalAtZoom(logical, zoom, at), view);

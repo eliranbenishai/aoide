@@ -58,23 +58,23 @@ Recorded 2026-08-21 · **Status:** accepted without evidence
 
 ## 3. Default zoom 75%, against mockup-absolute fidelity at 100%
 
-Recorded 2026-08-21 · **Status:** accepted without evidence; the tension is documented fact
+Recorded 2026-08-21 · Reopened 2026-08-29 · **Status:** accepted without evidence for the default; 50% restored on one report; the tension is documented fact
 
 **The bet.** 75% is the size that reads as right on a first run, even though every fidelity claim the project makes is made at 100%.
 
-**Known.** The ladder was cut on 2026-08-21 from eight steps to four — 75, 100, 125, 150 — and the default stayed 75%. That makes three facts true at once:
+**Known.** The ladder was cut on 2026-08-21 from eight steps to four — 75, 100, 125, 150 — and the default stayed 75%, which made the default the floor. On 2026-08-29 one macOS listener running the first Mac build reported that 75% reads too big on a MacBook. 50% was put back on the ladder on that report. The default is still 75%. That makes these facts true at once:
 
-- The default is now the **floor**. `prevZoomPercent(75)` returns 75, so on a first run the zoom-out control has nowhere to go; 50% is retired.
+- The default is **no longer the floor**. `prevZoomPercent(75)` returns 50, so zoom-out is live on a first run.
 - Fidelity is mockup-absolute at 100% ([`architecture.md`](architecture.md): Notes), so the size everyone actually ships and screenshots is the one size the fidelity gate does not describe.
-- 100% is the only step that lands the 825-wide main and equalizer canvas on whole logical pixels. The default gives 618.75, and 125% and 150% are fractional too; the heights are whole at every step. The one exact step is the one nobody starts on.
+- 100% is the only step that lands the 825-wide main and equalizer canvas on whole logical pixels. The default gives 618.75, and 50%, 125% and 150% are fractional too; the heights are whole at every step. The one exact step is the one nobody starts on.
 
-Which direction a listener would move the zoom, or whether they would touch it at all, is unknown and will stay unknown.
+Which direction listeners move the zoom, or whether they touch it at all, is still unknown. One report is not a trend.
 
-**Cost.** Every first impression, screenshot and bug report arrives at a scale the fidelity contract does not cover, and the cheapest reaction to "too big" is unavailable at the default.
+**Cost.** Every first impression, screenshot and bug report still arrives at a scale the fidelity contract does not cover. The cheapest reaction to "too big" is now available — it is opt-in, not the first-run size.
 
 **Trigger.** Reopen when either:
 
-- first-run size arrives unprompted — a store review or issue saying the app is tiny, or blurry, or that the zoom-out button does nothing; or
+- first-run size arrives unprompted again — a store review or issue saying the app is tiny, or still too big at 75%, enough to move the default rather than the ladder; or
 - a fidelity or crispness defect at 75% needs the step special-cased in drawing code. At that point the default is buying a bug rather than a feel, which settles it without any counter.
 
 ---

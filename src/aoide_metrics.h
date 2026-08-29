@@ -7,7 +7,7 @@
 namespace aoide {
 
 inline constexpr int kDefaultZoomPercent = 75;
-inline constexpr int kZoomSteps[] = {75, 100, 125, 150};
+inline constexpr int kZoomSteps[] = {50, 75, 100, 125, 150};
 
 inline int nextZoomPercent(int current) {
   for (int step : kZoomSteps) {

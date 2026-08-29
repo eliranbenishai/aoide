@@ -42,13 +42,14 @@ void ChromeTooltipTest::withdrawnZoomStepsNameWhy() {
 
   // The floor of the ladder is where Aoide ends. The percent is the one the
   // readout already shows, so the tip does not invent a smaller step.
-  view.zoomPercent = 75;
+  view.zoomPercent = 50;
   view.zoomOutEnabled = false;
   QCOMPARE(aoide::chromeTooltip(Hit::zoomOut, {}, view),
-           QStringLiteral("75% is as small as Aoide goes"));
+           QStringLiteral("50% is as small as Aoide goes"));
 
   // A step that will not fit is where this display ends. Closing a panel is
   // the way back — but only while one is open to close.
+  view.zoomPercent = 75;
   view.zoomOutEnabled = true;
   view.zoomInEnabled = false;
   view.eqOn = true;

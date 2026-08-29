@@ -89,7 +89,7 @@ class LayoutSyncTest : public QObject {
 };
 
 void LayoutSyncTest::nativeAndLogicalAreInversesAcrossTheZoomLadder() {
-  for (int percent : {75, 100, 125, 150}) {
+  for (int percent : {50, 75, 100, 125, 150}) {
     LayoutSync layout({}, percent);
     QCOMPARE(layout.zoomPercent(), percent);
     const QPoint native(400, 240);
@@ -429,8 +429,8 @@ void LayoutSyncTest::theLadderRefusesAStepItDoesNotCarry() {
   // — but a setter that took any number was one careless call from a zoom the
   // chrome has no readout for.
   QVERIFY(!layout.setZoomPercent(137));
-  QVERIFY(!layout.setZoomPercent(50));
-  QCOMPARE(layout.zoomPercent(), 75);
+  QVERIFY(layout.setZoomPercent(50));
+  QCOMPARE(layout.zoomPercent(), 50);
   QVERIFY(layout.setZoomPercent(125));
 }
 
@@ -448,8 +448,12 @@ void LayoutSyncTest::zoomingBackOutOfAStepTheDisplayOutgrewIsAlwaysOffered() {
   QCOMPARE(layout.zoomStepDown().value_or(0), 125);
   QVERIFY(layout.setZoomPercent(125));
   QCOMPARE(layout.zoomStepDown().value_or(0), 100);
+  QVERIFY(layout.setZoomPercent(100));
+  QCOMPARE(layout.zoomStepDown().value_or(0), 75);
+  QVERIFY(layout.setZoomPercent(75));
+  QCOMPARE(layout.zoomStepDown().value_or(0), 50);
 
-  LayoutSync floor(defaultCluster(), 75);
+  LayoutSync floor(defaultCluster(), 50);
   floor.setSurfaces(&desktop);
   QVERIFY(!floor.zoomStepDown().has_value());
 }
