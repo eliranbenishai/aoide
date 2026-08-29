@@ -73,7 +73,7 @@ attaches artifacts to a GitHub Release (a mirror; the product page is aoide.musi
 | Linux MPRIS | OS media keys / Now Playing via D-Bus not implemented. In-app media keys work when Aoide is focused. |
 | Second-instance “Open with” | Cold-start argv and file associations work; a second running instance does not forward paths to the first. |
 | Spectrum | Real 20-bar analyser (offline PCM + STFT). Honest silence until the spectrogram for the current track is ready. |
-| macOS host | 1.1. CI builds, tests and smoke-starts the bundle on every run and uploads a notarized DMG. One has been installed on a MacBook and played audio; that is one machine, and nothing automated launches the *installed* app. |
+| macOS host | 1.1. CI builds, tests and smoke-starts the staged bundle offscreen on every run and uploads a notarized DMG. One has been installed on a MacBook and played audio; that is one machine, and nothing automated launches the *installed* app or checks Gatekeeper. |
 
 Windows Store and Flathub are 1.0 channels; the macOS DMG is 1.1. Mac App Store and Snap are not.
 

@@ -237,7 +237,7 @@ The tag name without `v` must equal the `VERSION` file.
 | `Aoide-<ver>-linux-x86_64.AppImage` | Official download |
 | `Aoide-<ver>-linux-x86_64.tar.gz` | Input for a Flathub recipe |
 | `Aoide-<ver>-linux-x86_64.flatpak` | Optional CI bundle (job may fail without blocking the rest) |
-| `Aoide-<ver>-macos-universal.dmg` | Official download in **1.1**. Every CI run now produces one; one has been installed on a MacBook and played audio. The smoke proves the staged bundle starts offscreen — not that a listener can open the DMG past Gatekeeper. |
+| `Aoide-<ver>-macos-universal.dmg` | Official download in **1.1**. Every CI run now uploads one, notarized wherever the signing secrets reach — a fork's pull request cannot see them; one has been installed on a MacBook and played audio. The smoke proves the staged bundle starts offscreen — not that a listener can open the DMG past Gatekeeper. |
 
 Partner Center and Flathub submit stay **human**. Packaging scripts live under `packaging/`.
 

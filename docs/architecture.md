@@ -8,7 +8,7 @@ Living map of how Aoide is structured. Domain terms: [`CONTEXT.md`](../CONTEXT.m
 
 `AoideSession` owns playback (libmpv), playlist/collection, EQ, spectrum, docking, zoom, skins, and persistence. Panels are views onto that session, not extra engines or extra OS windows. Title-bar drags are app-owned: main translates the cluster inside the host; other panels move alone. No skip-taskbar transients, no pin-against-recenter. Host geometry is the virtual desktop (bounding rect of every screen); it does not resize on panel drag; input is punched to panel shapes so the desktop is clickable in the gaps. `--dump-chrome` writes 1× logical PNGs from `goldenDemoView()`, the demo state as data the painters honour rather than a flag they override — which is what lets a caller photograph a state the demo does not open on (collapsed, clamped, and empty playlist, dead zoom-in on main, Audio tab, populated Skins panel).
 
-Linux + Windows are the pairing hosts; macOS is 1.1.
+Linux + Windows are the pairing hosts; macOS ships in 1.1.
 
 ## Product shape (1.0)
 
@@ -39,7 +39,7 @@ flowchart LR
   FH --> Flatpak[Linux Flatpak x86_64]
 ```
 
-CI-built. Workflows and secrets: [`distribution.md`](distribution.md). The macOS channel stays **1.1**: the bundle, staging, DMG and release job exist in the tree, and the Developer ID signing and notary secrets are set; CI now builds, tests, and smokes the staged bundle offscreen on every PR and every push to `main`, and uploads a DMG. One of those images has been installed on a MacBook and played audio. That is still one machine, and nothing launches the *installed* app or checks Gatekeeper. In-app update follows **install channel**.
+CI-built. Workflows and secrets: [`distribution.md`](distribution.md). The macOS channel ships in **1.1**: CI builds, tests, and smokes the staged bundle offscreen on every PR and every push to `main`, then signs, notarizes and uploads a DMG. One of those images has been installed on a MacBook and played audio — still one machine, with no automated launch of the *installed* app and no Gatekeeper check. In-app update follows **install channel**.
 
 One Qt for everything that ships **and** for the local tree — the `QT_VERSION` file. That is the official desktop kit CI installs, the line `org.kde.Platform` tracks (`QT_RUNTIME` is its major.minor), and what `./tool/fetch_qt.sh` puts under `.local/qt/` on Linux (`fetch_qt.sh` exits on Darwin; a Mac host or the CI / release `install-qt-action` supplies the same pin). `build.sh` and CMake refuse any other version. Nothing reaches a Windows or Linux artifact upload without being **run**: staged binary, AppImage and extracted tarball each take `--bench-chrome` and a `AOIDE_AUTO_QUIT=1` start, with the runner's Qt — libraries *and* plugins — stripped from the environment so an artifact can only use what it carries. The macOS CI job now does the same for the staged `Aoide.app` (offscreen, after unsetting `QT_PLUGIN_PATH` / `DYLD_*`), so a missing Qt, libmpv or asset fails that step; it does not open the DMG or verify Gatekeeper, and a packaging or notary hiccup is `continue-on-error` so it cannot block a merge. Nothing reaches a release without being **complete**: assembly happens on every run, and it requires an EXE, an MSIX, an AppImage and a tarball before the tag-only publish step. A DMG is attached when the macOS job produced one; it is not required.
 
@@ -170,7 +170,7 @@ Playlist bytes are decoded by `decodeM3uBytes`: UTF-8 or UTF-16 by byte-order ma
 ## Known v1 gaps
 
 - Mockup fidelity / `--dump-chrome` vs `player-mockup-2.html` still hardening
-- macOS packaging is **implemented, not verified as a product**: CMake emits `Aoide.app`, `stage_app.sh` / `make_dmg.sh` / `notarize.sh` exist, and the release workflow has a `continue-on-error` job. Signing is no longer the gap — the Developer ID certificate and notary key are in place, CI builds a DMG on every run and notarizes it wherever the signing secrets reach, and a first launch on a MacBook played audio, which retires "does it run at all". CI now starts the staged bundle offscreen (`--bench-chrome` and `AOIDE_AUTO_QUIT=1`); that does not open the DMG or prove Gatekeeper. That first launch surfaced two defects, both now closed: the panel cluster opened under the menu bar with its title bar unreachable, and 75% reads too big on a laptop display. What is missing is repetition on more than one machine, and an automated launch of the *installed* app, so the product channel is still **1.1**
+- macOS: no automated launch of the *installed* app, no Gatekeeper check, and only one physical Mac
 - The Flatpak takes Qt from its runtime but still bundles libmpv's whole closure, so it carries copies of libraries `org.kde.Platform` also ships and could shadow them. Removing Qt was the shadowing risk worth closing first; trimming the rest needs a list of what the runtime provides
 - Linux MPRIS; second-instance “Open with”
 - Spectrum: second `ao=pcm` pass per open; long tracks analyse in the background, and a quit cancels that analysis rather than waiting it out
