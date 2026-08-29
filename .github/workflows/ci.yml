@@ -97,17 +97,21 @@ jobs:
 
   # Separate job, not a third matrix leg: a packaging job would repeat the
   # universal (x86_64;arm64) build, and a DMG produced in the same job as the
-  # tests cannot be uploaded for a commit whose tests failed. The job itself
-  # is required — a compile or ctest failure is a regression. Only the
-  # packaging steps are continue-on-error, so Apple's notary or a packaging
-  # hiccup cannot block a merge.
+  # tests cannot be uploaded for a commit whose tests failed.
+  #
+  # Every step here blocks a merge, packaging included. The packaging steps used
+  # to be continue-on-error so Apple's notary could not hold up a PR, and the
+  # price was that a break in staging or in the DMG wrap merged green and waited
+  # to be discovered at tag time, by which point it is a release under way rather
+  # than a pull request. Notary flakes are rare; finding a packaging regression
+  # weeks after it landed is expensive. Re-run the job on a flake.
   macos:
     name: Qt (macos-latest)
     runs-on: macos-latest
-    # continue-on-error does not rescue a hang: a step that never returns holds
-    # the job until the six-hour default, and `CI passed` waits on it. A start
-    # that wedges is exactly the failure this lane is most likely to find first,
-    # so both the job and the run below carry a clock.
+    # A step that never returns holds the job until the six-hour default, and
+    # `CI passed` waits on it. A start that wedges is exactly the failure this
+    # lane is most likely to find first, so both the job and the run below carry
+    # a clock.
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v6
@@ -145,7 +149,6 @@ jobs:
           [ -f "$exe" ] || exe=build/Release/Aoide.app/Contents/MacOS/Aoide
           QT_QPA_PLATFORM=offscreen "$exe" --bench-chrome
       - name: Stage
-        continue-on-error: true
         env:
           AOIDE_BUILD_DIR: ${{ github.workspace }}/build
         run: ./packaging/macos/stage_app.sh
@@ -157,8 +160,6 @@ jobs:
       # notarize.sh then clears extended attributes with xattr -cr before
       # signing, so this run cannot spoil the signature.
       - name: Smoke-test the staged app
-        id: smoke
-        continue-on-error: true
         timeout-minutes: 5
         run: |
           set -euo pipefail
@@ -170,13 +171,13 @@ jobs:
           export QT_QPA_PLATFORM=offscreen
           build/macos/stage/Aoide.app/Contents/MacOS/Aoide --bench-chrome
           AOIDE_AUTO_QUIT=1 build/macos/stage/Aoide.app/Contents/MacOS/Aoide
-      # Gated on the smoke rather than merely following it: a continue-on-error
-      # step does not stop the ones after it, so without this the lane would
-      # hand over a DMG whose bundle had just failed to start — the one thing a
-      # downloadable test build must not be.
+      # Nothing gates this on the smoke any more, because nothing needs to: the
+      # smoke is blocking, so a bundle that failed to start ends the job here.
+      # The old `if: steps.smoke.outcome` existed only because a
+      # continue-on-error step does not stop the ones after it, which would
+      # otherwise have handed over a DMG whose bundle had just failed to start —
+      # the one thing a downloadable test build must not be.
       - name: Sign, notarize, wrap DMG
-        if: steps.smoke.outcome == 'success'
-        continue-on-error: true
         env:
           AOIDE_MAC_APP: ${{ github.workspace }}/build/macos/stage/Aoide.app
           MACOS_CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
@@ -200,8 +201,6 @@ jobs:
             ./packaging/macos/make_dmg.sh
           fi
       - uses: actions/upload-artifact@v6
-        if: steps.smoke.outcome == 'success'
-        continue-on-error: true
         with:
           name: macos-dmg
           if-no-files-found: error

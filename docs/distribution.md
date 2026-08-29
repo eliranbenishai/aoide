@@ -9,7 +9,7 @@ How Aoide is built and handed to listeners. Product page: `https://aoide.music`.
 | [`.github/workflows/open-pr.yml`](../.github/workflows/open-pr.yml) | Push to a feature branch | Opens a PR against `main` if one is missing (`research/*`, `spike/*`, `wip/*` skipped) |
 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PR and `main` | CMake build + `ctest` on Ubuntu, Windows and macOS; macOS also stages and uploads a DMG artifact; PR review comment with the result |
 | [`.github/workflows/merge-if-green.yml`](../.github/workflows/merge-if-green.yml) | CI completed | Squash-merges a same-repo, non-draft PR at that SHA when CI is green. Skips forks, drafts, and `do-not-merge` |
-| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Tag `v*` or **Run workflow** | Test, then Windows / Linux packages and a macOS DMG job (`continue-on-error`; smokes the staged app), then assemble the downloads; a tag also publishes them as a GitHub Release |
+| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Tag `v*` or **Run workflow** | Test, then Windows / Linux packages, a required macOS DMG job (smokes the staged app) and a required Flatpak job, then assemble the downloads; a tag also publishes them as a GitHub Release |
 
 Merging happens **only** in `merge-if-green.yml`. It runs from the default branch
 on `workflow_run`, so the branch being judged cannot rewrite the gate that judges
@@ -39,17 +39,20 @@ and `AOIDE_AUTO_QUIT=1` after unsetting `QT_PLUGIN_PATH`, `DYLD_FRAMEWORK_PATH`
 and `DYLD_LIBRARY_PATH`. That run proves the staged bundle starts offscreen with
 the Qt, libmpv, icns, assets and skins it carries. It does not open the DMG and
 it does not verify Gatekeeper. Those packaging steps (stage, smoke, sign/notarize,
-upload) are `continue-on-error` so Apple's notary cannot block a merge; a compile
-or `ctest` failure still does. The release job stays `continue-on-error` as a
-whole so a packaging failure cannot fail a Windows/Linux release.
+upload) fail the job the same way a compile or `ctest` failure does. They were
+`continue-on-error` while the Mac lane was being proven, and the price was that a
+break in staging or in the DMG wrap merged green and waited to be found at tag
+time — a release already under way rather than a pull request still open.
 
 Uploads use `if-no-files-found: error`, and the assemble job then requires an
-EXE, an MSIX, an AppImage and a tarball to be present before anything is
-published — a packaging step that quietly produced nothing used to make a green
-job and a release short one platform. A DMG is copied into the upload set when
-the macOS job produced one; it is not required. Assembling runs on **every**
-release run, not only on a tag, so the download and the completeness check are
-exercised by **Run workflow** rather than first attempted during a real release.
+EXE, an MSIX, an AppImage, a tarball, a DMG and a Flatpak to be present before
+anything is published — a packaging step that quietly produced nothing used to
+make a green job and a release short one download. Assembly also requires all
+four packaging jobs to have **succeeded**, which closes the other way a download
+goes missing: not a job that produced nothing, but a job that failed outright.
+Assembling runs on **every** release run, not only on a tag, so the download
+and the completeness check are exercised by **Run workflow** rather than first
+attempted during a real release.
 
 ## Desktop metadata
 
@@ -237,10 +240,10 @@ The tag name without `v` must equal the `VERSION` file.
 | File | Channel |
 |------|---------|
 | `Aoide-<ver>-windows-x64.exe` | Official download (unsigned Inno; SmartScreen click-through) |
-| `Aoide-<ver>-windows-x64.msix` | Microsoft Store listing **aoide.music** (unsigned here; Store re-signs). Identity version is four-part `x.y.z.0` from `VERSION` (`1.0` → `1.0.0.0`); the fourth number must be **0** or Partner Center rejects the package. Bump `VERSION` for each Store upload. |
+| `Aoide-<ver>-windows-x64.msix` | Microsoft Store listing **aoide.music** (unsigned here; Store re-signs). Identity version is four-part `x.y.z.0` derived from `VERSION` by [`tool/version.sh`](../tool/version.sh) (`1.0` → `1.0.0.0`); the fourth number must be **0** or Partner Center rejects the package. `make_msix.ps1` validates the shape it is handed; it does not derive it. Bump `VERSION` for each Store upload. |
 | `Aoide-<ver>-linux-x86_64.AppImage` | Official download |
 | `Aoide-<ver>-linux-x86_64.tar.gz` | Input for a Flathub recipe |
-| `Aoide-<ver>-linux-x86_64.flatpak` | Optional CI bundle (job may fail without blocking the rest) |
+| `Aoide-<ver>-linux-x86_64.flatpak` | Sideloadable bundle — a second Linux channel, not a fourth OS; the Flathub listing is a human submit from the tarball above. Required like the rest, and `flatpak-builder` pulls `org.kde.Platform` over the network, so this is the job most likely to fail for a reason that is nobody's bug. Re-run it; a flake costing a re-run is cheaper than a release quietly short one download. |
 | `Aoide-<ver>-macos-universal.dmg` | Official download in **1.1**. Every CI run now uploads one, notarized wherever the signing secrets reach — a fork's pull request cannot see them; one has been installed on a MacBook and played audio. The smoke proves the staged bundle starts offscreen — not that a listener can open the DMG past Gatekeeper. |
 
 Partner Center and Flathub submit stay **human**. Packaging scripts live under `packaging/`.
@@ -293,11 +296,11 @@ All five signing and notary secrets are **set** on the repository as of
 2026-08-28, from a Developer ID Application certificate on the G2 chain valid to
 2031 ([`premises.md`](premises.md) §7). A release run has now signed and notarized
 a DMG rather than skipping, and one of those images has been installed on a
-MacBook and played audio. The release job stays `continue-on-error` so a
-packaging failure cannot fail a Windows/Linux release, not because the lane is
-unrun. In CI the same packaging steps are `continue-on-error` so Apple's notary
-cannot block a merge. Read the log; a green tick on those steps is not proof
-the image is what a listener would get past Gatekeeper.
+MacBook and played audio. The release job is required, so a packaging or notary
+failure now costs the release rather than one download. In CI the same packaging
+steps fail the job, so a wrap that did not finish cannot land on `main`. Read
+the log; a green tick on those steps is not proof the image is what a listener
+would get past Gatekeeper.
 
 Skip any of these and the Mac job still uploads an unsigned DMG;
 `packaging/macos/notarize.sh` no-ops with a warning when the certificate pair

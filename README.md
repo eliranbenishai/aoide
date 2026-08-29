@@ -24,11 +24,12 @@ on every pull request and every push to `main`. Ubuntu and Windows share the
 packaging job would repeat the universal `x86_64;arm64` build, and a DMG
 produced in the same job as the tests cannot be uploaded for a commit whose
 tests failed. A compile, `ctest` or `--bench-chrome` failure on any host
-blocks a merge. Only the macOS packaging steps (stage, smoke, sign/notarize,
-upload) are `continue-on-error`, so Apple's notary cannot. The `main` ruleset
-requires `Qt (ubuntu-24.04)`, `Qt (windows-latest)`, `Qt (macos-latest)` and
-`CI passed`. CMake ≥ 3.16, C++17. Unset `CMAKE_BUILD_TYPE` defaults to
-`RelWithDebInfo`. `-G Ninja` is optional; CI does not pass it. CI depth:
+blocks a merge. The macOS packaging steps (stage, smoke, sign/notarize,
+upload) do too, so a wrap that did not finish cannot land on `main`. The
+`main` ruleset requires `Qt (ubuntu-24.04)`, `Qt (windows-latest)`,
+`Qt (macos-latest)` and `CI passed`. CMake ≥ 3.16, C++17. Unset
+`CMAKE_BUILD_TYPE` defaults to `RelWithDebInfo`. `-G Ninja` is optional; CI
+does not pass it. CI depth:
 [`docs/distribution.md`](docs/distribution.md).
 
 `./build.sh` is a Linux-only convenience: it is not CMake, and it hand-invokes
@@ -142,8 +143,8 @@ sign/notarize → upload-artifact `macos-dmg`. The smoke unsets
 `QT_PLUGIN_PATH`, `DYLD_FRAMEWORK_PATH` and `DYLD_LIBRARY_PATH` (which
 `install-qt-action` exports) and sets `QT_QPA_PLATFORM=offscreen`, then runs
 the staged app `--bench-chrome` and with `AOIDE_AUTO_QUIT=1`, proving the
-bundle carries its own Qt and libmpv. Sign/notarize and upload are gated on
-`steps.smoke.outcome == 'success'`.
+bundle carries its own Qt and libmpv. The smoke is blocking, so a failed
+start never reaches sign/notarize or upload.
 
 ### Windows
 

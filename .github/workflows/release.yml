@@ -75,6 +75,24 @@ jobs:
       - name: Qt pin
         shell: bash
         run: bash tool/export-qt-pin.sh >> "$GITHUB_ENV"
+      # Both numbers come from tool/version.sh, which is the only place the
+      # four-part Store identity is derived. This step existed as two lines of
+      # PowerShell that re-padded VERSION themselves, which meant the rule the
+      # Store rejects a package over lived in two languages at once: nothing
+      # failed when they disagreed, and the disagreement would have surfaced as
+      # a rejected submission rather than a red build.
+      - name: Version fields
+        shell: bash
+        run: |
+          eval "$(bash tool/version.sh)"
+          # eval hides the script's exit status: a version.sh that died would
+          # leave both names unset and this step green, and an empty version
+          # reaches the Store as a package named Aoide--windows-x64 rather than
+          # as a failure. Refuse to export a blank.
+          : "${version:?tool/version.sh printed no version}"
+          : "${msix:?tool/version.sh printed no msix}"
+          echo "AOIDE_APP_VERSION=$version" >> "$GITHUB_ENV"
+          echo "AOIDE_MSIX_VERSION=$msix" >> "$GITHUB_ENV"
       - uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
@@ -121,23 +139,22 @@ jobs:
         run: |
           choco install innosetup --no-progress -y
           powershell -ExecutionPolicy Bypass -File tool/fetch_vc_redist.ps1
-          $ver = (Get-Content VERSION -First 1).Trim()
           $iscc = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Inno Setup *","${env:ProgramFiles}\Inno Setup *" -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue |
             Select-Object -First 1
           if (-not $iscc) { throw 'ISCC.exe not found' }
-          & $iscc.FullName "/DMyAppVersion=$ver" packaging\windows\aoide.iss
+          & $iscc.FullName "/DMyAppVersion=${env:AOIDE_APP_VERSION}" packaging\windows\aoide.iss
       - name: MSIX (unsigned, Store re-signs)
         shell: pwsh
         env:
           MSIX_PUBLISHER: ${{ vars.MSIX_PUBLISHER }}
           MSIX_IDENTITY_NAME: ${{ vars.MSIX_IDENTITY_NAME }}
         run: |
-          $ver = (Get-Content VERSION -First 1).Trim()
-          $parts = $ver.Split('.'); while ($parts.Count -lt 3) { $parts += '0' }
-          $msix = "$($parts[0]).$($parts[1]).$($parts[2]).0"
           $pub = if ($env:MSIX_PUBLISHER) { $env:MSIX_PUBLISHER } else { $env:MSIX_PUBLISHER_DEFAULT }
           $id = if ($env:MSIX_IDENTITY_NAME) { $env:MSIX_IDENTITY_NAME } else { $env:MSIX_IDENTITY_DEFAULT }
-          & packaging\windows\make_msix.ps1 -Version $msix -Publisher $pub -IdentityName $id
+          # make_msix.ps1 re-checks the shape it was handed. That is a guard, not
+          # a second derivation: it fails the build on a version this workflow
+          # should never have produced.
+          & packaging\windows\make_msix.ps1 -Version $env:AOIDE_MSIX_VERSION -Publisher $pub -IdentityName $id
       - uses: actions/upload-artifact@v6
         with:
           name: windows
@@ -225,15 +242,16 @@ jobs:
   # This packaging lane (CMake bundle, stage_app.sh, notarize.sh, make_dmg.sh)
   # has run on a Mac: CI has built and notarized a DMG, and one has been
   # installed and played on a MacBook. That is one machine, and nothing here
-  # launches the *installed* app. continue-on-error so a failure here cannot
-  # fail a Windows/Linux release. github-release lists this job in needs so a
-  # produced DMG is flattened, but does not require
-  # needs.macos.result == success.
+  # launches the *installed* app.
+  #
+  # Required, like every other platform. This job was continue-on-error while
+  # the Mac lane was being proven, which bought a release that could publish
+  # without the download its own notes advertise — and say nothing. A macOS
+  # break now costs the release rather than one asset.
   macos:
     name: macOS universal DMG
     needs: test
     runs-on: macos-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v6
       - name: Qt pin
@@ -271,10 +289,10 @@ jobs:
       # ~/Library/Application Support — but the runner is thrown away.
       # notarize.sh then clears extended attributes with xattr -cr before
       # signing, so this run cannot spoil the signature. It is blocking, as it is
-      # on Windows and Linux: this job is already allowed to fail, so a bundle
-      # that will not start costs this release its DMG rather than shipping one
-      # nobody ran. The clock is there because a wedged start would otherwise
-      # hold the job for six hours.
+      # on Windows and Linux: a bundle that will not start costs this release,
+      # which is the point — shipping one nobody ran is the outcome worth failing
+      # over. The clock is there because a wedged start would otherwise hold the
+      # job for six hours.
       - name: Smoke-test the staged app
         timeout-minutes: 5
         run: |
@@ -316,11 +334,16 @@ jobs:
           if-no-files-found: error
           path: build/macos/Aoide-*-macos-universal.dmg
 
+  # Required, like every other channel on the download page. This was
+  # continue-on-error, which made a missing .flatpak indistinguishable from one
+  # nobody asked for. flatpak-builder pulls org.kde.Platform over the network,
+  # so this is the job most likely to fail for a reason that is nobody's bug;
+  # re-run it. A flake costing a re-run is cheaper than a release quietly short
+  # one download.
   flatpak:
     name: Linux Flatpak bundle
     needs: test
     runs-on: ubuntu-24.04
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v6
       - name: Qt pin
@@ -409,14 +432,19 @@ jobs:
     # been their first execution. Assembling is now unconditional and only the publish
     # step is tag-only.
     #
-    # flatpak and macos are in needs so the flatten glob can actually see a
-    # .flatpak / .dmg. Both jobs are continue-on-error, so waiting on them does
-    # not make them required — only windows and linux must succeed.
+    # Every packaging job must succeed. The results are named one by one rather
+    # than left to the default skip-on-failure, because that default is what a
+    # continue-on-error job silently opts out of: while macos and flatpak carried
+    # that flag, being listed in needs only made their artifacts visible to the
+    # flatten glob and let a failure through. Naming them here means a platform
+    # cannot become optional again by regaining a flag somewhere else in the file.
     needs: [windows, linux, flatpak, macos]
     if: >
       !cancelled() &&
       needs.windows.result == 'success' &&
-      needs.linux.result == 'success'
+      needs.linux.result == 'success' &&
+      needs.macos.result == 'success' &&
+      needs.flatpak.result == 'success'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v7
@@ -434,11 +462,13 @@ jobs:
         run: |
           set -euo pipefail
           # A release that is short one asset ships fewer platforms than the download
-          # page offers, and nothing upstream of here says so. The Flatpak and the
-          # macOS DMG are absent from this list on purpose: those jobs are allowed
-          # to fail.
+          # page offers, and nothing upstream of here says so. Every artifact the
+          # page advertises is listed: the job gate above already requires each
+          # platform to be green, and this catches the other way a download goes
+          # missing — a job that succeeds while producing nothing under the name
+          # the flatten glob looks for.
           missing=0
-          for pattern in '*.exe' '*.msix' '*.AppImage' '*.tar.gz'; do
+          for pattern in '*.exe' '*.msix' '*.AppImage' '*.tar.gz' '*.dmg' '*.flatpak'; do
             if ! ls upload/$pattern >/dev/null 2>&1; then
               echo "nothing matching $pattern in upload/" >&2
               missing=1
