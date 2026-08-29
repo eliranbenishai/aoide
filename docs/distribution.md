@@ -257,7 +257,7 @@ clone does not carry them.
 |---------|-------|-----|
 | Actions → Fork pull request workflows | Require approval for **all** external contributors | Otherwise a stranger's PR runs its own code on the runners as soon as they have one merged contribution |
 | Actions → Workflow permissions | Default `GITHUB_TOKEN` is **read** | Every workflow here declares its own `permissions:` block, so nothing relies on the write default |
-| Ruleset **main** | Active, admin bypass | Blocks deletion and force-push, and requires a PR whose `Qt (ubuntu-24.04)`, `Qt (windows-latest)` and `CI passed` checks are green. Squash only, matching `merge-if-green` |
+| Ruleset **main** | Active, admin bypass | Blocks deletion and force-push, and requires a PR whose `Qt (ubuntu-24.04)`, `Qt (windows-latest)`, `Qt (macos-latest)` and `CI passed` checks are green. Every supported platform is named, not only the two that came first, so a Mac-only break blocks the same way a Windows-only one does. Squash only, matching `merge-if-green` |
 
 The ruleset requires **zero** approving reviews on purpose: `merge-if-green.yml`
 merges as `GITHUB_TOKEN`, which cannot approve its own PR, so any non-zero count
