@@ -19,7 +19,7 @@ QVector<WindowId> allPanelIds() {
 
 }  // namespace
 
-LayoutSync::LayoutSync(DockLayout layout, int zoomPercent)
+LayoutSync::LayoutSync(DockLayout layout, qreal zoomPercent)
     : docking_(std::move(layout)), zoomPercent_(zoomPercent) {}
 
 QPointF LayoutSync::nativeToLogical(QPoint native) const {
@@ -76,26 +76,26 @@ QSizeF LayoutSync::clusterLogicalSize() const {
   return united.size();
 }
 
-bool LayoutSync::zoomStepAvailable(int percent) const {
-  if (percent != snapZoomPercent(percent)) return false;
-  if (percent <= zoomPercent_) return true;
+bool LayoutSync::zoomStepAvailable(qreal percent) const {
+  if (!zoomPercentsEqual(percent, snapZoomPercent(percent))) return false;
+  if (zoomPercentsEqual(percent, zoomPercent_) || percent < zoomPercent_) return true;
   const QRect work = surfaces_ ? surfaces_->workAreaFor(clusterNativeRect()) : QRect();
   return zoomStepFits(clusterLogicalSize(), work.size(), percent);
 }
 
-std::optional<int> LayoutSync::zoomStepUp() const {
-  const int up = nextZoomPercent(zoomPercent_);
-  if (up == zoomPercent_ || !zoomStepAvailable(up)) return std::nullopt;
+std::optional<qreal> LayoutSync::zoomStepUp() const {
+  const qreal up = nextZoomPercent(zoomPercent_);
+  if (zoomPercentsEqual(up, zoomPercent_) || !zoomStepAvailable(up)) return std::nullopt;
   return up;
 }
 
-std::optional<int> LayoutSync::zoomStepDown() const {
-  const int down = prevZoomPercent(zoomPercent_);
-  if (down == zoomPercent_) return std::nullopt;
+std::optional<qreal> LayoutSync::zoomStepDown() const {
+  const qreal down = prevZoomPercent(zoomPercent_);
+  if (zoomPercentsEqual(down, zoomPercent_)) return std::nullopt;
   return down;
 }
 
-bool LayoutSync::setZoomPercent(int percent) {
+bool LayoutSync::setZoomPercent(qreal percent) {
   if (!zoomStepAvailable(percent)) return false;
   zoomPercent_ = percent;
   return true;

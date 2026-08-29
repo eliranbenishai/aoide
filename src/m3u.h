@@ -15,6 +15,13 @@ namespace aoide {
 /// those titles into replacement characters and left their paths unresolvable.
 QString decodeM3uBytes(const QByteArray& bytes);
 
+/// Decoded playlist text with a NUL in it is not a playlist. A filename
+/// cannot contain NUL, and UTF-8 / Latin-1 playlist text has none; UTF-16
+/// with a BOM is already handled by decodeM3uBytes.
+inline bool isPlaylistText(const QString& contents) {
+  return !contents.contains(QChar::Null);
+}
+
 class M3uCodec {
  public:
   using Exists = std::function<bool(const QString&)>;

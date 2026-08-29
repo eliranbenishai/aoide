@@ -213,6 +213,8 @@ ChooserResult portalPick(const FilePick& pick) {
   if (pick.kind == FilePickKind::saveFile && !pick.suggestedName.isEmpty()) {
     options.insert(QStringLiteral("current_name"), pick.suggestedName);
   }
+  const QVariant filters = portalFiltersOption(pick.filter);
+  if (filters.isValid()) options.insert(QStringLiteral("filters"), filters);
 
   const QString method = req.method;
 

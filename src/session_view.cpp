@@ -85,7 +85,8 @@ bool paintsSame(WindowId id, const SessionView& a, const SessionView& b) {
 
   // The shell, the title bar and its buttons belong to all six, so a skin
   // change or a zoom step is the one thing that does re-rasterise everything.
-  if (zoomPercent != b.zoomPercent || goldenDemo != b.goldenDemo || !sameLook(look, b.look)) {
+  if (!zoomPercentsEqual(zoomPercent, b.zoomPercent) || goldenDemo != b.goldenDemo ||
+      !sameLook(look, b.look)) {
     return false;
   }
 

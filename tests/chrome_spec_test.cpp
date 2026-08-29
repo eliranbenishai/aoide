@@ -150,45 +150,59 @@ void ChromeSpecTest::extrasOmitBrandAndZoomAndUseCollapse() {
 }
 
 void ChromeSpecTest::zoomStepsMoveAcrossTheDiscreteLadder() {
-  // Five steps — 50, 75, 100, 125, 150 — with 75% the default.
-  QCOMPARE(aoide::kDefaultZoomPercent, 75);
-  QCOMPARE(aoide::nextZoomPercent(50), 75);
-  QCOMPARE(aoide::nextZoomPercent(75), 100);
-  QCOMPARE(aoide::nextZoomPercent(100), 125);
-  QCOMPARE(aoide::nextZoomPercent(125), 150);
-  QCOMPARE(aoide::prevZoomPercent(150), 125);
-  QCOMPARE(aoide::prevZoomPercent(125), 100);
-  QCOMPARE(aoide::prevZoomPercent(100), 75);
-  QCOMPARE(aoide::prevZoomPercent(75), 50);
+  // Six steps — 50, 62.5, 75, 100, 125, 150 — with 75% the default.
+  QCOMPARE(aoide::kDefaultZoomPercent, qreal(75));
+  QCOMPARE(aoide::kZoomSteps[1], qreal(62.5));
+  QCOMPARE(aoide::nextZoomPercent(50), qreal(62.5));
+  QCOMPARE(aoide::nextZoomPercent(62.5), qreal(75));
+  QCOMPARE(aoide::nextZoomPercent(75), qreal(100));
+  QCOMPARE(aoide::nextZoomPercent(100), qreal(125));
+  QCOMPARE(aoide::nextZoomPercent(125), qreal(150));
+  QCOMPARE(aoide::prevZoomPercent(150), qreal(125));
+  QCOMPARE(aoide::prevZoomPercent(125), qreal(100));
+  QCOMPARE(aoide::prevZoomPercent(100), qreal(75));
+  QCOMPARE(aoide::prevZoomPercent(75), qreal(62.5));
+  QCOMPARE(aoide::prevZoomPercent(62.5), qreal(50));
 
   // Both ends clamp. Stepping off either one must hold, not wrap round to the
   // far end and not run past the ladder onto a percent nothing else knows.
-  QCOMPARE(aoide::nextZoomPercent(150), 150);
-  QCOMPARE(aoide::prevZoomPercent(50), 50);
+  QCOMPARE(aoide::nextZoomPercent(150), qreal(150));
+  QCOMPARE(aoide::prevZoomPercent(50), qreal(50));
 
   QCOMPARE(aoide::zoomed(aoide::kMainPlayer, 75), QSize(619, 261));
+  QCOMPARE(aoide::zoomed(aoide::kMainPlayer, 62.5), QSize(516, 218));
+
+  QCOMPARE(aoide::zoomLabel(62.5), QStringLiteral("62.5"));
+  QCOMPARE(aoide::zoomLabel(75), QStringLiteral("75"));
+  QCOMPARE(aoide::zoomLabel(150), QStringLiteral("150"));
 }
 
 void ChromeSpecTest::retiredZoomStepsSnapToTheNearestSurvivor() {
   // A listener who ran the eight-step build may still have 200% saved. 50% is
   // a step again, so a file that still holds it is kept rather than snapped.
-  QCOMPARE(aoide::snapZoomPercent(50), 50);
-  QCOMPARE(aoide::snapZoomPercent(200), 150);
-  QCOMPARE(aoide::snapZoomPercent(250), 150);
-  QCOMPARE(aoide::snapZoomPercent(300), 150);
+  QCOMPARE(aoide::snapZoomPercent(50), qreal(50));
+  QCOMPARE(aoide::snapZoomPercent(62.5), qreal(62.5));
+  QCOMPARE(aoide::snapZoomPercent(200), qreal(150));
+  QCOMPARE(aoide::snapZoomPercent(250), qreal(150));
+  QCOMPARE(aoide::snapZoomPercent(300), qreal(150));
 
   // Surviving steps pass through untouched; nonsense still lands on a step.
-  for (int step : aoide::kZoomSteps) {
+  for (qreal step : aoide::kZoomSteps) {
     QCOMPARE(aoide::snapZoomPercent(step), step);
   }
-  QCOMPARE(aoide::snapZoomPercent(0), 50);
-  QCOMPARE(aoide::snapZoomPercent(-40), 50);
+  QCOMPARE(aoide::snapZoomPercent(0), qreal(50));
+  QCOMPARE(aoide::snapZoomPercent(-40), qreal(50));
 
-  // Nearest wins on either side of the gap between two steps.
-  QCOMPARE(aoide::snapZoomPercent(62), 50);
-  QCOMPARE(aoide::snapZoomPercent(63), 75);
-  QCOMPARE(aoide::snapZoomPercent(87), 75);
-  QCOMPARE(aoide::snapZoomPercent(88), 100);
+  // Nearest wins on either side of the gap between two steps. A tie keeps the
+  // smaller one. 62 and 63 both sit on the 62.5 rung now.
+  QCOMPARE(aoide::snapZoomPercent(56.25), qreal(50));
+  QCOMPARE(aoide::snapZoomPercent(56.26), qreal(62.5));
+  QCOMPARE(aoide::snapZoomPercent(62), qreal(62.5));
+  QCOMPARE(aoide::snapZoomPercent(63), qreal(62.5));
+  QCOMPARE(aoide::snapZoomPercent(68.75), qreal(62.5));
+  QCOMPARE(aoide::snapZoomPercent(68.76), qreal(75));
+  QCOMPARE(aoide::snapZoomPercent(87.5), qreal(75));
+  QCOMPARE(aoide::snapZoomPercent(88), qreal(100));
 }
 
 void ChromeSpecTest::mainTitleShowsZoomReadoutBetweenZoomButtons() {

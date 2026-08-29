@@ -18,6 +18,7 @@
 #include <QElapsedTimer>
 #include <QFontMetricsF>
 #include <QImage>
+#include <QMetaType>
 #include <QPainter>
 #include <QPen>
 #include <QSignalSpy>
@@ -29,6 +30,8 @@
 #include <functional>
 #include <memory>
 #include <vector>
+
+Q_DECLARE_METATYPE(aoide::ChromeHit)
 
 class PaintCountHost : public HostWindow {
  public:
@@ -71,6 +74,10 @@ class HostWindowMoveTest : public QObject {
   void skinsErrorStaysOnTheSkinsStrip();
   void eqCurveWellIgnoresPreamp();
   void wordmarkKeepsBrandFaceWhenChromeFontChanges();
+  void collectionRowSingleClickIsDeferredUntilTheDoubleClickInterval();
+  void collectionRowDoubleClickRenamesAndNeverLoads();
+  void collectionRowCtrlClickSelectsImmediately();
+  void collectionRowPendingClickIsDeliveredBeforeANewPress();
 };
 
 void HostWindowMoveTest::parentedPanelMoveDoesNotEmitNativeMoved() {
@@ -115,7 +122,7 @@ namespace {
 /// `HostWindow::logicalFrom`: a click lands on whatever logical pixel the widget
 /// pixel divides down to. Going through this is the closest an automated test
 /// gets to clicking the chrome at a given zoom.
-QPoint logicalAtZoom(QSize logical, int zoomPercent, QPointF widgetPos) {
+QPoint logicalAtZoom(QSize logical, qreal zoomPercent, QPointF widgetPos) {
   const QSize widget = aoide::zoomed(logical, zoomPercent);
   const qreal sx = qreal(widget.width()) / qMax(1, logical.width());
   const qreal sy = qreal(widget.height()) / qMax(1, logical.height());
@@ -130,7 +137,7 @@ QPair<int, int> paintedPixels(qreal from, qreal to, qreal scale) {
 /// Pointer positions on the extremes and the middle of what the chrome paints
 /// for one control. The extremes are the whole question: a hit region that
 /// stops short of the paint fails there and nowhere else.
-QVector<QPointF> paintedSamples(QSize logical, const QRectF& painted, int zoomPercent) {
+QVector<QPointF> paintedSamples(QSize logical, const QRectF& painted, qreal zoomPercent) {
   const QSize widget = aoide::zoomed(logical, zoomPercent);
   const qreal sx = qreal(widget.width()) / qMax(1, logical.width());
   const qreal sy = qreal(widget.height()) / qMax(1, logical.height());
@@ -182,7 +189,7 @@ QMap<QPair<int, int>, ClaimedRegion> claimedRegions(aoide::WindowId id, QSize lo
 void assertPaintIsGrabbable(aoide::WindowId id, QSize logical, const aoide::SessionView& view,
                             const QRectF& painted, aoide::ChromeHit::Kind kind, int index,
                             const QString& what) {
-  for (int zoom : aoide::kZoomSteps) {
+  for (qreal zoom : aoide::kZoomSteps) {
     for (const QPointF& at : paintedSamples(logical, painted, zoom)) {
       const aoide::ChromeHit hit =
           aoide::hitTest(id, logical, logicalAtZoom(logical, zoom, at), view);
@@ -455,7 +462,7 @@ void HostWindowMoveTest::hitRegionsDoNotOverlap() {
                                 .arg(carried.top())));
       }
 
-      for (int zoom : aoide::kZoomSteps) {
+      for (qreal zoom : aoide::kZoomSteps) {
         for (const QPointF& at : paintedSamples(logical, it->bounds, zoom)) {
           const aoide::ChromeHit hit =
               aoide::hitTest(id, logical, logicalAtZoom(logical, zoom, at), view);
@@ -695,6 +702,36 @@ aoide::ChromeHit refreshHit(const aoide::SessionView& view) {
   }
   return {};
 }
+
+aoide::SessionView playlistViewWithCollection() {
+  aoide::SessionView view;
+  view.collection = {{QStringLiteral("Nights"), 12, true, false},
+                     {QStringLiteral("Drive"), 8, false, false}};
+  return view;
+}
+
+aoide::ChromeHit playlistHit(const aoide::SessionView& view, aoide::ChromeHit::Kind kind,
+                             int index = -1) {
+  const QSize logical = aoide::kPlaylistDefault;
+  for (int y = 0; y < logical.height(); ++y) {
+    for (int x = 0; x < logical.width(); ++x) {
+      const aoide::ChromeHit hit =
+          aoide::hitTest(aoide::WindowId::playlist, logical, QPoint(x, y), view);
+      if (hit.kind == kind && (index < 0 || hit.index == index)) return hit;
+    }
+  }
+  return {};
+}
+
+QPoint widgetPosFor(HostWindow& panel, const aoide::ChromeHit& hit) {
+  return panel.widgetRectFromLogical(hit.rect).center();
+}
+
+int collectionClickWaitMs() {
+  return QApplication::doubleClickInterval() + 250;
+}
+
+[[maybe_unused]] const int kChromeHitMetaType = qRegisterMetaType<aoide::ChromeHit>();
 
 struct FieldChange {
   const char* what;
@@ -1578,6 +1615,108 @@ void HostWindowMoveTest::wordmarkKeepsBrandFaceWhenChromeFontChanges() {
   QVERIFY2(builtin.copy(role) != skinned.copy(role),
            "a chrome-font override must still restyle the role title");
   QCOMPARE(builtin.copy(wordmark), skinned.copy(wordmark));
+}
+
+// A single click on a saved playlist used to load it at once, which made a
+// double-click load and then rename. The load now waits out the double-click
+// interval so the second click can cancel it.
+void HostWindowMoveTest::collectionRowSingleClickIsDeferredUntilTheDoubleClickInterval() {
+  const auto specs = aoide::windowSpecs();
+  HostShell shell;
+  HostWindow pl(specs[2], &shell);
+  shell.show();
+  pl.show();
+  QVERIFY(QTest::qWaitForWindowExposed(&pl));
+
+  const aoide::SessionView view = playlistViewWithCollection();
+  pl.setSessionView(view);
+  const aoide::ChromeHit row = playlistHit(view, aoide::ChromeHit::Kind::plCollectionRow, 1);
+  QCOMPARE(row.kind, aoide::ChromeHit::Kind::plCollectionRow);
+  QCOMPARE(row.index, 1);
+
+  QSignalSpy pressed(&pl, &HostWindow::chromePressed);
+  QTest::mouseClick(&pl, Qt::LeftButton, Qt::NoModifier, widgetPosFor(pl, row));
+  QCOMPARE(pressed.count(), 0);
+
+  QTest::qWait(collectionClickWaitMs());
+  QCOMPARE(pressed.count(), 1);
+  QCOMPARE(qvariant_cast<aoide::ChromeHit>(pressed.at(0).at(0)).kind,
+           aoide::ChromeHit::Kind::plCollectionRow);
+  QCOMPARE(qvariant_cast<aoide::ChromeHit>(pressed.at(0).at(0)).index, 1);
+}
+
+void HostWindowMoveTest::collectionRowDoubleClickRenamesAndNeverLoads() {
+  const auto specs = aoide::windowSpecs();
+  HostShell shell;
+  HostWindow pl(specs[2], &shell);
+  shell.show();
+  pl.show();
+  QVERIFY(QTest::qWaitForWindowExposed(&pl));
+
+  const aoide::SessionView view = playlistViewWithCollection();
+  pl.setSessionView(view);
+  const aoide::ChromeHit row = playlistHit(view, aoide::ChromeHit::Kind::plCollectionRow, 1);
+  QCOMPARE(row.kind, aoide::ChromeHit::Kind::plCollectionRow);
+
+  QSignalSpy pressed(&pl, &HostWindow::chromePressed);
+  QSignalSpy activated(&pl, &HostWindow::collectionRowActivated);
+  QTest::mouseDClick(&pl, Qt::LeftButton, Qt::NoModifier, widgetPosFor(pl, row));
+  QCOMPARE(activated.count(), 1);
+  QCOMPARE(activated.at(0).at(0).toInt(), 1);
+
+  QTest::qWait(collectionClickWaitMs());
+  QCOMPARE(pressed.count(), 0);
+  QCOMPARE(activated.count(), 1);
+}
+
+void HostWindowMoveTest::collectionRowCtrlClickSelectsImmediately() {
+  const auto specs = aoide::windowSpecs();
+  HostShell shell;
+  HostWindow pl(specs[2], &shell);
+  shell.show();
+  pl.show();
+  QVERIFY(QTest::qWaitForWindowExposed(&pl));
+
+  const aoide::SessionView view = playlistViewWithCollection();
+  pl.setSessionView(view);
+  const aoide::ChromeHit row = playlistHit(view, aoide::ChromeHit::Kind::plCollectionRow, 0);
+  QCOMPARE(row.kind, aoide::ChromeHit::Kind::plCollectionRow);
+
+  QSignalSpy pressed(&pl, &HostWindow::chromePressed);
+  QTest::mouseClick(&pl, Qt::LeftButton, Qt::ControlModifier, widgetPosFor(pl, row));
+  QCOMPARE(pressed.count(), 1);
+  QCOMPARE(qvariant_cast<aoide::ChromeHit>(pressed.at(0).at(0)).kind,
+           aoide::ChromeHit::Kind::plCollectionRow);
+  QCOMPARE(qvariant_cast<aoide::ChromeHit>(pressed.at(0).at(0)).index, 0);
+  QCOMPARE(qvariant_cast<Qt::KeyboardModifiers>(pressed.at(0).at(1)), Qt::ControlModifier);
+}
+
+void HostWindowMoveTest::collectionRowPendingClickIsDeliveredBeforeANewPress() {
+  const auto specs = aoide::windowSpecs();
+  HostShell shell;
+  HostWindow pl(specs[2], &shell);
+  shell.show();
+  pl.show();
+  QVERIFY(QTest::qWaitForWindowExposed(&pl));
+
+  const aoide::SessionView view = playlistViewWithCollection();
+  pl.setSessionView(view);
+  const aoide::ChromeHit row = playlistHit(view, aoide::ChromeHit::Kind::plCollectionRow, 0);
+  const aoide::ChromeHit other = playlistHit(view, aoide::ChromeHit::Kind::plAddCollection);
+  QCOMPARE(row.kind, aoide::ChromeHit::Kind::plCollectionRow);
+  QCOMPARE(other.kind, aoide::ChromeHit::Kind::plAddCollection);
+
+  QSignalSpy pressed(&pl, &HostWindow::chromePressed);
+  QTest::mousePress(&pl, Qt::LeftButton, Qt::NoModifier, widgetPosFor(pl, row));
+  QCOMPARE(pressed.count(), 0);
+
+  QTest::mousePress(&pl, Qt::LeftButton, Qt::NoModifier, widgetPosFor(pl, other));
+  QCOMPARE(pressed.count(), 2);
+  QCOMPARE(qvariant_cast<aoide::ChromeHit>(pressed.at(0).at(0)).kind,
+           aoide::ChromeHit::Kind::plCollectionRow);
+  QCOMPARE(qvariant_cast<aoide::ChromeHit>(pressed.at(0).at(0)).index, 0);
+  QCOMPARE(qvariant_cast<aoide::ChromeHit>(pressed.at(1).at(0)).kind,
+           aoide::ChromeHit::Kind::plAddCollection);
 }
 
 QTEST_MAIN(HostWindowMoveTest)

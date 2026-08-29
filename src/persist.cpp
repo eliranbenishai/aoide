@@ -260,7 +260,10 @@ CollectionTrackSets SupportStore::readTrackSets() const {
     QStringList paths;
     for (const QJsonValue& v : it.value().toArray()) {
       const QString path = v.toString();
-      if (path.isEmpty()) continue;
+      // No filesystem allows NUL in a name, so a cached path carrying one was
+      // never a track. A build before playlist ingest refused binary files
+      // could write thousands of them from a single mis-added audio file.
+      if (path.isEmpty() || path.contains(QChar::Null)) continue;
       paths.push_back(absoluteKey(path));
     }
     sets.byEntry.insert(absoluteKey(it.key()), paths);

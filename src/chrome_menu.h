@@ -145,7 +145,7 @@ inline int chromeMenuStep(const QVector<ChromeMenuItem>& items, int from, int di
 /// button in screen coordinates; `owner` is the panel the menu belongs to, and
 /// its top-level window becomes the popup's transient parent.
 int execChromeMenu(QWidget* owner, const QVector<ChromeMenuItem>& items,
-                   const QRect& anchorGlobal, PopupAnchor anchor, int zoomPercent,
+                   const QRect& anchorGlobal, PopupAnchor anchor, qreal zoomPercent,
                    const ChromeTokens& look);
 
 }  // namespace aoide

@@ -52,7 +52,7 @@ void drawCheck(QPainter& p, QPointF centre, const QColor& colour, qreal zoom) {
 
 class ChromeMenuWindow : public QWidget {
  public:
-  ChromeMenuWindow(QWidget* owner, const QVector<ChromeMenuItem>& items, int zoomPercent,
+  ChromeMenuWindow(QWidget* owner, const QVector<ChromeMenuItem>& items, qreal zoomPercent,
                    const ChromeTokens& look)
       // Qt::Popup is the only window type Qt can grab the pointer for on
       // Wayland ("This plugin supports grabbing the mouse only for popup
@@ -72,7 +72,7 @@ class ChromeMenuWindow : public QWidget {
       // compositor ends up hanging this off is the shell, which is what we want.
       : QWidget(owner, Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint),
         items_(items),
-        zoom_(qMax(1, zoomPercent) / 100.0),
+        zoom_(qMax(qreal(1), zoomPercent) / 100.0),
         metrics_(chromeMenuMetrics(zoom_)),
         look_(look) {
     setAttribute(Qt::WA_TranslucentBackground);
@@ -250,7 +250,7 @@ class ChromeMenuWindow : public QWidget {
 }  // namespace
 
 int execChromeMenu(QWidget* owner, const QVector<ChromeMenuItem>& items,
-                   const QRect& anchorGlobal, PopupAnchor anchor, int zoomPercent,
+                   const QRect& anchorGlobal, PopupAnchor anchor, qreal zoomPercent,
                    const ChromeTokens& look) {
   if (!owner || items.isEmpty()) return kChromeMenuNone;
   ChromeMenuWindow menu(owner, items, zoomPercent, look);

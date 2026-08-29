@@ -62,11 +62,12 @@ Recorded 2026-08-21 · Reopened 2026-08-29 · **Status:** accepted without evide
 
 **The bet.** 75% is the size that reads as right on a first run, even though every fidelity claim the project makes is made at 100%.
 
-**Known.** The ladder was cut on 2026-08-21 from eight steps to four — 75, 100, 125, 150 — and the default stayed 75%, which made the default the floor. On 2026-08-29 one macOS listener running the first Mac build reported that 75% reads too big on a MacBook. 50% was put back on the ladder on that report. The default is still 75%. That makes these facts true at once:
+**Known.** The ladder was cut on 2026-08-21 from eight steps to four — 75, 100, 125, 150 — and the default stayed 75%, which made the default the floor. On 2026-08-29 one macOS listener running the first Mac build reported that 75% reads too big on a MacBook. 50% was put back on the ladder on that report, and **62.5%** followed the same day, because the drop from 75% to 50% is a third of the size in one press and there was nothing between them. The default is still 75%. That makes these facts true at once:
 
-- The default is **no longer the floor**. `prevZoomPercent(75)` returns 50, so zoom-out is live on a first run.
+- The default is **no longer the floor**. `prevZoomPercent(75)` returns 62.5, so zoom-out is live on a first run, and the first step down is now a sixth rather than a third.
 - Fidelity is mockup-absolute at 100% ([`architecture.md`](architecture.md): Notes), so the size everyone actually ships and screenshots is the one size the fidelity gate does not describe.
-- 100% is the only step that lands the 825-wide main and equalizer canvas on whole logical pixels. The default gives 618.75, and 50%, 125% and 150% are fractional too; the heights are whole at every step. The one exact step is the one nobody starts on.
+- 100% is the only step that lands the 825-wide main and equalizer canvas on whole logical pixels. The default gives 618.75, and 50%, 62.5%, 125% and 150% are fractional too. 62.5% is also the first step whose **height** is fractional (217.5), so it is the first where the rounded widget is very slightly anisotropic — `qRound` gives 516×218, a horizontal scale of 0.6254 against a vertical 0.6264. The one exact step is the one nobody starts on.
+- 62.5% is the only rung whose readout is five characters. `main_player_window_zoom_fraction.png` in `--dump-chrome` is what watches it against the slot the title cluster reserves.
 
 Which direction listeners move the zoom, or whether they touch it at all, is still unknown. One report is not a trend.
 

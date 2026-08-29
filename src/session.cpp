@@ -425,14 +425,19 @@ void AoideSession::schedulePathVerify() {
 void AoideSession::refreshCurrentPlaylist() {
   const QString path = playlist_.sourcePath();
   if (path.isEmpty() || !QFileInfo::exists(path)) return;
+  QFile file(path);
+  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return;
+  const QString contents = decodeM3uBytes(file.readAll());
+  // An empty playlist file legitimately empties the list. A file that is not
+  // playlist text at all is no answer, so the list it would have replaced
+  // stands — and there is nothing to ask the listener about.
+  if (!isPlaylistText(contents)) return;
   if (!confirmReplaceAltered(QStringLiteral(
           "Refreshing this playlist replaces it with the file on disk. "
           "Missing tracks are removed."))) {
     return;
   }
-  QFile file(path);
-  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return;
-  const QVector<Track> parsed = M3uCodec().parse(decodeM3uBytes(file.readAll()), path);
+  const QVector<Track> parsed = M3uCodec().parse(contents, path);
   QVector<Track> tracks = dropMissingTrackFiles(parsed);
   const bool dropped = tracks.size() != parsed.size();
   collection_.hydrateDurations(tracks);
@@ -781,7 +786,7 @@ void AoideSession::refreshChrome() {
   emit chromeChanged();
 }
 
-void AoideSession::setZoomPercent(int percent) {
+void AoideSession::setZoomPercent(qreal percent) {
   // The zoom buttons walk the ladder, so an off-ladder value, or a step the
   // display cannot hold, only arrives from a caller that did not ask first.
   // Refusing it here is what makes a disabled step disabled, rather than
@@ -986,16 +991,23 @@ QString AoideSession::pickAudio(bool multiple) {
   FilePick pick;
   pick.parent = windowFor(WindowId::main);
   pick.title = multiple ? QStringLiteral("Add audio files") : QStringLiteral("Open audio");
-  pick.filter = QStringLiteral("Audio (*.mp3 *.m4a *.aac *.flac *.wav *.ogg *.opus)");
+  pick.filter = qtFileFilter(QStringLiteral("Audio"), audioExtensions());
   pick.kind = multiple ? FilePickKind::openFiles : FilePickKind::openFile;
-  if (multiple) return pickFiles(pick).join(QLatin1Char('\n'));
-  return pickFile(pick);
+  if (multiple) {
+    QStringList kept;
+    for (const QString& path : pickFiles(pick)) {
+      if (isAudioPath(path)) kept.push_back(path);
+    }
+    return kept.join(QLatin1Char('\n'));
+  }
+  const QString path = pickFile(pick);
+  return isAudioPath(path) ? path : QString();
 }
 
 QString AoideSession::pickPlaylist(bool save) {
   FilePick pick;
   pick.parent = windowFor(WindowId::main);
-  pick.filter = QStringLiteral("Playlists (*.m3u *.m3u8)");
+  pick.filter = qtFileFilter(QStringLiteral("Playlists"), playlistExtensions());
   if (save) {
     pick.title = QStringLiteral("Save playlist");
     pick.suggestedName = QStringLiteral("playlist.m3u");
@@ -1004,7 +1016,8 @@ QString AoideSession::pickPlaylist(bool save) {
   }
   pick.title = QStringLiteral("Open playlist");
   pick.kind = FilePickKind::openFile;
-  return pickFile(pick);
+  const QString path = pickFile(pick);
+  return isPlaylistPath(path) ? path : QString();
 }
 
 void AoideSession::loadCollectionRow(int index) {
@@ -1294,6 +1307,16 @@ void AoideSession::saveCurrentPlaylist() {
   refreshChrome();
 }
 
+void AoideSession::renameCollectionRow(int index) {
+  const auto entries = collection_.entries();
+  if (index < 0 || index >= entries.size()) return;
+  collection_.select(entries[index].path);
+  // Publish the selection before the modal: the row being renamed is the one
+  // the listener double-clicked, and the highlight is what says so.
+  refreshChrome();
+  presentPlRename();
+}
+
 void AoideSession::presentPlRename() {
   if (collection_.selectedPath().isEmpty()) return;
   QString current;
@@ -1305,7 +1328,9 @@ void AoideSession::presentPlRename() {
   }
   bool ok = false;
   const QString name = QInputDialog::getText(
-      dialogParent(WindowId::playlist), QStringLiteral("Rename playlist"), QStringLiteral("Name"),
+      dialogParent(WindowId::playlist), QStringLiteral("Rename playlist"),
+      QStringLiteral("New name for this playlist\n"
+                     "Aoide only renames its own entry — the file on disk keeps its name."),
       QLineEdit::Normal, current, &ok);
   if (!ok) return;
   collection_.rename(collection_.selectedPath(), name);

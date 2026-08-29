@@ -144,7 +144,11 @@ QVector<Track> PlaylistCollection::add(const QString& path) {
   QVector<Track> tracks;
   QFile f(n);
   if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
-    tracks = M3uCodec().parse(decodeM3uBytes(f.readAll()), n);
+    const QString contents = decodeM3uBytes(f.readAll());
+    // A NUL means this is not a playlist (audio, or any binary). Parsing it
+    // as M3U is unbounded work and not a useful result.
+    if (!isPlaylistText(contents)) return {};
+    tracks = M3uCodec().parse(contents, n);
     hydrateDurations(tracks);
   }
   const int existing = indexOf(n);

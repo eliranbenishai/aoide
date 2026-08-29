@@ -24,7 +24,7 @@ QString chromeTooltip(TitleChromeLayout::Hit title, const ChromeHit& chrome,
 TooltipMotion tooltipMotion(const QString& previous, const QString& next, bool busy,
                             bool sameControl = true);
 
-void showChromeTooltip(QPoint globalAbove, const QString& text, int zoomPercent,
+void showChromeTooltip(QPoint globalAbove, const QString& text, qreal zoomPercent,
                        const ChromeTokens& look);
 void hideChromeTooltip();
 

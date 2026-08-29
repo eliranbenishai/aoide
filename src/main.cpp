@@ -84,6 +84,12 @@ int dumpChrome(const QString& dirPath) {
       zoomDisabled.zoomInEnabled = false;
       if (!shoot(spec, zoomDisabled, dumpName(spec.id) + QStringLiteral("_zoom_disabled")))
         return 1;
+      // 62.5 is the one rung whose readout is five characters wide, so it is
+      // the only one that can outgrow the slot the title cluster reserves.
+      aoide::SessionView zoomFraction = golden;
+      zoomFraction.zoomPercent = 62.5;
+      if (!shoot(spec, zoomFraction, dumpName(spec.id) + QStringLiteral("_zoom_fraction")))
+        return 1;
     }
     // Collapsing the collection is persisted, so a listener can spend every
     // session in it, and it lays the panel out differently. Dumping only the
@@ -423,11 +429,11 @@ int runDragBench(const DragBenchOptions& opts, aoide::AoideSession& session, Hos
   }
   const char* tag = opts.resize ? "resize" : "drag";
   std::fprintf(stdout,
-               "%s bench: platform=%s panel=%s visible=%s moves=%d zoom=%d%% host=%dx%d dpr=%.2f\n",
+               "%s bench: platform=%s panel=%s visible=%s moves=%d zoom=%s%% host=%dx%d dpr=%.2f\n",
                tag, qPrintable(QGuiApplication::platformName()),
                qPrintable(panelName(opts.panel)), qPrintable(shown.join(QLatin1Char('+'))),
-               opts.moves, session.zoomPercent(), shell.width(), shell.height(),
-               shell.devicePixelRatioF());
+               opts.moves, qPrintable(aoide::zoomLabel(session.zoomPercent())), shell.width(),
+               shell.height(), shell.devicePixelRatioF());
 
   // Title-bar drag zone is left of the button cluster, inside kTitleBar; the
   // playlist resize grip is the bottom-right 18 logical px.
@@ -571,9 +577,10 @@ int runInvalidateBench(int trackCount, int reps, aoide::AoideSession& session,
     if (w->isVisible()) shown << panelName(w->id());
   }
   std::fprintf(stdout,
-               "invalidate bench: platform=%s visible=%s tracks=%d reps=%d zoom=%d%%\n",
+               "invalidate bench: platform=%s visible=%s tracks=%d reps=%d zoom=%s%%\n",
                qPrintable(QGuiApplication::platformName()),
-               qPrintable(shown.join(QLatin1Char('+'))), trackCount, reps, session.zoomPercent());
+               qPrintable(shown.join(QLatin1Char('+'))), trackCount, reps,
+               qPrintable(aoide::zoomLabel(session.zoomPercent())));
 
   auto measure = [&](const char* name, const std::function<void(int)>& step) {
     pumpFor(300);  // an interaction must not be charged for the one before it
@@ -730,9 +737,9 @@ int main(int argc, char** argv) {
   // hold. Pushing the requested step here instead would scale every panel's
   // chrome while the layout stayed at the size it kept, which reads as the
   // panels having drifted out of their own frames.
-  auto applyZoom = [&](int requested) {
+  auto applyZoom = [&](qreal requested) {
     session.setZoomPercent(requested);
-    const int taken = session.zoomPercent();
+    const qreal taken = session.zoomPercent();
     for (HostWindow* window : windows) window->setZoomPercent(taken);
   };
 
@@ -750,7 +757,7 @@ int main(int argc, char** argv) {
   QObject::connect(&session, &aoide::AoideSession::mainChromeChanged, mainWindow, [&]() {
     mainWindow->applyLiveReadouts(session.mainLive());
   });
-  QObject::connect(&session, &aoide::AoideSession::zoomChanged, mainWindow, [&](int z) {
+  QObject::connect(&session, &aoide::AoideSession::zoomChanged, mainWindow, [&](qreal z) {
     for (HostWindow* window : windows) window->setZoomPercent(z);
   });
   QObject::connect(&session, &aoide::AoideSession::requestShow, mainWindow, [&](aoide::WindowId id) {
@@ -785,10 +792,10 @@ int main(int argc, char** argv) {
     // that will be refused would work too, but it makes the button's dead
     // presses look like a bug in the setter rather than the absence of a step.
     QObject::connect(window, &HostWindow::zoomOutRequested, mainWindow, [&]() {
-      if (const std::optional<int> step = session.zoomStepDown()) applyZoom(*step);
+      if (const std::optional<qreal> step = session.zoomStepDown()) applyZoom(*step);
     });
     QObject::connect(window, &HostWindow::zoomInRequested, mainWindow, [&]() {
-      if (const std::optional<int> step = session.zoomStepUp()) applyZoom(*step);
+      if (const std::optional<qreal> step = session.zoomStepUp()) applyZoom(*step);
     });
     QObject::connect(window, &HostWindow::chromePressed, mainWindow,
                      [&, window](aoide::ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical) {
@@ -826,6 +833,8 @@ int main(int argc, char** argv) {
                      [&, window](bool shaded) { session.setShaded(window->id(), shaded); });
     QObject::connect(window, &HostWindow::trackActivated, mainWindow,
                      [&](int index) { session.playTrackAt(index); });
+    QObject::connect(window, &HostWindow::collectionRowActivated, mainWindow,
+                     [&](int index) { session.renameCollectionRow(index); });
   }
 
   QObject::connect(mainWindow, &HostWindow::aboutToQuit, mainWindow, [&]() { session.persistNow(); });

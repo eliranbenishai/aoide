@@ -89,7 +89,7 @@ class LayoutSyncTest : public QObject {
 };
 
 void LayoutSyncTest::nativeAndLogicalAreInversesAcrossTheZoomLadder() {
-  for (int percent : {50, 75, 100, 125, 150}) {
+  for (qreal percent : aoide::kZoomSteps) {
     LayoutSync layout({}, percent);
     QCOMPARE(layout.zoomPercent(), percent);
     const QPoint native(400, 240);
@@ -376,7 +376,7 @@ void LayoutSyncTest::aZoomStepTheWorkAreaCannotHoldIsNotOffered() {
   QVERIFY(!layout.zoomStepAvailable(100));
   QVERIFY(!layout.zoomStepUp().has_value());
   QVERIFY(!layout.setZoomPercent(100));
-  QCOMPARE(layout.zoomPercent(), 75);
+  QCOMPARE(layout.zoomPercent(), qreal(75));
 }
 
 void LayoutSyncTest::closingAPanelBringsTheStepsItCrowdedOutBack() {
@@ -390,7 +390,7 @@ void LayoutSyncTest::closingAPanelBringsTheStepsItCrowdedOutBack() {
   // Availability is a question about what is open, not about the ladder, so a
   // step withdrawn while the playlist was up comes back when it is closed.
   QCOMPARE(layout.clusterLogicalSize(), QSizeF(825, 696));
-  QCOMPARE(layout.zoomStepUp().value_or(0), 100);
+  QCOMPARE(layout.zoomStepUp().value_or(0), qreal(100));
   QVERIFY(layout.zoomStepAvailable(150));
 }
 
@@ -418,9 +418,11 @@ void LayoutSyncTest::anUnknownWorkAreaWithdrawsNoStep() {
 
   // No work area is not a display of no size: it is a question nobody could
   // answer, and a step is only withdrawn on evidence.
-  for (int step : {100, 125, 150}) QVERIFY(layout.zoomStepAvailable(step));
+  for (qreal step : {qreal(100), qreal(125), qreal(150)}) {
+    QVERIFY(layout.zoomStepAvailable(step));
+  }
   QVERIFY(layout.setZoomPercent(150));
-  QCOMPARE(layout.zoomPercent(), 150);
+  QCOMPARE(layout.zoomPercent(), qreal(150));
 }
 
 void LayoutSyncTest::theLadderRefusesAStepItDoesNotCarry() {
@@ -430,7 +432,7 @@ void LayoutSyncTest::theLadderRefusesAStepItDoesNotCarry() {
   // chrome has no readout for.
   QVERIFY(!layout.setZoomPercent(137));
   QVERIFY(layout.setZoomPercent(50));
-  QCOMPARE(layout.zoomPercent(), 50);
+  QCOMPARE(layout.zoomPercent(), qreal(50));
   QVERIFY(layout.setZoomPercent(125));
 }
 
@@ -445,13 +447,15 @@ void LayoutSyncTest::zoomingBackOutOfAStepTheDisplayOutgrewIsAlwaysOffered() {
   // area. Withdrawing the way out would strand the listener at it, so a step at
   // or below the one in force is always carried.
   QVERIFY(!aoide::zoomStepFits(layout.clusterLogicalSize(), kWorkArea1080p.size(), 150));
-  QCOMPARE(layout.zoomStepDown().value_or(0), 125);
+  QCOMPARE(layout.zoomStepDown().value_or(0), qreal(125));
   QVERIFY(layout.setZoomPercent(125));
-  QCOMPARE(layout.zoomStepDown().value_or(0), 100);
+  QCOMPARE(layout.zoomStepDown().value_or(0), qreal(100));
   QVERIFY(layout.setZoomPercent(100));
-  QCOMPARE(layout.zoomStepDown().value_or(0), 75);
+  QCOMPARE(layout.zoomStepDown().value_or(0), qreal(75));
   QVERIFY(layout.setZoomPercent(75));
-  QCOMPARE(layout.zoomStepDown().value_or(0), 50);
+  QCOMPARE(layout.zoomStepDown().value_or(0), qreal(62.5));
+  QVERIFY(layout.setZoomPercent(62.5));
+  QCOMPARE(layout.zoomStepDown().value_or(0), qreal(50));
 
   LayoutSync floor(defaultCluster(), 50);
   floor.setSurfaces(&desktop);
@@ -510,7 +514,7 @@ void LayoutSyncTest::aRefusedZoomStepLeavesTheDockedClusterExactlyWhereItWas() {
   // undocks, which is the whole point of withdrawing the step instead.
   QVERIFY(!layout.setZoomPercent(125));
   layout.place();
-  QCOMPARE(layout.zoomPercent(), 75);
+  QCOMPARE(layout.zoomPercent(), qreal(75));
   QCOMPARE(layout.layout().playlist.left, 825.0);
   QCOMPARE(layout.layout().dockEdges.size(), 2);
 }
@@ -532,8 +536,8 @@ void LayoutSyncTest::thePanelsAreScaledToTheStepTheLayoutTookAndNotTheOneItWasOf
   // refusal that leaves the frames at 75% while the chrome is scaled to 125%
   // paints every panel's contents outside the panel.
   layout.setZoomPercent(125);
-  const int scaledTo = layout.zoomPercent();
-  QCOMPARE(scaledTo, 75);
+  const qreal scaledTo = layout.zoomPercent();
+  QCOMPARE(scaledTo, qreal(75));
 
   const LayoutSync asPainted(layout.layout(), scaledTo);
   QCOMPARE(asPainted.nativeFrameRect(WindowId::main), mainFrame);

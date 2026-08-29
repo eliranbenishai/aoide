@@ -1,5 +1,6 @@
 #pragma once
 
+#include "aoide_metrics.h"
 #include "equalizer.h"
 #include "look.h"
 #include "track.h"
@@ -69,7 +70,7 @@ struct SessionView {
   bool paused = false;
   bool shuffle = false;
   RepeatMode repeat = RepeatMode::off;
-  int zoomPercent = 75;
+  qreal zoomPercent = kDefaultZoomPercent;
   /// Whether each zoom button has a step left to take. A step runs out at the
   /// end of the ladder, and zooming in also runs out when the next step would
   /// make the visible cluster taller or wider than the work area it sits on —

@@ -421,6 +421,7 @@ bool PlaylistController::openPlaylistFile(const QString& path, const M3uCodec& c
     return false;
   }
   const QString contents = decodeM3uBytes(file.readAll());
+  if (!isPlaylistText(contents)) return false;
   setTracks(codec.parse(contents, path), path);
   return true;
 }

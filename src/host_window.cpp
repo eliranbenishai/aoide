@@ -9,6 +9,7 @@
 #include "aoide_metrics.h"
 #include "wait_cursor.h"
 
+#include <QApplication>
 #include <QCoreApplication>
 #include <QElapsedTimer>
 #include <QGuiApplication>
@@ -21,7 +22,7 @@
 
 namespace {
 
-QSize playlistMinNative(const aoide::SessionView& view, int zoomPercent) {
+QSize playlistMinNative(const aoide::SessionView& view, qreal zoomPercent) {
   const qreal totalW = aoide::playlistStripTotalWidth(
       aoide::textWidth(aoide::condensedFont(11, 0.2), QStringLiteral("TOTAL")),
       aoide::textWidth(aoide::monoFont(18), aoide::formatClock(view.playlistTotalMs)));
@@ -67,6 +68,8 @@ HostWindow::HostWindow(const aoide::WindowSpec& spec, QWidget* parent)
     if (tooltipCandidate_.isEmpty()) return;
     aoide::showChromeTooltip(tooltipGlobal_, tooltipCandidate_, zoomPercent_, view_.look);
   });
+  collectionClickTimer_.setSingleShot(true);
+  connect(&collectionClickTimer_, &QTimer::timeout, this, &HostWindow::onDeferredCollectionClick);
   applyNativeSize();
   if (parent && spec.id != aoide::WindowId::main) hide();
 }
@@ -94,8 +97,11 @@ void HostWindow::applyNativeSize() {
   update();
 }
 
-void HostWindow::setZoomPercent(int percent) {
-  if (zoomPercent_ == percent && view_.zoomPercent == percent) return;
+void HostWindow::setZoomPercent(qreal percent) {
+  if (aoide::zoomPercentsEqual(zoomPercent_, percent) &&
+      aoide::zoomPercentsEqual(view_.zoomPercent, percent)) {
+    return;
+  }
   zoomPercent_ = percent;
   view_.zoomPercent = percent;
   hideChromeTooltipNow();
@@ -537,8 +543,32 @@ void HostWindow::closeEvent(QCloseEvent* event) {
   emit extraHidden();
 }
 
+void HostWindow::deliverPendingCollectionClick() {
+  if (!pendingCollectionClick_) return;
+  pendingCollectionClick_ = false;
+  collectionClickTimer_.stop();
+  emit chromePressed(pendingCollectionHit_, pendingCollectionMods_, pendingCollectionLogical_);
+}
+
+void HostWindow::onDeferredCollectionClick() {
+  if (!pendingCollectionClick_) return;
+  const aoide::ChromeHit hit = pendingCollectionHit_;
+  deliverPendingCollectionClick();
+  // A click that already released must not leave draggingChrome_ set: the
+  // release already ran, and a later release would fire chromeReleased for a
+  // press the session never paired. Still holding means the usual press path
+  // should own the pointer so the matching release can clear it.
+  if (QGuiApplication::mouseButtons() & Qt::LeftButton) {
+    draggingChrome_ = true;
+    dragHit_ = hit;
+  }
+}
+
 void HostWindow::mousePressEvent(QMouseEvent* event) {
   if (event->button() != Qt::LeftButton) return;
+  // A second press must not overtake a collection click that is still waiting
+  // to see if it was the first half of a double-click.
+  deliverPendingCollectionClick();
   hideChromeTooltipNow();
   trackPointer(event->position(), true);
   const QPoint logical = logicalFrom(event->position());
@@ -583,6 +613,19 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
     return;
   }
   if (chrome.kind != aoide::ChromeHit::Kind::none && aoide::chromeHitEnabled(chrome, view_)) {
+    if (chrome.kind == aoide::ChromeHit::Kind::plCollectionRow &&
+        !(event->modifiers() & Qt::ControlModifier)) {
+      // Do not set draggingChrome_: a release before the timer would emit
+      // chromeReleased with no chromePressed, and collection rows take no
+      // press face to preserve.
+      pendingCollectionClick_ = true;
+      pendingCollectionHit_ = chrome;
+      pendingCollectionMods_ = event->modifiers();
+      pendingCollectionLogical_ = logical;
+      collectionClickTimer_.start(QApplication::doubleClickInterval());
+      event->accept();
+      return;
+    }
     draggingChrome_ = true;
     dragHit_ = chrome;
     emit chromePressed(chrome, event->modifiers(), logical);
@@ -652,6 +695,13 @@ void HostWindow::mouseDoubleClickEvent(QMouseEvent* event) {
   const auto chrome = aoide::hitTest(spec_.id, spec_.logicalSize, logical, view_);
   if (chrome.kind == aoide::ChromeHit::Kind::plTrackRow) {
     emit trackActivated(chrome.index);
+    event->accept();
+    return;
+  }
+  if (chrome.kind == aoide::ChromeHit::Kind::plCollectionRow) {
+    pendingCollectionClick_ = false;
+    collectionClickTimer_.stop();
+    emit collectionRowActivated(chrome.index);
     event->accept();
     return;
   }

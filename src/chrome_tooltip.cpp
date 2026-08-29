@@ -23,7 +23,7 @@ namespace {
 /// floor of a short screen both are out at once, and a whole cluster greyed for
 /// one unexplained reason is what reads as broken chrome.
 QString zoomFloorTip(const SessionView& view) {
-  return QStringLiteral("%1% is as small as Aoide goes").arg(view.zoomPercent);
+  return QStringLiteral("%1% is as small as Aoide goes").arg(zoomLabel(view.zoomPercent));
 }
 
 /// The step is named rather than called "the next one": the readout between the
@@ -31,11 +31,11 @@ QString zoomFloorTip(const SessionView& view) {
 /// reach from there. Closing a panel is the way back — but only while one is
 /// open to close, or the sentence sends them after something that is not there.
 QString zoomNoRoomTip(const SessionView& view) {
-  const int step = nextZoomPercent(view.zoomPercent);
+  const qreal step = nextZoomPercent(view.zoomPercent);
   if (!view.eqOn && !view.plOn) {
-    return QStringLiteral("No room for %1% on this display").arg(step);
+    return QStringLiteral("No room for %1% on this display").arg(zoomLabel(step));
   }
-  return QStringLiteral("No room for %1% — close a panel").arg(step);
+  return QStringLiteral("No room for %1% — close a panel").arg(zoomLabel(step));
 }
 
 QString titleTip(TitleChromeLayout::Hit title, const SessionView& view) {
@@ -192,9 +192,9 @@ class ChromeTooltipWindow : public QWidget {
     setFocusPolicy(Qt::NoFocus);
   }
 
-  void present(QPoint globalAbove, const QString& text, int zoomPercent, const ChromeTokens& look) {
+  void present(QPoint globalAbove, const QString& text, qreal zoomPercent, const ChromeTokens& look) {
     text_ = text;
-    zoom_ = qMax(1, zoomPercent) / 100.0;
+    zoom_ = qMax(qreal(1), zoomPercent) / 100.0;
     look_ = look;
     const QSize sz = tipSize();
     const int margin = int(std::lround(6 * zoom_));
@@ -267,7 +267,7 @@ TooltipMotion tooltipMotion(const QString& previous, const QString& next, bool b
   return TooltipMotion::keep;
 }
 
-void showChromeTooltip(QPoint globalAbove, const QString& text, int zoomPercent,
+void showChromeTooltip(QPoint globalAbove, const QString& text, qreal zoomPercent,
                        const ChromeTokens& look) {
   if (text.trimmed().isEmpty()) {
     hideChromeTooltip();

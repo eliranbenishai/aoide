@@ -61,6 +61,7 @@ M3uCodec::M3uCodec(Exists exists) : exists_(std::move(exists)) {
 
 QVector<Track> M3uCodec::parse(const QString& contents,
                                const QString& playlistFilePath) const {
+  if (!isPlaylistText(contents)) return {};
   const QString dir = QFileInfo(playlistFilePath).path();
   QVector<Track> tracks;
   std::optional<qint64> pendingDuration;
@@ -116,7 +117,10 @@ QString M3uCodec::resolve(const QString& line, const QString& dir) const {
     return direct;
   }
   const QStringList segs = segments(line);
-  for (int take = segs.size(); take >= 1; --take) {
+  // A line that is not a path can be tens of thousands of slashes; walking
+  // every tail is unbounded string work and stat calls.
+  const int maxTake = qMin(int(segs.size()), 32);
+  for (int take = maxTake; take >= 1; --take) {
     QString tail = segs.mid(segs.size() - take).join(QLatin1Char('/'));
     const QString candidate = posixNormalize(posixJoin(dir, tail));
     if (candidate != direct && exists_(candidate)) {

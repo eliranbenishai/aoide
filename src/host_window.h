@@ -34,7 +34,7 @@ class HostWindow : public QWidget {
   explicit HostWindow(const aoide::WindowSpec& spec, QWidget* parent = nullptr);
 
   aoide::WindowId id() const { return spec_.id; }
-  void setZoomPercent(int percent);
+  void setZoomPercent(qreal percent);
   void setShaded(bool shaded);
   void setSessionView(const aoide::SessionView& view);
   void applyLiveReadouts(const aoide::MainLiveReadouts& live);
@@ -80,6 +80,7 @@ class HostWindow : public QWidget {
   void mainMinimized(bool minimized);
   void mainActivated();
   void trackActivated(int index);
+  void collectionRowActivated(int index);
   void titleDragStarted();
   void titleDragFinished();
 
@@ -123,6 +124,12 @@ class HostWindow : public QWidget {
   void syncLatchedPhases(bool snap);
   void stepButtonAnimation();
   void startButtonAnimation();
+  /// Emit a collection-row press that was waiting to see if a double-click
+  /// would cancel it. Does not take the pointer: the caller owns that.
+  void deliverPendingCollectionClick();
+  /// Timer path: deliver the stored press, and take the pointer only while the
+  /// button is still down so a later release matches.
+  void onDeferredCollectionClick();
 
   aoide::WindowSpec spec_;
   aoide::TitleChromeLayout title_;
@@ -132,7 +139,7 @@ class HostWindow : public QWidget {
   bool chassisValid_ = false;
   bool chassisIsFullPaint_ = false;
   bool titleMarqueeLive_ = false;
-  int zoomPercent_ = aoide::kDefaultZoomPercent;
+  qreal zoomPercent_ = aoide::kDefaultZoomPercent;
   bool shaded_ = false;
   bool draggingChrome_ = false;
   bool draggingTitle_ = false;
@@ -150,6 +157,11 @@ class HostWindow : public QWidget {
   QPoint tooltipGlobal_;
   aoide::TitleChromeLayout::Hit tooltipTitle_ = aoide::TitleChromeLayout::Hit::none;
   aoide::ChromeHit tooltipChrome_;
+  QTimer collectionClickTimer_;
+  bool pendingCollectionClick_ = false;
+  aoide::ChromeHit pendingCollectionHit_;
+  Qt::KeyboardModifiers pendingCollectionMods_ = Qt::NoModifier;
+  QPoint pendingCollectionLogical_;
   PaintStats paintStats_;
   std::function<bool()> quitConfirmer_;
 };

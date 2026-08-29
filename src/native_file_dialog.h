@@ -6,6 +6,12 @@
 #include <QUrl>
 #include <QVector>
 #include <QWidget>
+#if defined(Q_OS_LINUX) && defined(AOIDE_HAVE_DBUS)
+#include <QDBusArgument>
+#include <QDBusMetaType>
+#include <QList>
+#include <QVariant>
+#endif
 
 namespace aoide {
 
@@ -72,6 +78,35 @@ inline QStringList fileUrisToLocalPaths(const QStringList& uris) {
   return paths;
 }
 
+/// Qt `QFileDialog` filter line from a display name and extensions without the
+/// dot. Formats stay in `files.cpp`; only the dialog syntax lives here.
+inline QString qtFileFilter(const QString& name, const QStringList& extensions) {
+  QStringList globs;
+  globs.reserve(extensions.size());
+  for (const QString& ext : extensions) {
+    globs.push_back(QStringLiteral("*.") + ext);
+  }
+  return name + QStringLiteral(" (") + globs.join(QLatin1Char(' ')) + QLatin1Char(')');
+}
+
+/// Portal FileChooser globs are case-sensitive. Real files are named
+/// `Track.MP3`, so each letter becomes a class; digits and punctuation stay.
+inline QString caseInsensitiveGlob(const QString& glob) {
+  QString out;
+  out.reserve(glob.size() * 4);
+  for (const QChar ch : glob) {
+    if (ch.isLetter()) {
+      out += QLatin1Char('[');
+      out += ch.toLower();
+      out += ch.toUpper();
+      out += QLatin1Char(']');
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+
 /// xdg-desktop-portal FileChooser has OpenFile / SaveFile / SaveFiles only.
 /// Folder pick is OpenFile with options.directory = true (portal version 3).
 struct PortalFileChooserRequest {
@@ -102,6 +137,82 @@ inline PortalFileChooserRequest portalFileChooserRequest(FilePickKind kind) {
   return req;
 }
 
+#if defined(Q_OS_LINUX) && defined(AOIDE_HAVE_DBUS)
+/// Portal FileChooser `filters` option: `a(sa(us))`. Type 0 is a glob.
+struct PortalFilterPattern {
+  uint type = 0;
+  QString pattern;
+};
+
+struct PortalFilterGroup {
+  QString name;
+  QList<PortalFilterPattern> patterns;
+};
+
+using PortalFilterList = QList<PortalFilterGroup>;
+
+inline QDBusArgument& operator<<(QDBusArgument& arg, const PortalFilterPattern& pattern) {
+  arg.beginStructure();
+  arg << pattern.type << pattern.pattern;
+  arg.endStructure();
+  return arg;
+}
+
+inline const QDBusArgument& operator>>(const QDBusArgument& arg, PortalFilterPattern& pattern) {
+  arg.beginStructure();
+  arg >> pattern.type >> pattern.pattern;
+  arg.endStructure();
+  return arg;
+}
+
+inline QDBusArgument& operator<<(QDBusArgument& arg, const PortalFilterGroup& group) {
+  arg.beginStructure();
+  arg << group.name << group.patterns;
+  arg.endStructure();
+  return arg;
+}
+
+inline const QDBusArgument& operator>>(const QDBusArgument& arg, PortalFilterGroup& group) {
+  arg.beginStructure();
+  arg >> group.name >> group.patterns;
+  arg.endStructure();
+  return arg;
+}
+
+inline void registerPortalFilterTypes() {
+  static const int registered = [] {
+    qDBusRegisterMetaType<PortalFilterPattern>();
+    qDBusRegisterMetaType<QList<PortalFilterPattern>>();
+    qDBusRegisterMetaType<PortalFilterGroup>();
+    qDBusRegisterMetaType<PortalFilterList>();
+    return 0;
+  }();
+  Q_UNUSED(registered);
+}
+
+/// Empty when `qtFilter` is empty. Otherwise the portal `filters` value.
+inline QVariant portalFiltersOption(const QString& qtFilter) {
+  if (qtFilter.isEmpty()) return {};
+  const QVector<FileFilterGroup> groups = parseQtFileFilter(qtFilter);
+  if (groups.isEmpty()) return {};
+  registerPortalFilterTypes();
+  PortalFilterList filters;
+  filters.reserve(groups.size());
+  for (const FileFilterGroup& group : groups) {
+    PortalFilterGroup out;
+    out.name = group.name;
+    for (const QString& glob : group.globs) {
+      PortalFilterPattern pattern;
+      pattern.type = 0;
+      pattern.pattern = caseInsensitiveGlob(glob);
+      out.patterns.push_back(pattern);
+    }
+    filters.push_back(out);
+  }
+  return QVariant::fromValue(filters);
+}
+#endif
+
 /// OS file chooser: xdg-desktop-portal on Linux (Dolphin/Nautilus), native
 /// QFileDialog on Windows/macOS. Falls back to kdialog, then the Qt widget dialog.
 QStringList pickFiles(const FilePick& pick);
@@ -112,3 +223,10 @@ inline QString pickFile(const FilePick& pick) {
 }
 
 }  // namespace aoide
+
+#if defined(Q_OS_LINUX) && defined(AOIDE_HAVE_DBUS)
+Q_DECLARE_METATYPE(aoide::PortalFilterPattern)
+Q_DECLARE_METATYPE(QList<aoide::PortalFilterPattern>)
+Q_DECLARE_METATYPE(aoide::PortalFilterGroup)
+Q_DECLARE_METATYPE(aoide::PortalFilterList)
+#endif

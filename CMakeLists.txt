@@ -482,9 +482,14 @@ qt_add_executable(domain_test
   src/persist.cpp
   src/settings.cpp
   src/document_portal.cpp
+  src/files.cpp
 )
 target_include_directories(domain_test PRIVATE src)
 target_link_libraries(domain_test PRIVATE aoide_window_spec Qt6::Widgets)
+if(TARGET Qt6::DBus)
+  target_link_libraries(domain_test PRIVATE Qt6::DBus)
+  target_compile_definitions(domain_test PRIVATE AOIDE_HAVE_DBUS)
+endif()
 if(AOIDE_HAVE_MPV)
   target_compile_definitions(domain_test PRIVATE AOIDE_HAVE_MPV)
   target_include_directories(domain_test PRIVATE "${AOIDE_MPV_ROOT}/include")

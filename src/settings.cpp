@@ -164,7 +164,9 @@ AoideSettings AoideSettings::fromJson(const QJsonObject& json) {
   // A listener who ran an earlier build has a retired step saved here. Dropping
   // it to the default threw their choice away; snap to the nearest step the
   // ladder still carries instead.
-  s.zoomPercent = snapZoomPercent(json.value(QStringLiteral("zoomPercent")).toInt(s.zoomPercent));
+  // toInt() refuses a non-integer JSON number and would drop 62.5 on the
+  // default. toDouble still reads a whole number from an older file.
+  s.zoomPercent = snapZoomPercent(json.value(QStringLiteral("zoomPercent")).toDouble(s.zoomPercent));
   if (json.value(QStringLiteral("alwaysOnTop")).isBool()) {
     s.alwaysOnTop = json.value(QStringLiteral("alwaysOnTop")).toBool();
   }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "aoide_metrics.h"
 #include "equalizer.h"
 #include "window_spec.h"
 
@@ -48,7 +49,7 @@ struct DockEdge {
 };
 
 struct AoideSettings {
-  int zoomPercent = 75;
+  qreal zoomPercent = kDefaultZoomPercent;
   bool alwaysOnTop = false;
   bool forceMono = false;
   WindowFrame main = WindowFrame::mainDefault();

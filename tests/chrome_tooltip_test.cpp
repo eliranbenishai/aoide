@@ -48,7 +48,14 @@ void ChromeTooltipTest::withdrawnZoomStepsNameWhy() {
            QStringLiteral("50% is as small as Aoide goes"));
 
   // A step that will not fit is where this display ends. Closing a panel is
-  // the way back — but only while one is open to close.
+  // the way back — but only while one is open to close. From 50% that step
+  // is 62.5, not 75.
+  view.zoomInEnabled = false;
+  view.eqOn = true;
+  view.plOn = false;
+  QCOMPARE(aoide::chromeTooltip(Hit::zoomIn, {}, view),
+           QStringLiteral("No room for 62.5% — close a panel"));
+
   view.zoomPercent = 75;
   view.zoomOutEnabled = true;
   view.zoomInEnabled = false;

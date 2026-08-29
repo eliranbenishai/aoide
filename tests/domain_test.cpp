@@ -4,6 +4,7 @@
 #include "collection.h"
 #include "document_portal.h"
 #include "duration_probe.h"
+#include "files.h"
 #include "native_file_dialog.h"
 #include "persist.h"
 #include "docking.h"
@@ -135,11 +136,43 @@ int main() {
         QByteArray("/tmp/.mount_cursorABC/usr/lib/qt5/plugins:/tmp/.mount_cursorABC/usr/lib64/qt5/"
                    "plugins")));
     REQUIRE(aoide::qtPluginPathNeedsSanitize(QByteArray("/usr/lib/qt4/plugins")));
-    const auto audio = aoide::parseQtFileFilter(
-        QStringLiteral("Audio (*.mp3 *.m4a *.aac *.flac *.wav *.ogg *.opus)"));
+    const QString audioFilter =
+        aoide::qtFileFilter(QStringLiteral("Audio"), aoide::audioExtensions());
+    const QString playlistFilter =
+        aoide::qtFileFilter(QStringLiteral("Playlists"), aoide::playlistExtensions());
+    REQUIRE_EQ(audioFilter,
+               QStringLiteral("Audio (*.mp3 *.m4a *.aac *.flac *.wav *.ogg *.opus)"));
+    REQUIRE_EQ(playlistFilter, QStringLiteral("Playlists (*.m3u *.m3u8)"));
+    const auto audio = aoide::parseQtFileFilter(audioFilter);
     REQUIRE(audio.size() == 1);
     REQUIRE_EQ(audio.front().name, QStringLiteral("Audio"));
+    REQUIRE_EQ(audio.front().globs.size(), aoide::audioExtensions().size());
     REQUIRE(audio.front().globs.contains(QStringLiteral("*.flac")));
+    const auto lists = aoide::parseQtFileFilter(playlistFilter);
+    REQUIRE(lists.size() == 1);
+    REQUIRE_EQ(lists.front().name, QStringLiteral("Playlists"));
+    REQUIRE(lists.front().globs.contains(QStringLiteral("*.m3u")));
+    REQUIRE(lists.front().globs.contains(QStringLiteral("*.m3u8")));
+    REQUIRE_EQ(aoide::caseInsensitiveGlob(QStringLiteral("*.mp3")),
+               QStringLiteral("*.[mM][pP]3"));
+    REQUIRE_EQ(aoide::caseInsensitiveGlob(QStringLiteral("*.m3u8")),
+               QStringLiteral("*.[mM]3[uU]8"));
+    REQUIRE_EQ(aoide::caseInsensitiveGlob(QStringLiteral("*.123")),
+               QStringLiteral("*.123"));
+#if defined(Q_OS_LINUX) && defined(AOIDE_HAVE_DBUS)
+    REQUIRE(!aoide::portalFiltersOption(QString()).isValid());
+    const QVariant filters = aoide::portalFiltersOption(audioFilter);
+    REQUIRE(filters.isValid());
+    REQUIRE_EQ(QByteArray(QDBusMetaType::typeToSignature(filters.metaType())),
+               QByteArray("a(sa(us))"));
+    const auto marshalled = qvariant_cast<aoide::PortalFilterList>(filters);
+    REQUIRE(marshalled.size() == 1);
+    REQUIRE_EQ(marshalled.front().name, QStringLiteral("Audio"));
+    REQUIRE_EQ(marshalled.front().patterns.size(), aoide::audioExtensions().size());
+    REQUIRE_EQ(marshalled.front().patterns.front().type, uint(0));
+    REQUIRE_EQ(marshalled.front().patterns.front().pattern, QStringLiteral("*.[mM][pP]3"));
+    REQUIRE_EQ(marshalled.front().patterns.back().pattern, QStringLiteral("*.[oO][pP][uU][sS]"));
+#endif
     REQUIRE_EQ(aoide::fileUrisToLocalPaths(QStringList{QStringLiteral("file:///home/music/a.mp3")})
                    .front(),
                QStringLiteral("/home/music/a.mp3"));
@@ -221,6 +254,24 @@ int main() {
     REQUIRE(tracks[0].artist == QStringLiteral("Wire Garden"));
     REQUIRE(tracks[0].durationMs == 221000);
     REQUIRE(tracks[1].path == QDir::cleanPath(QStringLiteral("music/lists/other.flac")));
+  }
+
+  {
+    // A line of tens of thousands of slashes used to spend tens of seconds in
+    // resolve joining every tail. The bound is 5 s so a regression is still
+    // a failure on a slow CI box; the capped walk is milliseconds.
+    QString line;
+    line.reserve(65000 * 2);
+    for (int i = 0; i < 65000; ++i) {
+      line += QLatin1Char('a');
+      line += QLatin1Char('/');
+    }
+    QElapsedTimer timer;
+    timer.start();
+    const auto tracks = M3uCodec([](const QString&) { return false; }).parse(
+        line, QStringLiteral("/tmp/heavy.m3u"));
+    REQUIRE(timer.elapsed() < 5000);
+    REQUIRE(tracks.size() == 1);
   }
 
   {
@@ -1292,18 +1343,27 @@ int main() {
     REQUIRE(tmp.isValid());
     aoide::SupportStore store(tmp.path());
     const QString path = QDir(tmp.path()).filePath(QStringLiteral("settings.json"));
-    const auto restoredZoom = [&](int saved) {
+    const auto restoredZoom = [&](const QByteArray& saved) {
       QFile file(path);
       REQUIRE(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
-      file.write(QByteArray("{\"zoomPercent\": ") + QByteArray::number(saved) +
-                 QByteArray("}"));
+      file.write(QByteArray("{\"zoomPercent\": ") + saved + QByteArray("}"));
       file.close();
       return store.readSettings().zoomPercent;
     };
-    REQUIRE_EQ(restoredZoom(200), 150);
-    REQUIRE_EQ(restoredZoom(300), 150);
-    REQUIRE_EQ(restoredZoom(50), 50);
-    REQUIRE_EQ(restoredZoom(125), 125);
+    REQUIRE_EQ(restoredZoom("200"), 150);
+    REQUIRE_EQ(restoredZoom("300"), 150);
+    REQUIRE_EQ(restoredZoom("50"), 50);
+    REQUIRE_EQ(restoredZoom("125"), 125);
+    REQUIRE_EQ(restoredZoom("75"), 75);
+    // A legacy integer that is no longer a rung snaps onto 62.5. A file that
+    // already holds 62.5 must survive toDouble — toInt() would have dropped it.
+    REQUIRE_EQ(restoredZoom("62"), 62.5);
+    REQUIRE_EQ(restoredZoom("62.5"), 62.5);
+
+    aoide::AoideSettings half;
+    half.zoomPercent = 62.5;
+    const aoide::AoideSettings back = aoide::AoideSettings::fromJson(half.toJson());
+    REQUIRE_EQ(back.zoomPercent, 62.5);
   }
 
   {
@@ -1712,6 +1772,28 @@ int main() {
     dock.setVisible(aoide::WindowId::equalizer, false);
     dock.ensureMainVisible();
     REQUIRE(!dock.layout().equalizer.visible);
+  }
+
+  {
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    const QString binary = tmp.filePath(QStringLiteral("not-a-list.m3u"));
+    QFile bad(binary);
+    REQUIRE(bad.open(QIODevice::WriteOnly));
+    const char raw[] = {'I', 'D', '3', '\x03', '\0', 'g', 'a', 'r', 'b', 'a', 'g', 'e', '\0', 'm'};
+    bad.write(raw, sizeof(raw));
+    bad.close();
+    aoide::PlaylistCollection refused;
+    const auto none = refused.add(binary);
+    REQUIRE(none.isEmpty());
+    REQUIRE(refused.entries().isEmpty());
+
+    const QString missing = tmp.filePath(QStringLiteral("gone.m3u"));
+    aoide::PlaylistCollection disabled;
+    disabled.setValidationIntervalMs(0);
+    REQUIRE(disabled.add(missing).isEmpty());
+    REQUIRE_EQ(disabled.entries().size(), 1);
+    REQUIRE(disabled.disabledPaths().contains(aoide::normalizePlaylistPath(missing)));
   }
 
   {
@@ -2510,7 +2592,7 @@ int main() {
     aoide::resetSettingsExceptSkins(settings);
     REQUIRE_EQ(settings.activeSkinId, QStringLiteral("gamma"));
     REQUIRE(settings.skinsDirectory.isEmpty());
-    REQUIRE_EQ(settings.zoomPercent, 75);
+    REQUIRE_EQ(settings.zoomPercent, aoide::kDefaultZoomPercent);
     REQUIRE(!settings.alwaysOnTop);
   }
 

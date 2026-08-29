@@ -58,12 +58,12 @@ class AoideSession : public QObject, public PanelSurfaces {
   void bootstrap(const QStringList& argvFiles);
   SessionView view() const;
   MainLiveReadouts mainLive() const;
-  int zoomPercent() const { return layout_.zoomPercent(); }
+  qreal zoomPercent() const { return layout_.zoomPercent(); }
   /// The step each zoom button would take, or nothing when it would take none.
   /// What decides whether the button paints enabled, and what a caller should
   /// ask before handing [setZoomPercent] anything.
-  std::optional<int> zoomStepUp() const { return layout_.zoomStepUp(); }
-  std::optional<int> zoomStepDown() const { return layout_.zoomStepDown(); }
+  std::optional<qreal> zoomStepUp() const { return layout_.zoomStepUp(); }
+  std::optional<qreal> zoomStepDown() const { return layout_.zoomStepDown(); }
   bool confirmQuit() const;
   bool windowShouldShow(WindowId id) const;
   void persistNow();
@@ -74,6 +74,7 @@ class AoideSession : public QObject, public PanelSurfaces {
   void mainMinimized(bool minimized);
   void mainActivated();
   void playTrackAt(int index);
+  void renameCollectionRow(int index);
   void togglePlayPause();
   void selectAllTracks();
   void removeSelectedTracks();
@@ -83,7 +84,7 @@ class AoideSession : public QObject, public PanelSurfaces {
   void handleDrag(WindowId id, ChromeHit hit, QPoint logical);
   void handleRelease(WindowId id);
   void handleWheel(WindowId id, int delta);
-  void setZoomPercent(int percent);
+  void setZoomPercent(qreal percent);
   void setWindowVisible(WindowId id, bool visible);
   void setShaded(WindowId id, bool shaded);
   void windowMoved(WindowId id, QPoint nativeTopLeft, bool finalize);
@@ -96,7 +97,7 @@ class AoideSession : public QObject, public PanelSurfaces {
  signals:
   void chromeChanged();
   void mainChromeChanged();
-  void zoomChanged(int percent);
+  void zoomChanged(qreal percent);
   void requestShow(WindowId id);
   void requestHide(WindowId id);
   void requestRaise(WindowId id);

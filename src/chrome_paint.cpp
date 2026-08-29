@@ -273,7 +273,7 @@ void drawTitleContents(QPainter& p, const TitleChromeLayout& title, const QImage
     // The readout is the zoom step, and stays the zoom step whatever the
     // buttons either side of it can do. What a withdrawn step costs is said on
     // the button it was withdrawn from, and on that button's hover label.
-    const QString label = QString::number(view.zoomPercent) + QLatin1Char('%');
+    const QString label = zoomLabel(view.zoomPercent) + QLatin1Char('%');
     p.setFont(condensedFont(11, 0.12));
     p.setPen(QColor(0, 0, 0, 179));
     p.drawText(title.zoomReadout.translated(0, 1), Qt::AlignCenter, label);

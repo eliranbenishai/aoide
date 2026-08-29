@@ -2,26 +2,36 @@
 
 #include <QSize>
 #include <QSizeF>
+#include <QString>
 #include <QtGlobal>
 
 namespace aoide {
 
-inline constexpr int kDefaultZoomPercent = 75;
-inline constexpr int kZoomSteps[] = {50, 75, 100, 125, 150};
+inline constexpr qreal kDefaultZoomPercent = 75;
+inline constexpr qreal kZoomSteps[] = {50, 62.5, 75, 100, 125, 150};
 
-inline int nextZoomPercent(int current) {
-  for (int step : kZoomSteps) {
-    if (step > current) {
+/// Ladder rungs are exact doubles, but a restored or computed percent can sit
+/// a ULP off the literal. A bit-match would drop a step the listener is on.
+/// A tenth of a percent is far inside every gap (the tightest is 12.5).
+inline constexpr qreal kZoomPercentEpsilon = 0.001;
+
+inline bool zoomPercentsEqual(qreal a, qreal b) {
+  return qAbs(a - b) < kZoomPercentEpsilon;
+}
+
+inline qreal nextZoomPercent(qreal current) {
+  for (qreal step : kZoomSteps) {
+    if (step > current && !zoomPercentsEqual(step, current)) {
       return step;
     }
   }
   return kZoomSteps[sizeof(kZoomSteps) / sizeof(kZoomSteps[0]) - 1];
 }
 
-inline int prevZoomPercent(int current) {
-  int found = kZoomSteps[0];
-  for (int step : kZoomSteps) {
-    if (step < current) {
+inline qreal prevZoomPercent(qreal current) {
+  qreal found = kZoomSteps[0];
+  for (qreal step : kZoomSteps) {
+    if (step < current && !zoomPercentsEqual(step, current)) {
       found = step;
     }
   }
@@ -31,15 +41,20 @@ inline int prevZoomPercent(int current) {
 /// A zoom percent restored from an older build may name a step the ladder no
 /// longer carries. Snap it onto the nearest surviving step; a tie keeps the
 /// smaller one, which is the step more likely to fit the display.
-inline int snapZoomPercent(int percent) {
-  int nearest = kZoomSteps[0];
-  for (int step : kZoomSteps) {
+inline qreal snapZoomPercent(qreal percent) {
+  qreal nearest = kZoomSteps[0];
+  for (qreal step : kZoomSteps) {
     if (qAbs(step - percent) < qAbs(nearest - percent)) {
       nearest = step;
     }
   }
   return nearest;
 }
+
+/// One spelling of a zoom step, so the title readout, the floor tip and the
+/// bench line cannot drift apart. QString::number's default 'g' keeps whole
+/// rungs whole ("75") and keeps 62.5 as "62.5".
+inline QString zoomLabel(qreal percent) { return QString::number(percent); }
 
 inline constexpr int kTitleBar = 42;
 inline constexpr int kShellRadius = 6;
@@ -84,7 +99,7 @@ inline constexpr int kPlaylistCollectionMinWidth = 180;
 inline constexpr int kPlaylistDividerWidth = 8;
 inline constexpr QSize kPlaylistMinWithCollection{751, 280};
 
-inline QSize zoomed(QSize logical, int zoomPercent) {
+inline QSize zoomed(QSize logical, qreal zoomPercent) {
   const qreal z = zoomPercent / 100.0;
   return QSize(qRound(logical.width() * z), qRound(logical.height() * z));
 }
@@ -93,7 +108,7 @@ inline QSize zoomed(QSize logical, int zoomPercent) {
 /// [workArea] once it is scaled to [percent]. An empty work area is not a
 /// display of no size, it is not knowing yet: a step is taken off the ladder on
 /// evidence, never on a missing answer.
-inline bool zoomStepFits(QSizeF logical, QSize workArea, int percent) {
+inline bool zoomStepFits(QSizeF logical, QSize workArea, qreal percent) {
   if (workArea.isEmpty() || logical.isEmpty()) return true;
   const QSize at = zoomed(QSize(qRound(logical.width()), qRound(logical.height())), percent);
   return at.width() <= workArea.width() && at.height() <= workArea.height();

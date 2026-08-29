@@ -55,7 +55,7 @@ class PanelSurfaces {
 /// makes the geometry checkable without a compositor.
 class LayoutSync {
  public:
-  explicit LayoutSync(DockLayout layout = {}, int zoomPercent = kDefaultZoomPercent);
+  explicit LayoutSync(DockLayout layout = {}, qreal zoomPercent = kDefaultZoomPercent);
 
   void setSurfaces(PanelSurfaces* surfaces) { surfaces_ = surfaces; }
 
@@ -63,22 +63,22 @@ class LayoutSync {
   const DockingCoordinator& docking() const { return docking_; }
   const DockLayout& layout() const { return docking_.layout(); }
 
-  int zoomPercent() const { return zoomPercent_; }
+  qreal zoomPercent() const { return zoomPercent_; }
   /// Take a zoom step, and say whether it was taken. Anything off the ladder,
   /// and any step the display cannot hold, is refused here rather than applied
   /// and then clamped into a stack.
-  bool setZoomPercent(int percent);
+  bool setZoomPercent(qreal percent);
 
   /// Whether the ladder still carries [percent] where the cluster is now. A step
   /// goes only on evidence that the cluster would not fit the work area at it.
   /// A step at or below the one in force cannot make the cluster bigger and is
   /// always carried, so a layout restored onto a smaller display can still be
   /// zoomed back out of.
-  bool zoomStepAvailable(int percent) const;
+  bool zoomStepAvailable(qreal percent) const;
   /// The step each zoom button would take, or nothing when it would take none —
   /// the ladder has run out, or the next one up does not fit.
-  std::optional<int> zoomStepUp() const;
-  std::optional<int> zoomStepDown() const;
+  std::optional<qreal> zoomStepUp() const;
+  std::optional<qreal> zoomStepDown() const;
 
   /// Where the cluster sits on the screen: the union of the rectangles the
   /// listener can see. Which display it is on, as far as anyone asking knows.
@@ -119,7 +119,7 @@ class LayoutSync {
   DockingCoordinator docking_;
   PanelSurfaces* surfaces_ = nullptr;
   QSet<WindowId> suppressed_;
-  int zoomPercent_ = kDefaultZoomPercent;
+  qreal zoomPercent_ = kDefaultZoomPercent;
   bool placing_ = false;
 };
 
