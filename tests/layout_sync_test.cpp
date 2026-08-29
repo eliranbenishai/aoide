@@ -80,6 +80,12 @@ class LayoutSyncTest : public QObject {
   void aShadedPanelKeepsTheCanvasItWillGoBackTo();
   void placeCorrectsTheFrameWhenTheDesktopOverrulesIt();
   void placingRepeatedlyDoesNotWalkTheFrame();
+  void theFirstLaunchStackClearsTheReservedTop();
+  void aMainDragCannotParkTheClusterUnderTheStrip();
+  void anUnknownWorkAreaLeavesTheClusterWhereTheHostPutIt();
+  void aWorkAreaFlushWithTheHostTopMovesNothing();
+  void theReservedTopIsTakenFromMainsOwnScreen();
+  void clampToHostPushesASiblingClearOfTheStrip();
 };
 
 void LayoutSyncTest::nativeAndLogicalAreInversesAcrossTheZoomLadder() {
@@ -616,6 +622,109 @@ void LayoutSyncTest::placingRepeatedlyDoesNotWalkTheFrame() {
   QCOMPARE(layout.layout().main.top, 67.0);
   QCOMPARE(*layout.layout().playlist.width, 1073.0);
   QCOMPARE(*layout.layout().playlist.height, 696.0);
+}
+
+void LayoutSyncTest::theFirstLaunchStackClearsTheReservedTop() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  desktop.setWorkArea(QRect(0, 25, 1920, 1055));
+  LayoutSync layout(defaultCluster(), 75);
+  layout.setSurfaces(&desktop);
+
+  const int eqOffset = layout.nativeFrameRect(WindowId::equalizer).top() -
+                       layout.nativeFrameRect(WindowId::main).top();
+  const int playlistOffset = layout.nativeFrameRect(WindowId::playlist).top() -
+                             layout.nativeFrameRect(WindowId::main).top();
+
+  layout.fitClusterToHost();
+
+  QCOMPARE(layout.nativeFrameRect(WindowId::main).top(), 25);
+  QCOMPARE(layout.nativeFrameRect(WindowId::equalizer).top() -
+               layout.nativeFrameRect(WindowId::main).top(),
+           eqOffset);
+  QCOMPARE(layout.nativeFrameRect(WindowId::playlist).top() -
+               layout.nativeFrameRect(WindowId::main).top(),
+           playlistOffset);
+}
+
+void LayoutSyncTest::aMainDragCannotParkTheClusterUnderTheStrip() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  desktop.setWorkArea(QRect(0, 25, 1920, 1055));
+  DockLayout dock;
+  dock.main = {true, false, 80, 40, {}, {}};
+  dock.equalizer = {true, false, 80, 388, {}, {}};
+  dock.playlist.visible = false;
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  layout.setNativeFrame(WindowId::main, QRect(80, 0, 825, 348));
+  layout.setNativeFrame(WindowId::equalizer, QRect(80, 348, 825, 348));
+  layout.fitClusterToHost();
+  QCOMPARE(layout.nativeFrameRect(WindowId::main).top(), 25);
+  QCOMPARE(layout.nativeFrameRect(WindowId::equalizer).top(), 373);
+
+  layout.setNativeFrame(WindowId::main, QRect(80, -10, 825, 348));
+  layout.setNativeFrame(WindowId::equalizer, QRect(80, 338, 825, 348));
+  layout.fitClusterToHost();
+  QCOMPARE(layout.nativeFrameRect(WindowId::main).top(), 25);
+  QCOMPARE(layout.nativeFrameRect(WindowId::equalizer).top(), 373);
+}
+
+void LayoutSyncTest::anUnknownWorkAreaLeavesTheClusterWhereTheHostPutIt() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  LayoutSync layout(defaultCluster(), 75);
+  layout.setSurfaces(&desktop);
+
+  layout.fitClusterToHost();
+
+  QCOMPARE(layout.nativeFrameRect(WindowId::main), QRect(0, 0, 619, 261));
+  QCOMPARE(layout.nativeFrameRect(WindowId::equalizer), QRect(0, 261, 619, 261));
+  QCOMPARE(layout.nativeFrameRect(WindowId::playlist), QRect(0, 522, 805, 522));
+}
+
+void LayoutSyncTest::aWorkAreaFlushWithTheHostTopMovesNothing() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  desktop.setWorkArea(QRect(0, 0, 1920, 1044));
+  LayoutSync layout(defaultCluster(), 75);
+  layout.setSurfaces(&desktop);
+
+  layout.fitClusterToHost();
+
+  QCOMPARE(layout.nativeFrameRect(WindowId::main).topLeft(), QPoint(0, 0));
+  QCOMPARE(layout.nativeFrameRect(WindowId::equalizer).topLeft(), QPoint(0, 261));
+  QCOMPARE(layout.nativeFrameRect(WindowId::playlist).topLeft(), QPoint(0, 522));
+}
+
+void LayoutSyncTest::theReservedTopIsTakenFromMainsOwnScreen() {
+  // Primary at (0, 0); a monitor stacked above it. Host top is negative. Main
+  // sits on the upper display, and the work area asked must be the one under
+  // main — the cluster union's centre can land on the primary and would pull
+  // the stack down onto that screen's strip.
+  FakeDesktop desktop(QRect(0, -1080, 1920, 2160));
+  desktop.setWorkArea(QRect(0, -1055, 1920, 1055));
+  DockLayout dock;
+  dock.main = {true, false, 40, -1080, {}, {}};
+  dock.equalizer = {true, false, 40, -732, {}, {}};
+  dock.playlist.visible = false;
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  layout.fitClusterToHost();
+
+  QCOMPARE(layout.nativeFrameRect(WindowId::main).top(), -1055);
+  QCOMPARE(layout.nativeFrameRect(WindowId::equalizer).top(), -707);
+  QCOMPARE(desktop.clusterAsked, QRect(40, -1080, 825, 348));
+}
+
+void LayoutSyncTest::clampToHostPushesASiblingClearOfTheStrip() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  desktop.setWorkArea(QRect(0, 25, 1920, 1055));
+  DockLayout dock;
+  dock.about = {true, false, 200, 0, {}, {}};
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  layout.clampToHost(WindowId::about);
+  QCOMPARE(layout.nativeFrameRect(WindowId::about), QRect(200, 25, 480, 360));
 }
 
 QTEST_APPLESS_MAIN(LayoutSyncTest)

@@ -23,6 +23,15 @@ QRect clampRectToHost(QRect panel, QRect host);
 /// Null if the union is larger than the host in either dimension.
 std::optional<QPoint> clusterDeltaToFit(const QVector<QRect>& panels, QRect host);
 
+/// Downward shift that clears [panel] of the strip a screen reserves at its top.
+/// One-directional and vertical only: the furniture that can bury a title bar is
+/// the menu bar / top bar / top taskbar. A title bar spans the panel, so a dock
+/// along the side still leaves something to grab, and furniture along the bottom
+/// cannot hide the handle. An unknown work area reserves nothing; a panel
+/// already at or below the work-area top is left alone — including when that
+/// top is negative, on a monitor above the primary.
+int reservedTopLift(QRect panel, QRect workArea);
+
 /// Child top-left in host-local pixels from actual host origin, not a requested bbox origin.
 QPoint panelLocalTopLeft(QPoint screenTopLeft, QPoint actualHostGlobal);
 

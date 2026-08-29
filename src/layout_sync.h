@@ -114,6 +114,7 @@ class LayoutSync {
 
  private:
   QRect hostRect() const;
+  int reservedTopLiftFor(QRect panelNative) const;
 
   DockingCoordinator docking_;
   PanelSurfaces* surfaces_ = nullptr;

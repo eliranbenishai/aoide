@@ -55,6 +55,11 @@ void LayoutSync::setNativeFrame(WindowId id, QRect native) {
 
 QRect LayoutSync::hostRect() const { return surfaces_ ? surfaces_->hostRect() : QRect(); }
 
+int LayoutSync::reservedTopLiftFor(QRect panelNative) const {
+  const QRect work = surfaces_ ? surfaces_->workAreaFor(panelNative) : QRect();
+  return reservedTopLift(panelNative, work);
+}
+
 QRect LayoutSync::clusterNativeRect() const {
   QRect united;
   for (WindowId id : visibleClusterMembers(docking_.layout())) {
@@ -100,6 +105,10 @@ void LayoutSync::clampToHost(WindowId id) {
   const QRect host = hostRect();
   if (host.isEmpty()) return;
   setNativeFrame(id, clampRectToHost(nativeFrameRect(id), host));
+  // A sibling parked under the same strip is stranded the same way main is:
+  // its title bar is the only handle, and the host clamp will not move it.
+  const int lift = reservedTopLiftFor(nativeFrameRect(id));
+  if (lift != 0) setNativeFrame(id, nativeFrameRect(id).translated(0, lift));
 }
 
 void LayoutSync::fitClusterToHost() {
@@ -111,16 +120,30 @@ void LayoutSync::fitClusterToHost() {
   for (WindowId id : ids) rects.push_back(nativeFrameRect(id));
   const auto delta = clusterDeltaToFit(rects, host);
   if (delta) {
-    if (delta->isNull()) return;
-    // Only visible panels decide how far the cluster has to move, but a hidden
-    // one still rides along: a main drag already carries it, and leaving it
-    // behind here would walk it out of the cluster one correction at a time.
-    for (WindowId id : allPanelIds()) {
-      setNativeFrame(id, nativeFrameRect(id).translated(*delta));
+    if (!delta->isNull()) {
+      // Only visible panels decide how far the cluster has to move, but a hidden
+      // one still rides along: a main drag already carries it, and leaving it
+      // behind here would walk it out of the cluster one correction at a time.
+      for (WindowId id : allPanelIds()) {
+        setNativeFrame(id, nativeFrameRect(id).translated(*delta));
+      }
     }
-    return;
+  } else {
+    // Host-only clamp: clampToHost also lifts, and doing that here would clear
+    // main before the cluster lift below, so hidden panels would not ride along.
+    for (WindowId id : ids) setNativeFrame(id, clampRectToHost(nativeFrameRect(id), host));
   }
-  for (WindowId id : ids) clampToHost(id);
+  // The host is the virtual desktop, so y=0 is on-screen even when a menu bar
+  // covers it. A title-bar drag is app-owned and clamped to that host, which is
+  // how a Mac listener parks the cluster under the strip and cannot pick it up
+  // again. The work area names the strip; lifting from main's own screen keeps
+  // a cluster that spans two monitors from being measured against the wrong one.
+  const int lift = reservedTopLiftFor(nativeFrameRect(WindowId::main));
+  if (lift != 0) {
+    for (WindowId id : allPanelIds()) {
+      setNativeFrame(id, nativeFrameRect(id).translated(0, lift));
+    }
+  }
 }
 
 void LayoutSync::setMainMinimized(bool minimized) {

@@ -16,6 +16,11 @@ private slots:
   void clusterDeltaNullWhenUnionExceedsHost();
   void panelNativeSizeUsesLogicalWhenWidgetHasNoSize();
   void panelLocalUsesActualHostOriginNotRequestedBBox();
+  void emptyWorkAreaReservesNoTopLift();
+  void aPanelAlreadyBelowTheStripDoesNotMove();
+  void aPanelUnderTheStripGetsExactlyTheShortfall();
+  void aPanelWhoseTopEqualsTheWorkAreaTopDoesNotMove();
+  void aWorkAreaWithANegativeTopLiftsByTheShortfall();
 };
 
 void HostShellTest::layoutUsesHostRectNotPanelUnion() {
@@ -83,6 +88,29 @@ void HostShellTest::panelLocalUsesActualHostOriginNotRequestedBBox() {
   const QPoint requestedOrigin(40, 40);
   QCOMPARE(aoide::panelLocalTopLeft(siblingScreen, actualHost), QPoint(100, 0));
   QVERIFY(aoide::panelLocalTopLeft(siblingScreen, requestedOrigin) != QPoint(100, 0));
+}
+
+void HostShellTest::emptyWorkAreaReservesNoTopLift() {
+  QCOMPARE(aoide::reservedTopLift(QRect(0, 0, 825, 348), QRect()), 0);
+}
+
+void HostShellTest::aPanelAlreadyBelowTheStripDoesNotMove() {
+  QCOMPARE(aoide::reservedTopLift(QRect(40, 80, 825, 348), QRect(0, 25, 1920, 1055)), 0);
+}
+
+void HostShellTest::aPanelUnderTheStripGetsExactlyTheShortfall() {
+  QCOMPARE(aoide::reservedTopLift(QRect(0, 0, 825, 348), QRect(0, 25, 1920, 1055)), 25);
+  QCOMPARE(aoide::reservedTopLift(QRect(100, -10, 480, 360), QRect(0, 25, 1920, 1055)), 35);
+}
+
+void HostShellTest::aPanelWhoseTopEqualsTheWorkAreaTopDoesNotMove() {
+  QCOMPARE(aoide::reservedTopLift(QRect(0, 25, 825, 348), QRect(0, 25, 1920, 1055)), 0);
+}
+
+void HostShellTest::aWorkAreaWithANegativeTopLiftsByTheShortfall() {
+  const QRect upperWork(0, -1055, 1920, 1055);
+  QCOMPARE(aoide::reservedTopLift(QRect(40, -1080, 825, 348), upperWork), 25);
+  QCOMPARE(aoide::reservedTopLift(QRect(40, -1000, 825, 348), upperWork), 0);
 }
 
 QTEST_APPLESS_MAIN(HostShellTest)

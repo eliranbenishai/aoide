@@ -36,6 +36,11 @@ std::optional<QPoint> clusterDeltaToFit(const QVector<QRect>& panels, QRect host
   return QPoint(x - u.x(), y - u.y());
 }
 
+int reservedTopLift(QRect panel, QRect workArea) {
+  if (workArea.isEmpty()) return 0;
+  return std::max(0, workArea.top() - panel.top());
+}
+
 QPoint panelLocalTopLeft(QPoint screenTopLeft, QPoint actualHostGlobal) {
   return screenTopLeft - actualHostGlobal;
 }
