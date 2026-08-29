@@ -222,10 +222,12 @@ jobs:
             build/linux/Aoide-*-linux-x86_64.AppImage
             build/linux/Aoide-*-linux-x86_64.tar.gz
 
-  # Unverified on real hardware: this packaging lane (CMake bundle, stage_app.sh,
-  # notarize.sh, make_dmg.sh) has never been executed on a Mac. continue-on-error
-  # so a failure here cannot fail a Windows/Linux release. github-release lists
-  # this job in needs so a produced DMG is flattened, but does not require
+  # This packaging lane (CMake bundle, stage_app.sh, notarize.sh, make_dmg.sh)
+  # has run on a Mac: CI has built and notarized a DMG, and one has been
+  # installed and played on a MacBook. That is one machine, and nothing here
+  # launches the *installed* app. continue-on-error so a failure here cannot
+  # fail a Windows/Linux release. github-release lists this job in needs so a
+  # produced DMG is flattened, but does not require
   # needs.macos.result == success.
   macos:
     name: macOS universal DMG
@@ -262,6 +264,29 @@ jobs:
         env:
           AOIDE_BUILD_DIR: ${{ github.workspace }}/build
         run: ./packaging/macos/stage_app.sh
+      # Run the staged bundle before it is signed. ctest above ran the build
+      # tree, which still resolves Qt and libmpv from the runner; only this
+      # run proves the stage carries its own. The support dir is not redirected
+      # here — XDG_DATA_HOME only binds on Linux; macOS uses
+      # ~/Library/Application Support — but the runner is thrown away.
+      # notarize.sh then clears extended attributes with xattr -cr before
+      # signing, so this run cannot spoil the signature. It is blocking, as it is
+      # on Windows and Linux: this job is already allowed to fail, so a bundle
+      # that will not start costs this release its DMG rather than shipping one
+      # nobody ran. The clock is there because a wedged start would otherwise
+      # hold the job for six hours.
+      - name: Smoke-test the staged app
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          # Take the runner's Qt out of the environment first. install-qt-action
+          # exports QT_PLUGIN_PATH, DYLD_FRAMEWORK_PATH and DYLD_LIBRARY_PATH,
+          # and with those set a stage missing its own Qt still starts — the
+          # check would pass for the wrong reason.
+          unset QT_PLUGIN_PATH DYLD_FRAMEWORK_PATH DYLD_LIBRARY_PATH
+          export QT_QPA_PLATFORM=offscreen
+          build/macos/stage/Aoide.app/Contents/MacOS/Aoide --bench-chrome
+          AOIDE_AUTO_QUIT=1 build/macos/stage/Aoide.app/Contents/MacOS/Aoide
       - name: Sign, notarize, wrap DMG
         env:
           AOIDE_MAC_APP: ${{ github.workspace }}/build/macos/stage/Aoide.app
@@ -430,5 +455,6 @@ jobs:
             Source: this tag. Product downloads: https://aoide.music
 
             Windows Store and Flathub listings are submitted separately from these bits.
-            macOS DMG is 1.1. The lane exists; it is unsigned until Developer ID
-            secrets are set, and it has never been executed on a Mac.
+            macOS DMG is 1.1. It is unsigned until Developer ID secrets are set.
+            CI builds and smoke-starts one on every run, and one has been
+            installed and played on a MacBook — a single machine, not a channel.
