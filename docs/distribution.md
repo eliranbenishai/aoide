@@ -219,11 +219,15 @@ kit under `.local/qt/<QT_VERSION>/macos` or points `CMAKE_PREFIX_PATH` at it.
 [`build.sh`](../build.sh) fetches the pin into `.local/qt/` if it is missing
 and refuses to link any other version. CMake does the same check.
 
-Cut a release by bumping [`VERSION`](../VERSION), committing, then:
+Cut a release by bumping [`VERSION`](../VERSION) and adding a newest
+`<release>` to the AppStream metainfo that carries the same number —
+[`check-metainfo.sh`](../tool/check-metainfo.sh) compares the two and fails
+every Linux CI run while they disagree, so a bump without the entry breaks
+`main` rather than the tag. Commit both, then:
 
 ```bash
-git tag v1.0
-git push origin v1.0
+git tag v1.1
+git push origin v1.1
 ```
 
 The tag name without `v` must equal the `VERSION` file.

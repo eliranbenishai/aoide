@@ -67,6 +67,12 @@
   <!-- Newest first: out-of-order entries fail validation. tool/version.sh and the
        release workflow check the top version against the VERSION file. -->
   <releases>
+    <release version="1.1" date="2026-08-29">
+      <description>
+        <p>macOS support: a notarized universal build for macOS 13 and later.</p>
+        <p>A 50% zoom step, for displays where 75% reads too large.</p>
+      </description>
+    </release>
     <release version="1.0" date="2026-08-25">
       <description>
         <p>First release.</p>
