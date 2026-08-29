@@ -104,11 +104,9 @@ strip (not the window buttons) to move a window. Closing **Aoide** (main) quits.
 ### macOS
 
 Required [PR CI](.github/workflows/ci.yml) job, not a third matrix leg (see
-above). `fetch_qt.sh` exits 1 here. The product channel is **1.1**: CI builds,
-tests and smoke-starts the bundle on every run and uploads a notarized DMG;
-one has been installed on a MacBook and played audio; that is one machine,
-and nothing automated launches the *installed* app. See
-[Known v1 limits](#known-v1-limits).
+above). `fetch_qt.sh` exits 1 here. The product channel is **1.1** — what that
+run does and does not prove is in [Known v1 limits](#known-v1-limits), which is
+the one place that says it.
 
 Needs Xcode 15+ / the macOS 13 SDK, CMake, `python3`, and `curl`. The Qt kit
 must be the official desktop `clang_64` build of 6.10.3 (universal for Qt 6.5+).
