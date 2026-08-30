@@ -54,8 +54,9 @@ fi
 bash "$ROOT/tool/release-notes.sh" >/dev/null
 
 if [[ "$CHECK_URLS" == 1 ]]; then
-  # Strip XML comments first. Screenshots stay commented out until they are
-  # hosted, and a text-only grep would happily go and check those.
+  # Strip XML comments first, so a commented-out <image> is not fetched. The
+  # live block is uncommented as of 1.2; an example URL parked in a comment
+  # would otherwise fail a release for not resolving.
   urls="$(perl -0pe 's/<!--.*?-->//gs' "$FILE" \
     | sed -n 's|.*<image[^>]*>\(https\{0,1\}://[^<]*\)</image>.*|\1|p')"
   if [[ -z "$urls" ]]; then
