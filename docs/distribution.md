@@ -9,7 +9,7 @@ How Aoide is built and handed to listeners. Product page: `https://aoide.music`.
 | [`.github/workflows/open-pr.yml`](../.github/workflows/open-pr.yml) | Push to a feature branch | Opens a PR against `main` if one is missing (`research/*`, `spike/*`, `wip/*` skipped) |
 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PR and `main` | CMake build + `ctest`, paint budget, stage and staged-bundle smoke on Ubuntu, Windows and macOS; no signing, DMG wrap or artifact; PR review comment with the result |
 | [`.github/workflows/merge-if-green.yml`](../.github/workflows/merge-if-green.yml) | CI completed | Squash-merges a same-repo, non-draft PR at that SHA when CI is green. Skips forks, drafts, and `do-not-merge` |
-| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Tag `v*` or **Run workflow** | Test, then Windows / Linux packages, a required macOS DMG job (smokes the staged app) and a required Flatpak job, then assemble the downloads; a tag also publishes them as a GitHub Release |
+| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Tag `v*` or **Run workflow** | A metadata pre-flight, then Windows / Linux packages, a required macOS DMG job (smokes the staged app) and a required Flatpak job, then assemble the downloads; a tag also publishes them as a GitHub Release |
 
 Merging happens **only** in `merge-if-green.yml`. It runs from the default branch
 on `workflow_run`, so the branch being judged cannot rewrite the gate that judges
@@ -81,7 +81,7 @@ it used to name `share/applications` and `share/icons` one by one, which is how
 
 Two gates hold it: `tool/check-metainfo.sh` runs `appstreamcli validate` and
 checks the newest `<release>` against `VERSION` (in `ci.yml` and in the release
-`test` job that fronts every packaging job), and the Flatpak smoke test asserts
+pre-flight that fronts every packaging job), and the Flatpak smoke test asserts
 that the *installed* app's name is `Aoide`. Validation is `--no-net`, so a moved
 screenshot host cannot fail a build over an input that is not in the repo.
 
@@ -105,7 +105,7 @@ Take `main_player_window.png`, `playlist_window.png` and
 `equalizer_window.png`, upload them under
 `https://aoide.music/screenshots/<version>/`, then uncomment the `<screenshots>`
 block in the metainfo file. `check-metainfo.sh --check-urls` — which the release
-`test` job runs — fetches every declared `<image>` and fails on anything that is
+pre-flight runs — fetches every declared `<image>` and fails on anything that is
 not a 200. While the block stays commented it reports that none are declared, so
 the guard is in place before it is needed rather than added after the first
 broken listing.

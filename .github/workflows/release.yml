@@ -18,30 +18,20 @@ env:
   # org.kde.Platform and as local ./tool/fetch_qt.sh.
 
 jobs:
-  test:
-    name: Test (Linux Qt)
+  # The three platforms test themselves inside their own jobs. This job
+  # exists to fail a release before any of them spends a build on a
+  # metainfo file that would install wrong or a tag that disagrees with
+  # VERSION.
+  preflight:
+    name: Release pre-flight
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
-      - name: Qt pin
-        run: bash tool/export-qt-pin.sh >> "$GITHUB_ENV"
-      - name: Build deps
+      - name: Metainfo tools
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build g++ pkg-config appstream \
-            libgl1-mesa-dev libx11-dev libmpv-dev \
-            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
-            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xkb1 \
-            libxkbcommon-x11-0 libwayland-client0 libwayland-cursor0 libwayland-egl1
-      - uses: jurplel/install-qt-action@v4
-        with:
-          version: ${{ env.QT_VERSION }}
-          arch: linux_gcc_64
-          cache: true
-          archives: qtbase qtwayland icu
-      # This job fronts every packaging job, so a metainfo file that would install
-      # under the app ID instead of the name fails before anything is built.
+            appstream curl
       # --check-urls only here, not in ci.yml: this is the path that publishes, and
       # a listing advertising a screenshot nobody can load is worse than one with
       # none. It runs on every dispatch rather than only on a tag, so it is not
@@ -58,17 +48,10 @@ jobs:
             echo "Tag $GITHUB_REF_NAME does not match VERSION $version" >&2
             exit 1
           fi
-      - name: Configure and test
-        run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --config Release
-          ctest --test-dir build -C Release --output-on-failure
-      - name: Paint budget
-        run: QT_QPA_PLATFORM=offscreen ./build/aoide --bench-chrome
 
   windows:
     name: Windows EXE + MSIX
-    needs: test
+    needs: preflight
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
@@ -168,7 +151,7 @@ jobs:
 
   linux:
     name: Linux AppImage + tarball
-    needs: test
+    needs: preflight
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -250,7 +233,7 @@ jobs:
   # break now costs the release rather than one asset.
   macos:
     name: macOS universal DMG
-    needs: test
+    needs: preflight
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v6
@@ -342,7 +325,7 @@ jobs:
   # one download.
   flatpak:
     name: Linux Flatpak bundle
-    needs: test
+    needs: preflight
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
