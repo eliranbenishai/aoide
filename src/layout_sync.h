@@ -106,6 +106,12 @@ class LayoutSync {
   /// the listener chose has to outlive the desktop it was placed on.
   void setNativeFrame(WindowId id, QRect native);
 
+  /// One-shot: if a freestanding panel sits on main, park it on a side of main
+  /// that fits in the host (and the work area, when known). Prefers the panel's
+  /// [parkSide]. Leaves it put when no side fits. Not called from [place] —
+  /// a listener who then parks it under main is allowed to keep it there.
+  void nudgeFreestandingClearOfMain(WindowId id);
+
   /// Pull [id] back onto the virtual desktop. Only the origin moves: a clamp
   /// is a placement, not a resize.
   void clampToHost(WindowId id);

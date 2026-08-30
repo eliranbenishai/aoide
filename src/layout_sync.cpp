@@ -283,6 +283,23 @@ bool LayoutSync::setZoomPercent(qreal percent) {
   return true;
 }
 
+void LayoutSync::nudgeFreestandingClearOfMain(WindowId id) {
+  if (id == WindowId::main) return;
+  const PanelSpec& spec = panelSpec(id);
+  if (spec.docks) return;
+  const QRect main = nativeFrameRect(WindowId::main);
+  const QRect screen = nativeFrameRect(id);
+  QRect bounds = hostRect();
+  if (surfaces_) {
+    const QRect work = surfaces_->workAreaFor(screen);
+    if (!work.isEmpty()) {
+      bounds = bounds.isEmpty() ? work : bounds.intersected(work);
+    }
+  }
+  const QRect cleared = clearKeep(screen, main, bounds, QSize(), false, spec.parkSide);
+  if (cleared.topLeft() != screen.topLeft()) setNativeFrame(id, cleared);
+}
+
 void LayoutSync::clampToHost(WindowId id) {
   const QRect host = hostRect();
   if (host.isEmpty()) return;

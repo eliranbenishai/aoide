@@ -94,6 +94,8 @@ class LayoutSyncTest : public QObject {
   void aFitShrinksThePlaylistTowardItsMinimumToClearMain();
   void aFitNeverAsksForAPlaylistSmallerThanTheMinimumInForce();
   void aHandDragMayLeaveASiblingOverMain();
+  void settingsAboutAndSkinsMoveClearOfMainWhenShownStacked();
+  void aLaterPlaceDoesNotClearAFreestandingPanelTheListenerParkedOnMain();
   void aMoveWithNoSurfacesDoesNotLatchTheNextPlace();
   void aReentrantPlaceLeavesTheLatchForTheOuterPass();
   void aWestResizeKeepsThePinnedEastEdgeThroughPlace();
@@ -362,6 +364,57 @@ void LayoutSyncTest::aFitNeverAsksForAPlaylistSmallerThanTheMinimumInForce() {
   const QRect playlist = desktop.placementOf(WindowId::playlist).screen;
   QVERIFY(playlist.width() >= min.width());
   QVERIFY(playlist.height() >= min.height());
+}
+
+void LayoutSyncTest::settingsAboutAndSkinsMoveClearOfMainWhenShownStacked() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  DockLayout dock;
+  dock.main = {true, false, 0, 0, {}, {}};
+  dock.settings = {true, false, 0, 0, {}, {}};
+  dock.about = {true, false, 10, 10, {}, {}};
+  dock.skins = {true, false, 20, 20, {}, {}};
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  for (WindowId id : {WindowId::settings, WindowId::about, WindowId::skins}) {
+    layout.nudgeFreestandingClearOfMain(id);
+  }
+  layout.place();
+
+  const QRect main = desktop.placementOf(WindowId::main).screen;
+  QCOMPARE(main, QRect(0, 0, 825, 348));
+  const QRect settings = desktop.placementOf(WindowId::settings).screen;
+  const QRect about = desktop.placementOf(WindowId::about).screen;
+  const QRect skins = desktop.placementOf(WindowId::skins).screen;
+  QVERIFY2(!settings.intersects(main),
+           "settings shown on main must be moved clear of the player");
+  QVERIFY2(!about.intersects(main), "about shown on main must be moved clear of the player");
+  QVERIFY2(!skins.intersects(main), "skins shown on main must be moved clear of the player");
+  QCOMPARE(settings, QRect(825, 0, 520, 420));
+  QCOMPARE(about, QRect(825, 10, 480, 360));
+  QCOMPARE(skins, QRect(825, 20, 600, 480));
+}
+
+void LayoutSyncTest::aLaterPlaceDoesNotClearAFreestandingPanelTheListenerParkedOnMain() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  DockLayout dock;
+  dock.main = {true, false, 0, 0, {}, {}};
+  dock.settings = {true, false, 0, 0, {}, {}};
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  layout.nudgeFreestandingClearOfMain(WindowId::settings);
+  layout.place();
+  QVERIFY(!desktop.placementOf(WindowId::settings).screen.intersects(
+      desktop.placementOf(WindowId::main).screen));
+
+  layout.docking().move(WindowId::settings, QPointF(0, 0), false, false);
+  layout.place();
+
+  QVERIFY2(desktop.placementOf(WindowId::settings).screen.intersects(
+               desktop.placementOf(WindowId::main).screen),
+           "a later place must not pull a hand-parked settings panel off main");
+  QCOMPARE(desktop.placementOf(WindowId::settings).screen.topLeft(), QPoint(0, 0));
 }
 
 void LayoutSyncTest::aHandDragMayLeaveASiblingOverMain() {

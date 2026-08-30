@@ -10,6 +10,7 @@
 #include "host_shell_window.h"
 #include "host_window.h"
 #include "look.h"
+#include "main_on_top.h"
 #include "m3u.h"
 #include "skin_preview.h"
 #include "native_file_dialog.h"
@@ -300,7 +301,16 @@ void AoideSession::startSpectrumDecode(const QString& path, int gen) {
   });
 }
 
-void AoideSession::setWindows(const PanelWindows& windows) { windows_ = windows; }
+void AoideSession::setWindows(const PanelWindows& windows) {
+  windows_ = windows;
+  HostWindow* main = windowFor(WindowId::main);
+  QWidget* host = shell_;
+  if (!host && main) host = main->parentWidget();
+  mainOnTop_.reset();
+  // Construction order puts later panels above main. The guard is the one
+  // place that restores that, including a panel added after this call.
+  if (host && main) mainOnTop_ = std::make_unique<MainOnTopGuard>(host, main);
+}
 
 void AoideSession::setShell(HostShell* shell) {
   if (shell_ == shell) return;
@@ -833,10 +843,11 @@ void AoideSession::setWindowVisible(WindowId id, bool visible) {
   layout_.docking().setVisible(id, visible);
   if (visible) {
     layout_.docking().nudgeOffMainIfStacked(id);
+    layout_.nudgeFreestandingClearOfMain(id);
     emit requestShow(id);
     layout_.clampToHost(id);
     layout_.place();
-    if (id == WindowId::settings || id == WindowId::skins) emit requestRaise(id);
+    if (id == WindowId::settings || id == WindowId::skins) raiseWindow(id);
     if (id == WindowId::settings) refreshAudioOutputs();
     if (id == WindowId::skins) {
       WaitCursorScope wait;
@@ -872,18 +883,30 @@ void AoideSession::mainMinimized(bool minimized) {
   layout_.setMainMinimized(minimized);
   if (!minimized) applyAlwaysOnTop();
   layout_.place();
-  if (!minimized) raiseSettingsIfShowing();
+  if (!minimized) {
+    // Restored siblings are shown, not restacked. Main has to take the
+    // overlap or a click on the player hits whichever panel was last shown.
+    if (HostWindow* main = windowFor(WindowId::main)) main->raise();
+  }
 }
 
-void AoideSession::mainActivated() { raiseSettingsIfShowing(); }
+void AoideSession::mainActivated() {
+  // Focus on the host is focus on the player. A sibling raise here would hide
+  // the panel that owns the others.
+  if (HostWindow* main = windowFor(WindowId::main)) main->raise();
+}
 
-/// Settings sits above the cluster: anything that brings main forward has to
-/// bring it along, or it disappears behind the player it configures.
-void AoideSession::raiseSettingsIfShowing() {
-  HostWindow* settings = windowFor(WindowId::settings);
-  if (settings && settings->isVisible()) settings->raise();
-  HostWindow* skins = windowFor(WindowId::skins);
-  if (skins && skins->isVisible()) skins->raise();
+void AoideSession::raiseWindow(WindowId id) {
+  // A raise of an already-visible freestanding panel has to move it clear
+  // before the widget stacks, or the click still hits a rectangle on the player.
+  const WindowFrame before = layout_.layout().frameOf(id);
+  layout_.nudgeFreestandingClearOfMain(id);
+  const WindowFrame& after = layout_.layout().frameOf(id);
+  if (after.left != before.left || after.top != before.top) {
+    layout_.clampToHost(id);
+    layout_.place();
+  }
+  emit requestRaise(id);
 }
 
 void AoideSession::playTrackAt(int index) {
@@ -1607,7 +1630,7 @@ void AoideSession::showOptionsMenu(QRect logicalHit) {
       setWindowVisible(WindowId::settings, !windowShouldShow(WindowId::settings));
       break;
     case OptionsMenuAction::about:
-      if (windowShouldShow(WindowId::about)) emit requestRaise(WindowId::about);
+      if (windowShouldShow(WindowId::about)) raiseWindow(WindowId::about);
       else setWindowVisible(WindowId::about, true);
       break;
     case OptionsMenuAction::openFiles: {

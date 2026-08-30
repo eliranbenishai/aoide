@@ -49,7 +49,8 @@ struct PanelSpec {
   /// About and Skins float free of all of that.
   bool docks = false;
   /// Which side of main the panel is pushed out to when it would otherwise
-  /// open stacked on top of it. Only read for a panel that [docks].
+  /// sit on top of it. Docked panels read this from the stacked-open nudge;
+  /// settings, about and skins read it when they are shown or raised.
   DockSide parkSide = DockSide::right;
   /// Which column of the first-run arrangement the panel is seeded into.
   int seedColumn = 0;

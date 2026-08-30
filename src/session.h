@@ -32,6 +32,8 @@ class HostShell;
 
 namespace aoide {
 
+class MainOnTopGuard;
+
 /// What a chosen options-cog row does. Dispatch reads this from the row that
 /// was built — a positional index would silently retarget if always-on-top
 /// and its rule are omitted on compositors that cannot honour keep-above.
@@ -172,7 +174,7 @@ class AoideSession : public QObject, public PanelSurfaces {
   void setIngesting(bool ingesting);
   HostWindow* windowFor(WindowId id) const;
   QWidget* dialogParent(WindowId id) const;
-  void raiseSettingsIfShowing();
+  void raiseWindow(WindowId id);
   QString pickAudio(bool multiple);
   QString pickPlaylist(bool save);
   void openPaths(const QStringList& paths, bool enqueue);
@@ -239,6 +241,7 @@ class AoideSession : public QObject, public PanelSurfaces {
   SkinController skins_;
   PanelWindows windows_;
   HostShell* shell_ = nullptr;
+  std::unique_ptr<MainOnTopGuard> mainOnTop_;
   int settingsTab_ = 0;
   int trackScroll_ = 0;
   ChromeHit::Kind sliderKind_ = ChromeHit::Kind::none;

@@ -721,8 +721,6 @@ int main(int argc, char** argv) {
     panels.set(spec.id, window);
   }
   HostWindow* mainWindow = panels[aoide::WindowId::main];
-  HostWindow* settingsWindow = panels[aoide::WindowId::settings];
-  HostWindow* skinsWindow = panels[aoide::WindowId::skins];
   session.setWindows(panels);
   hostShell.setPrimaryPanel(mainWindow);
   mainWindow->setQuitConfirmer([&]() {
@@ -764,12 +762,6 @@ int main(int argc, char** argv) {
     if (HostWindow* w = panels[id]) {
       w->show();
       w->raise();
-    }
-    if (id != aoide::WindowId::settings && settingsWindow->isVisible()) {
-      settingsWindow->raise();
-    }
-    if (id != aoide::WindowId::skins && skinsWindow->isVisible()) {
-      skinsWindow->raise();
     }
     refresh();
   });

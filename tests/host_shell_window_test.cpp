@@ -1,6 +1,7 @@
 #include "compositor_keep_above.h"
 #include "host_shell.h"
 #include "host_shell_window.h"
+#include "main_on_top.h"
 
 #include <QFileInfo>
 #include <QGuiApplication>
@@ -8,7 +9,21 @@
 #include <QImage>
 #include <QPixmap>
 #include <QTest>
+#include <QVector>
 #include <QWindow>
+
+namespace {
+
+QWidget* topmostOf(QWidget* host, const QVector<QWidget*>& panels) {
+  QWidget* top = nullptr;
+  for (QObject* obj : host->children()) {
+    auto* w = qobject_cast<QWidget*>(obj);
+    if (w && panels.contains(w)) top = w;
+  }
+  return top;
+}
+
+}  // namespace
 
 class HostShellWindowTest : public QObject {
   Q_OBJECT
@@ -30,6 +45,9 @@ class HostShellWindowTest : public QObject {
   void applyCompositorKeepAboveSetsFlagWhenNotWayland();
   void kwinKeepAboveScriptNamesTheHost();
   void kwinKeepAboveScriptLivesInASharedSubdirectory();
+  void mainStaysTopMostAfterEachSiblingIsShown();
+  void mainStaysTopMostAfterARequestRaise();
+  void mainStaysTopMostAfterActivationAndUnminimize();
 };
 
 void HostShellWindowTest::shellIsFramelessToplevelNotTool() {
@@ -275,6 +293,82 @@ void HostShellWindowTest::kwinKeepAboveScriptLivesInASharedSubdirectory() {
   QVERIFY2(QFileInfo(path).path() != QStringLiteral("/run/user/1000"),
            "a script in the runtime root is invisible to KWin under Flatpak");
   QVERIFY(aoide::kwinKeepAboveScriptPath(QString()).isEmpty());
+}
+
+void HostShellWindowTest::mainStaysTopMostAfterEachSiblingIsShown() {
+  HostShell shell;
+  QWidget main(&shell);
+  QWidget equalizer(&shell);
+  QWidget playlist(&shell);
+  QWidget settings(&shell);
+  QWidget about(&shell);
+  QWidget skins(&shell);
+  const QVector<QWidget*> panels = {&main, &equalizer, &playlist, &settings, &about, &skins};
+  const QVector<QWidget*> siblings = {&equalizer, &playlist, &settings, &about, &skins};
+  aoide::MainOnTopGuard guard(&shell, &main);
+
+  QVERIFY2(topmostOf(&shell, panels) == &main,
+           "main must be the top-most panel after the cluster is constructed");
+
+  for (QWidget* sibling : siblings) {
+    sibling->show();
+    sibling->raise();
+    QVERIFY2(topmostOf(&shell, panels) == &main,
+             "main must stay the top-most panel after a sibling is shown");
+  }
+
+  QWidget extra(&shell);
+  extra.raise();
+  QVERIFY2(topmostOf(&shell, QVector<QWidget*>{&main, &extra}) == &main,
+           "a later-added sibling must not stack above main");
+}
+
+void HostShellWindowTest::mainStaysTopMostAfterARequestRaise() {
+  HostShell shell;
+  QWidget main(&shell);
+  QWidget settings(&shell);
+  QWidget about(&shell);
+  QWidget skins(&shell);
+  const QVector<QWidget*> panels = {&main, &settings, &about, &skins};
+  aoide::MainOnTopGuard guard(&shell, &main);
+
+  for (QWidget* sibling : {&settings, &skins, &about}) {
+    sibling->raise();
+    QVERIFY2(topmostOf(&shell, panels) == &main,
+             "main must stay the top-most panel after a requestRaise");
+  }
+}
+
+void HostShellWindowTest::mainStaysTopMostAfterActivationAndUnminimize() {
+  HostShell shell;
+  QWidget main(&shell);
+  QWidget equalizer(&shell);
+  QWidget playlist(&shell);
+  QWidget settings(&shell);
+  QWidget about(&shell);
+  QWidget skins(&shell);
+  const QVector<QWidget*> panels = {&main, &equalizer, &playlist, &settings, &about, &skins};
+  const QVector<QWidget*> siblings = {&equalizer, &playlist, &settings, &about, &skins};
+  aoide::MainOnTopGuard guard(&shell, &main);
+
+  // Un-minimize restores suppressed siblings. Show+raise is what a restore that
+  // brought them forward would do; main still has to win the overlap.
+  for (QWidget* sibling : siblings) {
+    sibling->hide();
+  }
+  for (QWidget* sibling : siblings) {
+    sibling->show();
+    sibling->raise();
+  }
+  QVERIFY2(topmostOf(&shell, panels) == &main,
+           "main must stay the top-most panel after un-minimizing");
+
+  // Activation is the host coming forward. Raising settings and skins here is
+  // the move that would hide the player; the guard has to reject it.
+  settings.raise();
+  skins.raise();
+  QVERIFY2(topmostOf(&shell, panels) == &main,
+           "main must stay the top-most panel after mainActivated");
 }
 
 QTEST_MAIN(HostShellWindowTest)
