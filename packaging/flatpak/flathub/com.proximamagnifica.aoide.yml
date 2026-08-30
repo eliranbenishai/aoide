@@ -126,17 +126,23 @@ modules:
       - install -Dm644 LICENSE ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/LICENSE
       - install -Dm644 THIRD-PARTY-NOTICES.md
         ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/THIRD-PARTY-NOTICES.md
-    # Re-point this at the release being submitted before opening the PR. v1.2
-    # predates both the Qt 6.11 pin and the uncommented screenshots, so it is
-    # the one tag this manifest cannot build: CMake stops on the pin mismatch
-    # and the linter reports metainfo-missing-screenshots. Flathub wants tag and
-    # commit together, and the commit is the one the tag resolves to
-    # (git rev-list -n 1 <tag>), not the annotated tag object.
+    # A commit rather than a tag, which Flathub accepts because what it requires
+    # is an immutable source, and a bare sha is one. No tag can be used yet: the
+    # newest, v1.2, predates both the Qt 6.11 pin and the uncommented
+    # screenshots, so it is the one tree this manifest cannot build -- CMake
+    # stops on the pin mismatch and the linter reports
+    # metainfo-missing-screenshots. Tagging a 1.3 to fix that is not open
+    # either, because nothing since v1.2 changed src/ and check-metainfo.sh
+    # fails a release whose notes have no features in them.
+    #
+    # Re-point this at the tag when the next release with listener-visible
+    # changes lands. Flathub wants tag and commit together in that case, and the
+    # commit is the one the tag resolves to (git rev-list -n 1 <tag>), not the
+    # annotated tag object -- ls-remote prints the latter.
     sources:
       - type: git
         url: https://github.com/eliranbenishai/aoide.git
-        tag: v1.2
-        commit: 025ae1f7cb660cd3af78f636ede73a5866ca6632
+        commit: 6160de3e8c0e562af312fb008275fef3511130eb
         x-checker-data:
           type: git
           tag-pattern: ^v([\d.]+)$
