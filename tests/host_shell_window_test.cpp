@@ -42,6 +42,17 @@ class HostShellWindowTest : public QObject {
   void punchFollowsEveryPlacementWhileMapped();
   void alwaysOnTopSetsWindowStaysOnTopHint();
   void compositorKeepAboveAvailableIsFalseOnOffscreen();
+  void keepAboveIsHonouredOnWindows();
+  void keepAboveIsHonouredOnCocoa();
+  void keepAboveIsHonouredOnXcb();
+  void keepAboveIsHonouredOnWaylandWhenKwinIsReachable();
+  void keepAboveIsHonouredOnWaylandPrefixedWhenKwinIsReachable();
+  void keepAboveIsRefusedOnWaylandWhenKwinIsUnreachable();
+  void keepAboveIsRefusedOnWaylandPrefixedWhenKwinIsUnreachable();
+  void keepAboveIsRefusedOnOffscreen();
+  void keepAboveIsRefusedOnMinimal();
+  void keepAboveIsRefusedOnVnc();
+  void keepAboveIsRefusedOnUnrecognizedQpa();
   void applyCompositorKeepAboveSetsFlagWhenNotWayland();
   void kwinKeepAboveScriptNamesTheHost();
   void kwinKeepAboveScriptLivesInASharedSubdirectory();
@@ -253,6 +264,50 @@ void HostShellWindowTest::compositorKeepAboveAvailableIsFalseOnOffscreen() {
   QCOMPARE(QGuiApplication::platformName(), QStringLiteral("offscreen"));
   QVERIFY2(!aoide::compositorKeepAboveAvailable(),
            "offscreen cannot honour keep-above; do not treat the Qt flag as stacking");
+}
+
+void HostShellWindowTest::keepAboveIsHonouredOnWindows() {
+  QVERIFY(aoide::compositorKeepAboveAvailableOn(QStringLiteral("windows"), false));
+}
+
+void HostShellWindowTest::keepAboveIsHonouredOnCocoa() {
+  QVERIFY(aoide::compositorKeepAboveAvailableOn(QStringLiteral("cocoa"), false));
+}
+
+void HostShellWindowTest::keepAboveIsHonouredOnXcb() {
+  QVERIFY(aoide::compositorKeepAboveAvailableOn(QStringLiteral("xcb"), false));
+}
+
+void HostShellWindowTest::keepAboveIsHonouredOnWaylandWhenKwinIsReachable() {
+  QVERIFY(aoide::compositorKeepAboveAvailableOn(QStringLiteral("wayland"), true));
+}
+
+void HostShellWindowTest::keepAboveIsHonouredOnWaylandPrefixedWhenKwinIsReachable() {
+  QVERIFY(aoide::compositorKeepAboveAvailableOn(QStringLiteral("wayland-egl"), true));
+}
+
+void HostShellWindowTest::keepAboveIsRefusedOnWaylandWhenKwinIsUnreachable() {
+  QVERIFY(!aoide::compositorKeepAboveAvailableOn(QStringLiteral("wayland"), false));
+}
+
+void HostShellWindowTest::keepAboveIsRefusedOnWaylandPrefixedWhenKwinIsUnreachable() {
+  QVERIFY(!aoide::compositorKeepAboveAvailableOn(QStringLiteral("wayland-egl"), false));
+}
+
+void HostShellWindowTest::keepAboveIsRefusedOnOffscreen() {
+  QVERIFY(!aoide::compositorKeepAboveAvailableOn(QStringLiteral("offscreen"), true));
+}
+
+void HostShellWindowTest::keepAboveIsRefusedOnMinimal() {
+  QVERIFY(!aoide::compositorKeepAboveAvailableOn(QStringLiteral("minimal"), true));
+}
+
+void HostShellWindowTest::keepAboveIsRefusedOnVnc() {
+  QVERIFY(!aoide::compositorKeepAboveAvailableOn(QStringLiteral("vnc"), true));
+}
+
+void HostShellWindowTest::keepAboveIsRefusedOnUnrecognizedQpa() {
+  QVERIFY(!aoide::compositorKeepAboveAvailableOn(QStringLiteral("directfb"), true));
 }
 
 void HostShellWindowTest::applyCompositorKeepAboveSetsFlagWhenNotWayland() {

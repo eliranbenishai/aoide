@@ -172,28 +172,33 @@ QString kwinKeepAboveScript(qint64 pid, QStringView caption, QStringView desktop
       .arg(jsString(caption), jsString(desktopFile), on ? QStringLiteral("true") : QStringLiteral("false"));
 }
 
+bool compositorKeepAboveAvailableOn(QStringView platformName, bool kwinReachable) {
+  if (platformName == QLatin1String("windows") || platformName == QLatin1String("cocoa") ||
+      platformName == QLatin1String("xcb")) {
+    return true;
+  }
+  if (platformName == QLatin1String("wayland") ||
+      platformName.startsWith(QLatin1String("wayland-"))) {
+    return kwinReachable;
+  }
+  return false;
+}
+
 bool compositorKeepAboveAvailable() {
-#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
-  return true;
-#else
-  const QString name = QGuiApplication::platformName();
-  if (name == QLatin1String("xcb")) return true;
-  if (platformIsWayland()) {
+  bool kwin = false;
 #if defined(Q_OS_LINUX) && defined(AOIDE_HAVE_DBUS)
-    static const bool kwin = []() {
+  if (platformIsWayland()) {
+    static const bool cached = []() {
       const QDBusConnection bus = QDBusConnection::sessionBus();
       return bus.isConnected() && kwinServiceRegistered(bus);
     }();
-    return kwin;
-#else
-    // Test binaries (and any build without QtDBus) cannot talk to KWin.
-    // On Wayland that is the only mechanism, so the row must hide.
-    return false;
-#endif
+    kwin = cached;
   }
-  // offscreen, minimal, vnc: the Qt flag is settable but nothing stacks.
-  return false;
+#else
+  // Test binaries (and any build without QtDBus) cannot talk to KWin.
+  // On Wayland that is the only mechanism, so the row must hide.
 #endif
+  return compositorKeepAboveAvailableOn(QGuiApplication::platformName(), kwin);
 }
 
 void releaseCompositorKeepAbove() {

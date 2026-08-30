@@ -21,12 +21,17 @@ QString kwinKeepAboveScript(qint64 pid, QStringView caption, QStringView desktop
 /// same absolute path on both sides. Empty when [runtimeDir] is empty.
 QString kwinKeepAboveScriptPath(const QString& runtimeDir);
 
+/// Whether [platformName] can honour keep-above. Allowlist: windows, cocoa,
+/// and xcb use the Qt flag. wayland and wayland-* only when [kwinReachable].
+/// Every other QPA is false — the flag can still be set, but that is not
+/// compositor stacking. The OS is not consulted; the QPA is.
+bool compositorKeepAboveAvailableOn(QStringView platformName, bool kwinReachable);
+
 /// Whether this platform can actually hold the window above other apps.
-/// Windows, macOS, and X11 (xcb) use the Qt flag. Wayland only can when
-/// `org.kde.KWin` is on the session bus — xdg-shell has no keep-above request.
-/// Offscreen and other QPAs are false: the flag can still be set, but that is
-/// not compositor stacking. Builds without D-Bus cannot probe KWin, so Wayland
-/// is false there. Cheap enough for a menu (the KWin probe is cached).
+/// Feeds the live QPA name and the cached KWin probe into
+/// [compositorKeepAboveAvailableOn]. Builds without D-Bus cannot probe KWin,
+/// so Wayland is false there. Cheap enough for a menu (the KWin probe is
+/// cached).
 bool compositorKeepAboveAvailable();
 
 /// Qt flag on [window] where that flag is the stacking mechanism (not Wayland).
