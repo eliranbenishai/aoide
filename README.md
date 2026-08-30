@@ -7,7 +7,7 @@ The app is **Qt 6** (QWidget + QPainter) in [`src/`](src/).
 
 ## Development
 
-Qt is pinned to **6.10.3** in [`QT_VERSION`](QT_VERSION). A different kit is a
+Qt is pinned to **6.11.1** in [`QT_VERSION`](QT_VERSION). A different kit is a
 hard error in CMake and in the Linux scripts.
 
 CMake is the common path. [PR CI](.github/workflows/ci.yml) runs
@@ -67,7 +67,7 @@ sudo apt-get install cmake g++ pkg-config libgl1-mesa-dev libx11-dev libmpv-dev
 
 The official kit's xcb/Wayland plugins also need the client libs listed in
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml). A kit that is not
-6.10.3 fails configure.
+6.11.1 fails configure.
 
 ```bash
 ./tool/fetch_qt.sh
@@ -77,7 +77,7 @@ ctest --test-dir build -C Release --output-on-failure
 ./build/aoide
 ```
 
-`fetch_qt.sh` writes `.local/qt/6.10.3/gcc_64`, which CMake auto-detects.
+`fetch_qt.sh` writes `.local/qt/6.11.1/gcc_64`, which CMake auto-detects.
 
 `./build.sh` fetches that same kit if missing and writes `build/aoide`. It
 defaults `CXX`/`CC` to Linuxbrew LLVM
@@ -108,14 +108,14 @@ run does and does not prove is in [Known v1 limits](#known-v1-limits), which is
 the one place that says it.
 
 Needs Xcode 15+ / the macOS 13 SDK, CMake, `python3`, and `curl`. The Qt kit
-must be the official desktop `clang_64` build of 6.10.3 (universal for Qt 6.5+).
+must be the official desktop `clang_64` build of 6.11.1 (universal for Qt 6.5+).
 Homebrew Qt will not work: it is the wrong version and a thin arch, and CMake
 defaults to `CMAKE_OSX_DEPLOYMENT_TARGET=13.0` and
 `CMAKE_OSX_ARCHITECTURES=x86_64;arm64`. A universal link against a thin kit or
 libmpv fails. `qttools` is required for `macdeployqt`.
 
 ```bash
-aqt install-qt mac desktop 6.10.3 clang_64 --outputdir .local/qt --archives qtbase qttools
+aqt install-qt mac desktop 6.11.1 clang_64 --outputdir .local/qt --archives qtbase qttools
 ./tool/fetch_full_libmpv.sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
@@ -123,7 +123,7 @@ ctest --test-dir build -C Release --output-on-failure
 open build/Aoide.app
 ```
 
-That `aqt` line unpacks to `.local/qt/6.10.3/macos`, which CMake auto-detects
+That `aqt` line unpacks to `.local/qt/6.11.1/macos`, which CMake auto-detects
 (`lib/cmake/Qt6/Qt6Config.cmake`). Otherwise pass `-DCMAKE_PREFIX_PATH`.
 The product is `build/Aoide.app` (`OUTPUT_NAME Aoide`), not `build/aoide`.
 If the kit or libmpv is single-arch, set `CMAKE_OSX_ARCHITECTURES` to match.
@@ -146,10 +146,10 @@ are release CI.
 
 ### Windows
 
-PR CI installs official Qt 6.10.3 (`archives: qtbase`; `windeployqt` lives
+PR CI installs official Qt 6.11.1 (`archives: qtbase`; `windeployqt` lives
 there) and runs [`tool/fetch_full_libmpv.ps1`](tool/fetch_full_libmpv.ps1).
 `fetch_qt.sh` exits 1 here. CMakeLists does not search `.local/qt/` on
-Windows — pass `-DCMAKE_PREFIX_PATH` at the official 6.10.3 desktop kit
+Windows — pass `-DCMAKE_PREFIX_PATH` at the official 6.11.1 desktop kit
 unless the environment already exports it (`install-qt-action` does).
 
 Needs Visual Studio C++ tools and CMake. Put the kit's `bin` on `PATH` so

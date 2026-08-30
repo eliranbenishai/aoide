@@ -61,7 +61,7 @@ jobs:
           version: ${{ env.QT_VERSION }}
           arch: linux_gcc_64
           cache: true
-          # Base archives, not modules: 6.10 has no qtwayland module (the
+          # Base archives, not modules: 6.11 has no qtwayland module (the
           # addon is qtwaylandcompositor). qtwayland is the client QPA plugin;
           # icu is what official Linux Qt links against.
           archives: qtbase qtwayland icu

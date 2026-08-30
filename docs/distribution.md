@@ -180,7 +180,7 @@ can open. So this change is also a prerequisite for narrowing rather than
 something narrowing would undo.
 
 `unzip` for skin installs was the other Flatpak lead, and it is a non-issue:
-`org.kde.Platform` 6.10 ships it, and `look.cpp` already declines a zip it
+`org.kde.Platform` 6.11 ships it, and `look.cpp` already declines a zip it
 cannot unpack instead of failing.
 
 `--filesystem=xdg-run/aoide:create` exists for one file: the KWin script behind
@@ -196,26 +196,32 @@ returns cleanly.
 
 The [`QT_VERSION`](../QT_VERSION) file is the authority: one official desktop
 kit, built and tested against everywhere something ships, and the same kit
-`./build.sh` compiles against. It is **6.10.3**. `QT_RUNTIME` is its
-major.minor (`6.10`), which is what
-[`packaging/flatpak/com.proximamagnifica.aoide.yml`](../packaging/flatpak/com.proximamagnifica.aoide.yml)
-and `org.kde.Platform` use. KDE's 6.8 runtime is end-of-life; 6.10 is the
-supported line that still matches a current official `6.10.x` kit (the
-runtime currently ships 6.10.3). Workflows read the file via
+`./build.sh` compiles against. It is **6.11.1**. `QT_RUNTIME` is its
+major.minor (`6.11`), which is what both Flatpak manifests and
+`org.kde.Platform` use. Workflows read the file via
 [`tool/export-qt-pin.sh`](../tool/export-qt-pin.sh).
 
-The Flatpak manifest is the one file that must repeat the pin as a literal,
-because it is also what a human PRs to Flathub. `make_flatpak.sh` therefore
-compares its `runtime-version` against `QT_VERSION` and refuses to build on a
+Which line to sit on is not a free choice, because Flathub
+[requires](https://docs.flathub.org/docs/for-app-authors/requirements) the
+newest runtime at submission time and CMake fails the build unless the Qt it
+finds equals the pin exactly. The runtime's Qt therefore sets the pin, not the
+other way around: `org.kde.Platform` 6.11 ships 6.11.1, so the pin is 6.11.1,
+and it moves when KDE's newest runtime moves. Picking a newer official kit than
+the runtime carries — 6.11.2 exists — would build every bundled artifact fine
+and fail the Flathub build.
+
+Both Flatpak manifests repeat the pin as a literal. `make_flatpak.sh` compares
+the local one's `runtime-version` against `QT_VERSION` and refuses to build on a
 mismatch, so a Qt bump surfaces there instead of as a `flatpak-builder` error
-about a runtime nobody installed.
+about a runtime nobody installed. Nothing guards the Flathub manifest that way,
+because a stale pin there fails loudly in the sandbox on the CMake check.
 
 Linux installs that Qt through `install-qt-action` / `./tool/fetch_qt.sh`
 rather than apt or Homebrew: the runner's `qt6-base-dev` is 6.4.2, and
 Homebrew's `qtbase` moves ahead of the pin. The install is the official
 desktop base sliced to `qtbase`, `qtwayland`, and `icu`. `qtwayland` is a
 base *archive* (the client QPA plugin the AppImage stages); it is not an aqt
-module. The module of that name does not exist on 6.10 — `qtwaylandcompositor`
+module. The module of that name does not exist on 6.11 — `qtwaylandcompositor`
 does, and that is a compositor SDK, not the plugin. `icu` is the bundled ICU
 the official Linux `qtbase` links against.
 
