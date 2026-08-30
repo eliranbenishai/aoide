@@ -142,7 +142,7 @@ modules:
     sources:
       - type: git
         url: https://github.com/eliranbenishai/aoide.git
-        commit: 6160de3e8c0e562af312fb008275fef3511130eb
+        commit: 6df60edfc9246312f06c4eff94cecb7d451a98b6
         x-checker-data:
           type: git
           tag-pattern: ^v([\d.]+)$
