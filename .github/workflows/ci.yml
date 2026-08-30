@@ -18,10 +18,20 @@ jobs:
   test:
     name: Qt (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    # A step that never returns holds the job until the six-hour default, and
+    # `CI passed` waits on it. A start that wedges is exactly the failure this
+    # lane is most likely to find first, so both the job and the smoke below
+    # carry a clock. The job clock is sized for configure, build, stage and
+    # smoke — not for a notarization queue.
+    timeout-minutes: 60
     strategy:
+      # The line is indivisible in `CI passed`, which refuses a partial
+      # outcome. Cancelling siblings on the first red cell would hide whether
+      # the other two platforms were also broken, which makes one break more
+      # expensive to fix, not less.
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-latest]
+        os: [ubuntu-24.04, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v6
 
@@ -35,7 +45,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             cmake ninja-build g++ pkg-config appstream \
-            libgl1-mesa-dev libx11-dev libmpv-dev \
+            libgl1-mesa-dev libx11-dev libmpv-dev libmpv2 patchelf \
             libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
             libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xkb1 \
             libxkbcommon-x11-0 libwayland-client0 libwayland-cursor0 libwayland-egl1
@@ -64,10 +74,42 @@ jobs:
           cache: true
           archives: qtbase
 
+      # fetch_qt.sh exits 1 on Darwin. Same action and pin as the Windows job;
+      # host/arch request the official mac desktop kit (clang_64 is the
+      # universal Qt 6.5+ layout).
+      - name: Qt (macOS)
+        if: runner.os == 'macOS'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: mac
+          target: desktop
+          arch: clang_64
+          cache: true
+          # macdeployqt lives in qttools. windeployqt is in qtbase, which is why
+          # the Windows lane can slice to qtbase alone.
+          archives: qtbase qttools
+
+      # stage_linux_libmpv.sh copies the distro full libmpv (and its non-libc
+      # NEEDED libs) into third_party so cmake --install ships them.
+      # fetch_full_libmpv.sh on Linux only prints where to put a .so; it does
+      # not populate the tree.
+      - name: Fetch full libmpv (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          chmod +x tool/*.sh packaging/linux/*.sh
+          ./tool/stage_linux_libmpv.sh
+
       - name: Fetch full libmpv (Windows)
         if: runner.os == 'Windows'
         run: powershell -ExecutionPolicy Bypass -File tool/fetch_full_libmpv.ps1
         shell: pwsh
+
+      - name: Fetch full libmpv (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          chmod +x tool/*.sh packaging/macos/*.sh
+          ./tool/fetch_full_libmpv.sh
 
       - name: Configure and build
         run: |
@@ -76,9 +118,10 @@ jobs:
           ctest --test-dir build -C Release --output-on-failure
         shell: bash
 
-      # Both runners, not just Linux. The optimisation guard inside --bench-chrome
-      # is compiler-specific, so a Linux-only budget step leaves the Windows half
-      # of it unproven here and discovers it during a release instead.
+      # Every platform, not just one compiler. The optimisation guard inside
+      # --bench-chrome is compiler-specific, so a budget step that skips a
+      # platform leaves that compiler unproven here and discovers it during a
+      # release instead.
       - name: Paint budget (Linux)
         if: runner.os == 'Linux'
         run: QT_QPA_PLATFORM=offscreen ./build/aoide --bench-chrome
@@ -95,71 +138,82 @@ jobs:
           [ -f "$exe" ] || exe=build/aoide.exe
           QT_QPA_PLATFORM=offscreen "$exe" --bench-chrome
 
-  # Separate job, not a third matrix leg: a packaging job would repeat the
-  # universal (x86_64;arm64) build, and a DMG produced in the same job as the
-  # tests cannot be uploaded for a commit whose tests failed.
-  #
-  # Every step here blocks a merge, packaging included. The packaging steps used
-  # to be continue-on-error so Apple's notary could not hold up a PR, and the
-  # price was that a break in staging or in the DMG wrap merged green and waited
-  # to be discovered at tag time, by which point it is a release under way rather
-  # than a pull request. Notary flakes are rare; finding a packaging regression
-  # weeks after it landed is expensive. Re-run the job on a flake.
-  macos:
-    name: Qt (macos-latest)
-    runs-on: macos-latest
-    # A step that never returns holds the job until the six-hour default, and
-    # `CI passed` waits on it. A start that wedges is exactly the failure this
-    # lane is most likely to find first, so both the job and the run below carry
-    # a clock.
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v6
-      - name: Qt pin
-        run: bash tool/export-qt-pin.sh >> "$GITHUB_ENV"
-      # fetch_qt.sh exits 1 on Darwin. Same action and pin as the Windows job;
-      # host/arch request the official mac desktop kit (clang_64 is the
-      # universal Qt 6.5+ layout).
-      - uses: jurplel/install-qt-action@v4
-        with:
-          version: ${{ env.QT_VERSION }}
-          host: mac
-          target: desktop
-          arch: clang_64
-          cache: true
-          # macdeployqt lives in qttools. windeployqt is in qtbase, which is why
-          # the Windows lane can slice to qtbase alone.
-          archives: qtbase qttools
-      - name: Fetch full libmpv
-        run: |
-          chmod +x tool/*.sh packaging/macos/*.sh
-          ./tool/fetch_full_libmpv.sh
-      - name: Configure and build
-        run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --config Release
-          ctest --test-dir build -C Release --output-on-failure
       # Bundle target, not a loose binary: OUTPUT_NAME Aoide + MACOSX_BUNDLE
       # makes Aoide.app. Multi-config generators nest it under the config
       # directory; Ninja and Makefiles put it in the build tree root.
-      - name: Paint budget
+      - name: Paint budget (macOS)
+        if: runner.os == 'macOS'
         run: |
           set -euo pipefail
           exe=build/Aoide.app/Contents/MacOS/Aoide
           [ -f "$exe" ] || exe=build/Release/Aoide.app/Contents/MacOS/Aoide
           QT_QPA_PLATFORM=offscreen "$exe" --bench-chrome
-      - name: Stage
+
+      - name: Stage (Linux)
+        if: runner.os == 'Linux'
+        run: ./packaging/linux/stage_bundle.sh
+
+      - name: Stage (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -File packaging/windows/stage.ps1
+
+      - name: Stage (macOS)
+        if: runner.os == 'macOS'
         env:
           AOIDE_BUILD_DIR: ${{ github.workspace }}/build
         run: ./packaging/macos/stage_app.sh
-      # Run the staged bundle before it is signed. ctest above ran the build
-      # tree, which still resolves Qt and libmpv from the runner; only this
-      # run proves the stage carries its own. The support dir is not redirected
-      # here — XDG_DATA_HOME only binds on Linux; macOS uses
+
+      # Run the staged tree. ctest above ran the build tree, which still
+      # resolves Qt and libmpv from the runner; only this run proves the stage
+      # carries its own.
+      - name: Smoke-test the staged bundle (Linux)
+        if: runner.os == 'Linux'
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          # Take the runner's Qt out of the environment first. install-qt-action
+          # exports LD_LIBRARY_PATH, and with it set a stage missing its own
+          # Qt still starts — the check would pass for the wrong reason.
+          unset LD_LIBRARY_PATH QT_PLUGIN_PATH QT_QPA_PLATFORM_PLUGIN_PATH
+          export QT_QPA_PLATFORM=offscreen
+          build/linux/bundle/aoide --bench-chrome
+          XDG_DATA_HOME="$(mktemp -d)" AOIDE_AUTO_QUIT=1 build/linux/bundle/aoide
+
+      # Run what we staged. ctest above ran the build tree; this is the only
+      # step that proves the staged tree has its Qt DLLs, its libmpv and its
+      # assets. The support dir is not redirected here — XDG_DATA_HOME only
+      # binds on Linux — but the runner is thrown away.
+      - name: Smoke-test the staged EXE (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Plugins are not found through PATH, so stripping Qt's bin below does
+          # nothing for them: install-qt-action exports QT_PLUGIN_PATH, and with it
+          # set the staged tree loads the runner's platform plugins and a stage
+          # carrying none of its own still starts. Same reason the Linux job does
+          # this — see stage.ps1 for what makes the stage self-sufficient.
+          unset QT_PLUGIN_PATH QML2_IMPORT_PATH
+          # Windows searches the exe's own directory first but PATH after it, and
+          # install-qt-action puts Qt's bin on PATH. Drop that entry, or a stage
+          # windeployqt left a DLL out of would still start.
+          if [ -n "${QT_ROOT_DIR:-}" ]; then
+            qt_bin="$(cygpath -u "$QT_ROOT_DIR")/bin"
+            PATH="$(printf '%s\n' "$PATH" | tr ':' '\n' | grep -vxF "$qt_bin" | paste -sd ':' -)"
+            export PATH
+          fi
+          QT_QPA_PLATFORM=offscreen build/windows/stage/aoide.exe --bench-chrome
+          AOIDE_AUTO_QUIT=1 build/windows/stage/aoide.exe
+
+      # Run the staged bundle. ctest above ran the build tree, which still
+      # resolves Qt and libmpv from the runner; only this run proves the stage
+      # carries its own. The support dir is not redirected here —
+      # XDG_DATA_HOME only binds on Linux; macOS uses
       # ~/Library/Application Support — but the runner is thrown away.
-      # notarize.sh then clears extended attributes with xattr -cr before
-      # signing, so this run cannot spoil the signature.
-      - name: Smoke-test the staged app
+      - name: Smoke-test the staged app (macOS)
+        if: runner.os == 'macOS'
         timeout-minutes: 5
         run: |
           set -euo pipefail
@@ -171,44 +225,10 @@ jobs:
           export QT_QPA_PLATFORM=offscreen
           build/macos/stage/Aoide.app/Contents/MacOS/Aoide --bench-chrome
           AOIDE_AUTO_QUIT=1 build/macos/stage/Aoide.app/Contents/MacOS/Aoide
-      # Nothing gates this on the smoke any more, because nothing needs to: the
-      # smoke is blocking, so a bundle that failed to start ends the job here.
-      # The old `if: steps.smoke.outcome` existed only because a
-      # continue-on-error step does not stop the ones after it, which would
-      # otherwise have handed over a DMG whose bundle had just failed to start —
-      # the one thing a downloadable test build must not be.
-      - name: Sign, notarize, wrap DMG
-        env:
-          AOIDE_MAC_APP: ${{ github.workspace }}/build/macos/stage/Aoide.app
-          MACOS_CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
-          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
-          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          set -euo pipefail
-          eval "$(./tool/version.sh)"
-          export AOIDE_MAC_DMG="${GITHUB_WORKSPACE}/build/macos/Aoide-${version}-macos-universal.dmg"
-          # notarize.sh no-ops (exit 0) when the certificate secrets are unset
-          # and does not write a DMG. When they are set it signs the app, then
-          # calls make_dmg.sh itself so the sealed bundle is what gets wrapped.
-          # Calling make_dmg.sh unconditionally as well would rebuild the image.
-          ./packaging/macos/notarize.sh "$AOIDE_MAC_DMG"
-          if [[ ! -f "$AOIDE_MAC_DMG" ]]; then
-            ./packaging/macos/make_dmg.sh
-          fi
-      - uses: actions/upload-artifact@v6
-        with:
-          name: macos-dmg
-          if-no-files-found: error
-          path: build/macos/Aoide-*-macos-universal.dmg
 
   passed:
     name: CI passed
-    needs: [test, macos]
+    needs: [test]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -222,15 +242,15 @@ jobs:
           set -euo pipefail
           NUMBER="${{ github.event.pull_request.number }}"
           REPO="${{ github.repository }}"
-          if [ "${{ needs.test.result }}" = "success" ] && [ "${{ needs.macos.result }}" = "success" ]; then
+          if [ "${{ needs.test.result }}" = "success" ]; then
             gh pr review "$NUMBER" --repo "$REPO" --comment \
               --body "CI passed on Ubuntu, Windows and macOS. This PR can squash-merge."
           else
             gh pr comment "$NUMBER" --repo "$REPO" \
-              --body "CI failed on Ubuntu, Windows and/or macOS. This PR will not merge until the Qt jobs are green."
+              --body "CI failed. This PR will not merge until every Qt job is green."
           fi
       - name: Require every Qt job
-        if: needs.test.result != 'success' || needs.macos.result != 'success'
+        if: needs.test.result != 'success'
         run: exit 1
 
 # Merging lives in merge-if-green.yml, not here. A `merge` job in this file runs

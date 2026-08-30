@@ -7,7 +7,7 @@ How Aoide is built and handed to listeners. Product page: `https://aoide.music`.
 | Workflow | When | What |
 |----------|------|------|
 | [`.github/workflows/open-pr.yml`](../.github/workflows/open-pr.yml) | Push to a feature branch | Opens a PR against `main` if one is missing (`research/*`, `spike/*`, `wip/*` skipped) |
-| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PR and `main` | CMake build + `ctest` on Ubuntu, Windows and macOS; macOS also stages and uploads a DMG artifact; PR review comment with the result |
+| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PR and `main` | CMake build + `ctest`, paint budget, stage and staged-bundle smoke on Ubuntu, Windows and macOS; no signing, DMG wrap or artifact; PR review comment with the result |
 | [`.github/workflows/merge-if-green.yml`](../.github/workflows/merge-if-green.yml) | CI completed | Squash-merges a same-repo, non-draft PR at that SHA when CI is green. Skips forks, drafts, and `do-not-merge` |
 | [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Tag `v*` or **Run workflow** | Test, then Windows / Linux packages, a required macOS DMG job (smokes the staged app) and a required Flatpak job, then assemble the downloads; a tag also publishes them as a GitHub Release |
 
@@ -34,15 +34,15 @@ no `libQt6*` reached its staging directory. That run is `flatpak run`, not
 `sudo flatpak run`: newer flatpak refuses the sudo form so the sandbox does not
 inherit root's environment.
 
-The macOS CI job now smokes the staged `Aoide.app` the same way: `--bench-chrome`
-and `AOIDE_AUTO_QUIT=1` after unsetting `QT_PLUGIN_PATH`, `DYLD_FRAMEWORK_PATH`
-and `DYLD_LIBRARY_PATH`. That run proves the staged bundle starts offscreen with
-the Qt, libmpv, icns, assets and skins it carries. It does not open the DMG and
-it does not verify Gatekeeper. Those packaging steps (stage, smoke, sign/notarize,
-upload) fail the job the same way a compile or `ctest` failure does. They were
-`continue-on-error` while the Mac lane was being proven, and the price was that a
-break in staging or in the DMG wrap merged green and waited to be found at tag
-time — a release already under way rather than a pull request still open.
+Pull-request CI stages on every matrix host and smokes that stage the same
+way: `--bench-chrome` and `AOIDE_AUTO_QUIT=1` after the runner's Qt is gone.
+macOS unsets `QT_PLUGIN_PATH`, `DYLD_FRAMEWORK_PATH` and `DYLD_LIBRARY_PATH`.
+That run proves the staged bundle starts offscreen with the Qt, libmpv, icns,
+assets and skins it carries. It does not open a DMG and it does not verify
+Gatekeeper. Pull-request CI does not sign, notarize, wrap a DMG or upload an
+artifact — those steps are release CI, and only macOS has a notary. A failed
+stage or smoke fails that host the same way a compile or `ctest` failure does;
+`CI passed` exits 1 unless every leg is green.
 
 Uploads use `if-no-files-found: error`, and the assemble job then requires an
 EXE, an MSIX, an AppImage, a tarball, a DMG and a Flatpak to be present before
@@ -244,7 +244,7 @@ The tag name without `v` must equal the `VERSION` file.
 | `Aoide-<ver>-linux-x86_64.AppImage` | Official download |
 | `Aoide-<ver>-linux-x86_64.tar.gz` | Input for a Flathub recipe |
 | `Aoide-<ver>-linux-x86_64.flatpak` | Sideloadable bundle — a second Linux channel, not a fourth OS; the Flathub listing is a human submit from the tarball above. Required like the rest, and `flatpak-builder` pulls `org.kde.Platform` over the network, so this is the job most likely to fail for a reason that is nobody's bug. Re-run it; a flake costing a re-run is cheaper than a release quietly short one download. |
-| `Aoide-<ver>-macos-universal.dmg` | Official download since **1.1**. Every CI run now uploads one, notarized wherever the signing secrets reach — a fork's pull request cannot see them; one has been installed on a MacBook and played audio. The smoke proves the staged bundle starts offscreen — not that a listener can open the DMG past Gatekeeper. |
+| `Aoide-<ver>-macos-universal.dmg` | Official download since **1.1**. Release CI wraps and uploads one, notarized wherever the signing secrets reach. Pull-request CI does not upload a DMG. One has been installed on a MacBook and played audio. The smoke proves the staged bundle starts offscreen — not that a listener can open the DMG past Gatekeeper. |
 
 Partner Center and Flathub submit stay **human**. Packaging scripts live under `packaging/`.
 
@@ -264,7 +264,7 @@ clone does not carry them.
 |---------|-------|-----|
 | Actions → Fork pull request workflows | Require approval for **all** external contributors | Otherwise a stranger's PR runs its own code on the runners as soon as they have one merged contribution |
 | Actions → Workflow permissions | Default `GITHUB_TOKEN` is **read** | Every workflow here declares its own `permissions:` block, so nothing relies on the write default |
-| Ruleset **main** | Active, admin bypass | Blocks deletion and force-push, and requires a PR whose `Qt (ubuntu-24.04)`, `Qt (windows-latest)`, `Qt (macos-latest)` and `CI passed` checks are green. Every supported platform is named, not only the two that came first, so a Mac-only break blocks the same way a Windows-only one does. Squash only, matching `merge-if-green` |
+| Ruleset **main** | Active, admin bypass | Blocks deletion and force-push, and requires a PR whose `Qt (ubuntu-24.04)`, `Qt (windows-latest)`, `Qt (macos-latest)` and `CI passed` checks are green. All three platforms are named, so a break on any host blocks the merge. Squash only, matching `merge-if-green` |
 
 The ruleset requires **zero** approving reviews on purpose: `merge-if-green.yml`
 merges as `GITHUB_TOKEN`, which cannot approve its own PR, so any non-zero count
@@ -294,15 +294,15 @@ The MSIX **display name** is `aoide.music` (the reserved Store listing). Paste P
 
 All five signing and notary secrets are **set** on the repository as of
 2026-08-28, from a Developer ID Application certificate on the G2 chain valid to
-2031 ([`premises.md`](premises.md) §7). A release run has now signed and notarized
+2031 ([`premises.md`](premises.md) §7). A release run has signed and notarized
 a DMG rather than skipping, and one of those images has been installed on a
 MacBook and played audio. The release job is required, so a packaging or notary
-failure now costs the release rather than one download. In CI the same packaging
-steps fail the job, so a wrap that did not finish cannot land on `main`. Read
+failure costs the release rather than one download. Pull-request CI does not
+sign, wrap or upload a DMG. Read
 the log; a green tick on those steps is not proof the image is what a listener
 would get past Gatekeeper.
 
-Skip any of these and the Mac job still uploads an unsigned DMG;
+Skip any of these and the release Mac job still uploads an unsigned DMG;
 `packaging/macos/notarize.sh` no-ops with a warning when the certificate pair
 is unset.
 
@@ -363,8 +363,8 @@ places have to agree on what Qt is.
 
 Windows (on a Windows host): `tool/fetch_full_libmpv.ps1`, CMake Release build, then `packaging/windows/stage.ps1`, Inno (`ISCC /DMyAppVersion=<version> packaging\windows\aoide.iss`) and `packaging/windows/make_msix.ps1 -Version <msix>`. Take both fields from [`tool/version.sh`](../tool/version.sh); neither packager will run without one, because a default would name the artifact for a release it is not. The EXE installer runs `vc_redist.x64.exe` when `MSVCP140.dll` / `VCRUNTIME140.dll` are missing. The MSIX declares `Microsoft.VCLibs.140.00.UWPDesktop` so the Store supplies that runtime. Keep the `.ps1` files ASCII: Windows PowerShell 5.1 (what `powershell` is on the runner) reads UTF-8 source as ANSI, and an em-dash inside a string is decoded as a closing quote.
 
-macOS (on a Mac — CI builds, smokes the staged bundle, and wraps a DMG; one
-image has been installed and played):
+macOS (on a Mac — pull-request CI builds and smokes the staged bundle;
+release CI wraps a DMG; one image has been installed and played):
 
 ```bash
 # Qt is the official desktop kit at the QT_VERSION pin, not ./tool/fetch_qt.sh

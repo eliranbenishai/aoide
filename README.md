@@ -18,14 +18,12 @@ cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-on every pull request and every push to `main`. Ubuntu and Windows share the
-`os: [ubuntu-24.04, windows-latest]` matrix. macOS is a separate required job
-(`Qt (macos-latest)`, `timeout-minutes: 90`), not a third matrix leg: a
-packaging job would repeat the universal `x86_64;arm64` build, and a DMG
-produced in the same job as the tests cannot be uploaded for a commit whose
-tests failed. A compile, `ctest` or `--bench-chrome` failure on any host
-blocks a merge. The macOS packaging steps (stage, smoke, sign/notarize,
-upload) do too, so a wrap that did not finish cannot land on `main`. The
+on every pull request and every push to `main`. Ubuntu, Windows and macOS
+share the `os: [ubuntu-24.04, windows-latest, macos-latest]` matrix. Each
+leg then runs `--bench-chrome`, stages the bundle and smoke-starts that
+stage after stripping the runner's Qt. A compile, `ctest`, `--bench-chrome`
+or staged-bundle smoke failure on any host blocks a merge. Pull-request CI
+does not sign, notarize, wrap a DMG or upload an artifact. The
 `main` ruleset requires `Qt (ubuntu-24.04)`, `Qt (windows-latest)`,
 `Qt (macos-latest)` and `CI passed`. CMake ≥ 3.16, C++17. Unset
 `CMAKE_BUILD_TYPE` defaults to `RelWithDebInfo`. `-G Ninja` is optional; CI
@@ -104,8 +102,8 @@ strip (not the window buttons) to move a window. Closing **Aoide** (main) quits.
 
 ### macOS
 
-Required [PR CI](.github/workflows/ci.yml) job, not a third matrix leg (see
-above). `fetch_qt.sh` exits 1 here. The product channel opened in **1.1** — what that
+Third [PR CI](.github/workflows/ci.yml) matrix leg, beside Ubuntu and
+Windows (see above). `fetch_qt.sh` exits 1 here. The product channel opened in **1.1** — what that
 run does and does not prove is in [Known v1 limits](#known-v1-limits), which is
 the one place that says it.
 
@@ -134,17 +132,17 @@ CMakeLists also accepts `pkg-config mpv` (its error text mentions
 `brew install mpv`); that will not satisfy a default universal configure
 against a thin Homebrew libmpv. `./tool/fetch_full_libmpv.sh` is what CI runs.
 
-CI: `export-qt-pin.sh` → `jurplel/install-qt-action@v4` (`host: mac`,
+[PR CI](.github/workflows/ci.yml): `export-qt-pin.sh` → `jurplel/install-qt-action@v4` (`host: mac`,
 `target: desktop`, `arch: clang_64`, `archives: qtbase qttools`) →
 `./tool/fetch_full_libmpv.sh` → the CMake/`ctest` lines above →
 `--bench-chrome` on `build/Aoide.app/Contents/MacOS/Aoide` (falling back to
-`build/Release/Aoide.app/...`) → `packaging/macos/stage_app.sh` → smoke →
-sign/notarize → upload-artifact `macos-dmg`. The smoke unsets
+`build/Release/Aoide.app/...`) → `packaging/macos/stage_app.sh` → smoke.
+The smoke unsets
 `QT_PLUGIN_PATH`, `DYLD_FRAMEWORK_PATH` and `DYLD_LIBRARY_PATH` (which
 `install-qt-action` exports) and sets `QT_QPA_PLATFORM=offscreen`, then runs
 the staged app `--bench-chrome` and with `AOIDE_AUTO_QUIT=1`, proving the
-bundle carries its own Qt and libmpv. The smoke is blocking, so a failed
-start never reaches sign/notarize or upload.
+bundle carries its own Qt and libmpv. Signing, notarization and a DMG
+are release CI.
 
 ### Windows
 
@@ -182,7 +180,7 @@ attaches artifacts to a GitHub Release (a mirror; the product page is aoide.musi
 | Linux MPRIS | OS media keys / Now Playing via D-Bus not implemented. In-app media keys work when Aoide is focused. |
 | Second-instance “Open with” | Cold-start argv and file associations work; a second running instance does not forward paths to the first. |
 | Spectrum | Real 20-bar analyser (offline PCM + STFT). Honest silence until the spectrogram for the current track is ready. |
-| macOS host | Channel opened in 1.1. CI builds, tests and smoke-starts the staged bundle offscreen on every run and uploads a notarized DMG. One has been installed on a MacBook and played audio; that is one machine, and nothing automated launches the *installed* app or checks Gatekeeper. |
+| macOS host | Channel opened in 1.1. Pull-request CI builds, tests and smoke-starts the staged bundle offscreen on every run. A notarized DMG is produced by release CI, not uploaded from pull-request CI. One has been installed on a MacBook and played audio; that is one machine, and nothing automated launches the *installed* app or checks Gatekeeper. |
 
 Windows Store and Flathub are 1.0 channels; the macOS DMG is a 1.1 channel. Mac App Store and Snap are not.
 
