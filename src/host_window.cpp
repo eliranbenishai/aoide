@@ -30,6 +30,20 @@ QSize playlistMinNative(const aoide::SessionView& view, qreal zoomPercent) {
   return aoide::zoomed(aoide::playlistMinLogical(col, totalW), zoomPercent);
 }
 
+Qt::CursorShape playlistResizeCursor(aoide::PlaylistResizeEdges edges) {
+  const bool hor = edges.west || edges.east;
+  const bool ver = edges.north || edges.south;
+  if (hor && ver) {
+    if ((edges.north && edges.west) || (edges.south && edges.east)) {
+      return Qt::SizeFDiagCursor;
+    }
+    return Qt::SizeBDiagCursor;
+  }
+  if (hor) return Qt::SizeHorCursor;
+  if (ver) return Qt::SizeVerCursor;
+  return Qt::SizeFDiagCursor;
+}
+
 bool platformAllowsPointerGrab() {
   const QString name = QGuiApplication::platformName();
   // Qt Wayland prints a warning and does nothing on a non-popup toplevel.
@@ -438,14 +452,23 @@ void HostWindow::applyHitCursor(const QPointF& widgetPos) {
   }
   const QPoint logical = logicalFrom(widgetPos);
   const auto titleHit = title_.hit(logical);
-  if (titleHit == aoide::TitleChromeLayout::Hit::drag) {
+  const auto hit = aoide::hitTest(spec_.id, spec_.logicalSize, logical, view_);
+  const bool northResize =
+      hit.kind == aoide::ChromeHit::Kind::plResize &&
+      aoide::playlistResizeEdgesFromMask(hit.resizeEdges).north;
+  if (resizingPlaylist_) {
+    setCursor(playlistResizeCursor(playlistResizeEdges_));
+  } else if (northResize) {
+    // NW/NE sit in the title strip so they can grow up. Title drag would
+    // swallow them if it ran first.
+    setCursor(playlistResizeCursor(aoide::playlistResizeEdgesFromMask(hit.resizeEdges)));
+  } else if (titleHit == aoide::TitleChromeLayout::Hit::drag) {
     setCursor(Qt::OpenHandCursor);
   } else if (titleHit != aoide::TitleChromeLayout::Hit::none) {
     setCursor(Qt::PointingHandCursor);
   } else {
-    const auto hit = aoide::hitTest(spec_.id, spec_.logicalSize, logical, view_);
     if (hit.kind == aoide::ChromeHit::Kind::plResize) {
-      setCursor(Qt::SizeFDiagCursor);
+      setCursor(playlistResizeCursor(aoide::playlistResizeEdgesFromMask(hit.resizeEdges)));
     } else if (hit.kind == aoide::ChromeHit::Kind::plDivider) {
       setCursor(Qt::SplitHCursor);
     } else if (hit.kind == aoide::ChromeHit::Kind::volume || hit.kind == aoide::ChromeHit::Kind::seek ||
@@ -572,6 +595,23 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
   hideChromeTooltipNow();
   trackPointer(event->position(), true);
   const QPoint logical = logicalFrom(event->position());
+  const auto chrome = aoide::hitTest(spec_.id, spec_.logicalSize, logical, view_);
+  const bool northResize =
+      chrome.kind == aoide::ChromeHit::Kind::plResize &&
+      aoide::playlistResizeEdgesFromMask(chrome.resizeEdges).north;
+  auto beginPlaylistResize = [&]() {
+    resizingPlaylist_ = true;
+    playlistResizeEdges_ = aoide::playlistResizeEdgesFromMask(chrome.resizeEdges);
+    playlistResizeStart_ = QRect(mapToGlobal(QPoint(0, 0)), size());
+    playlistResizeLast_ = playlistResizeStart_;
+    playlistResizePress_ = event->globalPosition().toPoint();
+    grabPointerIfAllowed();
+    event->accept();
+  };
+  if (northResize) {
+    beginPlaylistResize();
+    return;
+  }
   const auto hit = title_.hit(logical);
   switch (hit) {
     case aoide::TitleChromeLayout::Hit::close:
@@ -605,11 +645,8 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
       break;
   }
 
-  const auto chrome = aoide::hitTest(spec_.id, spec_.logicalSize, logical, view_);
   if (chrome.kind == aoide::ChromeHit::Kind::plResize) {
-    resizingPlaylist_ = true;
-    grabPointerIfAllowed();
-    event->accept();
+    beginPlaylistResize();
     return;
   }
   if (chrome.kind != aoide::ChromeHit::Kind::none && aoide::chromeHitEnabled(chrome, view_)) {
@@ -653,11 +690,11 @@ void HostWindow::mouseMoveEvent(QMouseEvent* event) {
     return;
   }
   if (resizingPlaylist_ && (event->buttons() & Qt::LeftButton)) {
-    const QPoint global = event->globalPosition().toPoint();
-    const QPoint origin = mapToGlobal(QPoint(0, 0));
-    const QSize next(qMax(minimumWidth(), global.x() - origin.x()),
-                     qMax(minimumHeight(), global.y() - origin.y()));
-    emit nativeResized(next);
+    const QRectF next = aoide::playlistResizeRect(
+        QRectF(playlistResizeStart_), playlistResizeEdges_, QPointF(playlistResizePress_),
+        event->globalPosition(), QSizeF(minimumSize()));
+    playlistResizeLast_ = QRect(next.topLeft().toPoint(), next.size().toSize());
+    emit nativeResized(playlistResizeLast_);
     event->accept();
     return;
   }
@@ -676,7 +713,14 @@ void HostWindow::mouseReleaseEvent(QMouseEvent* event) {
     emit titleDragFinished();
   }
   resizingPlaylist_ = false;
-  if (wasResizing) emit nativeResized(size());
+  // A click that never moved would publish the widget's current rectangle,
+  // which after a fit is the fitted size — and that write is what destroyed
+  // the chosen canvas a zoom-out has to restore. Re-emit the last computed
+  // rect, not a read-back: Qt will not shrink below minimumSize, and that
+  // refusal is not a resize the listener made.
+  if (wasResizing && playlistResizeLast_ != playlistResizeStart_) {
+    emit nativeResized(playlistResizeLast_);
+  }
   if (draggingChrome_) {
     draggingChrome_ = false;
     emit chromeReleased();
@@ -733,7 +777,10 @@ void HostWindow::resizeEvent(QResizeEvent* event) {
     const qreal z = zoomPercent_ / 100.0;
     spec_.logicalSize = QSize(int(width() / z), int(height() / z));
     title_ = aoide::TitleChromeLayout::forWindow(spec_.id, paintLogical());
-    emit nativeResized(size());
+    // West/north have not moved this widget yet; nativeTopLeft() is still the
+    // pre-drag origin. mouseMove already emitted the computed rectangle.
+    if (resizingPlaylist_) return;
+    emit nativeResized(QRect(nativeTopLeft(), size()));
   }
 }
 

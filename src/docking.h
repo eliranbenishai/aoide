@@ -57,6 +57,9 @@ class DockingCoordinator {
   /// it was dropped instead of snapping it back.
   void move(WindowId id, QPointF topLeft, bool shiftUndock, bool snap);
   void resizePlaylist(QSizeF logical);
+  /// Origin and chosen size together — a listener drag on a grip. Sets the
+  /// same one-shot latch [move] does, so [place] will not un-overlap main.
+  void resizePlaylist(QPointF topLeft, QSizeF logical);
   void setShaded(WindowId id, bool shaded);
   void setVisible(WindowId id, bool visible);
   /// Main is the host's reason to exist; closing it quits. It cannot be hidden.
@@ -81,6 +84,12 @@ class DockingCoordinator {
   /// What docking measures the panel by: its canvas, collapsed to the title bar
   /// while it is shaded.
   QSizeF logicalSize(WindowId id) const;
+  /// True when a listener gesture has run since the last take. [move] and
+  /// the origin-and-size [resizePlaylist] set it; [place] consumes it. One-shot:
+  /// a place that cannot push (no surfaces) still takes it, or the next
+  /// automatic pass would skip un-overlap for a gesture that never landed.
+  /// Un-overlap of main would fight the hand that just put a sibling there.
+  bool takeUserMoved();
 
  private:
   bool hasEdge(WindowId id) const;
@@ -91,6 +100,7 @@ class DockingCoordinator {
 
   DockLayout layout_;
   double snapThreshold_ = 20;
+  bool userMoved_ = false;
 };
 
 }  // namespace aoide

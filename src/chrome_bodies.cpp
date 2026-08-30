@@ -1024,25 +1024,15 @@ void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const Sessi
                      {withAlpha(T().phos, 87), QPointF(), 10},
                  });
 
-  const QString words = QStringLiteral("THE RIDICULOUSLY ATTRACTIVE MUSIC PLAYER");
+  const QString words = QStringLiteral("THE MUSE OF OLD MADE NEW");
   const QFont backFont = condensedFont(10, 0);
   QFont spaced = backFont;
   spaced.setLetterSpacing(QFont::AbsoluteSpacing, 1.9);
-  QFontMetricsF fm(spaced);
-  qreal tx = textLeft;
+  const QFontMetricsF fm(spaced);
   const qreal ty = inner.top() + 32 + 9;
-  for (const QString& word : words.split(QChar(' '))) {
-    const QString initial = word.left(1);
-    const QString rest = word.mid(1) + QStringLiteral(" ");
-    drawStyledText(p, QRectF(tx, ty, fm.horizontalAdvance(initial) + 4, 14), initial, spaced,
-                   T().phos, Qt::AlignLeft | Qt::AlignVCenter,
-                   {{withAlpha(T().phos, 115), QPointF(), 7}});
-    tx += fm.horizontalAdvance(initial);
-    p.setFont(spaced);
-    p.setPen(T().inkDim);
-    p.drawText(QPointF(tx, ty + fm.ascent()), rest);
-    tx += fm.horizontalAdvance(rest);
-  }
+  p.setFont(spaced);
+  p.setPen(T().inkDim);
+  p.drawText(QPointF(textLeft, ty + fm.ascent()), words);
 
   const QString ver = QLatin1String("V ") + QLatin1String(AOIDE_VERSION);
   const QFont verFont = monoFont(10, 0.1);

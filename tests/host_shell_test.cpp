@@ -21,6 +21,9 @@ private slots:
   void aPanelUnderTheStripGetsExactlyTheShortfall();
   void aPanelWhoseTopEqualsTheWorkAreaTopDoesNotMove();
   void aWorkAreaWithANegativeTopLiftsByTheShortfall();
+  void emptyWorkAreaWithdrawsNoGripClamp();
+  void aGripPastTheWorkAreaIsPulledInside();
+  void aPlaylistTallerThanTheWorkAreaShrinksToKeepTheGrip();
 };
 
 void HostShellTest::layoutUsesHostRectNotPanelUnion() {
@@ -111,6 +114,23 @@ void HostShellTest::aWorkAreaWithANegativeTopLiftsByTheShortfall() {
   const QRect upperWork(0, -1055, 1920, 1055);
   QCOMPARE(aoide::reservedTopLift(QRect(40, -1080, 825, 348), upperWork), 25);
   QCOMPARE(aoide::reservedTopLift(QRect(40, -1000, 825, 348), upperWork), 0);
+}
+
+void HostShellTest::emptyWorkAreaWithdrawsNoGripClamp() {
+  QCOMPARE(aoide::clampPlaylistGripToWorkArea(QRect(40, 500, 900, 560), QRect()),
+           QRect(40, 500, 900, 560));
+}
+
+void HostShellTest::aGripPastTheWorkAreaIsPulledInside() {
+  const QRect work(0, 0, 1920, 1044);
+  QCOMPARE(aoide::clampPlaylistGripToWorkArea(QRect(100, 500, 900, 600), work),
+           QRect(100, 444, 900, 600));
+}
+
+void HostShellTest::aPlaylistTallerThanTheWorkAreaShrinksToKeepTheGrip() {
+  const QRect work(0, 0, 1920, 400);
+  QCOMPARE(aoide::clampPlaylistGripToWorkArea(QRect(10, 0, 900, 600), work),
+           QRect(10, 0, 900, 400));
 }
 
 QTEST_APPLESS_MAIN(HostShellTest)

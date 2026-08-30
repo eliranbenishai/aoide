@@ -23,6 +23,13 @@ QRect clampRectToHost(QRect panel, QRect host);
 /// Null if the union is larger than the host in either dimension.
 std::optional<QPoint> clusterDeltaToFit(const QVector<QRect>& panels, QRect host);
 
+/// Keep [panel]'s bottom-right corner inside [work] so the southeast resize
+/// grip cannot sit under a taskbar. Empty work is not a display of no size:
+/// it is not knowing yet, and withdraws nothing. Only that corner is
+/// constrained; a panel may still sit above or left of the work area, which
+/// is the reserved-top lift's problem, not this one's.
+QRect clampPlaylistGripToWorkArea(QRect panel, QRect work);
+
 /// Downward shift that clears [panel] of the strip a screen reserves at its top.
 /// One-directional and vertical only: the furniture that can bury a title bar is
 /// the menu bar / top bar / top taskbar. A title bar spans the panel, so a dock

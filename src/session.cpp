@@ -3,6 +3,7 @@
 #include "audio_output.h"
 #include "chrome_command.h"
 #include "chrome_layout.h"
+#include "compositor_keep_above.h"
 #include "document_portal.h"
 #include "files.h"
 #include "host_shell.h"
@@ -101,6 +102,7 @@ AoideSession::AoideSession(QObject* parent)
   layout_.setSurfaces(this);
   layout_.docking().ensureMainVisible();
   layout_.docking().setSnapThreshold(snapPixels(settings_.dockSnapStrength));
+  syncPlaylistMin();
 
   persistTimer_.setSingleShot(true);
   persistTimer_.setInterval(400);
@@ -796,7 +798,18 @@ MainLiveReadouts AoideSession::mainLive() const {
   return live;
 }
 
+void AoideSession::syncPlaylistMin() {
+  const qreal col = settings_.playlistCollectionCollapsed
+                        ? 0
+                        : settings_.playlistCollectionWidth;
+  const QSize min = playlistMinLogical(col, kPlaylistStripTotalReserve);
+  if (min == layout_.playlistMinSize()) return;
+  layout_.setPlaylistMinLogical(min);
+  layout_.place();
+}
+
 void AoideSession::refreshChrome() {
+  syncPlaylistMin();
   if (holdChrome_) {
     chromeHeld_ = true;
     return;
@@ -949,10 +962,11 @@ void AoideSession::placePanels(const QVector<PanelPlacement>& panels) {
   }
 }
 
-void AoideSession::playlistResized(QSize native) {
+void AoideSession::playlistResized(QRect native) {
   if (layout_.placing()) return;
   const qreal z = layout_.zoomPercent() / 100.0;
-  layout_.docking().resizePlaylist(QSizeF(native.width() / z, native.height() / z));
+  const QSizeF logical(native.width() / z, native.height() / z);
+  layout_.docking().resizePlaylist(layout_.nativeToLogical(native.topLeft()), logical);
   layout_.clampToHost(WindowId::playlist);
   layout_.place();
   schedulePersist();
@@ -1572,32 +1586,37 @@ void AoideSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers m
 
 void AoideSession::showOptionsMenu(QRect logicalHit) {
   // The rules keep the window toggle and the destructive row away from the
-  // openers. Row indices count them, hence the members.
-  enum Row { kAlwaysOnTop, kRuleTop, kOpenFiles, kSettings, kRuleAbout, kAbout, kQuit };
-  const QVector<ChromeMenuItem> items = optionsMenuItems(settings_);
+  // openers. Dispatch is the action on the row that was built, so omitting
+  // always-on-top cannot hand another command the wrong index.
+  const QVector<OptionsMenuRow> rows =
+      optionsMenuRows(settings_, compositorKeepAboveAvailable());
+  QVector<ChromeMenuItem> items;
+  items.reserve(rows.size());
+  for (const auto& row : rows) items.append(row.item);
   if (logicalHit.isEmpty()) logicalHit = mainOptionsHit(kMainPlayer);
-  switch (execAnchoredMenu(items, windowFor(WindowId::main), logicalHit, PopupAnchor::belowLeft)) {
-    case kAlwaysOnTop:
+  const int chosen =
+      execAnchoredMenu(items, windowFor(WindowId::main), logicalHit, PopupAnchor::belowLeft);
+  if (chosen < 0 || chosen >= rows.size() || !rows[chosen].action) return;
+  switch (*rows[chosen].action) {
+    case OptionsMenuAction::alwaysOnTop:
       settings_.alwaysOnTop = !settings_.alwaysOnTop;
       applyAlwaysOnTop();
       schedulePersist();
       break;
-    case kSettings:
+    case OptionsMenuAction::settings:
       setWindowVisible(WindowId::settings, !windowShouldShow(WindowId::settings));
       break;
-    case kAbout:
+    case OptionsMenuAction::about:
       if (windowShouldShow(WindowId::about)) emit requestRaise(WindowId::about);
       else setWindowVisible(WindowId::about, true);
       break;
-    case kOpenFiles: {
+    case OptionsMenuAction::openFiles: {
       const QString picked = pickAudio(true);
       if (!picked.isEmpty()) openPaths(picked.split(QLatin1Char('\n')), true);
       break;
     }
-    case kQuit:
+    case OptionsMenuAction::quit:
       quitFromMenu();
-      break;
-    default:
       break;
   }
 }

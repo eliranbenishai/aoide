@@ -142,6 +142,13 @@ void DockingCoordinator::resizePlaylist(QSizeF logical) {
   layout_.playlist.height = logical.height();
 }
 
+void DockingCoordinator::resizePlaylist(QPointF topLeft, QSizeF logical) {
+  userMoved_ = true;
+  layout_.playlist.left = topLeft.x();
+  layout_.playlist.top = topLeft.y();
+  resizePlaylist(logical);
+}
+
 void DockingCoordinator::nudgeOffMainIfStacked(WindowId id) {
   const PanelSpec& panel = panelSpec(id);
   if (id == WindowId::main || !panel.docks) return;
@@ -189,7 +196,14 @@ bool DockingCoordinator::validateEdges() {
   return true;
 }
 
+bool DockingCoordinator::takeUserMoved() {
+  const bool moved = userMoved_;
+  userMoved_ = false;
+  return moved;
+}
+
 void DockingCoordinator::move(WindowId id, QPointF topLeft, bool shiftUndock, bool snap) {
+  userMoved_ = true;
   if (!panelSpec(id).docks) {
     layout_.frameOf(id).left = topLeft.x();
     layout_.frameOf(id).top = topLeft.y();

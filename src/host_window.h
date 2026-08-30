@@ -73,7 +73,7 @@ class HostWindow : public QWidget {
   void chromeReleased();
   void wheelScrolled(int delta);
   void nativeMoved(QPoint pos);
-  void nativeResized(QSize size);
+  void nativeResized(QRect nativeRect);
   void filesDropped(QStringList paths);
   void aboutToQuit();
   void shadedChanged(bool shaded);
@@ -144,6 +144,10 @@ class HostWindow : public QWidget {
   bool draggingChrome_ = false;
   bool draggingTitle_ = false;
   bool resizingPlaylist_ = false;
+  aoide::PlaylistResizeEdges playlistResizeEdges_;
+  QRect playlistResizeStart_;
+  QRect playlistResizeLast_;
+  QPoint playlistResizePress_;
   bool grabbedPointer_ = false;
   int wheelPixelCarry_ = 0;
   QPoint grabOffset_;

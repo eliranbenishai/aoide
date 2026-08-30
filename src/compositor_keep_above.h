@@ -21,9 +21,24 @@ QString kwinKeepAboveScript(qint64 pid, QStringView caption, QStringView desktop
 /// same absolute path on both sides. Empty when [runtimeDir] is empty.
 QString kwinKeepAboveScriptPath(const QString& runtimeDir);
 
-/// Qt flag on [window], then a KWin request on Plasma. Offscreen and non-KDE
-/// compositors get the flag only — that is not proof the host stacked above
-/// other apps.
+/// Whether this platform can actually hold the window above other apps.
+/// Windows, macOS, and X11 (xcb) use the Qt flag. Wayland only can when
+/// `org.kde.KWin` is on the session bus — xdg-shell has no keep-above request.
+/// Offscreen and other QPAs are false: the flag can still be set, but that is
+/// not compositor stacking. Builds without D-Bus cannot probe KWin, so Wayland
+/// is false there. Cheap enough for a menu (the KWin probe is cached).
+bool compositorKeepAboveAvailable();
+
+/// Qt flag on [window] where that flag is the stacking mechanism (not Wayland).
+/// On Plasma Wayland, a one-shot KWin keepAbove write instead. Offscreen and
+/// non-KDE compositors get the flag only — that is not proof the host stacked
+/// above other apps.
 void applyCompositorKeepAbove(QWindow* window, bool on);
+
+/// Drop the KWin plugin and the runtime script file. The script is a one-shot
+/// property write; leaving it loaded after exit left `isScriptLoaded` true with
+/// a file naming a dead pid. Safe when neither exists, including builds
+/// without D-Bus.
+void releaseCompositorKeepAbove();
 
 }  // namespace aoide

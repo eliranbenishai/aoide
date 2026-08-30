@@ -11,6 +11,15 @@
 #include <QTimer>
 #include <QWindow>
 
+namespace {
+
+bool platformIsWayland() {
+  const QString name = QGuiApplication::platformName();
+  return name == QLatin1String("wayland") || name.startsWith(QLatin1String("wayland-"));
+}
+
+}  // namespace
+
 HostShell::HostShell(QWidget* parent) : QWidget(parent) {
   setWindowFlags(aoide::hostWindowFlags());
   setAttribute(Qt::WA_TranslucentBackground);
@@ -98,20 +107,31 @@ QRect HostShell::virtualDesktop() const {
 
 void HostShell::setAlwaysOnTop(bool on) {
   alwaysOnTop_ = on;
-  const bool have = windowFlags().testFlag(Qt::WindowStaysOnTopHint);
-  if (have != on) {
-    const bool vis = isVisible();
-    setWindowFlag(Qt::WindowStaysOnTopHint, on);
-    if (vis) show();
-    applyStoredMask();
+  // setWindowFlag remaps via setParent: it hides the widget and recreates
+  // the native window. On Wayland that is a virtual-desktop-sized punched
+  // toplevel — applyPunch refuses an empty mask while mapped (full-desktop
+  // input capture), and placePanels will not re-assert the host origin
+  // unless lastRequestedVirtual_ changed. xdg-shell also has no keep-above;
+  // KWin's keepAbove request is the whole mechanism there.
+  if (!platformIsWayland()) {
+    const bool have = windowFlags().testFlag(Qt::WindowStaysOnTopHint);
+    if (have != on) {
+      const bool vis = isVisible();
+      setWindowFlag(Qt::WindowStaysOnTopHint, on);
+      if (vis) show();
+      applyStoredMask();
+    }
   }
   scheduleCompositorKeepAbove();
 }
 
 void HostShell::scheduleCompositorKeepAbove() {
   aoide::applyCompositorKeepAbove(windowHandle(), alwaysOnTop_);
-  // setWindowFlag recreates the native window. KWin only sees the new
-  // xdg_toplevel after the map, so the keep-above request has to follow.
+  // Immediate apply often runs before the xdg_toplevel exists (restore
+  // before map). KWin can only match a mapped window, so the 0ms and 150ms
+  // shots follow. Each apply is load-run-unload; a resident plugin is what
+  // leaked after quit. aboutToQuit latches release so a pending shot cannot
+  // reload the plugin on the way out.
   QTimer::singleShot(0, this, [this]() {
     aoide::applyCompositorKeepAbove(windowHandle(), alwaysOnTop_);
   });

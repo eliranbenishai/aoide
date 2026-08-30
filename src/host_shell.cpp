@@ -36,6 +36,19 @@ std::optional<QPoint> clusterDeltaToFit(const QVector<QRect>& panels, QRect host
   return QPoint(x - u.x(), y - u.y());
 }
 
+QRect clampPlaylistGripToWorkArea(QRect panel, QRect work) {
+  if (work.isEmpty()) return panel;
+  const int w = qMin(panel.width(), work.width());
+  const int h = qMin(panel.height(), work.height());
+  int x = panel.x();
+  int y = panel.y();
+  const int right = work.x() + work.width();
+  const int bottom = work.y() + work.height();
+  if (x + w > right) x = right - w;
+  if (y + h > bottom) y = bottom - h;
+  return QRect(x, y, w, h);
+}
+
 int reservedTopLift(QRect panel, QRect workArea) {
   if (workArea.isEmpty()) return 0;
   return std::max(0, workArea.top() - panel.top());

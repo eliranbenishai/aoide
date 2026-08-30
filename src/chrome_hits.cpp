@@ -10,9 +10,82 @@
 namespace aoide {
 namespace {
 
-ChromeHit hitIf(const QRect& r, QPoint pos, ChromeHit::Kind kind, int index = -1) {
+ChromeHit hitIf(const QRect& r, QPoint pos, ChromeHit::Kind kind, int index = -1,
+                quint8 resizeEdges = 0) {
   if (r.contains(pos)) {
-    return {kind, index, r};
+    return {kind, index, r, resizeEdges};
+  }
+  return {};
+}
+
+ChromeHit hitResize(const QRect& r, QPoint pos, quint8 edges) {
+  return hitIf(r, pos, ChromeHit::Kind::plResize, -1, edges);
+}
+
+/// Corners first so an edge band does not steal the pixel they share. No top
+/// band: that strip is title-bar drag. The SE grip stays 18×18 where it was.
+ChromeHit playlistResizeHit(QSize logical, QPoint pos, const SessionView& view) {
+  const int w = logical.width();
+  const int h = logical.height();
+  const int grip = kPlaylistResizeGrip;
+  const int band = kPlaylistResizeBand;
+  // The collapsed reopen tab starts at x=4; a 5px left band would lose a
+  // column to it and fail hitRegionsDoNotOverlap.
+  const int leftBand = view.collectionCollapsed ? int(kPlaylistReopenGap) : band;
+
+  const QRect nw(0, 0, band, band);
+  const QRect ne(w - band, 0, band, band);
+  const QRect sw(0, h - band, leftBand, band);
+  const QRect se(w - grip, h - grip, grip, grip);
+  if (auto hit = hitResize(nw, pos, kResizeEdgeWest | kResizeEdgeNorth);
+      hit.kind != ChromeHit::Kind::none) {
+    return hit;
+  }
+  if (auto hit = hitResize(ne, pos, kResizeEdgeEast | kResizeEdgeNorth);
+      hit.kind != ChromeHit::Kind::none) {
+    return hit;
+  }
+  if (auto hit = hitResize(sw, pos, kResizeEdgeWest | kResizeEdgeSouth);
+      hit.kind != ChromeHit::Kind::none) {
+    return hit;
+  }
+  if (auto hit = hitResize(se, pos, kResizeEdgeEast | kResizeEdgeSouth);
+      hit.kind != ChromeHit::Kind::none) {
+    return hit;
+  }
+
+  const int edgeTop = kTitleBar;
+  const QRect west(0, edgeTop, leftBand, h - edgeTop - band);
+  const QRect east(w - band, edgeTop, band, h - edgeTop - grip);
+  if (auto hit = hitResize(west, pos, kResizeEdgeWest); hit.kind != ChromeHit::Kind::none) {
+    return hit;
+  }
+  if (auto hit = hitResize(east, pos, kResizeEdgeEast); hit.kind != ChromeHit::Kind::none) {
+    return hit;
+  }
+
+  // The divider is a full-height column, so it owns eight pixels of the
+  // bottom band. Two south rects keep each region solid; they share edges
+  // and would otherwise look like one hollow frame.
+  const int southY = h - band;
+  const int southRight = w - grip;
+  auto southHit = [&](int x, int width, int index) {
+    if (width <= 0) return ChromeHit{};
+    return hitIf(QRect(x, southY, width, band), pos, ChromeHit::Kind::plResize, index,
+                 kResizeEdgeSouth);
+  };
+  if (!view.collectionCollapsed && view.collectionWidth > 0) {
+    const int divL = int(view.collectionWidth);
+    const int divR = divL + int(kPlaylistDividerW);
+    if (auto hit = southHit(leftBand, divL - leftBand, 0); hit.kind != ChromeHit::Kind::none) {
+      return hit;
+    }
+    if (auto hit = southHit(divR, southRight - divR, 1); hit.kind != ChromeHit::Kind::none) {
+      return hit;
+    }
+  } else if (auto hit = southHit(leftBand, southRight - leftBand, 0);
+             hit.kind != ChromeHit::Kind::none) {
+    return hit;
   }
   return {};
 }
@@ -209,9 +282,7 @@ ChromeHit hitPlaylist(QSize logical, QPoint pos, const SessionView& view) {
     return h;
   }
 
-  const QRect grip(logical.width() - 18, logical.height() - 18, 18, 18);
-  if (auto h = hitIf(grip, pos, ChromeHit::Kind::plResize); h.kind != ChromeHit::Kind::none) return h;
-  return {};
+  return playlistResizeHit(logical, pos, view);
 }
 
 ChromeHit hitSettings(QSize logical, QPoint pos, const SessionView& view) {

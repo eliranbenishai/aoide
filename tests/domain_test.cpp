@@ -2988,26 +2988,67 @@ int main() {
 
   {
     // Overflow only: Skins and Track info are gutter buttons, not menu rows.
-    // Open files sits with Settings; About sits with Quit.
+    // Open files sits with Settings; About sits with Quit. keepAboveAvailable
+    // is an argument so the shape does not depend on the test binary's D-Bus
+    // flag — the compositor predicate is false in some builds, true in others.
+    auto actionOf = [](const QVector<aoide::OptionsMenuRow>& rows, int index) {
+      return index >= 0 && index < rows.size() ? rows[index].action
+                                               : std::optional<aoide::OptionsMenuAction>{};
+    };
+    auto labelsOf = [](const QVector<aoide::ChromeMenuItem>& items) {
+      QStringList labels;
+      for (const auto& item : items) {
+        if (item.kind != aoide::ChromeMenuKind::separator) labels.push_back(item.label);
+      }
+      return labels;
+    };
+
     aoide::AoideSettings settings;
-    const auto items = aoide::optionsMenuItems(settings);
-    QStringList labels;
-    for (const auto& item : items) {
-      if (item.kind != aoide::ChromeMenuKind::separator) labels.push_back(item.label);
-    }
-    REQUIRE_EQ(labels, (QStringList{
-                           QStringLiteral("Always on top"),
-                           QStringLiteral("Open files…"),
-                           QStringLiteral("Settings…"),
-                           QStringLiteral("About Aoide"),
-                           QStringLiteral("Quit"),
-                       }));
-    REQUIRE(items.front().checkable);
-    REQUIRE(!items.front().checked);
+    const auto available = aoide::optionsMenuItems(settings, true);
+    REQUIRE_EQ(labelsOf(available), (QStringList{
+                                        QStringLiteral("Always on top"),
+                                        QStringLiteral("Open files…"),
+                                        QStringLiteral("Settings…"),
+                                        QStringLiteral("About Aoide"),
+                                        QStringLiteral("Quit"),
+                                    }));
+    REQUIRE(available.front().checkable);
+    REQUIRE(!available.front().checked);
     settings.alwaysOnTop = true;
-    REQUIRE(aoide::optionsMenuItems(settings).front().checked);
-    REQUIRE_EQ(items.at(4).kind, aoide::ChromeMenuKind::separator);
-    REQUIRE_EQ(items.at(2).label, QStringLiteral("Open files…"));
+    REQUIRE(aoide::optionsMenuItems(settings, true).front().checked);
+    REQUIRE_EQ(available.at(4).kind, aoide::ChromeMenuKind::separator);
+    REQUIRE_EQ(available.at(2).label, QStringLiteral("Open files…"));
+
+    const auto availableRows = aoide::optionsMenuRows(settings, true);
+    REQUIRE_EQ(availableRows.size(), available.size());
+    REQUIRE(actionOf(availableRows, 0) == aoide::OptionsMenuAction::alwaysOnTop);
+    REQUIRE(!actionOf(availableRows, 1).has_value());
+    REQUIRE(actionOf(availableRows, 2) == aoide::OptionsMenuAction::openFiles);
+    REQUIRE(actionOf(availableRows, 3) == aoide::OptionsMenuAction::settings);
+    REQUIRE(!actionOf(availableRows, 4).has_value());
+    REQUIRE(actionOf(availableRows, 5) == aoide::OptionsMenuAction::about);
+    REQUIRE(actionOf(availableRows, 6) == aoide::OptionsMenuAction::quit);
+
+    const auto hidden = aoide::optionsMenuItems(settings, false);
+    REQUIRE_EQ(labelsOf(hidden), (QStringList{
+                                     QStringLiteral("Open files…"),
+                                     QStringLiteral("Settings…"),
+                                     QStringLiteral("About Aoide"),
+                                     QStringLiteral("Quit"),
+                                 }));
+    REQUIRE_EQ(hidden.front().label, QStringLiteral("Open files…"));
+    REQUIRE(!hidden.front().checkable);
+    REQUIRE_EQ(hidden.at(2).kind, aoide::ChromeMenuKind::separator);
+
+    const auto hiddenRows = aoide::optionsMenuRows(settings, false);
+    REQUIRE_EQ(hiddenRows.size(), hidden.size());
+    REQUIRE(actionOf(hiddenRows, 0) == aoide::OptionsMenuAction::openFiles);
+    REQUIRE(actionOf(hiddenRows, 1) == aoide::OptionsMenuAction::settings);
+    REQUIRE(!actionOf(hiddenRows, 2).has_value());
+    REQUIRE(actionOf(hiddenRows, 3) == aoide::OptionsMenuAction::about);
+    REQUIRE(actionOf(hiddenRows, 4) == aoide::OptionsMenuAction::quit);
+    REQUIRE(actionOf(hiddenRows, 0) != aoide::OptionsMenuAction::alwaysOnTop);
+    REQUIRE(actionOf(hiddenRows, 4) != aoide::OptionsMenuAction::settings);
   }
 
   {

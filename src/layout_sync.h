@@ -59,6 +59,15 @@ class LayoutSync {
 
   void setSurfaces(PanelSurfaces* surfaces) { surfaces_ = surfaces; }
 
+  /// The narrowest logical playlist a fit or zoom step may ask for. Defaults
+  /// to the collection-blind floor so a layout with no session still has a
+  /// real minimum. The session keeps this current when the collection column
+  /// opens, closes, or changes width — the widget will not shrink below that,
+  /// and asking for less is how a fit clipped the column before anyone
+  /// touched a grip.
+  void setPlaylistMinLogical(QSize min);
+  QSize playlistMinSize() const { return playlistMinLogical_; }
+
   DockingCoordinator& docking() { return docking_; }
   const DockingCoordinator& docking() const { return docking_; }
   const DockLayout& layout() const { return docking_.layout(); }
@@ -70,10 +79,11 @@ class LayoutSync {
   bool setZoomPercent(qreal percent);
 
   /// Whether the ladder still carries [percent] where the cluster is now. A step
-  /// goes only on evidence that the cluster would not fit the work area at it.
-  /// A step at or below the one in force cannot make the cluster bigger and is
-  /// always carried, so a layout restored onto a smaller display can still be
-  /// zoomed back out of.
+  /// up is refused only at the true floor: even with the playlist shrunk to its
+  /// minimum the cluster still cannot fit the work area. Otherwise the step is
+  /// taken and the playlist absorbs the pressure. A step at or below the one in
+  /// force cannot make the cluster bigger and is always carried, so a layout
+  /// restored onto a smaller display can still be zoomed back out of.
   bool zoomStepAvailable(qreal percent) const;
   /// The step each zoom button would take, or nothing when it would take none —
   /// the ladder has run out, or the next one up does not fit.
@@ -91,11 +101,13 @@ class LayoutSync {
 
   /// Where [id] sits on the screen at the current zoom step.
   QRect nativeFrameRect(WindowId id) const;
-  /// Put [id] at a screen rectangle. The frame is the only place it is kept —
-  /// the widget and the settings file are both derived from it later.
+  /// Put [id] at a screen rectangle. Position is written for every panel; the
+  /// playlist's size is not, because a rectangle is a placement and the size
+  /// the listener chose has to outlive the desktop it was placed on.
   void setNativeFrame(WindowId id, QRect native);
 
-  /// Pull [id] back onto the virtual desktop, shrinking it if it is larger.
+  /// Pull [id] back onto the virtual desktop. Only the origin moves: a clamp
+  /// is a placement, not a resize.
   void clampToHost(WindowId id);
   /// Bring the cluster back onto the virtual desktop after it, or the desktop,
   /// changed shape. Translating keeps the panels' relationship to each other;
@@ -108,7 +120,10 @@ class LayoutSync {
   void setMainMinimized(bool minimized);
 
   /// Push every panel to its surface. Placing can re-enter — moving a widget
-  /// makes it report a move — so a pass already running wins.
+  /// makes it report a move — so a pass already running wins. The user-gesture
+  /// latch is one-shot: a pass with no surfaces still consumes it, or a later
+  /// automatic pass would skip corrections that belong to a gesture that never
+  /// landed. A re-entrant call leaves the latch for the outer pass.
   void place();
   bool placing() const { return placing_; }
 
@@ -121,6 +136,7 @@ class LayoutSync {
   QSet<WindowId> suppressed_;
   qreal zoomPercent_ = kDefaultZoomPercent;
   bool placing_ = false;
+  QSize playlistMinLogical_ = kPlaylistMin;
 };
 
 }  // namespace aoide

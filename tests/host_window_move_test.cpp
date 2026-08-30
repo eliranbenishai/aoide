@@ -78,6 +78,13 @@ class HostWindowMoveTest : public QObject {
   void collectionRowDoubleClickRenamesAndNeverLoads();
   void collectionRowCtrlClickSelectsImmediately();
   void collectionRowPendingClickIsDeliveredBeforeANewPress();
+  void seResizeGripStaysEighteenByEighteen();
+  void playlistResizeRegionsReportTheirEdges();
+  void westResizePinsTheRightEdge();
+  void westResizeStopsTheOriginAtMinimumWidth();
+  void northResizePinsTheBottomEdge();
+  void aGripClickWithoutADragDoesNotEmitAResize();
+  void footerAndDividerBeatResizeBands();
 };
 
 void HostWindowMoveTest::parentedPanelMoveDoesNotEmitNativeMoved() {
@@ -159,20 +166,33 @@ struct ClaimedRegion {
   int pixels = 0;
 };
 
+/// `plResize` shares one Kind; the active edges are what keep the seven
+/// regions from collapsing into one hollow frame in this walk.
+struct ClaimedHitKey {
+  int kind = 0;
+  int index = 0;
+  int resizeEdges = 0;
+  friend bool operator<(const ClaimedHitKey& a, const ClaimedHitKey& b) {
+    if (a.kind != b.kind) return a.kind < b.kind;
+    if (a.index != b.index) return a.index < b.index;
+    return a.resizeEdges < b.resizeEdges;
+  }
+};
+
 /// Which control wins each logical pixel of a panel. `hitTest` answers with the
 /// first region that claims a point, so a region that overlaps one checked
 /// before it silently loses the shared pixels — and that shows up here as a
 /// region winning fewer pixels than its own bounds hold.
-QMap<QPair<int, int>, ClaimedRegion> claimedRegions(aoide::WindowId id, QSize logical,
-                                                    const aoide::SessionView& view) {
-  QMap<QPair<int, int>, ClaimedRegion> out;
+QMap<ClaimedHitKey, ClaimedRegion> claimedRegions(aoide::WindowId id, QSize logical,
+                                                  const aoide::SessionView& view) {
+  QMap<ClaimedHitKey, ClaimedRegion> out;
   for (int y = 0; y < logical.height(); ++y) {
     for (int x = 0; x < logical.width(); ++x) {
       const aoide::ChromeHit hit = aoide::hitTest(id, logical, QPoint(x, y), view);
       if (hit.kind == aoide::ChromeHit::Kind::none) {
         continue;
       }
-      ClaimedRegion& claimed = out[{int(hit.kind), hit.index}];
+      ClaimedRegion& claimed = out[{int(hit.kind), hit.index, int(hit.resizeEdges)}];
       const QRect pixel(x, y, 1, 1);
       claimed.bounds = claimed.pixels == 0 ? pixel : claimed.bounds.united(pixel);
       claimed.carried = hit.rect;
@@ -430,13 +450,13 @@ void HostWindowMoveTest::hitRegionsDoNotOverlap() {
     for (auto it = claimed.constBegin(); it != claimed.constEnd(); ++it) {
       const QString where = QStringLiteral("%1 hit kind %2 index %3, bounded by %4x%5 at (%6, %7),")
                                 .arg(what)
-                                .arg(it.key().first)
-                                .arg(it.key().second)
+                                .arg(it.key().kind)
+                                .arg(it.key().index)
                                 .arg(it->bounds.width())
                                 .arg(it->bounds.height())
                                 .arg(it->bounds.left())
                                 .arg(it->bounds.top());
-      if (knownToLose.contains(it.key().first)) {
+      if (knownToLose.contains(it.key().kind)) {
         continue;
       }
       QVERIFY2(it->pixels == it->bounds.width() * it->bounds.height(),
@@ -449,7 +469,7 @@ void HostWindowMoveTest::hitRegionsDoNotOverlap() {
       // A region losing a whole edge to a neighbour would still win a solid
       // block, just a smaller one, so compare against the rect it hands out.
       const QRect carried = it->carried & QRect(QPoint(), logical);
-      if (grabsWiderThanItCarries.contains(it.key().first)) {
+      if (grabsWiderThanItCarries.contains(it.key().kind)) {
         QVERIFY2(it->bounds.contains(carried),
                  qPrintable(where + QStringLiteral(" no longer reaches around its own well")));
       } else {
@@ -466,7 +486,8 @@ void HostWindowMoveTest::hitRegionsDoNotOverlap() {
         for (const QPointF& at : paintedSamples(logical, it->bounds, zoom)) {
           const aoide::ChromeHit hit =
               aoide::hitTest(id, logical, logicalAtZoom(logical, zoom, at), view);
-          QVERIFY2(int(hit.kind) == it.key().first && hit.index == it.key().second,
+          QVERIFY2(int(hit.kind) == it.key().kind && hit.index == it.key().index &&
+                       int(hit.resizeEdges) == it.key().resizeEdges,
                    qPrintable(where + QStringLiteral(" loses (%1, %2) at %3%")
                                           .arg(at.x())
                                           .arg(at.y())
@@ -1721,6 +1742,134 @@ void HostWindowMoveTest::collectionRowPendingClickIsDeliveredBeforeANewPress() {
   QCOMPARE(qvariant_cast<aoide::ChromeHit>(pressed.at(0).at(0)).index, 0);
   QCOMPARE(qvariant_cast<aoide::ChromeHit>(pressed.at(1).at(0)).kind,
            aoide::ChromeHit::Kind::plAddCollection);
+}
+
+void HostWindowMoveTest::seResizeGripStaysEighteenByEighteen() {
+  const QSize logical = aoide::kPlaylistDefault;
+  const aoide::SessionView view;
+  const QRect grip(logical.width() - aoide::kPlaylistResizeGrip,
+                   logical.height() - aoide::kPlaylistResizeGrip, aoide::kPlaylistResizeGrip,
+                   aoide::kPlaylistResizeGrip);
+  const aoide::ChromeHit hit =
+      aoide::hitTest(aoide::WindowId::playlist, logical, grip.center(), view);
+  QCOMPARE(hit.kind, aoide::ChromeHit::Kind::plResize);
+  QCOMPARE(hit.rect, grip);
+  QCOMPARE(int(hit.resizeEdges), int(aoide::kResizeEdgeEast | aoide::kResizeEdgeSouth));
+  QCOMPARE(aoide::hitTest(aoide::WindowId::playlist, logical, grip.topLeft(), view).kind,
+           aoide::ChromeHit::Kind::plResize);
+  QCOMPARE(aoide::hitTest(aoide::WindowId::playlist, logical, grip.bottomRight(), view).kind,
+           aoide::ChromeHit::Kind::plResize);
+}
+
+void HostWindowMoveTest::playlistResizeRegionsReportTheirEdges() {
+  const QSize logical = aoide::kPlaylistDefault;
+  const aoide::SessionView view;
+  struct Sample {
+    QPoint pos;
+    quint8 edges;
+  };
+  const Sample samples[] = {
+      {{2, 2}, aoide::kResizeEdgeWest | aoide::kResizeEdgeNorth},
+      {{logical.width() - 3, 2}, aoide::kResizeEdgeEast | aoide::kResizeEdgeNorth},
+      {{2, logical.height() - 3}, aoide::kResizeEdgeWest | aoide::kResizeEdgeSouth},
+      {{logical.width() - 9, logical.height() - 9},
+       aoide::kResizeEdgeEast | aoide::kResizeEdgeSouth},
+      {{2, 200}, aoide::kResizeEdgeWest},
+      {{logical.width() - 3, 200}, aoide::kResizeEdgeEast},
+      {{500, logical.height() - 3}, aoide::kResizeEdgeSouth},
+  };
+  for (const Sample& sample : samples) {
+    const aoide::ChromeHit hit =
+        aoide::hitTest(aoide::WindowId::playlist, logical, sample.pos, view);
+    QCOMPARE(hit.kind, aoide::ChromeHit::Kind::plResize);
+    QCOMPARE(int(hit.resizeEdges), int(sample.edges));
+  }
+}
+
+void HostWindowMoveTest::westResizePinsTheRightEdge() {
+  const QRectF start(100, 80, 400, 300);
+  const aoide::PlaylistResizeEdges west{.west = true};
+  const QRectF next =
+      aoide::playlistResizeRect(start, west, QPointF(100, 200), QPointF(140, 210), QSizeF(200, 150));
+  QCOMPARE(next.right(), start.right());
+  QCOMPARE(next.left(), 140.0);
+  QCOMPARE(next.top(), start.top());
+  QCOMPARE(next.height(), start.height());
+}
+
+void HostWindowMoveTest::westResizeStopsTheOriginAtMinimumWidth() {
+  const QRectF start(100, 80, 400, 300);
+  const aoide::PlaylistResizeEdges west{.west = true};
+  const QRectF next =
+      aoide::playlistResizeRect(start, west, QPointF(100, 200), QPointF(350, 200), QSizeF(200, 150));
+  QCOMPARE(next.right(), start.right());
+  QCOMPARE(next.width(), 200.0);
+  QCOMPARE(next.left(), 300.0);
+}
+
+void HostWindowMoveTest::northResizePinsTheBottomEdge() {
+  const QRectF start(100, 80, 400, 300);
+  const aoide::PlaylistResizeEdges nw{.west = true, .north = true};
+  const QRectF next =
+      aoide::playlistResizeRect(start, nw, QPointF(100, 80), QPointF(90, 50), QSizeF(200, 150));
+  QCOMPARE(next.bottom(), start.bottom());
+  QCOMPARE(next.top(), 50.0);
+  QCOMPARE(next.left(), 90.0);
+  QCOMPARE(next.right(), start.right());
+
+  const QRectF crushed =
+      aoide::playlistResizeRect(start, nw, QPointF(100, 80), QPointF(90, 400), QSizeF(200, 150));
+  QCOMPARE(crushed.bottom(), start.bottom());
+  QCOMPARE(crushed.height(), 150.0);
+  QCOMPARE(crushed.top(), 230.0);
+}
+
+void HostWindowMoveTest::aGripClickWithoutADragDoesNotEmitAResize() {
+  const auto specs = aoide::windowSpecs();
+  HostShell shell;
+  HostWindow pl(specs[2], &shell);
+  shell.show();
+  pl.show();
+  QVERIFY(QTest::qWaitForWindowExposed(&pl));
+
+  aoide::SessionView view;
+  pl.setSessionView(view);
+  QApplication::processEvents();
+
+  const QSize logical = aoide::kPlaylistDefault;
+  const QRect grip(logical.width() - aoide::kPlaylistResizeGrip,
+                   logical.height() - aoide::kPlaylistResizeGrip, aoide::kPlaylistResizeGrip,
+                   aoide::kPlaylistResizeGrip);
+  QCOMPARE(aoide::hitTest(aoide::WindowId::playlist, logical, grip.center(), view).kind,
+           aoide::ChromeHit::Kind::plResize);
+
+  QSignalSpy resized(&pl, &HostWindow::nativeResized);
+  QTest::mouseClick(&pl, Qt::LeftButton, Qt::NoModifier, pl.widgetRectFromLogical(grip).center());
+  QCOMPARE(resized.count(), 0);
+}
+
+void HostWindowMoveTest::footerAndDividerBeatResizeBands() {
+  const QSize logical = aoide::kPlaylistDefault;
+  const aoide::SessionView view;
+  const QRectF body = aoide::panelBody(logical);
+  const QRect divider(int(body.left() + view.collectionWidth), int(body.top()), 8,
+                      int(body.height()));
+  QCOMPARE(aoide::hitTest(aoide::WindowId::playlist, logical, divider.center(), view).kind,
+           aoide::ChromeHit::Kind::plDivider);
+
+  const QRectF tracks = aoide::playlistTracksPane(body, view.collectionWidth);
+  const QRectF footer = aoide::playlistFooter(aoide::playlistTrackInner(tracks));
+  const QRectF deckInner = aoide::playlistDeckInner(footer);
+  const qreal totalW = aoide::playlistStripTotalWidth(
+      aoide::textWidth(aoide::condensedFont(11, 0.2), QStringLiteral("TOTAL")),
+      aoide::textWidth(aoide::monoFont(18), aoide::formatClock(view.playlistTotalMs)));
+  const auto strip = aoide::layoutPlaylistStrip(deckInner, totalW);
+  QCOMPARE(aoide::hitTest(aoide::WindowId::playlist, logical, strip.save.toRect().center(), view)
+               .kind,
+           aoide::ChromeHit::Kind::plSave);
+  QCOMPARE(aoide::hitTest(aoide::WindowId::playlist, logical, strip.refresh.toRect().center(), view)
+               .kind,
+           aoide::ChromeHit::Kind::plRefresh);
 }
 
 QTEST_MAIN(HostWindowMoveTest)

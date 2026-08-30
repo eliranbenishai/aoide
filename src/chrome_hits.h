@@ -4,8 +4,11 @@
 #include "window_spec.h"
 
 #include <QPoint>
+#include <QPointF>
 #include <QRect>
+#include <QRectF>
 #include <QSize>
+#include <QSizeF>
 #include <QString>
 #include <algorithm>
 #include <optional>
@@ -80,7 +83,58 @@ struct ChromeHit {
   Kind kind = Kind::none;
   int index = -1;
   QRect rect;
+  /// Which sides a `plResize` grab moves. Off `Kind` so every resize stays one
+  /// inert hit for pointer feedback and tooltips.
+  quint8 resizeEdges = 0;
 };
+
+inline constexpr quint8 kResizeEdgeWest = 1 << 0;
+inline constexpr quint8 kResizeEdgeEast = 1 << 1;
+inline constexpr quint8 kResizeEdgeSouth = 1 << 2;
+inline constexpr quint8 kResizeEdgeNorth = 1 << 3;
+
+inline constexpr int kPlaylistResizeGrip = 18;
+inline constexpr int kPlaylistResizeBand = 5;
+
+struct PlaylistResizeEdges {
+  bool west = false;
+  bool east = false;
+  bool north = false;
+  bool south = false;
+};
+
+inline PlaylistResizeEdges playlistResizeEdgesFromMask(quint8 mask) {
+  return {bool(mask & kResizeEdgeWest), bool(mask & kResizeEdgeEast),
+          bool(mask & kResizeEdgeNorth), bool(mask & kResizeEdgeSouth)};
+}
+
+/// Next playlist rect for a press-and-drag on [edges]. Inactive edges stay
+/// put. Size is clamped to [minSize] against the fixed edge — the origin must
+/// not keep following the pointer once the drag is past the minimum.
+inline QRectF playlistResizeRect(QRectF start, PlaylistResizeEdges edges, QPointF press,
+                                 QPointF pointer, QSizeF minSize) {
+  const QPointF delta = pointer - press;
+  qreal left = start.left();
+  qreal top = start.top();
+  qreal right = start.left() + start.width();
+  qreal bottom = start.top() + start.height();
+  if (edges.west) left += delta.x();
+  if (edges.east) right += delta.x();
+  if (edges.north) top += delta.y();
+  if (edges.south) bottom += delta.y();
+
+  const qreal minW = qMax(minSize.width(), qreal(0));
+  const qreal minH = qMax(minSize.height(), qreal(0));
+  if (right - left < minW) {
+    if (edges.west) left = right - minW;
+    else right = left + minW;
+  }
+  if (bottom - top < minH) {
+    if (edges.north) top = bottom - minH;
+    else bottom = top + minH;
+  }
+  return QRectF(QPointF(left, top), QPointF(right, bottom));
+}
 
 /// Fraction 0..1 along a horizontal well from a pointer in the well's logical space.
 inline qreal sliderFractionX(const QRect& track, int x) {

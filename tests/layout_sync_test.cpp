@@ -1,6 +1,8 @@
+#include "chrome_layout.h"
 #include "layout_sync.h"
 
 #include <QTest>
+#include <functional>
 
 using aoide::DockLayout;
 using aoide::LayoutSync;
@@ -20,15 +22,27 @@ class FakeDesktop : public aoide::PanelSurfaces {
   /// state every test that is not about zoom availability wants.
   QRect workAreaFor(QRect clusterNative) const override {
     clusterAsked = clusterNative;
+    if (!screen_.isEmpty() && clusterNative.intersects(screen_)) return screenWork_;
     return work_;
   }
   void setWorkArea(QRect work) { work_ = work; }
+  /// A second display's work area, used when the asked rectangle sits on it.
+  /// The default [work_] stays the answer for everything else, including the
+  /// primary — so a playlist on the neighbour cannot be measured against the
+  /// taskbar of a screen it is not on.
+  void setWorkAreaForScreen(QRect screen, QRect work) {
+    screen_ = screen;
+    screenWork_ = work;
+  }
   mutable QRect clusterAsked;
 
   void placePanels(const QVector<aoide::PanelPlacement>& panels) override {
     ++passes;
     last = panels;
+    if (onPlace) onPlace();
   }
+
+  std::function<void()> onPlace;
 
   aoide::PanelPlacement placementOf(WindowId id) const {
     for (const aoide::PanelPlacement& panel : last) {
@@ -43,7 +57,22 @@ class FakeDesktop : public aoide::PanelSurfaces {
  private:
   QRect host_;
   QRect work_;
+  QRect screen_;
+  QRect screenWork_;
 };
+
+/// Main, EQ and playlist at their defaults: the vertical stack a first launch
+/// opens on, 1073 x 1392 logical.
+DockLayout defaultCluster() {
+  DockLayout dock;
+  dock.main = aoide::WindowFrame::mainDefault();
+  dock.equalizer = aoide::WindowFrame::equalizerDefault();
+  dock.playlist = aoide::WindowFrame::playlistDefault();
+  return dock;
+}
+
+/// A 1080p display less a desktop panel along the bottom.
+constexpr QRect kWorkArea1080p(0, 0, 1920, 1044);
 
 }  // namespace
 
@@ -56,14 +85,30 @@ class LayoutSyncTest : public QObject {
   void nativeFrameRectZoomsThePanelAndItsOrigin();
   void nativeFrameRectTakesTheStoredPlaylistSizeAndTheShadedHeight();
   void setNativeFrameRoundTripsThroughTheFrame();
-  void onlyThePlaylistTakesASizeFromAScreenRectangle();
+  void aScreenRectanglePlacesAPanelWithoutWritingItsSize();
+  void anAutomaticClampDoesNotDestroyTheChosenPlaylistSize();
+  void aPlaylistGripUnderTheTaskbarIsPulledIntoTheWorkArea();
+  void theWorkAreaIsTakenFromTheScreenThePlaylistIsOn();
+  void anEmptyWorkAreaWithdrawsNoPlaylistClamp();
+  void afterAFitNeitherDockedSiblingOverlapsMain();
+  void aFitShrinksThePlaylistTowardItsMinimumToClearMain();
+  void aFitNeverAsksForAPlaylistSmallerThanTheMinimumInForce();
+  void aHandDragMayLeaveASiblingOverMain();
+  void aMoveWithNoSurfacesDoesNotLatchTheNextPlace();
+  void aReentrantPlaceLeavesTheLatchForTheOuterPass();
+  void aWestResizeKeepsThePinnedEastEdgeThroughPlace();
+  void aNorthResizeKeepsThePinnedSouthEdgeThroughPlace();
+  void aUserResizeStillPullsTheGripIntoTheWorkArea();
+  void aZoomStepThatFitsAtThePlaylistMinimumIsTakenAndThePlaylistShrinks();
+  void aZoomStepUpIsRefusedAtTheTrueFloor();
   void clampPullsAPanelBackOntoTheDesktop();
   void clampLeavesEverythingAloneWhenThereIsNoHostYet();
   void clampAcceptsAScreenLeftOfThePrimary();
   void aClusterIsTranslatedWholeOntoAScreenLeftOfThePrimary();
-  void clampingOntoAScreenLeftOfThePrimaryDropsTheEdgesItBreaks();
+  void clampingOntoAScreenLeftOfThePrimaryKeepsTheEdgesItDoesNotBreak();
   void unpluggingAMonitorTranslatesAClusterThatStillFits();
-  void aClusterTooWideForTheDesktopClampsEachPanelAndDropsTheEdgesThatBreaks();
+  void aClusterTooWideForTheDesktopParksThePlaylistBelowMainAndKeepsTheEdges();
+  void aFitThatCannotRestoreAFlushPairDropsTheBrokenEdge();
   void aCrawlTooSlowToPeelStillLosesTheEdgeItCrawledAwayFrom();
   void aClusterThatOnlyMovedKeepsEveryEdgeItWasDockedBy();
   void aZoomStepTheWorkAreaCannotHoldIsNotOffered();
@@ -72,7 +117,7 @@ class LayoutSyncTest : public QObject {
   void anUnknownWorkAreaWithdrawsNoStep();
   void theLadderRefusesAStepItDoesNotCarry();
   void zoomingBackOutOfAStepTheDisplayOutgrewIsAlwaysOffered();
-  void aZoomStepThatOutgrowsTheDesktopDropsTheEdgesItBreaks();
+  void aZoomStepThatOutgrowsTheDesktopShrinksThePlaylistAndKeepsTheEdges();
   void aRefusedZoomStepLeavesTheDockedClusterExactlyWhereItWas();
   void thePanelsAreScaledToTheStepTheLayoutTookAndNotTheOneItWasOffered();
   void everyPanelReachesTheSurfacesIncludingTheHiddenOnes();
@@ -134,19 +179,359 @@ void LayoutSyncTest::setNativeFrameRoundTripsThroughTheFrame() {
 
   const QRect moved(300, 150, 900, 600);
   layout.setNativeFrame(WindowId::playlist, moved);
-  QCOMPARE(layout.nativeFrameRect(WindowId::playlist), moved);
+  // Size is not part of the trip: a screen rectangle is a placement, and
+  // the chosen canvas has to survive it.
+  QCOMPARE(layout.nativeFrameRect(WindowId::playlist).topLeft(), QPoint(300, 150));
+  QCOMPARE(layout.nativeFrameRect(WindowId::playlist).size(), QSize(805, 522));
   QCOMPARE(layout.layout().playlist.left, 400.0);
   QCOMPARE(layout.layout().playlist.top, 200.0);
+  QCOMPARE(*layout.layout().playlist.width, 1073.0);
+  QCOMPARE(*layout.layout().playlist.height, 696.0);
 }
 
-void LayoutSyncTest::onlyThePlaylistTakesASizeFromAScreenRectangle() {
+void LayoutSyncTest::aScreenRectanglePlacesAPanelWithoutWritingItsSize() {
   DockLayout dock;
+  dock.playlist = {true, false, 0, 0, 1073.0, 696.0};
   LayoutSync layout(dock, 100);
   // Main and EQ never stretch, so a rectangle handed to them moves the origin
   // and nothing else — a clamp that shrank one would otherwise stick.
   layout.setNativeFrame(WindowId::main, QRect(40, 60, 200, 100));
   QCOMPARE(layout.nativeFrameRect(WindowId::main), QRect(40, 60, 825, 348));
   QVERIFY(!layout.layout().main.width.has_value());
+
+  // The playlist's chosen size is what the listener dragged it to. A screen
+  // rectangle is a placement, not a resize: the desktop may have to fit a
+  // smaller panel right now, and writing that fit back is what made a clamp
+  // destroy the width they chose. Only resizePlaylist writes the chosen size.
+  layout.setNativeFrame(WindowId::playlist, QRect(80, 90, 400, 200));
+  QCOMPARE(layout.nativeFrameRect(WindowId::playlist).topLeft(), QPoint(80, 90));
+  QCOMPARE(*layout.layout().playlist.width, 1073.0);
+  QCOMPARE(*layout.layout().playlist.height, 696.0);
+  QCOMPARE(layout.nativeFrameRect(WindowId::playlist).size(), QSize(1073, 696));
+}
+
+void LayoutSyncTest::anAutomaticClampDoesNotDestroyTheChosenPlaylistSize() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  DockLayout dock;
+  dock.equalizer.visible = false;
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+  layout.docking().resizePlaylist(QSizeF(900, 600));
+  layout.setNativeFrame(WindowId::playlist, QRect(40, 40, 900, 600));
+  layout.place();
+  QCOMPARE(desktop.placementOf(WindowId::playlist).screen.size(), QSize(900, 600));
+  QCOMPARE(desktop.placementOf(WindowId::playlist).logicalSize, QSize(900, 600));
+  QCOMPARE(*layout.layout().playlist.width, 900.0);
+  QCOMPARE(*layout.layout().playlist.height, 600.0);
+
+  desktop.setHostRect(QRect(0, 0, 500, 400));
+  layout.place();
+  // The recorder is the screen: the panel paints at the fitted size it was
+  // placed at. The frame still holds the size the listener chose, so giving
+  // the desktop its room back can restore it.
+  QCOMPARE(desktop.placementOf(WindowId::playlist).screen.size(), QSize(500, 400));
+  QCOMPARE(desktop.placementOf(WindowId::playlist).logicalSize, QSize(500, 400));
+  QCOMPARE(*layout.layout().playlist.width, 900.0);
+  QCOMPARE(*layout.layout().playlist.height, 600.0);
+
+  desktop.setHostRect(QRect(0, 0, 1920, 1080));
+  layout.place();
+  QCOMPARE(desktop.placementOf(WindowId::playlist).screen.size(), QSize(900, 600));
+  QCOMPARE(desktop.placementOf(WindowId::playlist).logicalSize, QSize(900, 600));
+  QCOMPARE(*layout.layout().playlist.width, 900.0);
+  QCOMPARE(*layout.layout().playlist.height, 600.0);
+}
+
+void LayoutSyncTest::aPlaylistGripUnderTheTaskbarIsPulledIntoTheWorkArea() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  desktop.setWorkArea(QRect(0, 0, 1920, 1044));
+  DockLayout dock;
+  dock.equalizer.visible = false;
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+  layout.docking().resizePlaylist(QSizeF(900, 600));
+  layout.setNativeFrame(WindowId::playlist, QRect(100, 500, 900, 600));
+  layout.place();
+
+  const QRect placed = desktop.placementOf(WindowId::playlist).screen;
+  const QRect work(0, 0, 1920, 1044);
+  QVERIFY(work.contains(placed.bottomRight()));
+  QCOMPARE(placed.size(), QSize(900, 600));
+  QCOMPARE(placed.topLeft(), QPoint(100, 444));
+  QCOMPARE(*layout.layout().playlist.width, 900.0);
+  QCOMPARE(*layout.layout().playlist.height, 600.0);
+}
+
+void LayoutSyncTest::theWorkAreaIsTakenFromTheScreenThePlaylistIsOn() {
+  FakeDesktop desktop(QRect(0, 0, 3840, 1080));
+  desktop.setWorkArea(QRect(0, 0, 1920, 1044));
+  desktop.setWorkAreaForScreen(QRect(1920, 0, 1920, 1080), QRect(1920, 0, 1920, 1080));
+  DockLayout dock;
+  dock.equalizer.visible = false;
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+  layout.docking().resizePlaylist(QSizeF(800, 600));
+  layout.setNativeFrame(WindowId::playlist, QRect(2000, 200, 800, 600));
+  layout.place();
+
+  // The primary's taskbar is not this panel's problem. Measuring the neighbour
+  // against that work area would drag it onto the primary just to tuck a grip
+  // that was already reachable on its own display.
+  QCOMPARE(desktop.placementOf(WindowId::playlist).screen, QRect(2000, 200, 800, 600));
+  QCOMPARE(desktop.clusterAsked, QRect(2000, 200, 800, 600));
+}
+
+void LayoutSyncTest::anEmptyWorkAreaWithdrawsNoPlaylistClamp() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  DockLayout dock;
+  dock.equalizer.visible = false;
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+  layout.docking().resizePlaylist(QSizeF(900, 560));
+  layout.setNativeFrame(WindowId::playlist, QRect(40, 500, 900, 560));
+  layout.place();
+
+  // Bottom 1060 sits on the virtual desktop and would be pulled if a 1044-tall
+  // work area were invented. Empty means not known, so the host is the last word.
+  QCOMPARE(desktop.placementOf(WindowId::playlist).screen, QRect(40, 500, 900, 560));
+}
+
+void LayoutSyncTest::afterAFitNeitherDockedSiblingOverlapsMain() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  DockLayout dock;
+  dock.main = {true, false, 0, 0, {}, {}};
+  dock.equalizer = {true, false, 0, 0, {}, {}};
+  dock.playlist = {true, false, 0, 0, 900.0, 600.0};
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  const QRect mainBefore = layout.nativeFrameRect(WindowId::main);
+  layout.fitClusterToHost();
+  layout.place();
+
+  const QRect main = desktop.placementOf(WindowId::main).screen;
+  const QRect eq = desktop.placementOf(WindowId::equalizer).screen;
+  const QRect playlist = desktop.placementOf(WindowId::playlist).screen;
+  QCOMPARE(main, mainBefore);
+  QVERIFY(!eq.intersects(main));
+  QVERIFY(!playlist.intersects(main));
+}
+
+void LayoutSyncTest::aFitShrinksThePlaylistTowardItsMinimumToClearMain() {
+  // Short enough that parking below main cannot keep the chosen height, so
+  // the only room left is a slice to main's right — narrower than chosen,
+  // still above the playlist minimum.
+  FakeDesktop desktop(QRect(0, 0, 1500, 500));
+  DockLayout dock;
+  dock.main = {true, false, 0, 0, {}, {}};
+  dock.equalizer.visible = false;
+  dock.playlist = {true, false, 0, 0, 1073.0, 696.0};
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  const QRect mainBefore = layout.nativeFrameRect(WindowId::main);
+  layout.fitClusterToHost();
+  layout.place();
+
+  const QRect main = desktop.placementOf(WindowId::main).screen;
+  const QRect playlist = desktop.placementOf(WindowId::playlist).screen;
+  QCOMPARE(main, mainBefore);
+  QVERIFY(!playlist.intersects(main));
+  QCOMPARE(playlist.topLeft(), QPoint(825, 0));
+  QCOMPARE(playlist.width(), 675);
+  QCOMPARE(desktop.placementOf(WindowId::playlist).logicalSize, QSize(675, 500));
+  QCOMPARE(*layout.layout().playlist.width, 1073.0);
+  QCOMPARE(*layout.layout().playlist.height, 696.0);
+}
+
+void LayoutSyncTest::aFitNeverAsksForAPlaylistSmallerThanTheMinimumInForce() {
+  const QSize min =
+      aoide::playlistMinLogical(240, aoide::kPlaylistStripTotalReserve);
+  FakeDesktop desktop(QRect(0, 0, 1500, 500));
+  DockLayout dock;
+  dock.main = {true, false, 0, 0, {}, {}};
+  dock.equalizer.visible = false;
+  dock.playlist = {true, false, 0, 0, 1073.0, 696.0};
+  LayoutSync layout(dock, 100);
+  layout.setPlaylistMinLogical(min);
+  layout.setSurfaces(&desktop);
+
+  layout.fitClusterToHost();
+  layout.place();
+
+  const QRect playlist = desktop.placementOf(WindowId::playlist).screen;
+  QVERIFY(playlist.width() >= min.width());
+  QVERIFY(playlist.height() >= min.height());
+}
+
+void LayoutSyncTest::aHandDragMayLeaveASiblingOverMain() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  DockLayout dock;
+  dock.main = {true, false, 0, 0, {}, {}};
+  dock.equalizer.visible = false;
+  dock.playlist = {true, false, 400, 400, 900.0, 600.0};
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  layout.docking().move(WindowId::playlist, QPointF(0, 0), false, false);
+  layout.clampToHost(WindowId::playlist);
+  layout.place();
+
+  // A title-bar drag is the listener's. Automatic correction that pulled the
+  // playlist off main here would fight the hand that just put it there.
+  QVERIFY(desktop.placementOf(WindowId::playlist).screen.intersects(
+      desktop.placementOf(WindowId::main).screen));
+  QCOMPARE(desktop.placementOf(WindowId::playlist).screen.topLeft(), QPoint(0, 0));
+}
+
+void LayoutSyncTest::aMoveWithNoSurfacesDoesNotLatchTheNextPlace() {
+  DockLayout dock;
+  dock.main = {true, false, 0, 0, {}, {}};
+  dock.equalizer.visible = false;
+  dock.playlist = {true, false, 0, 0, 900.0, 600.0};
+  LayoutSync layout(dock, 100);
+
+  layout.docking().move(WindowId::playlist, QPointF(0, 0), false, false);
+  layout.place();
+
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  layout.setSurfaces(&desktop);
+  layout.place();
+
+  // The move never landed on a surface, so the latch is stale. Leaving it
+  // would skip un-overlap on this automatic pass.
+  QVERIFY(!desktop.placementOf(WindowId::playlist).screen.intersects(
+      desktop.placementOf(WindowId::main).screen));
+}
+
+void LayoutSyncTest::aReentrantPlaceLeavesTheLatchForTheOuterPass() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  DockLayout dock;
+  dock.main = {true, false, 0, 0, {}, {}};
+  dock.equalizer.visible = false;
+  dock.playlist = {true, false, 400, 400, 900.0, 600.0};
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+  desktop.onPlace = [&]() { layout.place(); };
+
+  layout.docking().move(WindowId::playlist, QPointF(0, 0), false, false);
+  layout.clampToHost(WindowId::playlist);
+  layout.place();
+
+  // A re-entrant place must not consume the latch the outer pass still needs.
+  // If it did, this hand-drag would be un-overlapped mid-gesture.
+  QVERIFY(desktop.placementOf(WindowId::playlist).screen.intersects(
+      desktop.placementOf(WindowId::main).screen));
+  QCOMPARE(desktop.placementOf(WindowId::playlist).screen.topLeft(), QPoint(0, 0));
+}
+
+void LayoutSyncTest::aWestResizeKeepsThePinnedEastEdgeThroughPlace() {
+  // Wide enough that parking on main's right still fits the grown width —
+  // otherwise clearKeep falls through to below and the rewrite is a different
+  // rectangle than the east-grow the west grip actually produces in the app.
+  FakeDesktop desktop(QRect(0, 0, 2560, 1080));
+  DockLayout dock;
+  dock.main = {true, false, 0, 0, {}, {}};
+  dock.equalizer.visible = false;
+  dock.playlist = {true, false, 825, 0, 1073.0, 696.0};
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+  layout.place();
+  QCOMPARE(desktop.placementOf(WindowId::playlist).screen, QRect(825, 0, 1073, 696));
+
+  // West grip: the east edge stays put and the origin walks left. place() has
+  // to honour that rectangle — parking back on main's right would grow east
+  // instead, which is what made the west grip a no-op in the app.
+  layout.docking().resizePlaylist(QPointF(785, 0), QSizeF(1113, 696));
+  layout.clampToHost(WindowId::playlist);
+  layout.place();
+
+  QCOMPARE(desktop.placementOf(WindowId::playlist).screen, QRect(785, 0, 1113, 696));
+  QCOMPARE(*layout.layout().playlist.width, 1113.0);
+  QCOMPARE(*layout.layout().playlist.height, 696.0);
+}
+
+void LayoutSyncTest::aNorthResizeKeepsThePinnedSouthEdgeThroughPlace() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  DockLayout dock;
+  dock.main = {true, false, 0, 0, {}, {}};
+  dock.equalizer.visible = false;
+  dock.playlist = {true, false, 0, 348, 1073.0, 696.0};
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+  layout.place();
+  QCOMPARE(desktop.placementOf(WindowId::playlist).screen, QRect(0, 348, 1073, 696));
+
+  // North grip: the south edge stays put and the origin walks up, covering
+  // main by the drag. Automatic un-overlap would park the panel on its right
+  // park-side and throw the pinned edge away.
+  layout.docking().resizePlaylist(QPointF(0, 338), QSizeF(1073, 706));
+  layout.clampToHost(WindowId::playlist);
+  layout.place();
+
+  QCOMPARE(desktop.placementOf(WindowId::playlist).screen, QRect(0, 338, 1073, 706));
+  QCOMPARE(*layout.layout().playlist.width, 1073.0);
+  QCOMPARE(*layout.layout().playlist.height, 706.0);
+}
+
+void LayoutSyncTest::aUserResizeStillPullsTheGripIntoTheWorkArea() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  desktop.setWorkArea(QRect(0, 0, 1920, 1044));
+  DockLayout dock;
+  dock.equalizer.visible = false;
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  // A resize is a user gesture, but the grip still has to stay reachable. The
+  // latch that stops un-overlap must not skip the work-area clamp.
+  layout.docking().resizePlaylist(QPointF(100, 500), QSizeF(900, 600));
+  layout.clampToHost(WindowId::playlist);
+  layout.place();
+
+  const QRect placed = desktop.placementOf(WindowId::playlist).screen;
+  QVERIFY(QRect(0, 0, 1920, 1044).contains(placed.bottomRight()));
+  QCOMPARE(placed.size(), QSize(900, 600));
+  QCOMPARE(placed.topLeft(), QPoint(100, 444));
+  QCOMPARE(*layout.layout().playlist.width, 900.0);
+  QCOMPARE(*layout.layout().playlist.height, 600.0);
+}
+
+void LayoutSyncTest::aZoomStepThatFitsAtThePlaylistMinimumIsTakenAndThePlaylistShrinks() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  desktop.setWorkArea(kWorkArea1080p);
+  LayoutSync layout(defaultCluster(), 75);
+  layout.setSurfaces(&desktop);
+
+  // The default stack is 1392 logical tall: 1044 native at 75% and 1392 at
+  // 100%. The playlist can shrink to its minimum and the stack still fits,
+  // so the step is taken and the shrink is the fit — not a new chosen size.
+  QVERIFY(layout.setZoomPercent(100));
+  QCOMPARE(layout.zoomPercent(), qreal(100));
+  layout.fitClusterToHost();
+  layout.place();
+
+  const QRect main = desktop.placementOf(WindowId::main).screen;
+  const QRect playlist = desktop.placementOf(WindowId::playlist).screen;
+  QVERIFY(!playlist.intersects(main));
+  QVERIFY(kWorkArea1080p.contains(playlist.bottomRight()));
+  QCOMPARE(playlist.height(), 348);
+  QVERIFY(!layout.layout().playlist.width.has_value());
+  QVERIFY(!layout.layout().playlist.height.has_value());
+  QCOMPARE(desktop.placementOf(WindowId::playlist).logicalSize.height(), 348);
+}
+
+void LayoutSyncTest::aZoomStepUpIsRefusedAtTheTrueFloor() {
+  FakeDesktop desktop(QRect(0, 0, 1920, 1080));
+  desktop.setWorkArea(kWorkArea1080p);
+  LayoutSync layout(defaultCluster(), 100);
+  layout.setSurfaces(&desktop);
+
+  // At 125% even a playlist at its minimum leaves the default stack taller
+  // than 1044: that is the true floor, and the step stays withdrawn.
+  QVERIFY(!layout.zoomStepAvailable(125));
+  QVERIFY(!layout.zoomStepUp().has_value());
+  QVERIFY(!layout.setZoomPercent(125));
+  QCOMPARE(layout.zoomPercent(), qreal(100));
 }
 
 void LayoutSyncTest::clampPullsAPanelBackOntoTheDesktop() {
@@ -219,10 +604,10 @@ void LayoutSyncTest::aClusterIsTranslatedWholeOntoAScreenLeftOfThePrimary() {
   QCOMPARE(layout.layout().dockEdges.size(), 1);
 }
 
-void LayoutSyncTest::clampingOntoAScreenLeftOfThePrimaryDropsTheEdgesItBreaks() {
+void LayoutSyncTest::clampingOntoAScreenLeftOfThePrimaryKeepsTheEdgesItDoesNotBreak() {
   // The same fallback as a desktop starting at zero, on the monitor that is left
-  // of the primary: each panel pulled inside, and the edges clamping breaks
-  // dropped rather than left pointing at a contact on the monitor that has gone.
+  // of the primary: each panel pulled inside. The playlist cannot sit on main,
+  // so it parks below. That is still a contact, so the edges stay.
   FakeDesktop desktop(QRect(-1920, -200, 900, 1080));
   DockLayout dock;
   dock.main = {true, false, -1920, -200, {}, {}};
@@ -239,8 +624,12 @@ void LayoutSyncTest::clampingOntoAScreenLeftOfThePrimaryDropsTheEdgesItBreaks() 
   layout.place();
 
   QCOMPARE(layout.nativeFrameRect(WindowId::main), QRect(-1920, -200, 825, 348));
-  QCOMPARE(layout.nativeFrameRect(WindowId::playlist), QRect(-1920, -200, 900, 696));
-  QVERIFY(layout.layout().dockEdges.isEmpty());
+  QCOMPARE(layout.nativeFrameRect(WindowId::playlist), QRect(-1920, 148, 900, 696));
+  QVERIFY(!desktop.placementOf(WindowId::playlist).screen.intersects(
+      desktop.placementOf(WindowId::main).screen));
+  // Flush under main is still a contact, so the edges stay — they would drop
+  // only if the pair had been stacked on top of each other.
+  QVERIFY(!layout.layout().dockEdges.isEmpty());
 }
 
 void LayoutSyncTest::unpluggingAMonitorTranslatesAClusterThatStillFits() {
@@ -267,12 +656,10 @@ void LayoutSyncTest::unpluggingAMonitorTranslatesAClusterThatStillFits() {
   QCOMPARE(layout.nativeFrameRect(WindowId::playlist).topLeft(), QPoint(1095, 796));
 }
 
-void LayoutSyncTest::aClusterTooWideForTheDesktopClampsEachPanelAndDropsTheEdgesThatBreaks() {
+void LayoutSyncTest::aClusterTooWideForTheDesktopParksThePlaylistBelowMainAndKeepsTheEdges() {
   // A union that cannot fit at any origin is pulled back panel by panel, which
-  // is what a monitor going away is promised to do. Clamping moves panels that
-  // were docked, so the edges naming those contacts go with it: the alternative
-  // is a layout that still calls the pair flush while one sits on top of the
-  // other, and a panel whose own stale edge bars it from re-docking.
+  // is what a monitor going away is promised to do. The playlist cannot cover
+  // main, so it parks below — still flush, so the edges stay.
   FakeDesktop desktop(QRect(0, 0, 900, 1080));
   DockLayout dock;
   dock.main = {true, false, 0, 0, {}, {}};
@@ -289,7 +676,32 @@ void LayoutSyncTest::aClusterTooWideForTheDesktopClampsEachPanelAndDropsTheEdges
   layout.place();
 
   QCOMPARE(layout.nativeFrameRect(WindowId::main), QRect(0, 0, 825, 348));
-  QCOMPARE(layout.nativeFrameRect(WindowId::playlist), QRect(0, 0, 900, 696));
+  QCOMPARE(layout.nativeFrameRect(WindowId::playlist), QRect(0, 348, 900, 696));
+  QVERIFY(!desktop.placementOf(WindowId::playlist).screen.intersects(
+      desktop.placementOf(WindowId::main).screen));
+  QVERIFY(!layout.layout().dockEdges.isEmpty());
+}
+
+void LayoutSyncTest::aFitThatCannotRestoreAFlushPairDropsTheBrokenEdge() {
+  // Short and narrow enough that no park-side has room for the playlist at
+  // its minimum, so clearKeep cannot restore a flush pair. A stale edge
+  // would keep main inside the playlist's snap group and exclude it as a
+  // target — the panel could neither hold the dock nor get it back.
+  FakeDesktop desktop(QRect(0, 0, 900, 500));
+  DockLayout dock;
+  dock.main = {true, false, 0, 0, {}, {}};
+  dock.playlist = {true, false, 825, 0, 1073.0, 696.0};
+  dock.equalizer.visible = false;
+  dock.dockEdges = {
+      {WindowId::playlist, WindowId::main, aoide::DockSide::left},
+      {WindowId::playlist, WindowId::main, aoide::DockSide::top},
+  };
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+
+  layout.fitClusterToHost();
+  layout.place();
+
   QVERIFY(layout.layout().dockEdges.isEmpty());
 }
 
@@ -346,36 +758,20 @@ void LayoutSyncTest::aClusterThatOnlyMovedKeepsEveryEdgeItWasDockedBy() {
           aoide::DockingCoordinator::kEdgeSlack);
 }
 
-namespace {
-
-/// Main, EQ and playlist at their defaults: the vertical stack a first launch
-/// opens on, 1073 x 1392 logical.
-DockLayout defaultCluster() {
-  DockLayout dock;
-  dock.main = aoide::WindowFrame::mainDefault();
-  dock.equalizer = aoide::WindowFrame::equalizerDefault();
-  dock.playlist = aoide::WindowFrame::playlistDefault();
-  return dock;
-}
-
-/// A 1080p display less a desktop panel along the bottom.
-constexpr QRect kWorkArea1080p(0, 0, 1920, 1044);
-
-}  // namespace
-
 void LayoutSyncTest::aZoomStepTheWorkAreaCannotHoldIsNotOffered() {
   FakeDesktop desktop(QRect(0, 0, 1920, 1080));
   desktop.setWorkArea(kWorkArea1080p);
   LayoutSync layout(defaultCluster(), 75);
   layout.setSurfaces(&desktop);
 
-  // The default stack is 1392 logical tall, which is 1044 native at 75% and
-  // 1392 at 100%. There is no room for the step up, so it is not offered and
-  // handing it over anyway changes nothing.
+  // The default stack is 1392 logical tall. The playlist can shrink to its
+  // minimum and still fit 100%, so that step is offered. 125% is the true
+  // floor — even a minimum playlist leaves the stack taller than 1044 — and
+  // handing that over changes nothing.
   QCOMPARE(layout.clusterLogicalSize(), QSizeF(1073, 1392));
-  QVERIFY(!layout.zoomStepAvailable(100));
-  QVERIFY(!layout.zoomStepUp().has_value());
-  QVERIFY(!layout.setZoomPercent(100));
+  QVERIFY(layout.zoomStepAvailable(100));
+  QVERIFY(!layout.zoomStepAvailable(125));
+  QVERIFY(!layout.setZoomPercent(125));
   QCOMPARE(layout.zoomPercent(), qreal(75));
 }
 
@@ -480,9 +876,10 @@ DockLayout playlistDockedRightOfMain() {
 
 }  // namespace
 
-void LayoutSyncTest::aZoomStepThatOutgrowsTheDesktopDropsTheEdgesItBreaks() {
+void LayoutSyncTest::aZoomStepThatOutgrowsTheDesktopShrinksThePlaylistAndKeepsTheEdges() {
   // No work area to consult, so the step is taken — and a step that is taken
-  // has to leave the layout honest, whatever it costs the arrangement.
+  // has to leave the layout honest. The playlist absorbs the extra width; main
+  // keeps its rectangle and the dock holds if the contact is still flush.
   FakeDesktop desktop(QRect(0, 0, 1920, 1080));
   LayoutSync layout(playlistDockedRightOfMain(), 75);
   layout.setSurfaces(&desktop);
@@ -494,11 +891,13 @@ void LayoutSyncTest::aZoomStepThatOutgrowsTheDesktopDropsTheEdgesItBreaks() {
   layout.fitClusterToHost();
   layout.place();
 
-  // 1898 logical is 2372 native at 125%, wider than the desktop, so the pair
-  // cannot be translated and the playlist is pulled back over main. The edges
-  // went with it: a zoom step is one of the ways a contact stops holding.
-  QCOMPARE(layout.nativeFrameRect(WindowId::playlist).left(), 579);
-  QVERIFY(layout.layout().dockEdges.isEmpty());
+  const QRect main = desktop.placementOf(WindowId::main).screen;
+  const QRect playlist = desktop.placementOf(WindowId::playlist).screen;
+  QVERIFY(!playlist.intersects(main));
+  QCOMPARE(playlist.left(), 1031);
+  QVERIFY(playlist.width() < 1341);
+  QCOMPARE(*layout.layout().playlist.width, 1073.0);
+  QCOMPARE(layout.layout().dockEdges.size(), 2);
 }
 
 void LayoutSyncTest::aRefusedZoomStepLeavesTheDockedClusterExactlyWhereItWas() {
@@ -509,10 +908,9 @@ void LayoutSyncTest::aRefusedZoomStepLeavesTheDockedClusterExactlyWhereItWas() {
   layout.fitClusterToHost();
   layout.place();
 
-  // The same step, this time with a display to measure against: it is refused,
-  // and a refusal is not a quiet half-application. Nothing moves and nothing
-  // undocks, which is the whole point of withdrawing the step instead.
-  QVERIFY(!layout.setZoomPercent(125));
+  // 150% is the true floor for this pair: even a playlist at its minimum is
+  // 2115 native, past 1920. A refusal is not a quiet half-application.
+  QVERIFY(!layout.setZoomPercent(150));
   layout.place();
   QCOMPARE(layout.zoomPercent(), qreal(75));
   QCOMPARE(layout.layout().playlist.left, 825.0);
@@ -533,9 +931,9 @@ void LayoutSyncTest::thePanelsAreScaledToTheStepTheLayoutTookAndNotTheOneItWasOf
   // A panel's frame comes from `place`, while the scale its chrome is painted at
   // is pushed separately by whoever asked for the step. The two agree only if
   // the pusher reads the step back instead of reusing the one it offered: a
-  // refusal that leaves the frames at 75% while the chrome is scaled to 125%
+  // refusal that leaves the frames at 75% while the chrome is scaled to 150%
   // paints every panel's contents outside the panel.
-  layout.setZoomPercent(125);
+  layout.setZoomPercent(150);
   const qreal scaledTo = layout.zoomPercent();
   QCOMPARE(scaledTo, qreal(75));
 

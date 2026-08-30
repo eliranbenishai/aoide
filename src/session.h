@@ -32,18 +32,53 @@ class HostShell;
 
 namespace aoide {
 
-/// Rows the options cog presents. Always-on-top and Quit stay off the openers;
-/// the check follows [AoideSettings::alwaysOnTop].
-inline QVector<ChromeMenuItem> optionsMenuItems(const AoideSettings& settings) {
-  return {
-      ChromeMenuItem::check(QStringLiteral("Always on top"), settings.alwaysOnTop),
-      ChromeMenuItem::separator(),
-      ChromeMenuItem::action(QStringLiteral("Open files…")),
-      ChromeMenuItem::action(QStringLiteral("Settings…")),
-      ChromeMenuItem::separator(),
-      ChromeMenuItem::action(QStringLiteral("About Aoide")),
-      ChromeMenuItem::action(QStringLiteral("Quit")),
-  };
+/// What a chosen options-cog row does. Dispatch reads this from the row that
+/// was built — a positional index would silently retarget if always-on-top
+/// and its rule are omitted on compositors that cannot honour keep-above.
+enum class OptionsMenuAction {
+  alwaysOnTop,
+  openFiles,
+  settings,
+  about,
+  quit,
+};
+
+struct OptionsMenuRow {
+  ChromeMenuItem item;
+  std::optional<OptionsMenuAction> action;
+};
+
+/// Rows the options cog presents. Always-on-top and its rule are omitted when
+/// [keepAboveAvailable] is false — absent is better than a toggle the platform
+/// cannot honour. Quit stays off the openers; the check follows
+/// [AoideSettings::alwaysOnTop]. Availability is an argument so the shape does
+/// not depend on the build's D-Bus flag.
+inline QVector<OptionsMenuRow> optionsMenuRows(const AoideSettings& settings,
+                                               bool keepAboveAvailable) {
+  QVector<OptionsMenuRow> rows;
+  if (keepAboveAvailable) {
+    rows.append({ChromeMenuItem::check(QStringLiteral("Always on top"), settings.alwaysOnTop),
+                 OptionsMenuAction::alwaysOnTop});
+    rows.append({ChromeMenuItem::separator(), std::nullopt});
+  }
+  rows.append({ChromeMenuItem::action(QStringLiteral("Open files…")),
+               OptionsMenuAction::openFiles});
+  rows.append({ChromeMenuItem::action(QStringLiteral("Settings…")),
+               OptionsMenuAction::settings});
+  rows.append({ChromeMenuItem::separator(), std::nullopt});
+  rows.append({ChromeMenuItem::action(QStringLiteral("About Aoide")),
+               OptionsMenuAction::about});
+  rows.append({ChromeMenuItem::action(QStringLiteral("Quit")), OptionsMenuAction::quit});
+  return rows;
+}
+
+inline QVector<ChromeMenuItem> optionsMenuItems(const AoideSettings& settings,
+                                                bool keepAboveAvailable) {
+  const QVector<OptionsMenuRow> rows = optionsMenuRows(settings, keepAboveAvailable);
+  QVector<ChromeMenuItem> items;
+  items.reserve(rows.size());
+  for (const auto& row : rows) items.append(row.item);
+  return items;
 }
 
 class AoideSession : public QObject, public PanelSurfaces {
@@ -91,7 +126,7 @@ class AoideSession : public QObject, public PanelSurfaces {
   void titleDragBegan(WindowId id);
   void titleDragEnded(WindowId id);
   void extraWasMapped(WindowId id);
-  void playlistResized(QSize native);
+  void playlistResized(QRect native);
   void refreshChrome();
 
  signals:
@@ -145,6 +180,7 @@ class AoideSession : public QObject, public PanelSurfaces {
   QRect hostRect() const override;
   QRect workAreaFor(QRect clusterNative) const override;
   void placePanels(const QVector<PanelPlacement>& panels) override;
+  void syncPlaylistMin();
   void presentChromeOutcome(const ChromeCommandOutcome& out, WindowId id, const ChromeHit& hit,
                             QPoint logical);
   void presentPlCreateMenu(const ChromeHit& hit);

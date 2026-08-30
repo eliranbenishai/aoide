@@ -3,10 +3,12 @@
 #include "host_shell_window.h"
 
 #include <QFileInfo>
+#include <QGuiApplication>
 #include <QIcon>
 #include <QImage>
 #include <QPixmap>
 #include <QTest>
+#include <QWindow>
 
 class HostShellWindowTest : public QObject {
   Q_OBJECT
@@ -24,6 +26,8 @@ class HostShellWindowTest : public QObject {
   void expandingPastTopLeftKeepsSiblingOnScreen();
   void punchFollowsEveryPlacementWhileMapped();
   void alwaysOnTopSetsWindowStaysOnTopHint();
+  void compositorKeepAboveAvailableIsFalseOnOffscreen();
+  void applyCompositorKeepAboveSetsFlagWhenNotWayland();
   void kwinKeepAboveScriptNamesTheHost();
   void kwinKeepAboveScriptLivesInASharedSubdirectory();
 };
@@ -222,6 +226,28 @@ void HostShellWindowTest::alwaysOnTopSetsWindowStaysOnTopHint() {
            "the cog check is settings; the host flag is what X11/Win/macOS stack on");
   shell.setAlwaysOnTop(false);
   QVERIFY(!shell.windowFlags().testFlag(Qt::WindowStaysOnTopHint));
+}
+
+void HostShellWindowTest::compositorKeepAboveAvailableIsFalseOnOffscreen() {
+  // ctest forces offscreen. That QPA cannot stack above other apps, and this
+  // binary has no AOIDE_HAVE_DBUS, so the predicate must be false — a true
+  // here would show the options row where keep-above cannot be honoured.
+  QCOMPARE(QGuiApplication::platformName(), QStringLiteral("offscreen"));
+  QVERIFY2(!aoide::compositorKeepAboveAvailable(),
+           "offscreen cannot honour keep-above; do not treat the Qt flag as stacking");
+}
+
+void HostShellWindowTest::applyCompositorKeepAboveSetsFlagWhenNotWayland() {
+  QCOMPARE(QGuiApplication::platformName(), QStringLiteral("offscreen"));
+  HostShell shell;
+  shell.show();
+  QWindow* native = shell.windowHandle();
+  QVERIFY(native);
+  aoide::applyCompositorKeepAbove(native, true);
+  QVERIFY2(native->flags().testFlag(Qt::WindowStaysOnTopHint),
+           "offscreen is not Wayland; the Qt flag stays the X11/Win/macOS path");
+  aoide::applyCompositorKeepAbove(native, false);
+  QVERIFY(!native->flags().testFlag(Qt::WindowStaysOnTopHint));
 }
 
 void HostShellWindowTest::kwinKeepAboveScriptNamesTheHost() {

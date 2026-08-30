@@ -816,8 +816,10 @@ int main(int argc, char** argv) {
     QObject::connect(window, &HostWindow::titleDragFinished, mainWindow,
                      [&, window]() { session.titleDragEnded(window->id()); });
     QObject::connect(window, &HostWindow::nativeResized, mainWindow,
-                     [&, window](QSize size) {
-                       if (window->id() == aoide::WindowId::playlist) session.playlistResized(size);
+                     [&, window](QRect nativeRect) {
+                       if (window->id() == aoide::WindowId::playlist) {
+                         session.playlistResized(nativeRect);
+                       }
                      });
     QObject::connect(window, &HostWindow::filesDropped, mainWindow, [&](const QStringList& paths) {
       session.applyDroppedPaths(paths, false);
