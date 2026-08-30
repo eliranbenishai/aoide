@@ -61,6 +61,15 @@ void PlaylistController::setTracks(const QVector<Track>& tracks, const QString& 
   notify();
 }
 
+void PlaylistController::loadTracks(const QVector<Track>& tracks, const QString& sourcePath) {
+  tracks_ = tracks;
+  sourcePath_ = sourcePath;
+  selectedIndex_.reset();
+  selectedIndices_.clear();
+  altered_ = false;
+  notify();
+}
+
 void PlaylistController::restoreAlteredTracks(const QVector<Track>& tracks,
                                               const QString& sourcePath) {
   replaceTracks(tracks, sourcePath);

@@ -809,6 +809,10 @@ std::vector<FieldChange> everyFieldOfTheSnapshot() {
       {"collection emptied", "playlist",
        [](aoide::SessionView& v) { v.collection.clear(); }},
       {"playingIndex", "playlist", [](aoide::SessionView& v) { v.playingIndex = 5; }},
+      // The footer reads this beside the index, so an off-list track parts
+      // PLAYING from STOPPED without a row to number.
+      {"hasCurrentTrack", "playlist",
+       [](aoide::SessionView& v) { v.hasCurrentTrack = !v.hasCurrentTrack; }},
       {"trackScroll", "playlist", [](aoide::SessionView& v) { v.trackScroll = 3; }},
       {"collection", "playlist", [](aoide::SessionView& v) { v.collection[0].count = 99; }},
       {"collectionWidth", "playlist", [](aoide::SessionView& v) { v.collectionWidth = 300; }},

@@ -322,7 +322,7 @@ void AoideSession::bootstrap(const QStringList& argvFiles) {
     } else {
       const QString last = store_.readLastPlaylistPath();
       if (!last.isEmpty() && collection_.contains(last)) {
-        playlist_.setTracks(collection_.tracksFor(last), last);
+        playlist_.loadTracks(collection_.tracksFor(last), last);
       }
     }
     if (!playlist_.sourcePath().isEmpty()) {
@@ -337,6 +337,14 @@ void AoideSession::bootstrap(const QStringList& argvFiles) {
     if (resume.playingIndex && *resume.playingIndex >= 0 &&
         *resume.playingIndex < playlist_.tracks().size()) {
       playback_->playFrom(*resume.playingIndex);
+      if (resume.positionMs > 0) playback_->seekMs(resume.positionMs);
+      if (!resume.wasPlaying) playback_->playPause();
+    } else if (!resume.playingPath.isEmpty() && QFileInfo::exists(resume.playingPath)) {
+      // Off-list at quit: there is no row to playFrom. A path that has since
+      // vanished is not an error — the file is just gone.
+      Track track;
+      track.path = resume.playingPath;
+      playback_->playTrack(track);
       if (resume.positionMs > 0) playback_->seekMs(resume.positionMs);
       if (!resume.wasPlaying) playback_->playPause();
     }
@@ -584,6 +592,13 @@ void AoideSession::probeFinished(int gen) {
   if (gen != durationGen_.load()) return;
   probeOutstanding_.clear();
   setIngesting(false);
+  if (m3uRewritePath_.isEmpty()) return;
+  const QString path = m3uRewritePath_;
+  m3uRewritePath_.clear();
+  if (playlist_.sourcePath() != path || playlist_.altered()) {
+    return;
+  }
+  writeM3uFile(path, playlist_.tracks());
 }
 
 void AoideSession::setIngesting(bool ingesting) {
@@ -607,6 +622,7 @@ void AoideSession::persistNow() {
   settings_.main.visible = true;
   SessionResume resume;
   resume.playingIndex = playback_->playingIndex();
+  if (const auto current = playback_->currentTrack()) resume.playingPath = current->path;
   resume.positionMs = playback_->positionMs();
   resume.wasPlaying = playback_->playing();
   AlteredPlaylist altered;
@@ -655,7 +671,9 @@ SessionView AoideSession::view() const {
   v.eqOn = layout_.layout().equalizer.visible;
   v.plOn = layout_.layout().playlist.visible;
   v.skinsOn = layout_.layout().skins.visible;
-  v.trackInfoEnabled = playback_->currentTrack().has_value();
+  const bool hasCurrent = playback_->currentTrack().has_value();
+  v.trackInfoEnabled = hasCurrent;
+  v.hasCurrentTrack = hasCurrent;
   v.showElapsed = settings_.showElapsed;
   v.titleScrollMs = titleScrollMs();
   v.positionMs = playback_->positionMs();
@@ -970,13 +988,13 @@ void AoideSession::openPaths(const QStringList& paths, bool enqueue) {
   bool playFirst = false;
   if (!playlists.isEmpty()) {
     const QVector<Track> tracks = ingestPlaylistFile(playlists.first());
-    playlist_.setTracks(tracks, playlists.first());
+    playlist_.loadTracks(tracks, playlists.first());
     playFirst = !playlist_.tracks().isEmpty();
     schedulePathVerify();
   }
   const auto audio = tracksFromPaths(others);
   if (!audio.isEmpty()) {
-    if (!enqueue && playlists.isEmpty()) playlist_.setTracks(audio);
+    if (!enqueue && playlists.isEmpty()) playlist_.loadTracks(audio);
     else playlist_.addTracks(audio);
     if (!playFirst && !playback_->playingIndex()) playFirst = true;
   }
@@ -1036,7 +1054,7 @@ void AoideSession::loadCollectionRow(int index) {
     return;
   }
   if (!confirmReplaceAltered()) return;
-  playlist_.setTracks(collection_.tracksFor(e.path), e.path);
+  playlist_.loadTracks(collection_.tracksFor(e.path), e.path);
   collection_.select(e.path);
   schedulePathVerify();
   refreshChrome();
@@ -1249,15 +1267,14 @@ void AoideSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
 }
 
 void AoideSession::presentPlCreateMenu(const ChromeHit& hit) {
-  enum Row { kFromCurrent, kFromSelection };
-  const QVector<ChromeMenuItem> items{
-      ChromeMenuItem::action(QStringLiteral("From current playlist"),
-                             !playlist_.tracks().isEmpty()),
-      ChromeMenuItem::action(QStringLiteral("From selection"),
-                             !playlist_.selectedIndices().isEmpty()),
-  };
-  const int chosen = execAnchoredMenu(items, windowFor(WindowId::playlist), hit.rect, PopupAnchor::aboveLeft);
-  if (chosen == kFromCurrent) {
+  enum Row { kFromFiles, kFromCurrent, kFromSelection };
+  const QVector<ChromeMenuItem> items = createPlaylistMenuItems(
+      !playlist_.tracks().isEmpty(), !playlist_.selectedIndices().isEmpty());
+  const int chosen =
+      execAnchoredMenu(items, windowFor(WindowId::playlist), hit.rect, PopupAnchor::aboveLeft);
+  if (chosen == kFromFiles) {
+    createPlaylistFromFiles();
+  } else if (chosen == kFromCurrent) {
     createPlaylistFromCurrent();
   } else if (chosen == kFromSelection) {
     const QString path = pickPlaylist(true);
@@ -1278,6 +1295,45 @@ void AoideSession::presentPlCreateMenu(const ChromeHit& hit) {
     }
   }
   refreshChrome();
+}
+
+bool AoideSession::createPlaylistFrom(const QVector<Track>& tracks, const QString& path) {
+  // Whatever the cache already knows goes into the file, the same as every
+  // other write. Picked files usually know nothing yet, which is why the rest
+  // of the #EXTINF lines arrive behind the probe rather than in this write.
+  QVector<Track> written = tracks;
+  collection_.hydrateDurations(written);
+  if (!reportPlaylistWriteFailure(writeM3uFile(path, written), path)) return false;
+  collection_.addWritten(path, written);
+  persistCollectionCache();
+  playlist_.loadTracks(written, path);
+  m3uRewritePath_ = path;
+  startDurationProbe(written);
+  refreshChrome();
+  return true;
+}
+
+void AoideSession::createPlaylistFromFiles() {
+  if (!confirmReplaceAltered(QStringLiteral("Creating a playlist from files replaces it."))) {
+    return;
+  }
+  const QString picked = pickAudio(true);
+  QStringList raw;
+  for (const QString& line : picked.split(QLatin1Char('\n'))) {
+    if (!line.isEmpty()) raw.push_back(line);
+  }
+  if (raw.isEmpty()) return;
+  // These paths are about to live in a file that outlasts the session.
+  // Portal exports expire at logout; openPaths trades them first for the
+  // same reason.
+  const QVector<Track> tracks = tracksFromPaths(durablePaths(raw));
+  // A pick can still come to nothing — a portal export whose host path has
+  // gone since. Asking for a name would only trade the open list for an empty
+  // one and a file with no rows in it.
+  if (tracks.isEmpty()) return;
+  const QString path = pickPlaylist(true);
+  if (path.isEmpty()) return;
+  createPlaylistFrom(tracks, path);
 }
 
 void AoideSession::createPlaylistFromCurrent() {

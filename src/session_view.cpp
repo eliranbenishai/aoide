@@ -59,7 +59,8 @@ bool paintsSame(WindowId id, const SessionView& a, const SessionView& b) {
   const auto& [goldenDemo, eqOn, plOn, skinsOn, trackInfoEnabled, showElapsed, positionMs, durationMs, title, subtitle,
                bitrate, sampleRate, channels, formatChip, volume, muted, forceMono, playing,
                paused, shuffle, repeat, zoomPercent, zoomInEnabled, zoomOutEnabled, spectrum,
-               spectrumPeaks, eq, tracks, selectedIndices, playingIndex, trackScroll, collection,
+               spectrumPeaks, eq, tracks, selectedIndices, playingIndex, hasCurrentTrack,
+               trackScroll, collection,
                collectionSelected, collectionWidth, collectionCollapsed, playlistName,
                playlistAltered, playlistTotalMs, playlistTrackCount, playlistRefreshEnabled,
                playlistRefreshing, settingsTab, resumeLastSession, confirmBeforeQuit, scrollTitle,
@@ -127,6 +128,7 @@ bool paintsSame(WindowId id, const SessionView& a, const SessionView& b) {
       return collection == b.collection && collectionWidth == b.collectionWidth &&
              collectionCollapsed == b.collectionCollapsed && tracks == b.tracks &&
              trackScroll == b.trackScroll && playingIndex == b.playingIndex &&
+             hasCurrentTrack == b.hasCurrentTrack &&
              playlistName == b.playlistName && playlistAltered == b.playlistAltered &&
              playlistTotalMs == b.playlistTotalMs &&
              playlistTrackCount == b.playlistTrackCount &&

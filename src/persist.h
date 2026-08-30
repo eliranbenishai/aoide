@@ -17,6 +17,9 @@ struct UsageCounters {
 
 struct SessionResume {
   std::optional<int> playingIndex;
+  /// The path on the transport. Needed when that file is off-list, because
+  /// then playingIndex is empty and relaunch used to come back silent.
+  QString playingPath;
   qint64 positionMs = 0;
   bool wasPlaying = false;
 };

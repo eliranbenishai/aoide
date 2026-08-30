@@ -5,8 +5,10 @@
 #include <QPointF>
 #include <QRectF>
 #include <QSize>
+#include <QString>
 #include <algorithm>
 #include <cmath>
+#include <optional>
 
 namespace aoide {
 
@@ -741,6 +743,16 @@ inline PlaylistStatusRun layoutPlaylistStatus(const QRectF& strip, qreal nameW, 
     out.drop = QRectF(dropLeft, y, strip.right() - dropLeft, h);
   }
   return out;
+}
+
+/// Footer copy for the cued row. The index alone used to decide this, so
+/// replacing the playlist — which clears it while the transport still has a
+/// track — painted STOPPED. Bare PLAYING is the same word an in-list pause
+/// already uses: cued, not audible.
+inline QString playlistStatusPlaying(bool hasCurrentTrack, std::optional<int> playingIndex) {
+  if (playingIndex) return QStringLiteral("PLAYING %1").arg(*playingIndex + 1);
+  if (hasCurrentTrack) return QStringLiteral("PLAYING");
+  return QStringLiteral("STOPPED");
 }
 
 inline qreal playlistListWellHeight(qreal playlistLogicalH) {

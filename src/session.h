@@ -148,6 +148,11 @@ class AoideSession : public QObject, public PanelSurfaces {
   void presentChromeOutcome(const ChromeCommandOutcome& out, WindowId id, const ChromeHit& hit,
                             QPoint logical);
   void presentPlCreateMenu(const ChromeHit& hit);
+  /// Write [tracks] to [path] and bind that file as current. Does not read
+  /// the open list and does not touch the transport: creating from picked
+  /// files must not steal whatever is already playing.
+  bool createPlaylistFrom(const QVector<Track>& tracks, const QString& path);
+  void createPlaylistFromFiles();
   void createPlaylistFromCurrent();
   void saveCurrentPlaylist();
   void presentPlRename();
@@ -214,6 +219,11 @@ class AoideSession : public QObject, public PanelSurfaces {
   QTimer collectionPersistTimer_;
   CollectionFigures figures_;
   std::atomic<int> durationGen_{0};
+  /// Path of an M3U just created from files, rewritten once after tags arrive.
+  /// Empty means nothing is pending. Not durationGen_: a superseded probe
+  /// would cancel the write, and a finish after the listener edited would
+  /// save work they never asked to.
+  QString m3uRewritePath_;
   std::atomic<int> verifyGen_{0};
   /// Paths the live probe generation still owes an answer for. A second ingest
   /// supersedes the first worker, so these ride along into the new run rather

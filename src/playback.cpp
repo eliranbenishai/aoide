@@ -39,6 +39,21 @@ std::optional<int> firstPlayableInPass(int length, const QVector<int>& order,
   return std::nullopt;
 }
 
+std::optional<int> lastPlayableInPass(int length, const QVector<int>& order,
+                                      const std::function<bool(int)>& playable) {
+  if (!order.isEmpty()) {
+    for (int k = order.size() - 1; k >= 0; --k) {
+      const int i = order[k];
+      if (i >= 0 && i < length && playable(i)) return i;
+    }
+    return std::nullopt;
+  }
+  for (int i = length - 1; i >= 0; --i) {
+    if (playable(i)) return i;
+  }
+  return std::nullopt;
+}
+
 bool isSameListMinusPath(const QVector<QString>& previous, const QVector<Track>& next,
                          const QString& removed) {
   if (next.size() != previous.size() - 1) return false;
@@ -177,8 +192,18 @@ void PlaybackController::stop() {
 void PlaybackController::next() {
   const auto tracks = playlist_->tracks();
   if (tracks.isEmpty()) return;
-  const int current = playingIndex_.value_or(playlist_->selectedIndex().value_or(0));
   auto playable = [&](int i) { return i >= 0 && i < tracks.size() && !tracks[i].disabled; };
+  if (offList()) {
+    // The open file outlived the list it came from. Start the pass rather than
+    // walking from a selection that still belongs to the previous list — that
+    // leftover highlight used to skip the first row, or land on the last and
+    // stop the audio the replace had deliberately kept.
+    const auto start =
+        firstPlayableInPass(tracks.size(), shuffle_ ? shuffledOrder_ : QVector<int>{}, playable);
+    if (start) playIndex(*start);
+    return;
+  }
+  const int current = playingIndex_.value_or(playlist_->selectedIndex().value_or(0));
   auto next = nextPlayableIndex(current, tracks.size(), shuffle_, RepeatMode::off, shuffledOrder_,
                                 playable);
   if (!next && repeatMode_ == RepeatMode::all) {
@@ -197,8 +222,17 @@ void PlaybackController::next() {
 void PlaybackController::previous() {
   const auto tracks = playlist_->tracks();
   if (tracks.isEmpty()) return;
-  const int current = playingIndex_.value_or(playlist_->selectedIndex().value_or(0));
   auto playable = [&](int i) { return i >= 0 && i < tracks.size() && !tracks[i].disabled; };
+  if (offList()) {
+    // Same bind as Next: the leftover selection is not a position in this pass.
+    // From the other end that means the last playable row, not a seek on the
+    // file that is already open.
+    const auto last =
+        lastPlayableInPass(tracks.size(), shuffle_ ? shuffledOrder_ : QVector<int>{}, playable);
+    if (last) playIndex(*last);
+    return;
+  }
+  const int current = playingIndex_.value_or(playlist_->selectedIndex().value_or(0));
   const auto prev = previousPlayableIndex(current, tracks.size(), shuffle_, repeatMode_,
                                           shuffledOrder_, playable);
   if (!prev) {
@@ -215,11 +249,27 @@ void PlaybackController::playIndex(int index) {
   playingIndex_ = index;
   playingPath_ = tracks[index].path;
   playingTrack_ = tracks[index];
+  clearLastTrack();
+  playlist_->select(index);
+  openAndPlay(tracks[index]);
+}
+
+void PlaybackController::playTrack(const Track& track) {
+  playingIndex_.reset();
+  playingPath_ = track.path;
+  playingTrack_ = track;
+  clearLastTrack();
+  openAndPlay(track);
+}
+
+void PlaybackController::clearLastTrack() {
   format_ = {};
   failureMessage_.clear();
   resetListenTally();
-  playlist_->select(index);
-  engine_->open(tracks[index]);
+}
+
+void PlaybackController::openAndPlay(const Track& track) {
+  engine_->open(track);
   // mpv reports a loadfile failure inline from open(), and onEngineError has
   // already cleared the flags by the time we get here. Do not put them back.
   if (!failureMessage_.isEmpty()) {
@@ -266,7 +316,14 @@ void PlaybackController::pauseOrResumeCurrent() {
     return;
   }
   if (!mediaOpen_) {
-    if (playingIndex_) playIndex(*playingIndex_);
+    if (playingIndex_) {
+      playIndex(*playingIndex_);
+      return;
+    }
+    if (!playingTrack_) return;
+    // Stop left the file on the transport. An off-list track has no row to
+    // hand to playIndex, and Play still has to reopen that path.
+    playTrack(*playingTrack_);
     return;
   }
   engine_->play();
@@ -433,6 +490,9 @@ void PlaybackController::onPlaylistChanged() {
       // Playlist replaced (loaded another saved list). Keep the open file
       // playing; only a true one-track removal should advance/stop.
       playingIndex_.reset();
+      // The pass at the top of this function was pinned to that leftover
+      // index — a number that now names an unrelated row of the new list.
+      if (shuffle_) rebuildShuffleOrder(true);
     }
   }
   notify();

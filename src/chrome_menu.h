@@ -48,6 +48,16 @@ struct ChromeMenuItem {
   }
 };
 
+/// Rows the playlist "+" create menu presents. From-files is always live: an
+/// empty list used to open a menu with every row dead.
+inline QVector<ChromeMenuItem> createPlaylistMenuItems(bool hasTracks, bool hasSelection) {
+  return {
+      ChromeMenuItem::action(QStringLiteral("From files…")),
+      ChromeMenuItem::action(QStringLiteral("From current playlist…"), hasTracks),
+      ChromeMenuItem::action(QStringLiteral("From selection…"), hasSelection),
+  };
+}
+
 /// No row: the menu was dismissed, or the point is not over a selectable row.
 inline constexpr int kChromeMenuNone = -1;
 

@@ -23,6 +23,9 @@ class PlaybackController {
   bool shuffle() const { return shuffle_; }
   RepeatMode repeatMode() const { return repeatMode_; }
   std::optional<int> playingIndex() const { return playingIndex_; }
+  /// A current track exists, but it is not a row of the **current playlist** —
+  /// the list was replaced while this file stayed on the transport.
+  bool offList() const { return !playingPath_.isEmpty() && !playingIndex_; }
   AudioFormatInfo format() const { return format_; }
   int spins() const { return spins_; }
   QString failureMessage() const { return failureMessage_; }
@@ -46,6 +49,10 @@ class PlaybackController {
   /// hand over an index nothing has checked; `playIndex` refuses a disabled
   /// row, and silence with no explanation is worse than a mild surprise.
   void playFrom(int index);
+  /// Open and play a file that is not a row of the current playlist. Resume
+  /// after quit has no playingTrack_ in a fresh process, and playIndex needs
+  /// a row the list does not have.
+  void playTrack(const Track& track);
   void seekMs(qint64 positionMs);
   void setVolume(double volume);
   void toggleMute();
@@ -64,6 +71,13 @@ class PlaybackController {
   /// the head so the pass still covers every other row; a wrap wants the
   /// opposite, because the track that just finished must not open the new pass.
   void rebuildShuffleOrder(bool openOnCurrent);
+  /// Drop what the last track left behind. Runs before the playlist is told
+  /// about the new one: selecting notifies, and a repaint on that notify would
+  /// otherwise pair the new title with the old format chip and stale failure.
+  void clearLastTrack();
+  /// playIndex and playTrack agree on the load; they differ on whether a row
+  /// is current.
+  void openAndPlay(const Track& track);
   void notify();
   void countSpin();
   /// Credit the stretch of audio between two clock readings, so a jump the

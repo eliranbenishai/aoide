@@ -12,6 +12,7 @@ class ChromeMenuTest : public QObject {
   void hitTestingIgnoresPaddingRulesAndDisabledRows();
   void keyboardStepSkipsRulesAndDisabledRows();
   void keyboardStepGivesUpWhenNothingIsSelectable();
+  void createPlaylistMenuItemsLabelsAndEnabledFlags();
 };
 
 /// Rules and disabled rows both sit between two live rows, which is the shape
@@ -94,6 +95,53 @@ void ChromeMenuTest::keyboardStepGivesUpWhenNothingIsSelectable() {
   const QVector<aoide::ChromeMenuItem> single{aoide::ChromeMenuItem::action(QStringLiteral("Quit"))};
   QCOMPARE(aoide::chromeMenuStep(single, 0, 1), 0);
   QCOMPARE(aoide::chromeMenuStep(single, 0, -1), 0);
+}
+
+void ChromeMenuTest::createPlaylistMenuItemsLabelsAndEnabledFlags() {
+  {
+    const QVector<aoide::ChromeMenuItem> items =
+        aoide::createPlaylistMenuItems(false, false);
+    QCOMPARE(items.size(), 3);
+    QCOMPARE(items[0].label, QStringLiteral("From files…"));
+    QVERIFY(items[0].enabled);
+    QCOMPARE(items[1].label, QStringLiteral("From current playlist…"));
+    QVERIFY(!items[1].enabled);
+    QCOMPARE(items[2].label, QStringLiteral("From selection…"));
+    QVERIFY(!items[2].enabled);
+  }
+  {
+    const QVector<aoide::ChromeMenuItem> items =
+        aoide::createPlaylistMenuItems(true, false);
+    QCOMPARE(items.size(), 3);
+    QCOMPARE(items[0].label, QStringLiteral("From files…"));
+    QVERIFY(items[0].enabled);
+    QCOMPARE(items[1].label, QStringLiteral("From current playlist…"));
+    QVERIFY(items[1].enabled);
+    QCOMPARE(items[2].label, QStringLiteral("From selection…"));
+    QVERIFY(!items[2].enabled);
+  }
+  {
+    const QVector<aoide::ChromeMenuItem> items =
+        aoide::createPlaylistMenuItems(false, true);
+    QCOMPARE(items.size(), 3);
+    QCOMPARE(items[0].label, QStringLiteral("From files…"));
+    QVERIFY(items[0].enabled);
+    QCOMPARE(items[1].label, QStringLiteral("From current playlist…"));
+    QVERIFY(!items[1].enabled);
+    QCOMPARE(items[2].label, QStringLiteral("From selection…"));
+    QVERIFY(items[2].enabled);
+  }
+  {
+    const QVector<aoide::ChromeMenuItem> items =
+        aoide::createPlaylistMenuItems(true, true);
+    QCOMPARE(items.size(), 3);
+    QCOMPARE(items[0].label, QStringLiteral("From files…"));
+    QVERIFY(items[0].enabled);
+    QCOMPARE(items[1].label, QStringLiteral("From current playlist…"));
+    QVERIFY(items[1].enabled);
+    QCOMPARE(items[2].label, QStringLiteral("From selection…"));
+    QVERIFY(items[2].enabled);
+  }
 }
 
 QTEST_GUILESS_MAIN(ChromeMenuTest)

@@ -33,6 +33,9 @@ class PlaylistController {
   void setOnChanged(Changed cb) { onChanged_ = std::move(cb); }
 
   void setTracks(const QVector<Track>& tracks, const QString& sourcePath = {});
+  /// A different playlist, not a re-read of the same file. Clamping the old
+  /// highlight would light a row the listener never chose in this list.
+  void loadTracks(const QVector<Track>& tracks, const QString& sourcePath = {});
   void restoreAlteredTracks(const QVector<Track>& tracks, const QString& sourcePath = {});
   void addTracks(const QVector<Track>& tracks);
   void removeAt(int index);

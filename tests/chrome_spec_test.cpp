@@ -36,6 +36,7 @@ class ChromeSpecTest : public QObject {
   void playlistStripShrinksToThePlayerGutterOnceLargeButtonsWouldOverlap();
   void playlistMinWidthIsWhereTheCompactStripWouldOverlap();
   void longPlaylistNameGivesWayBeforeTheFooterStripDoes();
+  void playlistStatusPlayingIsTheCuedRowOrBareWhenOffList();
   void buttonPhaseTakesTheWholeTransitionWhateverTheFrameRate();
   void inertPhaseStoreLeavesPaintersOnPlainSessionState();
   void pointerFeedbackSkipsSlidersAndListRows();
@@ -462,6 +463,12 @@ void ChromeSpecTest::longPlaylistNameGivesWayBeforeTheFooterStripDoes() {
   QCOMPARE(tight.name.width(), 300.0);
   QVERIFY(tight.playing.right() <= strip.right());
   QVERIFY(tight.drop.isEmpty());
+}
+
+void ChromeSpecTest::playlistStatusPlayingIsTheCuedRowOrBareWhenOffList() {
+  QCOMPARE(aoide::playlistStatusPlaying(true, 0), QStringLiteral("PLAYING 1"));
+  QCOMPARE(aoide::playlistStatusPlaying(true, std::nullopt), QStringLiteral("PLAYING"));
+  QCOMPARE(aoide::playlistStatusPlaying(false, std::nullopt), QStringLiteral("STOPPED"));
 }
 
 void ChromeSpecTest::buttonPhaseTakesTheWholeTransitionWhateverTheFrameRate() {

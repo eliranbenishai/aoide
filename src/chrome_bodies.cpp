@@ -539,7 +539,6 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   QString statusName = view.playlistName.toUpper();
   if (statusName.isEmpty()) statusName = QStringLiteral("UNTITLED");
   if (view.playlistAltered) statusName += QStringLiteral(" *");
-  const int playingN = view.playingIndex ? *view.playingIndex + 1 : 0;
   const qreal collectionW = view.collectionCollapsed ? 0 : view.collectionWidth;
 
   const QRectF collection = playlistCollectionColumn(body, collectionW);
@@ -759,8 +758,7 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   p.setPen(T().inkFaint);
   const QRectF status(footer.left() + 6, footer.bottom() - 26, footer.width() - 28, 26);
   const QString tracksText = QStringLiteral("%1 TRACKS").arg(view.playlistTrackCount);
-  const QString playingText =
-      playingN > 0 ? QStringLiteral("PLAYING %1").arg(playingN) : QStringLiteral("STOPPED");
+  const QString playingText = playlistStatusPlaying(view.hasCurrentTrack, view.playingIndex);
   const QString drop = QStringLiteral("DROP FILES HERE TO ENQUEUE");
   const qreal tracksW = textWidth(statusFont, tracksText);
   const qreal playingW = textWidth(statusFont, playingText);

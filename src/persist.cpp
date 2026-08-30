@@ -150,6 +150,7 @@ SessionResume SupportStore::readResume() const {
   if (o.contains(QStringLiteral("playingIndex")) && !o.value(QStringLiteral("playingIndex")).isNull()) {
     r.playingIndex = o.value(QStringLiteral("playingIndex")).toInt();
   }
+  r.playingPath = o.value(QStringLiteral("playingPath")).toString();
   r.positionMs = qint64(o.value(QStringLiteral("positionMs")).toDouble());
   r.wasPlaying = o.value(QStringLiteral("wasPlaying")).toBool();
   return r;
@@ -161,6 +162,11 @@ bool SupportStore::writeResume(const SessionResume& r) const {
     o.insert(QStringLiteral("playingIndex"), *r.playingIndex);
   } else {
     o.insert(QStringLiteral("playingIndex"), QJsonValue::Null);
+  }
+  // Quitting while the transport holds an off-list track used to persist a
+  // null index and drop the path, so relaunch had nothing to reopen.
+  if (!r.playingPath.isEmpty()) {
+    o.insert(QStringLiteral("playingPath"), r.playingPath);
   }
   o.insert(QStringLiteral("positionMs"), r.positionMs);
   o.insert(QStringLiteral("wasPlaying"), r.wasPlaying);

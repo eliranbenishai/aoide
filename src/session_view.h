@@ -86,6 +86,10 @@ struct SessionView {
   QVector<TrackRowView> tracks;
   QSet<int> selectedIndices;
   std::optional<int> playingIndex;
+  /// The transport has a current track. Distinct from [playingIndex]: replacing
+  /// the playlist clears the index while audio keeps going, and the footer
+  /// reads this so that state is PLAYING rather than STOPPED.
+  bool hasCurrentTrack = false;
   int trackScroll = 0;
   QVector<CollectionRowView> collection;
   QString collectionSelected;

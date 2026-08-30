@@ -519,6 +519,52 @@ int main() {
   }
 
   {
+    PlaylistController pl;
+    Track a;
+    a.path = QStringLiteral("/tmp/a.mp3");
+    Track b;
+    b.path = QStringLiteral("/tmp/b.mp3");
+    Track c;
+    c.path = QStringLiteral("/tmp/c.mp3");
+    pl.setTracks({a, b, c});
+    pl.select(2);
+    Track d;
+    d.path = QStringLiteral("/tmp/d.mp3");
+    Track e;
+    e.path = QStringLiteral("/tmp/e.mp3");
+    pl.setTracks({d, e}, QStringLiteral("/tmp/same.m3u"));
+    REQUIRE_EQ(pl.selectedIndex().value_or(-1), 1);
+    REQUIRE(pl.selectedIndices().contains(1));
+    REQUIRE(!pl.altered());
+    REQUIRE_EQ(pl.sourcePath(), QStringLiteral("/tmp/same.m3u"));
+  }
+
+  {
+    PlaylistController pl;
+    Track a;
+    a.path = QStringLiteral("/tmp/a.mp3");
+    Track b;
+    b.path = QStringLiteral("/tmp/b.mp3");
+    Track c;
+    c.path = QStringLiteral("/tmp/c.mp3");
+    pl.setTracks({a, b, c});
+    pl.select(2);
+    pl.addTracks({c});
+    REQUIRE(pl.altered());
+    Track d;
+    d.path = QStringLiteral("/tmp/d.mp3");
+    Track e;
+    e.path = QStringLiteral("/tmp/e.mp3");
+    pl.loadTracks({d, e}, QStringLiteral("/tmp/fresh.m3u"));
+    REQUIRE(!pl.selectedIndex().has_value());
+    REQUIRE(pl.selectedIndices().isEmpty());
+    REQUIRE(!pl.altered());
+    REQUIRE_EQ(pl.sourcePath(), QStringLiteral("/tmp/fresh.m3u"));
+    REQUIRE_EQ(pl.tracks().size(), 2);
+    REQUIRE_EQ(pl.tracks()[0].path, QStringLiteral("/tmp/d.mp3"));
+  }
+
+  {
     REQUIRE(aoide::formatClock(161000) == QStringLiteral("2:41"));
     REQUIRE(aoide::formatClock(347000) == QStringLiteral("5:47"));
     REQUIRE(aoide::formatTotalTime((3 * 24 + 22) * 3600LL * 1000 + 40 * 60 * 1000) ==
@@ -1452,6 +1498,30 @@ int main() {
   }
 
   {
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    aoide::SupportStore store(tmp.path());
+    aoide::SessionResume resume;
+    resume.playingPath = QStringLiteral("/tmp/keep-playing.mp3");
+    resume.positionMs = 12000;
+    resume.wasPlaying = true;
+    REQUIRE(store.writeResume(resume));
+    const aoide::SessionResume back = store.readResume();
+    REQUIRE(!back.playingIndex.has_value());
+    REQUIRE_EQ(back.playingPath, QStringLiteral("/tmp/keep-playing.mp3"));
+    REQUIRE_EQ(back.positionMs, qint64(12000));
+    REQUIRE(back.wasPlaying);
+
+    QFile file(QDir(tmp.path()).filePath(QStringLiteral("session_resume.json")));
+    REQUIRE(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    file.write(QByteArray("{\"playingIndex\":null,\"positionMs\":0,\"wasPlaying\":false}"));
+    file.close();
+    const aoide::SessionResume legacy = store.readResume();
+    REQUIRE(legacy.playingPath.isEmpty());
+    REQUIRE(!legacy.playingIndex.has_value());
+  }
+
+  {
     REQUIRE(aoide::samePlaylistFile(QStringLiteral("/music/set.m3u"),
                                     QStringLiteral("/music/./set.m3u")));
     REQUIRE(!aoide::samePlaylistFile(QStringLiteral("/music/a.m3u"),
@@ -1507,6 +1577,363 @@ int main() {
     REQUIRE_EQ(playback.currentTrack()->path, a.path);
     playback.playIndex(0);
     REQUIRE_EQ(playback.currentTrack()->path, c.path);
+  }
+
+  {
+    PlaylistController playlist;
+    Track a;
+    a.path = QStringLiteral("/tmp/in-list.mp3");
+    Track b;
+    b.path = QStringLiteral("/tmp/also-in-list.mp3");
+    playlist.setTracks({a, b});
+    NullEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    REQUIRE(!playback.offList());
+    playback.playIndex(0);
+    REQUIRE(!playback.offList());
+    Track c;
+    c.path = QStringLiteral("/tmp/from-another-list.mp3");
+    playlist.setTracks({c});
+    playback.onPlaylistChanged();
+    REQUIRE(playback.offList());
+  }
+
+  {
+    // Off-list Next used to walk from the clamped leftover selection, so a
+    // highlight on row 0 skipped the first track of the list just loaded.
+    PlaylistController playlist;
+    Track a;
+    a.path = QStringLiteral("/tmp/keep-playing.mp3");
+    Track b;
+    b.path = QStringLiteral("/tmp/also-old.mp3");
+    playlist.setTracks({a, b});
+    NullEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.playIndex(0);
+    Track n0;
+    n0.path = QStringLiteral("/tmp/new-0.mp3");
+    Track n1;
+    n1.path = QStringLiteral("/tmp/new-1.mp3");
+    Track n2;
+    n2.path = QStringLiteral("/tmp/new-2.mp3");
+    playlist.setTracks({n0, n1, n2});
+    playback.onPlaylistChanged();
+    REQUIRE(playback.offList());
+    playback.next();
+    REQUIRE_EQ(*playback.playingIndex(), 0);
+    REQUIRE_EQ(playback.currentTrack()->path, QStringLiteral("/tmp/new-0.mp3"));
+  }
+
+  {
+    // Shuffle on a wholesale replace used to pin the new pass to the leftover
+    // playing index — a number that now names an unrelated row — so Next
+    // opened that row instead of the head of a fair deal. The pass is not
+    // visible at this seam and is not seeded, so the invariant that holds
+    // for every fair deal is the one the enable-shuffle tests already use:
+    // eight deals are not stuck on that named leftover row.
+    QSet<QString> opened;
+    for (int attempt = 0; attempt < 8; ++attempt) {
+      PlaylistController playlist;
+      Track keep;
+      keep.path = QStringLiteral("/tmp/keep-playing.mp3");
+      Track also;
+      also.path = QStringLiteral("/tmp/also-old.mp3");
+      playlist.setTracks({keep, also});
+      NullEngine engine;
+      PlaybackController playback(&playlist, &engine);
+      playback.playIndex(0);
+      playback.setShuffle(true);
+      QVector<Track> fresh;
+      Track stale;
+      stale.path = QStringLiteral("/tmp/stale-index.mp3");
+      fresh.push_back(stale);
+      for (int i = 1; i < 30; ++i) {
+        Track t;
+        t.path = QStringLiteral("/tmp/fresh-%1.mp3").arg(i);
+        fresh.push_back(t);
+      }
+      playlist.setTracks(fresh, QStringLiteral("/tmp/fresh.m3u"));
+      playback.onPlaylistChanged();
+      playback.next();
+      REQUIRE(playback.currentTrack().has_value());
+      REQUIRE(playback.playingIndex().has_value());
+      opened.insert(playback.currentTrack()->path);
+    }
+    REQUIRE(opened.size() > 1);
+  }
+
+  {
+    class WatchEngine : public NullEngine {
+     public:
+      void stop() override {
+        stopped = true;
+        NullEngine::stop();
+      }
+      bool stopped = false;
+    };
+    PlaylistController playlist;
+    Track a;
+    a.path = QStringLiteral("/tmp/keep-playing.mp3");
+    Track b;
+    b.path = QStringLiteral("/tmp/middle.mp3");
+    Track c;
+    c.path = QStringLiteral("/tmp/last.mp3");
+    playlist.setTracks({a, b, c});
+    WatchEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.playIndex(0);
+    playlist.select(2);
+    Track d;
+    d.path = QStringLiteral("/tmp/new-0.mp3");
+    Track e;
+    e.path = QStringLiteral("/tmp/new-1.mp3");
+    playlist.setTracks({d, e});
+    playback.onPlaylistChanged();
+    REQUIRE(playback.offList());
+    REQUIRE(playback.playing());
+    playback.next();
+    REQUIRE(playback.playing());
+    REQUIRE(!engine.stopped);
+    REQUIRE_EQ(playback.playingIndex().value_or(-1), 0);
+    REQUIRE_EQ(playback.currentTrack()->path, QStringLiteral("/tmp/new-0.mp3"));
+  }
+
+  {
+    PlaylistController playlist;
+    Track a;
+    a.path = QStringLiteral("/tmp/keep-playing.mp3");
+    Track b;
+    b.path = QStringLiteral("/tmp/also-old.mp3");
+    Track c;
+    c.path = QStringLiteral("/tmp/third-old.mp3");
+    playlist.setTracks({a, b, c});
+    NullEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.playIndex(0);
+    playlist.select(1);
+    Track gone;
+    gone.path = QStringLiteral("/tmp/new-missing.mp3");
+    gone.disabled = true;
+    Track live;
+    live.path = QStringLiteral("/tmp/new-live.mp3");
+    Track extra;
+    extra.path = QStringLiteral("/tmp/new-extra.mp3");
+    playlist.setTracks({gone, live, extra});
+    playback.onPlaylistChanged();
+    playback.next();
+    REQUIRE_EQ(playback.playingIndex().value_or(-1), 1);
+    REQUIRE_EQ(playback.currentTrack()->path, QStringLiteral("/tmp/new-live.mp3"));
+  }
+
+  {
+    class WatchEngine : public NullEngine {
+     public:
+      void stop() override {
+        stopped = true;
+        NullEngine::stop();
+      }
+      bool stopped = false;
+    };
+    PlaylistController playlist;
+    Track a;
+    a.path = QStringLiteral("/tmp/keep-playing.mp3");
+    Track b;
+    b.path = QStringLiteral("/tmp/also-old.mp3");
+    playlist.setTracks({a, b});
+    WatchEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.playIndex(0);
+    playlist.setTracks({});
+    playback.onPlaylistChanged();
+    REQUIRE(playback.offList());
+    REQUIRE(playback.playing());
+    playback.next();
+    REQUIRE(playback.playing());
+    REQUIRE(!engine.stopped);
+    REQUIRE_EQ(playback.currentTrack()->path, QStringLiteral("/tmp/keep-playing.mp3"));
+  }
+
+  {
+    class WatchEngine : public NullEngine {
+     public:
+      void stop() override {
+        stopped = true;
+        NullEngine::stop();
+      }
+      bool stopped = false;
+    };
+    PlaylistController playlist;
+    Track a;
+    a.path = QStringLiteral("/tmp/keep-playing.mp3");
+    Track b;
+    b.path = QStringLiteral("/tmp/also-old.mp3");
+    Track c;
+    c.path = QStringLiteral("/tmp/third-old.mp3");
+    playlist.setTracks({a, b, c});
+    WatchEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.playIndex(0);
+    playlist.select(2);
+    Track gone0;
+    gone0.path = QStringLiteral("/tmp/new-missing-0.mp3");
+    gone0.disabled = true;
+    Track gone1;
+    gone1.path = QStringLiteral("/tmp/new-missing-1.mp3");
+    gone1.disabled = true;
+    playlist.setTracks({gone0, gone1});
+    playback.onPlaylistChanged();
+    REQUIRE(playback.offList());
+    playback.next();
+    REQUIRE(playback.playing());
+    REQUIRE(!engine.stopped);
+    REQUIRE(!playback.playingIndex().has_value());
+    REQUIRE_EQ(playback.currentTrack()->path, QStringLiteral("/tmp/keep-playing.mp3"));
+  }
+
+  {
+    class WatchEngine : public NullEngine {
+     public:
+      void open(const Track& track) override { opened = track.path; }
+      void seekMs(qint64 positionMs) override {
+        sought = positionMs;
+        NullEngine::seekMs(positionMs);
+      }
+      QString opened;
+      std::optional<qint64> sought;
+    };
+    PlaylistController playlist;
+    Track a;
+    a.path = QStringLiteral("/tmp/keep-playing.mp3");
+    Track b;
+    b.path = QStringLiteral("/tmp/also-old.mp3");
+    playlist.setTracks({a, b});
+    WatchEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.playIndex(0);
+    Track n0;
+    n0.path = QStringLiteral("/tmp/new-0.mp3");
+    Track n1;
+    n1.path = QStringLiteral("/tmp/new-1.mp3");
+    Track n2;
+    n2.path = QStringLiteral("/tmp/new-2.mp3");
+    playlist.setTracks({n0, n1, n2});
+    playback.onPlaylistChanged();
+    REQUIRE(playback.offList());
+    playback.previous();
+    REQUIRE_EQ(playback.playingIndex().value_or(-1), 2);
+    REQUIRE_EQ(playback.currentTrack()->path, QStringLiteral("/tmp/new-2.mp3"));
+    REQUIRE_EQ(engine.opened, QStringLiteral("/tmp/new-2.mp3"));
+    REQUIRE(!engine.sought.has_value());
+  }
+
+  {
+    PlaylistController playlist;
+    Track a;
+    a.path = QStringLiteral("/tmp/keep-playing.mp3");
+    Track b;
+    b.path = QStringLiteral("/tmp/also-old.mp3");
+    playlist.setTracks({a, b});
+    NullEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.playIndex(0);
+    Track n0;
+    n0.path = QStringLiteral("/tmp/new-0.mp3");
+    Track n1;
+    n1.path = QStringLiteral("/tmp/new-1.mp3");
+    Track gone;
+    gone.path = QStringLiteral("/tmp/new-missing.mp3");
+    gone.disabled = true;
+    playlist.setTracks({n0, n1, gone});
+    playback.onPlaylistChanged();
+    playback.previous();
+    REQUIRE_EQ(playback.playingIndex().value_or(-1), 1);
+    REQUIRE_EQ(playback.currentTrack()->path, QStringLiteral("/tmp/new-1.mp3"));
+  }
+
+  {
+    class WatchEngine : public NullEngine {
+     public:
+      void seekMs(qint64 positionMs) override {
+        sought = positionMs;
+        NullEngine::seekMs(positionMs);
+      }
+      void stop() override {
+        stopped = true;
+        NullEngine::stop();
+      }
+      std::optional<qint64> sought;
+      bool stopped = false;
+    };
+    PlaylistController playlist;
+    Track a;
+    a.path = QStringLiteral("/tmp/keep-playing.mp3");
+    Track b;
+    b.path = QStringLiteral("/tmp/also-old.mp3");
+    playlist.setTracks({a, b});
+    WatchEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.playIndex(0);
+    playlist.setTracks({});
+    playback.onPlaylistChanged();
+    REQUIRE(playback.offList());
+    playback.previous();
+    REQUIRE(playback.playing());
+    REQUIRE(!engine.stopped);
+    REQUIRE(!engine.sought.has_value());
+    REQUIRE_EQ(playback.currentTrack()->path, QStringLiteral("/tmp/keep-playing.mp3"));
+  }
+
+  {
+    class WatchEngine : public NullEngine {
+     public:
+      void open(const Track& track) override { opened = track.path; }
+      QString opened;
+    };
+    PlaylistController playlist;
+    Track a;
+    a.path = QStringLiteral("/tmp/keep-playing.mp3");
+    Track b;
+    b.path = QStringLiteral("/tmp/also-old.mp3");
+    playlist.setTracks({a, b});
+    WatchEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.playIndex(0);
+    Track c;
+    c.path = QStringLiteral("/tmp/from-another-list.mp3");
+    playlist.setTracks({c});
+    playback.onPlaylistChanged();
+    REQUIRE(playback.offList());
+    playback.stop();
+    REQUIRE(!playback.playing());
+    engine.opened.clear();
+    playback.playPause();
+    REQUIRE(playback.playing());
+    REQUIRE_EQ(engine.opened, QStringLiteral("/tmp/keep-playing.mp3"));
+    REQUIRE(!playback.playingIndex().has_value());
+    REQUIRE(playback.offList());
+  }
+
+  {
+    // Resume after quit has no playingTrack_ in a fresh process. playIndex
+    // needs a row; an off-list path has none.
+    PlaylistController playlist;
+    Track listed;
+    listed.path = QStringLiteral("/tmp/listed.mp3");
+    Track also;
+    also.path = QStringLiteral("/tmp/also-listed.mp3");
+    playlist.setTracks({listed, also});
+    playlist.select(1);
+    NullEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    Track off;
+    off.path = QStringLiteral("/tmp/off-list.mp3");
+    off.title = QStringLiteral("Off List");
+    playback.playTrack(off);
+    REQUIRE(playback.playing());
+    REQUIRE(!playback.playingIndex().has_value());
+    REQUIRE_EQ(playlist.selectedIndex().value_or(-1), 1);
+    REQUIRE(playback.offList());
+    REQUIRE_EQ(playback.currentTrack()->path, QStringLiteral("/tmp/off-list.mp3"));
   }
 
   {
