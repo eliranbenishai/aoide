@@ -93,22 +93,29 @@ what GNOME and KWin match on.
 
 ### Screenshots
 
-Still to do, and the one step that cannot be done from the repo. Flathub
+Done as of 1.2, and the one step that cannot be done from the repo. Flathub
 requires screenshots and AppStream `<image>` must be a URL a store can fetch, so
-they cannot ride inside the bundle. The pictures are generated, not committed:
+they cannot ride inside the bundle. Three are live under
+`https://aoide.music/screenshots/1.0/` and the `<screenshots>` block naming them
+is no longer commented out, so `--check-urls` now has something to verify and
+`flatpak-builder-lint` no longer reports `metainfo-missing-screenshots`. Flathub
+**mirrors** them to `dl.flathub.org` when it composes an official build rather
+than hotlinking, so the URLs have to resolve when a build runs, not only when a
+listener looks. They still show 1.0 chrome; regenerate and upload under a new
+version prefix when the chrome changes enough to misrepresent the app. The
+pictures are generated, not committed:
 
 ```bash
 QT_QPA_PLATFORM=offscreen ./build/aoide --dump-chrome /tmp/shots
 ```
 
 Take `main_player_window.png`, `playlist_window.png` and
-`equalizer_window.png`, upload them under
-`https://aoide.music/screenshots/<version>/`, then uncomment the `<screenshots>`
-block in the metainfo file. `check-metainfo.sh --check-urls` — which the release
+`equalizer_window.png` and upload them under
+`https://aoide.music/screenshots/<version>/`, then point the `<screenshots>`
+block at the new prefix. `check-metainfo.sh --check-urls` — which the release
 pre-flight runs — fetches every declared `<image>` and fails on anything that is
-not a 200. While the block stays commented it reports that none are declared, so
-the guard is in place before it is needed rather than added after the first
-broken listing.
+not a 200, so a moved or deleted picture breaks the release rather than the
+listing.
 
 `--socket=pulseaudio` in the manifest is why installers warn about microphone
 access. Flatpak has exactly one audio permission and it covers capture and

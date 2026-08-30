@@ -42,12 +42,12 @@
   <url type="homepage">https://aoide.music</url>
 
   <!-- Flathub requires screenshots, and <image> has to be a URL it can fetch, so
-       there is no way to ship them inside the bundle. The pictures are generated
-       rather than committed: run the dump-chrome flag and take
-       main_player_window.png, playlist_window.png and equalizer_window.png.
-       Upload them under the path below, then uncomment. The check-urls flag on
-       check-metainfo.sh starts verifying them from that point on, and fails a
-       release if one stops resolving.
+       there is no way to ship them inside the bundle. Flathub mirrors these to
+       dl.flathub.org at compose time, so the URLs have to resolve when a build
+       runs, not only when a listener looks. The check-urls flag on
+       check-metainfo.sh fetches every one and fails a release if it stops
+       resolving. The pictures are generated rather than committed: run the
+       dump-chrome flag offscreen, then upload the three below. -->
   <screenshots>
     <screenshot type="default">
       <image>https://aoide.music/screenshots/1.0/main_player_window.png</image>
@@ -62,7 +62,6 @@
       <caption>Ten bands, a shelf of presets, and the curve you're making</caption>
     </screenshot>
   </screenshots>
-  -->
 
   <!-- Newest first: out-of-order entries fail validation. tool/version.sh and the
        release workflow check the top version against the VERSION file. -->
