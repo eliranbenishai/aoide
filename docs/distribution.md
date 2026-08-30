@@ -282,6 +282,20 @@ there for `macdeployqt`; on Windows that tool lives in `qtbase`, which is why
 the Windows job can slice further. A local Mac host places the official desktop
 kit under `.local/qt/<QT_VERSION>/macos` or points `CMAKE_PREFIX_PATH` at it.
 
+**Windows needs an unreleased `aqtinstall` to install Qt 6.11 at all**, and both
+Windows jobs pin one through the action's `aqtsource` input. Qt restructured that
+repository at 6.11: 6.10.3 was a single nested `qt6_6103/qt6_6103`, while 6.11
+splits into per-architecture directories (`qt6_6111/qt6_6111_msvc2022_64`). The
+newest release on PyPI is 3.3.0 and only knows the old shape, so it fails with
+`Failed to locate XML data for Qt version 6.11.1` before downloading anything —
+which is how the 6.11 bump passed Linux and macOS and failed Windows in a minute.
+The fix was merged upstream in March 2026 and is still unreleased, so the pin
+names that commit. It is deliberately **Windows only**: the layout change does not
+touch `linux_gcc_64` or `clang_64`, and the lanes that already work have no reason
+to move onto an unreleased installer. Replace both with a plain `aqtversion` once a
+release past 3.3.0 carries it. The consequence worth knowing before the next Qt
+bump is that Windows is now the lane most likely to break on one.
+
 [`build.sh`](../build.sh) fetches the pin into `.local/qt/` if it is missing
 and refuses to link any other version. CMake does the same check.
 
