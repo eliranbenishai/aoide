@@ -240,11 +240,11 @@ The tag name without `v` must equal the `VERSION` file.
 | File | Channel |
 |------|---------|
 | `Aoide-<ver>-windows-x64.exe` | Official download (unsigned Inno; SmartScreen click-through) |
-| `Aoide-<ver>-windows-x64.msix` | Microsoft Store listing **aoide.music** (unsigned here; Store re-signs). Identity version is four-part `x.y.z.0` derived from `VERSION` by [`tool/version.sh`](../tool/version.sh) (`1.0` → `1.0.0.0`); the fourth number must be **0** or Partner Center rejects the package. `make_msix.ps1` validates the shape it is handed; it does not derive it. Bump `VERSION` for each Store upload. |
+| `Aoide-<ver>-windows-x64.msix` | Microsoft Store listing **aoide.music** (unsigned here; Store re-signs). Identity version is four-part `x.y.z.0` derived from `VERSION` by [`tool/version.sh`](../tool/version.sh) (`x.y` → `x.y.0.0`); the fourth number must be **0** or Partner Center rejects the package. `make_msix.ps1` validates the shape it is handed; it does not derive it. Bump `VERSION` for each Store upload. |
 | `Aoide-<ver>-linux-x86_64.AppImage` | Official download |
 | `Aoide-<ver>-linux-x86_64.tar.gz` | Input for a Flathub recipe |
 | `Aoide-<ver>-linux-x86_64.flatpak` | Sideloadable bundle — a second Linux channel, not a fourth OS; the Flathub listing is a human submit from the tarball above. Required like the rest, and `flatpak-builder` pulls `org.kde.Platform` over the network, so this is the job most likely to fail for a reason that is nobody's bug. Re-run it; a flake costing a re-run is cheaper than a release quietly short one download. |
-| `Aoide-<ver>-macos-universal.dmg` | Official download in **1.1**. Every CI run now uploads one, notarized wherever the signing secrets reach — a fork's pull request cannot see them; one has been installed on a MacBook and played audio. The smoke proves the staged bundle starts offscreen — not that a listener can open the DMG past Gatekeeper. |
+| `Aoide-<ver>-macos-universal.dmg` | Official download since **1.1**. Every CI run now uploads one, notarized wherever the signing secrets reach — a fork's pull request cannot see them; one has been installed on a MacBook and played audio. The smoke proves the staged bundle starts offscreen — not that a listener can open the DMG past Gatekeeper. |
 
 Partner Center and Flathub submit stay **human**. Packaging scripts live under `packaging/`.
 
@@ -361,7 +361,7 @@ and the AppImage need. One script and one code path for all three; do not give
 the Flatpak its own staging script or strip Qt out afterwards, because then two
 places have to agree on what Qt is.
 
-Windows (on a Windows host): `tool/fetch_full_libmpv.ps1`, CMake Release build, then `packaging/windows/stage.ps1`, Inno (`packaging/windows/aoide.iss`) and `packaging/windows/make_msix.ps1`. The EXE installer runs `vc_redist.x64.exe` when `MSVCP140.dll` / `VCRUNTIME140.dll` are missing. The MSIX declares `Microsoft.VCLibs.140.00.UWPDesktop` so the Store supplies that runtime. Keep the `.ps1` files ASCII: Windows PowerShell 5.1 (what `powershell` is on the runner) reads UTF-8 source as ANSI, and an em-dash inside a string is decoded as a closing quote.
+Windows (on a Windows host): `tool/fetch_full_libmpv.ps1`, CMake Release build, then `packaging/windows/stage.ps1`, Inno (`ISCC /DMyAppVersion=<version> packaging\windows\aoide.iss`) and `packaging/windows/make_msix.ps1 -Version <msix>`. Take both fields from [`tool/version.sh`](../tool/version.sh); neither packager will run without one, because a default would name the artifact for a release it is not. The EXE installer runs `vc_redist.x64.exe` when `MSVCP140.dll` / `VCRUNTIME140.dll` are missing. The MSIX declares `Microsoft.VCLibs.140.00.UWPDesktop` so the Store supplies that runtime. Keep the `.ps1` files ASCII: Windows PowerShell 5.1 (what `powershell` is on the runner) reads UTF-8 source as ANSI, and an em-dash inside a string is decoded as a closing quote.
 
 macOS (on a Mac — CI builds, smokes the staged bundle, and wraps a DMG; one
 image has been installed and played):

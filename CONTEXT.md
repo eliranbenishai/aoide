@@ -25,7 +25,7 @@ _Premise_ (2026-08-21, cost partly evidenced, capacity unevidenced): that one ma
 _Avoid_: freeware, donationware (unless donations become a product); using this phrase to mean open-source
 
 **Official download**:
-How listeners obtain Aoide — the website (`https://aoide.music`). Not GitHub. Windows also has a Microsoft Store listing and Linux a Flathub listing; the site still offers an unsigned EXE and an AppImage when a store is missing or unwanted. The macOS DMG is 1.1.
+How listeners obtain Aoide — the website (`https://aoide.music`). Not GitHub. Windows also has a Microsoft Store listing and Linux a Flathub listing; the site still offers an unsigned EXE and an AppImage when a store is missing or unwanted. The macOS DMG is a 1.1 channel.
 _Avoid_: GitHub Release as the product surface, treating Store or Flathub as the only install, shipping from the repo
 
 **Store listing name**:

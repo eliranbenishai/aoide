@@ -34,7 +34,7 @@ flowchart LR
   CI --> FH
   Site --> WinExe[Windows EXE x64]
   Site --> AppImage[Linux AppImage x86_64]
-  Site --> Dmg[macOS universal DMG 1.1]
+  Site --> Dmg[macOS universal DMG since 1.1]
   MS --> Msix[Windows MSIX x64]
   FH --> Flatpak[Linux Flatpak x86_64]
 ```
@@ -184,5 +184,5 @@ Playlist bytes are decoded by `decodeM3uBytes`: UTF-8 or UTF-16 by byte-order ma
 - Fidelity is mockup-absolute at 100%, minus the deviations recorded here. No PNG graphite faces. No Material ink.
 - Deliberate departures from `player-mockup-2.html`, so a fidelity pass does not undo them: dark wells default to the panel corner (`radii.surface` / `kWellRadius`, 6) instead of the mockup's 3px; the main transport row and the playlist footer drop the mockup's `.rail` filler and `.plate` deck, leaving every button row on the bare shell; the mute glyph is recentred against artwork that overflows its own 24-unit viewBox (a browser hides the spill by clipping, QPainter does not); the AOIDE wordmark is bundled Anton rather than the mockup's tracked Tramp Condensed, and skins cannot restyle that face.
 - Tests that assert text must load Tramp Condensed / Tramp Mono. Wordmark tests also need bundled Anton.
-- Version is [`VERSION`](../VERSION) (CMake `PROJECT_VERSION`, About readout). Packaging reads it through [`tool/version.sh`](../tool/version.sh), the only place the four-part Store identity is derived (`1.1` → `1.1.0.0`) and the same field the tag gate and the AppStream release entry are checked against. `make_msix.ps1` re-checks the shape it is handed; that is a guard, not a second derivation.
+- Version is [`VERSION`](../VERSION) (CMake `PROJECT_VERSION`, About readout). Packaging reads it through [`tool/version.sh`](../tool/version.sh), the only place the four-part Store identity is derived (`x.y` → `x.y.0.0`) and the same field the tag gate and the AppStream release entry are checked against. `make_msix.ps1` re-checks the shape it is handed; that is a guard, not a second derivation.
 

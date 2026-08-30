@@ -485,6 +485,6 @@ jobs:
             Source: this tag. Product downloads: https://aoide.music
 
             Windows Store and Flathub listings are submitted separately from these bits.
-            macOS DMG is 1.1. It is signed and notarized with a Developer ID.
+            The macOS channel opened in 1.1. Each DMG is signed and notarized with a Developer ID.
             CI builds and smoke-starts one on every run, and one has been
             installed and played on a MacBook — a single machine, not a channel.

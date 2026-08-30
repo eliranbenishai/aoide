@@ -1,12 +1,18 @@
 # Packs the Windows Release folder into an unsigned MSIX for Store submission.
 # Microsoft re-signs Store MSIX after certification (ADR 0011).
 param(
-  [string]$Version = "1.0.0.0",
+  [string]$Version,
   [string]$Publisher = "CN=Proxima Magnifica",
   [string]$IdentityName = "ProximaMagnifica.aoide"
 )
 
 $ErrorActionPreference = "Stop"
+# No default. 1.0.0.0 is a legal Store identity, so a missing argument would
+# pack a mislabeled upload; -Version "" is a supplied value and must fail here
+# rather than at the shape check below.
+if ([string]::IsNullOrWhiteSpace($Version)) {
+  throw 'Version is required. Pass -Version from tool/version.sh (CI: -Version $env:AOIDE_MSIX_VERSION).'
+}
 if ($Version -notmatch '^\d+\.\d+\.\d+\.0$') {
   throw "Store MSIX version must be Major.Minor.Build.0 (got '$Version'). The Store reserves the revision digit."
 }

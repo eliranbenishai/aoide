@@ -105,7 +105,7 @@ strip (not the window buttons) to move a window. Closing **Aoide** (main) quits.
 ### macOS
 
 Required [PR CI](.github/workflows/ci.yml) job, not a third matrix leg (see
-above). `fetch_qt.sh` exits 1 here. The product channel is **1.1** — what that
+above). `fetch_qt.sh` exits 1 here. The product channel opened in **1.1** — what that
 run does and does not prove is in [Known v1 limits](#known-v1-limits), which is
 the one place that says it.
 
@@ -182,9 +182,9 @@ attaches artifacts to a GitHub Release (a mirror; the product page is aoide.musi
 | Linux MPRIS | OS media keys / Now Playing via D-Bus not implemented. In-app media keys work when Aoide is focused. |
 | Second-instance “Open with” | Cold-start argv and file associations work; a second running instance does not forward paths to the first. |
 | Spectrum | Real 20-bar analyser (offline PCM + STFT). Honest silence until the spectrogram for the current track is ready. |
-| macOS host | 1.1. CI builds, tests and smoke-starts the staged bundle offscreen on every run and uploads a notarized DMG. One has been installed on a MacBook and played audio; that is one machine, and nothing automated launches the *installed* app or checks Gatekeeper. |
+| macOS host | Channel opened in 1.1. CI builds, tests and smoke-starts the staged bundle offscreen on every run and uploads a notarized DMG. One has been installed on a MacBook and played audio; that is one machine, and nothing automated launches the *installed* app or checks Gatekeeper. |
 
-Windows Store and Flathub are 1.0 channels; the macOS DMG is 1.1. Mac App Store and Snap are not.
+Windows Store and Flathub are 1.0 channels; the macOS DMG is a 1.1 channel. Mac App Store and Snap are not.
 
 ## v1 success criteria
 
@@ -192,7 +192,7 @@ From [`docs/aoide-v1-spec.md`](docs/aoide-v1-spec.md).
 
 | Criterion | Status |
 |-----------|--------|
-| Install/run on Win/Linux (build artifacts) | Linux binary is `build/aoide`; Windows CI compiles the host; macOS is 1.1 |
+| Install/run on Win/Linux (build artifacts) | Linux binary is `build/aoide`; Windows CI compiles the host; macOS is a 1.1 channel |
 | Open local audio + playlists | Implemented (file picker, DnD, argv, folder expand) |
 | Manage playlist (add/remove/reorder/save/restore) | Implemented (`PlaylistController`, M3U/M3U8) |
 | Transport chrome controls + tags when present | Implemented (Qt chrome + libmpv) |

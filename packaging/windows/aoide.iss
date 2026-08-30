@@ -1,6 +1,12 @@
 #define MyAppName "Aoide"
+; /DMyAppVersion= still defines the symbol (empty) when AOIDE_APP_VERSION is
+; unset, so #ifndef cannot catch a missing env var. That would name the
+; installer Aoide--windows-x64.
 #ifndef MyAppVersion
-  #define MyAppVersion "1.0"
+  #error MyAppVersion is required. Pass ISCC /DMyAppVersion=<version> (CI: /DMyAppVersion from AOIDE_APP_VERSION, via tool/version.sh).
+#endif
+#if MyAppVersion == ""
+  #error MyAppVersion is empty. Pass ISCC /DMyAppVersion=<version> (CI: /DMyAppVersion from AOIDE_APP_VERSION, via tool/version.sh).
 #endif
 #define MyAppPublisher "Proxima Magnifica"
 #define MyAppURL "https://aoide.music"
