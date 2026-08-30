@@ -1788,7 +1788,8 @@ void HostWindowMoveTest::playlistResizeRegionsReportTheirEdges() {
 
 void HostWindowMoveTest::westResizePinsTheRightEdge() {
   const QRectF start(100, 80, 400, 300);
-  const aoide::PlaylistResizeEdges west{.west = true};
+  const aoide::PlaylistResizeEdges west =
+      aoide::playlistResizeEdgesFromMask(aoide::kResizeEdgeWest);
   const QRectF next =
       aoide::playlistResizeRect(start, west, QPointF(100, 200), QPointF(140, 210), QSizeF(200, 150));
   QCOMPARE(next.right(), start.right());
@@ -1799,7 +1800,8 @@ void HostWindowMoveTest::westResizePinsTheRightEdge() {
 
 void HostWindowMoveTest::westResizeStopsTheOriginAtMinimumWidth() {
   const QRectF start(100, 80, 400, 300);
-  const aoide::PlaylistResizeEdges west{.west = true};
+  const aoide::PlaylistResizeEdges west =
+      aoide::playlistResizeEdgesFromMask(aoide::kResizeEdgeWest);
   const QRectF next =
       aoide::playlistResizeRect(start, west, QPointF(100, 200), QPointF(350, 200), QSizeF(200, 150));
   QCOMPARE(next.right(), start.right());
@@ -1809,7 +1811,8 @@ void HostWindowMoveTest::westResizeStopsTheOriginAtMinimumWidth() {
 
 void HostWindowMoveTest::northResizePinsTheBottomEdge() {
   const QRectF start(100, 80, 400, 300);
-  const aoide::PlaylistResizeEdges nw{.west = true, .north = true};
+  const aoide::PlaylistResizeEdges nw =
+      aoide::playlistResizeEdgesFromMask(aoide::kResizeEdgeWest | aoide::kResizeEdgeNorth);
   const QRectF next =
       aoide::playlistResizeRect(start, nw, QPointF(100, 80), QPointF(90, 50), QSizeF(200, 150));
   QCOMPARE(next.bottom(), start.bottom());
