@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Validate the AppStream metainfo file and keep its newest release in step with
-# VERSION.
+# VERSION, including a feature list that tool/release-notes.sh can print.
 #
 # This file is the only place a Linux installer learns that the app is called
 # Aoide. A .desktop file's Name= does not reach flatpak, GNOME Software or
@@ -46,6 +46,12 @@ if [[ "$top" != "$version" ]]; then
   echo "check-metainfo: newest <release> is '$top' but VERSION says '$version'" >&2
   exit 1
 fi
+
+# The GitHub body is derived from this <release>. An entry with no <li>
+# features would publish as a blank list — the same class of silent success
+# as a blank VERSION padding to a legal Store identity. Fail here, where CI
+# and pre-flight already run, not at the publish step.
+bash "$ROOT/tool/release-notes.sh" >/dev/null
 
 if [[ "$CHECK_URLS" == 1 ]]; then
   # Strip XML comments first. Screenshots stay commented out until they are

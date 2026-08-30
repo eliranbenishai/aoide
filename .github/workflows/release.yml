@@ -430,6 +430,31 @@ jobs:
       needs.flatpak.result == 'success'
     runs-on: ubuntu-24.04
     steps:
+      # Checkout must precede the download: actions/checkout cleans the
+      # workspace, so artifacts fetched before it are thrown away. The tree is
+      # needed here because the notes are derived from the in-tree metainfo.
+      - uses: actions/checkout@v6
+      - name: Release notes
+        env:
+          # A heredoc starting at column 0 would end this step's block scalar.
+          STANDING: |
+            Source: this tag. Product downloads: https://aoide.music
+
+            Windows Store and Flathub listings are submitted separately from these bits.
+            The macOS channel opened in 1.1. Each DMG is signed and notarized with a Developer ID.
+            CI builds and smoke-starts one on every run, and one has been
+            installed and played on a MacBook — a single machine, not a channel.
+        run: |
+          set -euo pipefail
+          # Features first: a reader opened the page for what changed. The
+          # sentences after that are product facts, not this version's notes,
+          # and a template that was only those facts is what shipped v1.1
+          # with an empty feature list.
+          {
+            bash tool/release-notes.sh
+            printf '\n'
+            printf '%s' "$STANDING"
+          } > release-body.md
       - uses: actions/download-artifact@v7
         with:
           path: dist
@@ -462,12 +487,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         with:
           files: upload/*
-          generate_release_notes: true
+          # Off: it appends a commit dump and a changelog link, which is a
+          # second and uncurated source beside the metainfo feature list.
+          generate_release_notes: false
           draft: false
-          body: |
-            Source: this tag. Product downloads: https://aoide.music
-
-            Windows Store and Flathub listings are submitted separately from these bits.
-            The macOS channel opened in 1.1. Each DMG is signed and notarized with a Developer ID.
-            CI builds and smoke-starts one on every run, and one has been
-            installed and played on a MacBook — a single machine, not a channel.
+          body_path: release-body.md

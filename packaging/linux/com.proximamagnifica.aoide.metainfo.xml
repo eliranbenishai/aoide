@@ -69,12 +69,43 @@
   <releases>
     <release version="1.2" date="2026-08-30">
       <description>
-        <p>Create Playlist can start from picked audio files, without interrupting what is playing.</p>
-        <p>A track playing outside the current playlist is named in the footer, Next and Previous walk into the list, and a quit keeps it.</p>
-        <p>The playlist resizes from every edge and corner, and stays inside the desktop work area so its grip and the zoom controls stay reachable.</p>
-        <p>A 62.5% zoom step, for the gap between 50 and 75. Zoom no longer refuses a step just because the playlist has to shrink to fit.</p>
-        <p>Always on top works on Plasma, and the option is hidden where the desktop cannot do it. The player stays above every other Aoide panel.</p>
-        <p>The file pickers keep to the kind they asked for, so an audio file cannot be taken as a playlist.</p>
+        <ul>
+          <li>
+            Create a playlist from files — pick audio files and save them as a
+            playlist; it becomes the current playlist without interrupting what
+            is playing.
+          </li>
+          <li>
+            Resize the playlist from any edge or corner — not only the
+            bottom-right grip.
+          </li>
+          <li>
+            The playlist stays reachable — kept inside the desktop work area,
+            so its resize grip and the player's zoom controls cannot end up
+            behind a taskbar.
+          </li>
+          <li>
+            The player stays above its own panels — no equalizer, playlist,
+            settings, about or skins window covers it.
+          </li>
+          <li>
+            Always on top works on KDE Plasma — and the option is hidden where
+            the desktop cannot honour it.
+          </li>
+          <li>
+            A 62.5% zoom step — for the gap between 50% and 75%. Zoom no longer
+            refuses a step just because the playlist has to shrink to fit.
+          </li>
+          <li>
+            A track playing from outside the current playlist behaves like one
+            inside it — the footer reports it as playing, Next and Previous
+            walk into the list, and it survives a restart.
+          </li>
+          <li>
+            File pickers keep to the kind they ask for — an audio file cannot
+            be taken as a playlist.
+          </li>
+        </ul>
       </description>
     </release>
     <release version="1.1" date="2026-08-29">

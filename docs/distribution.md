@@ -235,6 +235,38 @@ git push origin v1.2
 
 The tag name without `v` must equal the `VERSION` file.
 
+## Release notes
+
+Notes are a **list of features**. Each entry names the capability a listener
+gains; a very concise explanation follows a dash only where the name is not
+self-evident. State what the listener can now do rather than the work that was
+done — `Fixed a bug where…`, `Added support for…` and `Updated the…` read as a
+commit log, which is the failure mode. No file names, symbol names, commit ids
+or version numbers inside an entry; the release already carries its number.
+Only what a listener can notice belongs here, so CI work, refactors, packaging
+plumbing and doc updates do not appear. Release 1.2 is the reference:
+
+```
+- Resize the playlist from any edge or corner — not only the bottom-right grip.
+- The player stays above its own panels — no equalizer, playlist, settings,
+  about or skins window covers it.
+```
+
+**They live in one place**: the `<release>` description for that version in the
+AppStream metainfo, as a `<ul>` of `<li>` features. That is what software
+centres render, and [`release-notes.sh`](../tool/release-notes.sh) turns the
+same list into the GitHub release body — the only derivation, so the notes
+cannot be written twice and drift. It refuses to print an empty body, and
+[`check-metainfo.sh`](../tool/check-metainfo.sh) calls it, so a bump whose
+entry is missing features fails CI instead of publishing a release page with
+nothing on it.
+
+Standing facts — where downloads live, which channels exist, what notarization
+means — are properties of the product, not of a release. They live once in the
+publish step of [`release.yml`](../.github/workflows/release.yml), after the
+features. A body that was only those facts is what shipped 1.1 with no feature
+list at all.
+
 ## Artifacts
 
 | File | Channel |
