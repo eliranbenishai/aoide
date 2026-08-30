@@ -229,8 +229,8 @@ every Linux CI run while they disagree, so a bump without the entry breaks
 `main` rather than the tag. Commit both, then:
 
 ```bash
-git tag v1.1
-git push origin v1.1
+git tag v1.2
+git push origin v1.2
 ```
 
 The tag name without `v` must equal the `VERSION` file.
