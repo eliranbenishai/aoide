@@ -26,10 +26,12 @@ if ! command -v eu-strip >/dev/null; then
   exit 1
 fi
 
-# The manifest has to name its runtime literally, because it is also the file a
-# human PRs to Flathub. That makes it the one place the Qt pin is written twice,
-# so check it here rather than letting a Qt bump be discovered as a
-# flatpak-builder error about a runtime nobody installed.
+# The manifest has to name its runtime literally, so the Qt pin is written twice
+# and the copies can drift. Check it here rather than letting a Qt bump be
+# discovered as a flatpak-builder error about a runtime nobody installed. The
+# Flathub manifest names it a third time and is not checked here: it builds from
+# a source tag rather than this staged tree, so a stale pin there fails on
+# CMake's own version check inside the sandbox instead of going unnoticed.
 MANIFEST="$ROOT/packaging/flatpak/com.proximamagnifica.aoide.yml"
 qt_runtime="$(tr -d '\r[:space:]' < "$ROOT/QT_VERSION")"
 qt_runtime="${qt_runtime%.*}"
