@@ -91,6 +91,56 @@ neither field and the key did nothing there. Wayland does not need it — `app_i
 already equals the desktop file's basename, which is what xdg-shell asks for and
 what GNOME and KWin match on.
 
+### Submitting to Flathub
+
+Two manifests, two build models. The local
+[`packaging/flatpak/com.proximamagnifica.aoide.yml`](../packaging/flatpak/com.proximamagnifica.aoide.yml)
+wraps an already-staged tree; Flathub rejects that shape outright, because `dir`
+sources and prebuilt binaries are both refused and everything must be
+[built from source](https://docs.flathub.org/docs/for-app-authors/requirements).
+[`packaging/flatpak/flathub/com.proximamagnifica.aoide.yml`](../packaging/flatpak/flathub/com.proximamagnifica.aoide.yml)
+is the file that is submitted. It compiles from a pinned tag with no network
+during the build, which is why every source carries a `sha256` or a `tag` **and**
+the commit that tag resolves to.
+
+The submission is a PR against [flathub/flathub](https://github.com/flathub/flathub)
+based on the **`new-pr`** branch — a PR against `master` is closed
+automatically — titled `Add com.proximamagnifica.aoide` and containing only that
+manifest. The metainfo, desktop file and icons stay here and are picked up from
+the build; Flathub explicitly does not want copies in the PR. The template also
+asks for a video of the app running as a Flatpak. On approval Flathub creates
+`flathub/com.proximamagnifica.aoide`, invites the submitter as a collaborator
+(2FA required, accept within a week), and later releases are PRs against that
+repo rather than another submission.
+
+Rehearse it exactly as Flathub builds it before opening anything:
+
+```bash
+flatpak install -y flathub org.flatpak.Builder
+flatpak run --command=flathub-build org.flatpak.Builder com.proximamagnifica.aoide.yml
+flatpak run --command=flatpak-builder-lint org.flatpak.Builder manifest com.proximamagnifica.aoide.yml
+flatpak run --command=flatpak-builder-lint org.flatpak.Builder repo repo
+```
+
+`appstreamcli validate` is necessary but not sufficient — the linter adds the ID,
+screenshot and permission checks. Use the `flathub-build` wrapper rather than
+plain `flatpak-builder`: it passes `--sandbox` and the screenshot-mirroring flags,
+and without them the repo lint reports `appstream-external-screenshot-url` for a
+manifest that is actually fine.
+
+Two linter errors are expected and neither is fatal —
+`finish-args-host-filesystem-access` and `finish-args-kwin-talk-name`, both
+documented as *granted on sufficient explanation being provided*. The
+justifications are below and above respectively; the filesystem one is the
+argument reviewers will actually push on, and Haruna carries `host:ro` plus
+`home` on the same runtime. Anything else the linter reports is a real defect.
+
+Reviewers also open the domain in the app ID by hand to confirm it is the
+submitter's, and the same domain later carries the verification token at
+`/.well-known/org.flathub.VerifiedApps.txt`. That is **proximamagnifica.com**,
+not the `github.com` source repo and not `aoide.music`; it should say somewhere
+that it publishes Aoide.
+
 ### Screenshots
 
 Done as of 1.2, and the one step that cannot be done from the repo. Flathub
@@ -287,8 +337,8 @@ list at all.
 | `Aoide-<ver>-windows-x64.exe` | Official download (unsigned Inno; SmartScreen click-through) |
 | `Aoide-<ver>-windows-x64.msix` | Microsoft Store listing **Aoide** (unsigned here; Store re-signs). Identity version is four-part `x.y.z.0` derived from `VERSION` by [`tool/version.sh`](../tool/version.sh) (`x.y` → `x.y.0.0`); the fourth number must be **0** or Partner Center rejects the package. `make_msix.ps1` validates the shape it is handed; it does not derive it. Bump `VERSION` for each Store upload. |
 | `Aoide-<ver>-linux-x86_64.AppImage` | Official download |
-| `Aoide-<ver>-linux-x86_64.tar.gz` | Input for a Flathub recipe |
-| `Aoide-<ver>-linux-x86_64.flatpak` | Sideloadable bundle — a second Linux channel, not a fourth OS; the Flathub listing is a human submit from the tarball above. Required like the rest, and `flatpak-builder` pulls `org.kde.Platform` over the network, so this is the job most likely to fail for a reason that is nobody's bug. Re-run it; a flake costing a re-run is cheaper than a release quietly short one download. |
+| `Aoide-<ver>-linux-x86_64.tar.gz` | Official download, portable layout |
+| `Aoide-<ver>-linux-x86_64.flatpak` | Sideloadable bundle — a second Linux channel, not a fourth OS. It feeds **nothing** on Flathub: that build compiles from the source tag instead, so no release artifact is an input to it. Required like the rest, and `flatpak-builder` pulls `org.kde.Platform` over the network, so this is the job most likely to fail for a reason that is nobody's bug. Re-run it; a flake costing a re-run is cheaper than a release quietly short one download. |
 | `Aoide-<ver>-macos-universal.dmg` | Official download since **1.1**. Release CI wraps and uploads one, notarized wherever the signing secrets reach. Pull-request CI does not upload a DMG. One has been installed on a MacBook and played audio. The smoke proves the staged bundle starts offscreen — not that a listener can open the DMG past Gatekeeper. |
 
 Partner Center and Flathub submit stay **human**. Packaging scripts live under `packaging/`.

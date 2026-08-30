@@ -1,0 +1,142 @@
+# This is the Flathub submission manifest: the file that is PRed to
+# flathub/flathub and, after acceptance, lives in flathub/com.proximamagnifica.aoide.
+# It builds Aoide from a pinned source tag inside Flathub's network-less sandbox.
+#
+# The sibling ../com.proximamagnifica.aoide.yml is a different thing: it wraps an
+# already-staged binary tree to produce a local .flatpak for CI. Flathub rejects
+# that shape outright (dir sources and prebuilt binaries), so the two cannot be
+# merged into one file.
+app-id: com.proximamagnifica.aoide
+runtime: org.kde.Platform
+# QT_RUNTIME, and it has to stay that way in both directions: Flathub requires
+# the newest runtime at submission time, and CMake fails the build unless the Qt
+# it finds equals QT_VERSION exactly. The runtime's Qt is therefore what sets
+# the pin -- 6.11 ships 6.11.1 -- so bumping this means bumping QT_VERSION.
+runtime-version: '6.11'
+sdk: org.kde.Sdk
+command: aoide
+
+finish-args:
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --socket=pulseaudio
+  - --device=dri
+  # Always-on-top is a KWin script, and KWin opens it by path from its own
+  # process. A sandbox's $XDG_RUNTIME_DIR is a private mount the host cannot
+  # see, so the file has to live in a directory shared at one absolute path on
+  # both sides. This shares that one directory and nothing else.
+  - --talk-name=org.kde.KWin
+  - --filesystem=xdg-run/aoide:create
+  # Aoide opens the audio files a listener already has, which are routinely
+  # outside ~/Music: a download in ~/Downloads, a collection on an external
+  # drive under /run/media. Qt has not implemented the receiving half of the
+  # FileTransfer portal (QTBUG-91357), so a dropped file arrives as a bare host
+  # path. Narrowing this turns every path outside the named directories into a
+  # dead playlist row.
+  - --filesystem=host
+
+cleanup:
+  - /include
+  - /lib/pkgconfig
+  - /lib/cmake
+  - /share/man
+  - '*.a'
+  - '*.la'
+
+modules:
+  # mpv 0.41 takes libplacebo and libass as unconditional dependencies -- there
+  # is no meson option to switch either off -- so both are built even though
+  # Aoide runs mpv with vo=null and video=no. The KDE runtime already supplies
+  # ffmpeg, shaderc, vulkan, fontconfig, freetype, harfbuzz and fribidi.
+  - name: libplacebo
+    buildsystem: meson
+    config-opts:
+      - -Ddemos=false
+    sources:
+      - type: git
+        url: https://github.com/haasn/libplacebo.git
+        tag: v7.360.1
+        commit: cee9b076f2c63104ccfd497fa79c39a867293ec4
+        x-checker-data:
+          type: git
+          tag-pattern: ^v([\d.]+)$
+
+  - name: libass
+    config-opts:
+      - --disable-static
+    sources:
+      - type: archive
+        url: https://github.com/libass/libass/releases/download/0.17.5/libass-0.17.5.tar.gz
+        sha256: caab4b993dd7be6187c55623b789ed75dddefea6e65938af134637c732fe094a
+        x-checker-data:
+          type: anitya
+          project-id: 1560
+          stable-only: true
+          url-template: https://github.com/libass/libass/releases/download/$version/libass-$version.tar.gz
+
+  - name: libmpv
+    buildsystem: meson
+    config-opts:
+      - -Dlibmpv=true
+      # Aoide links libmpv; the CLI player and its manpages are dead weight.
+      - -Dcplayer=false
+      - -Dmanpage-build=disabled
+      - -Dbuild-date=false
+      - -Ddebug=false
+      # Scripting is for the on-screen controller, which an audio-only host with
+      # its own chrome never shows. Disabling it drops the luajit module too.
+      - -Dlua=disabled
+      - -Djavascript=disabled
+      # PulseAudio is the socket the sandbox gets, and pipewire-pulse answers it
+      # on PipeWire hosts. ALSA would reach for /dev/snd, which is not shared.
+      - -Dalsa=disabled
+    cleanup:
+      - /share/applications
+      - /share/bash-completion
+      - /share/doc
+      - /share/fish
+      - /share/icons
+      - /share/zsh
+    sources:
+      - type: archive
+        url: https://github.com/mpv-player/mpv/archive/refs/tags/v0.41.0.tar.gz
+        sha256: ee21092a5ee427353392360929dc64645c54479aefdb5babc5cfbb5fad626209
+        x-checker-data:
+          type: anitya
+          project-id: 5348
+          stable-only: true
+          url-template: https://github.com/mpv-player/mpv/archive/refs/tags/v$version.tar.gz
+
+  - name: aoide
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+    # CMake installs the portable layout the tarball and the AppImage want: the
+    # binary, assets/ and skins/ side by side at the prefix root. Flatpak wants
+    # the command in /app/bin, so move it there and put the data where
+    # bundledDataDir's second candidate (<appDir>/../share/aoide) already looks.
+    # No source change is needed for that; the FHS path is a supported layout.
+    post-install:
+      - install -Dm755 ${FLATPAK_DEST}/aoide ${FLATPAK_DEST}/bin/aoide
+      - rm -f ${FLATPAK_DEST}/aoide
+      - mkdir -p ${FLATPAK_DEST}/share/aoide
+      - mv ${FLATPAK_DEST}/assets ${FLATPAK_DEST}/share/aoide/assets
+      - mv ${FLATPAK_DEST}/skins ${FLATPAK_DEST}/share/aoide/skins
+      - install -Dm644 LICENSE ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/LICENSE
+      - install -Dm644 THIRD-PARTY-NOTICES.md
+        ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/THIRD-PARTY-NOTICES.md
+    # Re-point this at the release being submitted before opening the PR. v1.2
+    # predates both the Qt 6.11 pin and the uncommented screenshots, so it is
+    # the one tag this manifest cannot build: CMake stops on the pin mismatch
+    # and the linter reports metainfo-missing-screenshots. Flathub wants tag and
+    # commit together, and the commit is the one the tag resolves to
+    # (git rev-list -n 1 <tag>), not the annotated tag object.
+    sources:
+      - type: git
+        url: https://github.com/eliranbenishai/aoide.git
+        tag: v1.2
+        commit: 025ae1f7cb660cd3af78f636ede73a5866ca6632
+        x-checker-data:
+          type: git
+          tag-pattern: ^v([\d.]+)$
