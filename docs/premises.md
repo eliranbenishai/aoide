@@ -110,15 +110,15 @@ Recorded 2026-08-21 · **Status:** accepted without evidence
 
 ## 6. A Store listing named `aoide.music` for a product called Aoide
 
-Recorded 2026-08-21 · **Status:** listing name chosen, consequence unevidenced
+Recorded 2026-08-21 · **Closed 2026-08-30:** the bare name was free; the listing is **Aoide**
 
-**The bet.** A listener searching the Microsoft Store for Aoide finds `aoide.music`, recognises it, and installs it; the split between wordmark and catalog title costs nothing.
+**The bet, as it stood.** A listener searching the Microsoft Store for Aoide finds `aoide.music`, recognises it, and installs it; the split between wordmark and catalog title costs nothing.
 
-**Known.** The product is **Aoide**. The Store listing and official download domain are `aoide.music`; the MSIX identity is `ProximaMagnifica.aoide` ([`distribution.md`](distribution.md)). The website EXE and in-app chrome stay **Aoide**. The previous listing `tramp.music` is retired (historical: the bare word Tramp was taken). The listing name matching the domain is the cheapest way to keep the two names spelling the same thing.
+**What settled it.** The split was never chosen for Aoide. It was inherited: the product was once **Tramp**, the bare word Tramp was taken in Partner Center, and the domain-shaped `tramp.music` was reserved instead. The Tramp → Aoide rename substituted that string across the tree, so the workaround outlived the constraint it was for — and the same commit dropped the trigger that would have caught it ("re-check whether the bare name has freed up at each Store upload"). On 2026-08-30 the name **Aoide** was reserved in Partner Center without objection. There was never a constraint here for this product.
 
-**Cost.** Two names for one product, in the one channel where the listener cannot see the website that reconciles them.
+**Cost, now paid once.** The MSIX `DisplayName` still read `aoide.music` when the first real submission was attempted, and Partner Center rejected the package against the reserved name. One listing name, spelled the same everywhere, is the standing state.
 
-**Trigger.** Reopen when a support request or store review shows the split confusing someone — "I installed aoide.music, where is Aoide".
+**What replaces the trigger.** Nothing to reopen. The lesson generalises past this entry: a workaround carried through a rename is a decision nobody made, and the rename is the moment to re-ask what the workaround was for. `aoide.music` remains the download domain, which is a separate use and stays.
 
 ---
 
@@ -176,7 +176,7 @@ The most expensive premise here, and the one most likely to be right.
 
 Written down so the weak ones are not mistaken for cover.
 
-**Fire on their own, during work nobody can skip.** §1's browse-the-cache test and §2's third reconciliation path both fire in design or review. §3's "special-case 75% in drawing code" fires the same way. §6's name re-check rides a manual Partner Center step that already exists. §7 is noticed by whoever pays the bill or misses the release. §8's compositor and blocked-feature triggers show up on the pairing host and in the queue.
+**Fire on their own, during work nobody can skip.** §1's browse-the-cache test and §2's third reconciliation path both fire in design or review. §3's "special-case 75% in drawing code" fires the same way. §7 is noticed by whoever pays the bill or misses the release. §8's compositor and blocked-feature triggers show up on the pairing host and in the queue.
 
 **Need a habit that does not exist yet.** §2's "most common theme" assumes support and issues are labelled by theme; today's triage vocabulary is status only, so one theme label applied at triage is what makes that trigger real. §4's six-month ratio needs the date carried forward — hence the literal date. §5's "first twenty reactions" needs someone to tally them in the launch window, once.
 

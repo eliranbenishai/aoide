@@ -29,9 +29,8 @@ How listeners obtain Aoide — the website (`https://aoide.music`). Not GitHub. 
 _Avoid_: GitHub Release as the product surface, treating Store or Flathub as the only install, shipping from the repo
 
 **Store listing name**:
-The Microsoft Store catalog title: **aoide.music**. The product is still Aoide. MSIX identity **ProximaMagnifica.aoide**. The previous listing `tramp.music` is retired.
-_Premise_ (2026-08-21, consequence unevidenced): that a listener searching the Store finds and recognises `aoide.music` as Aoide. Revisit if support meets "I installed aoide.music, where is Aoide" — `docs/premises.md` §6.
-_Avoid_: renaming the product, using this as the wordmark, assuming the website EXE listing is named aoide.music, treating tramp.music as current
+The Microsoft Store catalog title: **Aoide** — the same word as the product and the in-app chrome. MSIX identity **ProximaMagnifica.aoide**; the MSIX `DisplayName` must spell the reserved name exactly or the upload is rejected. The earlier listings `tramp.music` and `aoide.music` are both retired.
+_Avoid_: reviving a domain-shaped catalog title, letting `DisplayName` drift from the reserved name, treating tramp.music or aoide.music as current
 
 **Install channel**:
 How this copy of Aoide was packaged — Microsoft Store, website EXE, Flathub, AppImage, or macOS DMG. The in-app new-version prompt is meant to follow that channel; nothing in the app detects the channel or prompts yet.

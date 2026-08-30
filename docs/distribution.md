@@ -272,7 +272,7 @@ list at all.
 | File | Channel |
 |------|---------|
 | `Aoide-<ver>-windows-x64.exe` | Official download (unsigned Inno; SmartScreen click-through) |
-| `Aoide-<ver>-windows-x64.msix` | Microsoft Store listing **aoide.music** (unsigned here; Store re-signs). Identity version is four-part `x.y.z.0` derived from `VERSION` by [`tool/version.sh`](../tool/version.sh) (`x.y` → `x.y.0.0`); the fourth number must be **0** or Partner Center rejects the package. `make_msix.ps1` validates the shape it is handed; it does not derive it. Bump `VERSION` for each Store upload. |
+| `Aoide-<ver>-windows-x64.msix` | Microsoft Store listing **Aoide** (unsigned here; Store re-signs). Identity version is four-part `x.y.z.0` derived from `VERSION` by [`tool/version.sh`](../tool/version.sh) (`x.y` → `x.y.0.0`); the fourth number must be **0** or Partner Center rejects the package. `make_msix.ps1` validates the shape it is handed; it does not derive it. Bump `VERSION` for each Store upload. |
 | `Aoide-<ver>-linux-x86_64.AppImage` | Official download |
 | `Aoide-<ver>-linux-x86_64.tar.gz` | Input for a Flathub recipe |
 | `Aoide-<ver>-linux-x86_64.flatpak` | Sideloadable bundle — a second Linux channel, not a fourth OS; the Flathub listing is a human submit from the tarball above. Required like the rest, and `flatpak-builder` pulls `org.kde.Platform` over the network, so this is the job most likely to fail for a reason that is nobody's bug. Re-run it; a flake costing a re-run is cheaper than a release quietly short one download. |
@@ -320,7 +320,9 @@ ruleset does not require code-owner review yet, so today it only auto-requests i
 | `MSIX_PUBLISHER` | Store identity `CN=...` from Partner Center **Identity details**. Default `CN=Proxima Magnifica`. |
 | `MSIX_IDENTITY_NAME` | Package identity name from those same details. Default `ProximaMagnifica.aoide`. |
 
-The MSIX **display name** is `aoide.music` (the reserved Store listing). Paste Publisher and Identity Name from Partner Center into those variables as soon as the app exists there; a mismatch fails certification. The website EXE and in-app chrome stay **Aoide**.
+The MSIX **display name** is `Aoide` — the name reserved in Partner Center, and the same word the website EXE and in-app chrome use. It must spell the reservation exactly: Partner Center rejects a package whose `Package/Properties/DisplayName` is a name the account has not reserved, which is how the inherited `aoide.music` title (see [`premises.md`](premises.md) §6) surfaced on the first real submission. Paste Publisher and Identity Name from Partner Center into those variables as soon as the app exists there; a mismatch fails certification.
+
+The Store product must be created as an **MSIX or PWA app** (Partner Center → New product). The other type, **EXE or MSI app**, has no upload control at all — it takes a URL to an installer you host, accepts only `.exe` or `.msi`, and requires that binary to be Authenticode-signed by a CA in the Microsoft Trusted Root Program. Aoide's Inno EXE is deliberately unsigned, so that route would cost a code-signing certificate; the MSIX route is free because the Store re-signs. Picking the wrong type is not reversible in place — the product has to be recreated, and the name reservation moved with it.
 
 ### Secrets (macOS notarization)
 

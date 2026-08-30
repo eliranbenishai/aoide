@@ -56,7 +56,7 @@ $manifest = @"
   IgnorableNamespaces="uap rescap">
   <Identity Name="$IdentityName" Publisher="$Publisher" Version="$Version" ProcessorArchitecture="x64" />
   <Properties>
-    <DisplayName>aoide.music</DisplayName>
+    <DisplayName>Aoide</DisplayName>
     <PublisherDisplayName>Proxima Magnifica</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -70,7 +70,7 @@ $manifest = @"
   <Applications>
     <Application Id="Aoide" Executable="aoide.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
-        DisplayName="aoide.music"
+        DisplayName="Aoide"
         Description="Desktop music player"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"

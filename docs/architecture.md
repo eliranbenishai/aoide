@@ -27,7 +27,7 @@ Linux + Windows are the pairing hosts; macOS ships in 1.1.
 flowchart LR
   CI[GitHub Actions]
   Site[aoide.music]
-  MS[Microsoft Store aoide.music]
+  MS[Microsoft Store Aoide]
   FH[Flathub]
   CI --> Site
   CI --> MS

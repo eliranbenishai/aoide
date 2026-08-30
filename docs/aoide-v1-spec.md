@@ -14,7 +14,7 @@ Aoide is a multi-platform desktop music player — a spiritual successor to Wina
 
 - **Windows and Linux** desktop in **1.0**. **macOS** is **1.1**.
 - One codebase; shippable artifacts via the Qt host (`src/`) and platform installers.
-- **Official download** is `https://aoide.music`. Windows lists on the **Microsoft Store** as **aoide.music** (MSIX) **and** offers an unsigned website EXE. Linux lists on **Flathub** **and** offers an AppImage. macOS is a notarized DMG from the site in **1.1**. Mac App Store and Snap are **not** 1.0.
+- **Official download** is `https://aoide.music`. Windows lists on the **Microsoft Store** as **Aoide** (MSIX) **and** offers an unsigned website EXE. Linux lists on **Flathub** **and** offers an AppImage. macOS is a notarized DMG from the site in **1.1**. Mac App Store and Snap are **not** 1.0.
 - License: **GPL-3.0-or-later**.
 - Release artifacts are built on **GitHub Actions**. 1.0 CPUs: Windows x64, Linux x86_64. macOS universal is 1.1.
 - **In-app new-version prompt — intended, not built.** The design is to follow the **install channel** (Store → Store, Flathub → Flathub, otherwise aoide.music) and send the listener there rather than replace the app in place. Nothing in `src/` detects the channel, checks for a new version, or prompts.
@@ -116,7 +116,7 @@ Associate Aoide with v1 audio formats and `.m3u` / `.m3u8` so “Open with Aoide
 
 ## Premises
 
-Eight rules in this file are bets rather than findings: no media library, playlist-only organisation on paths-as-hints, the 75% default against mockup-absolute fidelity at 100%, recolour-only skins, the homage as the product, the `aoide.music` Store listing, Free Forever with no funding model, and the virtual-desktop host with fully custom chrome. [`premises.md`](premises.md) records each one dated, with what is genuinely known, what it costs today, and the observable event that should reopen it. There is no telemetry, so none of them will be settled by measurement; a dated note that a premise is unsettled is the honest version, and that register is where it lives. Glossary entries resting on one carry a `_Premise_` line.
+Eight rules in this file are bets rather than findings: no media library, playlist-only organisation on paths-as-hints, the 75% default against mockup-absolute fidelity at 100%, recolour-only skins, the homage as the product, the `aoide.music` Store listing (closed 2026-08-30 — the listing is **Aoide**), Free Forever with no funding model, and the virtual-desktop host with fully custom chrome. [`premises.md`](premises.md) records each one dated, with what is genuinely known, what it costs today, and the observable event that should reopen it. There is no telemetry, so none of them will be settled by measurement; a dated note that a premise is unsettled is the honest version, and that register is where it lives. Glossary entries resting on one carry a `_Premise_` line.
 
 ## Success criteria
 
