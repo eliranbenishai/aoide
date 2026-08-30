@@ -73,6 +73,16 @@ jobs:
           version: ${{ env.QT_VERSION }}
           cache: true
           archives: qtbase
+          # Qt moved the Windows repository layout at 6.11: 6.10.3 was one
+          # nested qt6_6103/qt6_6103, and 6.11 splits into per-architecture
+          # directories (qt6_6111/qt6_6111_msvc2022_64). No released aqtinstall
+          # knows the new shape -- PyPI is still on 3.3.0, which the action
+          # defaults to, and it fails "Failed to locate XML data for Qt version
+          # 6.11.1" before downloading anything. The fix is merged but unreleased,
+          # so this pins that commit. Windows only: Linux and macOS are unaffected
+          # by the layout change and stay on the released version. Drop this for
+          # plain aqtversion once a release past 3.3.0 carries the fix.
+          aqtsource: git+https://github.com/miurahr/aqtinstall.git@8c3695d4a4e1ceabf6a74dc6c79681656dc6b74b
 
       # fetch_qt.sh exits 1 on Darwin. Same action and pin as the Windows job;
       # host/arch request the official mac desktop kit (clang_64 is the

@@ -81,6 +81,10 @@ jobs:
           version: ${{ env.QT_VERSION }}
           cache: true
           archives: qtbase
+          # Same unreleased aqtinstall fix the CI Windows lane pins, for the same
+          # reason: no released version can resolve Qt 6.11's per-architecture
+          # Windows layout. Both copies move together — see ci.yml for the detail.
+          aqtsource: git+https://github.com/miurahr/aqtinstall.git@8c3695d4a4e1ceabf6a74dc6c79681656dc6b74b
       - name: Fetch full libmpv
         shell: pwsh
         run: powershell -ExecutionPolicy Bypass -File tool/fetch_full_libmpv.ps1
