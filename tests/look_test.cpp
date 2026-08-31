@@ -7,6 +7,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileDevice>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRectF>
@@ -468,6 +469,29 @@ int main() {
                                    }));
     REQUIRE(skins.activate(QStringLiteral("neon-cyan"), settings));
     REQUIRE_EQ(hex(skins.tokens().phos), QStringLiteral("#112233"));
+  }
+
+  // The extractor is a host binary and differs per platform: unzip everywhere
+  // but Windows, which has no unzip and gets System32 tar instead. The fixture
+  // carries the shape a real pack has — a nested root folder and a fonts
+  // subdirectory — so a host that unpacks only the top level fails here.
+  {
+    const QString zip = QFileInfo(QString::fromUtf8(__FILE__))
+                            .dir()
+                            .filePath(QStringLiteral("fixtures/skin-pack.zip"));
+    REQUIRE(QFileInfo::exists(zip));
+    QTemporaryDir support;
+    AoideSettings settings;
+    SkinController skins;
+    skins.bootstrap(support.path(), {}, settings);
+    REQUIRE(skins.installZip(zip, [](const aoide::SkinConflict&) {
+      return SkinConflictChoice::cancel;
+    }));
+    REQUIRE(skins.lastError().isEmpty());
+    REQUIRE(skins.activate(QStringLiteral("neon-zip"), settings));
+    REQUIRE_EQ(hex(skins.tokens().phos), QStringLiteral("#0aff9d"));
+    REQUIRE(QFileInfo::exists(
+        QDir(support.path()).filePath(QStringLiteral("skins/neon-zip/fonts/note.txt"))));
   }
 
   {

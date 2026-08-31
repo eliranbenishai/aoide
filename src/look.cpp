@@ -390,6 +390,39 @@ LookManifest readManifestFile(const QString& path) {
   return m;
 }
 
+struct ZipExtractor {
+  QString program;
+  /// What the listener is told ran, which is not always the file name.
+  QString name;
+  QStringList arguments;
+  /// Exit codes above this are real failures.
+  int lastWarningExit;
+};
+
+ZipExtractor zipExtractor(const QString& archive, const QString& dest) {
+#ifdef Q_OS_WIN
+  // Windows has no unzip. It has shipped bsdtar as System32\tar.exe since
+  // Windows 10 1803, below the 10.0.17763 floor the MSIX manifest declares, and
+  // bsdtar reads zip. Resolving it under %SystemRoot% rather than by name keeps
+  // a GNU tar earlier in PATH — Git for Windows installs one, and it cannot
+  // read zip — from being picked up in its place.
+  const QString root =
+      qEnvironmentVariable("SystemRoot", QStringLiteral("C:/Windows"));
+  return {QDir(root).filePath(QStringLiteral("System32/tar.exe")),
+          QStringLiteral("tar"),
+          {QStringLiteral("-xf"), archive, QStringLiteral("-C"), dest},
+          0};
+#else
+  // Info-ZIP exits 1 after sanitising an entry, for instance stripping an
+  // absolute path. Treating that as fatal rejected perfectly good packs with a
+  // misleading message, and a pack with no manifest is caught later regardless.
+  return {QStringLiteral("unzip"),
+          QStringLiteral("unzip"),
+          {QStringLiteral("-oq"), archive, QStringLiteral("-d"), dest},
+          1};
+#endif
+}
+
 }  // namespace
 
 LookPaintScope::LookPaintScope(const ChromeTokens& tokens) : prev_(g_currentLook) {
@@ -1116,22 +1149,21 @@ bool SkinController::installZip(const QString& path, ConflictFn onConflict) {
     lastError_ = QStringLiteral("failed to create temp directory");
     return false;
   }
-  QProcess unzip;
-  unzip.setProgram(QStringLiteral("unzip"));
-  unzip.setArguments({QStringLiteral("-oq"), path, QStringLiteral("-d"), temp.path()});
-  unzip.start();
-  const bool finished = unzip.waitForFinished(30000);
-  if (!finished || unzip.error() == QProcess::FailedToStart) {
-    lastError_ = QStringLiteral("unzip is required to install zip skins");
+  const ZipExtractor extractor = zipExtractor(path, temp.path());
+  QProcess proc;
+  proc.setProgram(extractor.program);
+  proc.setArguments(extractor.arguments);
+  proc.start();
+  const bool finished = proc.waitForFinished(30000);
+  if (!finished || proc.error() == QProcess::FailedToStart) {
+    lastError_ =
+        QStringLiteral("%1 is required to install zip skins").arg(extractor.name);
     return false;
   }
-  // Exit 1 is a warning, not a failure: unzip returns it after sanitising an
-  // entry, for instance stripping an absolute path. Treating it as fatal
-  // rejected perfectly good packs with a misleading message. Anything above 1 is
-  // a real error, and a pack with no manifest is caught below regardless.
-  if (unzip.exitCode() > 1) {
-    lastError_ = QStringLiteral("could not extract the zip (unzip reported %1)")
-                     .arg(unzip.exitCode());
+  if (proc.exitCode() > extractor.lastWarningExit) {
+    lastError_ = QStringLiteral("could not extract the zip (%1 reported %2)")
+                     .arg(extractor.name)
+                     .arg(proc.exitCode());
     return false;
   }
   QString root = temp.path();

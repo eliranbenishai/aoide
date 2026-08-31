@@ -231,7 +231,9 @@ something narrowing would undo.
 
 `unzip` for skin installs was the other Flatpak lead, and it is a non-issue:
 `org.kde.Platform` 6.11 ships it, and `look.cpp` already declines a zip it
-cannot unpack instead of failing.
+cannot unpack instead of failing. Windows is the one host with no `unzip`, and
+it uses `%SystemRoot%\System32\tar.exe` instead — see
+[`architecture.md`](architecture.md).
 
 `--filesystem=xdg-run/aoide:create` exists for one file: the KWin script behind
 always-on-top. KWin opens it by path from its own process, and a sandbox's
