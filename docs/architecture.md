@@ -19,7 +19,7 @@ Linux + Windows are the pairing hosts; macOS ships in 1.1.
 - Fixed canvases: main/EQ **825×348**, playlist default **1073×696** (free resize), settings **520×420**, about **480×360**, skins **520×420**; global discrete zoom
 - Code-constructed mockup chrome; recolor **skins**; no classic WSZ in v1
 - Full libmpv; playlist-centric M3U/M3U8; no media library
-- UI authority: `player-mockup-2.html` plus the redesign / polish design docs
+- UI authority: [`docs/ui/player-mockup-2.html`](ui/player-mockup-2.html) plus the redesign / polish design docs
 
 ## Distribution
 

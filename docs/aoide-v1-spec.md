@@ -2,7 +2,7 @@
 
 Product requirements for the first shippable Aoide desktop player. Domain vocabulary: [`CONTEXT.md`](../CONTEXT.md). Architecture map: [`architecture.md`](architecture.md).
 
-**UI authority:** [`player-mockup-2.html`](../player-mockup-2.html) (visual + geometry), the redesign design doc [`superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md`](superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md), and polish rules in [`superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md`](superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md) (product overrides such as compact EQ/PL titles and EQ band fill). Earlier PNG-graphite / single-window docs are historical and must not steer new work. Flutter-era host wording and five-OS-window host wording in those design docs are historical; the host is Qt 6 with one host window and internal panels.
+**UI authority:** [`player-mockup-2.html`](ui/player-mockup-2.html) (visual + geometry), the redesign design doc [`superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md`](superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md), and polish rules in [`superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md`](superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md) (product overrides such as compact EQ/PL titles and EQ band fill). Earlier PNG-graphite / single-window docs are historical and must not steer new work. Flutter-era host wording and five-OS-window host wording in those design docs are historical; the host is Qt 6 with one host window and internal panels.
 
 Wayfinding that produced the prior single-window graphite direction is historical; the lock is Qt 6 and the product rules in this file.
 
@@ -129,7 +129,7 @@ Eight rules in this file are bets rather than findings: no media library, playli
 | [`CONTEXT.md`](../CONTEXT.md) | Domain glossary |
 | [`architecture.md`](architecture.md) | Living structure map |
 | [`premises.md`](premises.md) | Dated record of the product bets and what would reopen each |
-| [`player-mockup-2.html`](../player-mockup-2.html) | Visual + geometric authority |
+| [`ui/player-mockup-2.html`](ui/player-mockup-2.html) | Visual + geometric authority |
 | [`superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md`](superpowers/specs/2026-08-08-mockup-multiwindow-redesign-design.md) | Redesign design (multi-window cutover) |
 | [`superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md`](superpowers/specs/2026-08-09-ui-polish-docking-taskbar-design.md) | Docking / title / EQ fill / taskbar polish |
 | [`superpowers/specs/2026-08-02-graphite-skin-delivery-design.md`](superpowers/specs/2026-08-02-graphite-skin-delivery-design.md) | Historical PNG graphite delivery (superseded look) |
