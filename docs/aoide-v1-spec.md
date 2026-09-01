@@ -106,7 +106,7 @@ Associate Aoide with v1 audio formats and `.m3u` / `.m3u8` so “Open with Aoide
 - PNG-first graphite skin delivery (retired)
 - Single-window EQ/PL mutual exclusion as the product model (retired)
 - Media library / scanned catalog
-- Streaming services
+- Streaming services and listening history (Spotify, Last.fm) — out of v1, **not refused**; both are roadmap work, and the site already says so
 - Plugin ecosystem
 - Gapless playback
 - Crossfade
