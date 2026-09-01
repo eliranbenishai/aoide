@@ -359,6 +359,80 @@ list at all.
 
 Partner Center and Flathub submit stay **human**. Packaging scripts live under `packaging/`.
 
+## Store listing
+
+The Microsoft Store listing text is typed into Partner Center and nothing here validates it, so it is written down below instead. Edit it at Partner Center → the submission → **Store listings** → the language → the field; a listing filed under both `English` and `English (United States)` carries two copies of every field. Changing this text needs no rebuild and no `VERSION` bump — the package certifies separately from the listing.
+
+Two policy limits shape the copy, and 1.2 was rejected on 2026-09-01 for the first of them.
+
+**Keywords** — the field certification reports still call **Search terms**, under **Additional information**. Policy **10.1.3** caps them at seven unique terms, requires each to be relevant, forbids pricing terms, and forbids any term that is a product title the account does not publish. `Winamp` is such a title, and it alone failed 1.2: the package certified, the field did not. The limits the Partner Center UI displays are that tool's own, not the policy.
+
+**Unshipped features** — 10.1.3 governs keywords only, so naming another product in the description is not itself a violation. What is: policy **10.1.1** requires metadata to describe a product's actual functions and limitations and forbids misleading customers about "features, functionality, or relationship to other products". The site's `Spotify and Last.fm support coming soon` is roadmap, and roadmap does not go in a listing — it describes functionality the package does not have and implies a relationship with two companies. Keep the listing to what the build in the package actually does.
+
+Field limits, from the Partner Center listing docs: description **10,000** characters of plain text, required, no HTML and no URLs (links belong on the Properties page and are not clickable here); short description **1,000** but keep it under **270**, since longer text is truncated behind a link; product features up to **20** at **200** characters each, auto-bulleted, so do not type bullets; What's new **1,500**; keywords **7** terms of **40** characters and **21** words in total.
+
+### Approved copy (1.2)
+
+Short description:
+
+```text
+A music player for the music you already have on your disk. Open a folder, press play, and keep your playlists exactly the way you want them. No library to import, no account to make, and nothing phoning home. Free forever, and open source.
+```
+
+Description:
+
+```text
+Aoide is a music player for the music that lives on your own disk.
+
+There is no library to import and no account to make. Open tracks and playlists from the file picker, drop a whole folder onto the window, or send them over from your file manager — from any drive, internal, external, or across the network. MP3, AAC and M4A, FLAC, WAV, Ogg Vorbis and Opus all play. Aoide reads the artist and album already written into your tracks, and leaves them alone.
+
+Playlists are the heart of it. Drag tracks in, put them in the order you want, and save the list as M3U or M3U8 — a real file, in your folder, that any other player can open. Your saved playlists sit beside the songs inside them, so you can move between them without losing your place. Pick a handful of files and save them as a playlist of their own, and it takes over without cutting off the track you're on.
+
+Aoide keeps references to your files. It never copies your music into a library of its own, and it won't quietly rewrite a playlist you wrote. Close it and open it tomorrow and everything comes back the way you left it — same playlist, same track, same place in the track.
+
+There is a ten-band equaliser with a preamp and a shelf of presets, a twenty-bar spectrum that follows what's playing, and a MONO button for anyone who listens with one ear. The player, the equaliser and the playlist manager dock together into one tidy stack, or pull apart and sit wherever you like on screen. Scale the whole thing up or down to suit your monitor, and keep it above your other windows while you work.
+
+Eight skins come with it, and it takes more from a folder or a zip — no store, no account, no converter. You can bring your own font while you are at it.
+
+Aoide is free forever. No sign-up, no trial, nothing to unlock later, and no ads. It collects nothing and sends nothing anywhere. It is open source under the GPL, and it doesn't look like it.
+```
+
+Product features, one per line, no bullets:
+
+```text
+Plays the files on your disk — MP3, AAC, M4A, FLAC, WAV, Ogg Vorbis and Opus
+No library to import, no account, no sign-up
+A playlist manager that shows your saved playlists beside the songs inside them
+Save playlists as M3U or M3U8 files you own and can open anywhere
+Make a playlist from picked files without cutting off the track you're on
+Drag and drop single files or a whole folder onto the window
+Picks up where you left off — same playlist, same track, same spot
+Ten-band equaliser with a preamp and presets
+A twenty-bar spectrum that follows what's playing
+A MONO button for listening with one ear
+Player, equaliser and playlist dock together, or pull apart and sit where you like
+Eight skins included, and more from any folder or zip
+Bring your own font
+Sits above your other windows while you work
+Scales up or down to suit your screen
+Free forever — no trial, no ads, nothing to unlock
+Open source, and it collects nothing
+```
+
+Keywords — seven terms, fourteen words:
+
+```text
+music player
+mp3 player
+audio player
+local music files
+playlist manager
+equalizer
+offline music
+```
+
+Every claim above is checked against the build: no gapless, no crossfade, no scrobbling, no tag editing and no global hotkeys appear, because the product does none of them. The prose keeps the house spelling **equaliser**; the keyword uses **equalizer**, which is the spelling shoppers type.
+
 ## GitHub configuration
 
 Actions must be allowed to open PRs: **Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests**. Without that, you still open PRs by hand; CI and merge-if-green still apply. That box stays ticked for `open-pr.yml`; the `passed` job in `ci.yml` leaves a `--comment` review, which is not an approval and does not need it.
@@ -400,8 +474,6 @@ ruleset does not require code-owner review yet, so today it only auto-requests i
 | `MSIX_IDENTITY_NAME` | Package identity name from those same details. Default `ProximaMagnifica.aoide`. |
 
 The MSIX **display name** is `Aoide` — the name reserved in Partner Center, and the same word the website EXE and in-app chrome use. It must spell the reservation exactly: Partner Center rejects a package whose `Package/Properties/DisplayName` is a name the account has not reserved, which is how the inherited `aoide.music` title (see [`premises.md`](premises.md) §6) surfaced on the first real submission. Paste Publisher and Identity Name from Partner Center into those variables as soon as the app exists there; a mismatch fails certification.
-
-The listing's search terms are typed into Partner Center and exist nowhere in this repo, so nothing here validates them. They live at Partner Center → the submission → **Store listings** → the language → **Additional information** → **Keywords**, which is the field certification reports still call **Search terms**; a listing filed under both `English` and `English (United States)` carries two of them. Store policy **10.1.3** caps them at seven unique terms, requires each to be relevant, and forbids any that is a product title the account does not publish — the limits shown in the Partner Center UI are that tool's own, not the policy. `Winamp` is such a title, and it alone failed the 1.2 submission on 2026-09-01: the package certified, the field did not. Describe the lineage in the description, where that review did not object; never in the keywords. The remedy is the field and a resubmission, not a rebuild.
 
 The Store product must be created as an **MSIX or PWA app** (Partner Center → New product). The other type, **EXE or MSI app**, has no upload control at all — it takes a URL to an installer you host, accepts only `.exe` or `.msi`, and requires that binary to be Authenticode-signed by a CA in the Microsoft Trusted Root Program. Aoide's Inno EXE is deliberately unsigned, so that route would cost a code-signing certificate; the MSIX route is free because the Store re-signs. Picking the wrong type is not reversible in place — the product has to be recreated, and the name reservation moved with it.
 
