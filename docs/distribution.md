@@ -376,25 +376,23 @@ Field limits, from the Partner Center listing docs: description **10,000** chara
 Short description:
 
 ```text
-A music player for the music you already have on your disk. Open a folder, press play, and keep your playlists exactly the way you want them. No library to import, no account to make, and nothing phoning home. Free forever, and open source.
+The music player you remember, for the music you already own. No subscription, no account, no scanning your drive — just your files, your playlists, your way. Free forever, and open source.
 ```
 
 Description:
 
 ```text
-Aoide is a music player for the music that lives on your own disk.
+The music players of old were good and nostalgic because you got what you expected, for better or worse. These days it's all about subscriptions, identity, harvesting your data, and AI shoehorned into everything. We hate it too. So we made Aoide (pronounced I-O-D), with that exact spirit of old in mind, and a pile of new tricks besides.
 
-There is no library to import and no account to make. Open tracks and playlists from the file picker, drop a whole folder onto the window, or send them over from your file manager — from any drive, internal, external, or across the network. MP3, AAC and M4A, FLAC, WAV, Ogg Vorbis and Opus all play. Aoide reads the artist and album already written into your tracks, and leaves them alone.
+It plays the music already sitting on your disk. Double-click a song, drop a whole folder on the window, or pull files off a USB stick or a network drive — MP3, AAC and M4A, FLAC, WAV, Ogg Vorbis and Opus all play. Nothing to import, no account to make, and no scan of your hard drive. Aoide reads the artist and album already written into your tracks, and leaves them alone.
 
-Playlists are the heart of it. Drag tracks in, put them in the order you want, and save the list as M3U or M3U8 — a real file, in your folder, that any other player can open. Your saved playlists sit beside the songs inside them, so you can move between them without losing your place. Pick a handful of files and save them as a playlist of their own, and it takes over without cutting off the track you're on.
+The playlist manager is the point. Drag tracks in, put them in the order you want, and save the lot as a plain M3U or M3U8 — your file, in your folder, that any other player can open. Your saved playlists sit right beside the songs inside them. Grab a handful of files, make a playlist out of them, and it takes over without cutting off whatever you're listening to. Aoide points at your music, it never copies it, and it won't quietly rewrite a playlist you wrote.
 
-Aoide keeps references to your files. It never copies your music into a library of its own, and it won't quietly rewrite a playlist you wrote. Close it and open it tomorrow and everything comes back the way you left it — same playlist, same track, same place in the track.
+Then there's the fun. A ten-band equaliser with a preamp and a shelf of presets. A twenty-bar spectrum that dances along with the track. A MONO button, for those of us who sometimes listen with one ear. The player, the equaliser and the playlist snap together into one tidy stack, or pull apart and sit wherever you like on screen — above your other windows, at whatever size suits your monitor. Eight skins come in the box, it takes more from any folder or zip, and you can bring your own font while you're at it.
 
-There is a ten-band equaliser with a preamp and a shelf of presets, a twenty-bar spectrum that follows what's playing, and a MONO button for anyone who listens with one ear. The player, the equaliser and the playlist manager dock together into one tidy stack, or pull apart and sit wherever you like on screen. Scale the whole thing up or down to suit your monitor, and keep it above your other windows while you work.
+Close it, open it tomorrow, and it's exactly where you left it. Same playlist, same track, same second.
 
-Eight skins come with it, and it takes more from a folder or a zip — no store, no account, no converter. You can bring your own font while you are at it.
-
-Aoide is free forever. No sign-up, no trial, nothing to unlock later, and no ads. It collects nothing and sends nothing anywhere. It is open source under the GPL, and it doesn't look like it.
+Simple but powerful, beautiful but approachable. It's open source but doesn't look like it. And it's free. Forever.
 ```
 
 Product features, one per line, no bullets:
