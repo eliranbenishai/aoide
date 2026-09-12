@@ -66,6 +66,17 @@
   <!-- Newest first: out-of-order entries fail validation. tool/version.sh and the
        release workflow check the top version against the VERSION file. -->
   <releases>
+    <release version="1.2.1" date="2026-09-12">
+      <description>
+        <ul>
+          <li>
+            Opening an audio file from the desktop plays the requested file,
+            even with a saved playlist or a paused session. Saved playback no
+            longer overrides the file you opened.
+          </li>
+        </ul>
+      </description>
+    </release>
     <release version="1.2" date="2026-08-30">
       <description>
         <ul>

@@ -117,6 +117,7 @@ mv -f "$BUILD/aoide.next" "$BUILD/aoide"
 QT_QPA_PLATFORM=offscreen "$BUILD/aoide" --bench-chrome
 QT_QPA_PLATFORM=offscreen "$BUILD/aoide" --smoke-windows
 QT_QPA_PLATFORM=offscreen "$BUILD/aoide" --smoke-embedded-windows
+QT_QPA_PLATFORM=offscreen "$BUILD/aoide" --smoke-file-open
 
 # Domain tests (playlist / playback / docking / collection)
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DAOIDE_HAVE_MPV \

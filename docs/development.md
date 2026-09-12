@@ -163,6 +163,15 @@ Automated gate: `ctest` in `build/`.
 
 Aoide accepts file paths on the command line. Double-click / “Open with” must register the OS handler to pass those paths to the executable (`Exec=aoide %F`).
 
+An accepted OS file-open request plays the supplied audio rather than resuming
+the old track. `ctest` includes `file_open_session` when libmpv is available;
+`QT_QPA_PLATFORM=offscreen build/aoide --smoke-file-open` runs it directly (use
+`build/Aoide.app/Contents/MacOS/Aoide` on macOS). It uses temporary silent WAVs and
+settings to check command-line paths, queued and live `QFileOpenEvent` delivery,
+paused/playing resume, disabled resume, and ordinary in-app additions. This
+checks file delivery through the app and its playback decisions; it does not
+register the app with Finder or a Linux desktop or prove audible output.
+
 ### Linux
 
 [`packaging/linux/com.proximamagnifica.aoide.desktop`](../packaging/linux/com.proximamagnifica.aoide.desktop) lists `MimeType=` entries for common audio types and M3U playlists.
