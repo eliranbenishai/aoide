@@ -74,6 +74,9 @@
             even with a saved playlist or a paused session. Saved playback no
             longer overrides the file you opened.
           </li>
+          <li>
+            About, Settings and Skins open and reopen reliably on macOS.
+          </li>
         </ul>
       </description>
     </release>
@@ -84,9 +87,6 @@
             Panel-sized windows on macOS, Windows and Linux/X11 replace the
             desktop-sized background. On Wayland, arrange the panels inside
             a normal resizable window.
-          </li>
-          <li>
-            About, Settings and Skins open and reopen reliably on macOS.
           </li>
           <li>
             Create a playlist from files — pick audio files and save them as a
