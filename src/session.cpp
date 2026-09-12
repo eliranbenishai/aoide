@@ -1080,9 +1080,10 @@ QString AoideSession::pickAudio(bool multiple) {
   return isAudioPath(path) ? path : QString();
 }
 
-QString AoideSession::pickPlaylist(bool save) {
+QString AoideSession::pickPlaylist(bool save, const QString& directory) {
   FilePick pick;
   pick.parent = windowFor(WindowId::main);
+  pick.directory = directory;
   pick.filter = qtFileFilter(QStringLiteral("Playlists"), playlistExtensions());
   if (save) {
     pick.title = QStringLiteral("Save playlist");
@@ -1384,12 +1385,15 @@ void AoideSession::createPlaylistFromFiles() {
   // These paths are about to live in a file that outlasts the session.
   // Portal exports expire at logout; openPaths trades them first for the
   // same reason.
-  const QVector<Track> tracks = tracksFromPaths(durablePaths(raw));
+  const QStringList paths = durablePaths(raw);
+  const QVector<Track> tracks = tracksFromPaths(paths);
   // A pick can still come to nothing — a portal export whose host path has
   // gone since. Asking for a name would only trade the open list for an empty
   // one and a file with no rows in it.
   if (tracks.isEmpty()) return;
-  const QString path = pickPlaylist(true);
+  // Open and Save do not share a remembered location on every desktop. Keep
+  // the first picked file's folder even when tracksFromPaths sorts the rows.
+  const QString path = pickPlaylist(true, QFileInfo(paths.front()).absolutePath());
   if (path.isEmpty()) return;
   createPlaylistFrom(tracks, path);
 }

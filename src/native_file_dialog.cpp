@@ -251,7 +251,14 @@ ChooserResult portalPick(const FilePick& pick) {
 
 }  // namespace
 
-QStringList pickFiles(const FilePick& pick) {
+QStringList pickFiles(const FilePick& request) {
+  FilePick pick = request;
+  // Desktop launches can have / as their working directory. Passing only a
+  // suggested filename lets Qt resolve it there, offering /playlist.m3u.
+  // Give every save backend a usable starting folder before showing it.
+  if (pick.kind == FilePickKind::saveFile && pick.directory.isEmpty()) {
+    pick.directory = QDir::homePath();
+  }
 #if defined(Q_OS_LINUX) && defined(AOIDE_HAVE_DBUS)
   const ChooserResult portal = portalPick(pick);
   if (portal.status != ChooserStatus::unavailable) return portal.paths;

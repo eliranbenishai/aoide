@@ -464,6 +464,24 @@ target_include_directories(wait_cursor_test PRIVATE src)
 target_link_libraries(wait_cursor_test PRIVATE Qt6::Test Qt6::Widgets)
 set_target_properties(wait_cursor_test PROPERTIES AUTOMOC ON)
 
+qt_add_executable(native_file_dialog_test
+  tests/native_file_dialog_test.cpp
+  src/native_file_dialog.cpp
+  src/native_file_dialog_p.h
+  src/playlist.cpp
+  src/m3u.cpp
+  src/persist.cpp
+  src/settings.cpp
+  src/equalizer.cpp
+)
+target_include_directories(native_file_dialog_test PRIVATE src)
+target_link_libraries(native_file_dialog_test PRIVATE aoide_window_spec Qt6::Test Qt6::Widgets)
+if(TARGET Qt6::DBus)
+  target_link_libraries(native_file_dialog_test PRIVATE Qt6::DBus)
+  target_compile_definitions(native_file_dialog_test PRIVATE AOIDE_HAVE_DBUS)
+endif()
+set_target_properties(native_file_dialog_test PROPERTIES AUTOMOC ON)
+
 qt_add_executable(domain_test
   tests/domain_test.cpp
   src/m3u.cpp
@@ -533,7 +551,7 @@ foreach(aoide_target IN ITEMS
     aoide_window_spec aoide
     window_spec_test host_shell_test host_shell_window_test host_window_move_test
     layout_sync_test
-    chrome_spec_test chrome_command_test chrome_tooltip_test chrome_menu_test wait_cursor_test domain_test
+    chrome_spec_test chrome_command_test chrome_tooltip_test chrome_menu_test wait_cursor_test native_file_dialog_test domain_test
     look_test font_metrics_test)
   target_link_libraries(${aoide_target} PRIVATE aoide_warnings)
 endforeach()
@@ -562,12 +580,16 @@ add_test(NAME chrome_command COMMAND chrome_command_test)
 add_test(NAME chrome_tooltip COMMAND chrome_tooltip_test)
 add_test(NAME chrome_menu COMMAND chrome_menu_test)
 add_test(NAME wait_cursor COMMAND wait_cursor_test)
+add_test(NAME native_file_dialog COMMAND native_file_dialog_test)
+set_tests_properties(native_file_dialog PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 15)
 add_test(NAME domain COMMAND domain_test)
 add_test(NAME look COMMAND look_test)
 add_test(NAME font_metrics COMMAND font_metrics_test)
 add_test(NAME native_window_session COMMAND aoide --smoke-windows)
 add_test(NAME embedded_window_session COMMAND aoide --smoke-embedded-windows)
+add_test(NAME playlist_create_session COMMAND aoide --smoke-playlist-create)
 set_tests_properties(native_window_session embedded_window_session
+  playlist_create_session
   PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 if(AOIDE_HAVE_MPV)
   add_test(NAME file_open_session COMMAND aoide --smoke-file-open)

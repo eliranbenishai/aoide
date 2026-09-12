@@ -180,7 +180,7 @@ class AoideSession : public QObject, public PanelSurfaces {
   QWidget* dialogParent(WindowId id) const;
   void raiseWindow(WindowId id);
   QString pickAudio(bool multiple);
-  QString pickPlaylist(bool save);
+  QString pickPlaylist(bool save, const QString& directory = {});
   enum class OpenSource { inApp, operatingSystem };
   bool openPaths(const QStringList& paths, bool enqueue, OpenSource source = OpenSource::inApp);
   void loadCollectionRow(int index);
