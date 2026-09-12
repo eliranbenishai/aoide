@@ -848,9 +848,11 @@ void AoideSession::setWindowVisible(WindowId id, bool visible) {
   if (visible) {
     layout_.docking().nudgeOffMainIfStacked(id);
     layout_.nudgeFreestandingClearOfMain(id);
-    emit requestShow(id);
+    // Place before mapping: show() can synchronously deliver move/show events.
+    // Let LayoutSync guard those events while it applies the final geometry.
     layout_.clampToHost(id);
     layout_.place();
+    emit requestShow(id);
     if (id == WindowId::settings || id == WindowId::skins) raiseWindow(id);
     if (id == WindowId::settings) refreshAudioOutputs();
     if (id == WindowId::skins) {
