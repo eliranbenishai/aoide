@@ -712,6 +712,18 @@ int smokeWindows(aoide::AoideSession& session, HostShell& shell,
   session.setWindowVisible(aoide::WindowId::equalizer, true);
   settle();
   if (!require(eq->isVisible(), "equalizer could not reopen")) return 1;
+  int confirmations = 0;
+  main->setQuitConfirmer([&]() { ++confirmations; return false; });
+  QCoreApplication::quit();
+  if (!require(confirmations == 1 && main->isVisible() && eq->isVisible() && pl->isVisible(),
+               "cancelled quit changed the open panels")) return 1;
+  main->setQuitConfirmer([&]() { ++confirmations; return true; });
+  QCoreApplication::quit();
+  if (!require(confirmations == 2 && main->isHidden(), "application quit did not close main once")) return 1;
+  if (!require(session.windowShouldShow(aoide::WindowId::equalizer) &&
+               session.windowShouldShow(aoide::WindowId::playlist),
+               "application quit forgot which panels to reopen")) return 1;
+  main->setQuitConfirmer({});
   std::fprintf(stderr, "window smoke: %s passed on %s\n",
                shell.embedsPanels() ? "embedded" : "native", qPrintable(QGuiApplication::platformName()));
   return 0;
@@ -736,8 +748,18 @@ class AoideApplication : public QApplication {
     }
   }
 
+  void setQuitHandler(std::function<bool()> handler) {
+    quitHandler_ = std::move(handler);
+  }
+
  protected:
   bool event(QEvent* event) override {
+    if (event->type() == QEvent::Quit && quitHandler_) {
+      // Dock/OS quit uses the same confirmation and persistence as the main
+      // close box, without closing secondary windows in an arbitrary order.
+      event->setAccepted(quitHandler_());
+      return true;
+    }
     if (event->type() == QEvent::FileOpen) {
       const auto* openEvent = static_cast<const QFileOpenEvent*>(event);
       QString path = openEvent->file();
@@ -754,6 +776,7 @@ class AoideApplication : public QApplication {
   }
 
  private:
+  std::function<bool()> quitHandler_;
   std::function<void(const QStringList&)> fileOpenHandler_;
   QStringList queuedFileOpens_;
 };
@@ -821,6 +844,7 @@ int main(int argc, char** argv) {
   session.setWindows(panels);
   hostShell.setPrimaryPanel(mainWindow);
   mainWindow->setQuitConfirmer([&]() {
+    if (qEnvironmentVariable("AOIDE_AUTO_QUIT") == QLatin1String("1")) return true;
     if (!session.confirmQuit()) return true;
     const auto answer = QMessageBox::question(&hostShell, QStringLiteral("Quit Aoide"),
                                               QStringLiteral("Quit Aoide?"));
@@ -929,6 +953,7 @@ int main(int argc, char** argv) {
   }
 
   QObject::connect(mainWindow, &HostWindow::aboutToQuit, mainWindow, [&]() { session.persistNow(); });
+  app.setQuitHandler([&]() { return mainWindow->close(); });
   QObject::connect(&hostShell, &HostShell::minimizedChanged, mainWindow,
                    [&](bool minimized) { session.mainMinimized(minimized); });
   QObject::connect(&hostShell, &HostShell::activated, mainWindow, [&]() { session.mainActivated(); });
@@ -997,7 +1022,10 @@ int main(int argc, char** argv) {
   session.reapplyWindowFrames();
 
   if (smoke) {
-    const int result = smokeWindows(session, hostShell, panels);
+    QTimer::singleShot(0, &app, [&]() {
+      QCoreApplication::exit(smokeWindows(session, hostShell, panels));
+    });
+    const int result = app.exec();
     session.detachWindows();
     return result;
   }

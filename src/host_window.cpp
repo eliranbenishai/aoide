@@ -559,11 +559,13 @@ void HostWindow::closeEvent(QCloseEvent* event) {
       return;
     }
     emit aboutToQuit();
-    QCoreApplication::quit();
+    // Confirmation and persistence are complete. Do not ask the independent
+    // secondary windows to close: that would discard their saved visibility.
+    QCoreApplication::exit(0);
     event->accept();
     return;
   }
-  event->ignore();
+  event->accept();
   hide();
   emit extraHidden();
 }

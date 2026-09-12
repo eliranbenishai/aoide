@@ -194,8 +194,10 @@ local to a checkout rather than published.
 
 `ctest` includes `native_window_session` and `embedded_window_session`. Both start
 an isolated session, exercise panel placement and title dragging through the real
-app wiring, and verify that minimize/restore preserves panel visibility. Settings
-and playlists are temporary. The shell tests additionally check native window
+app wiring, and verify that minimize/restore preserves panel visibility. They
+also cancel and confirm application quit, checking that open panels survive a
+cancel and their visibility remains saved on quit. Settings and playlists are
+temporary. The shell tests additionally check native window
 exposure, focus, and the absence of a desktop-sized primary window.
 
 To exercise the desktop instead of Qt's offscreen plugin on macOS:

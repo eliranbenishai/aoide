@@ -52,6 +52,7 @@ class HostWindowMoveTest : public QObject {
   void parentedPanelMoveDoesNotEmitNativeMoved();
   void embeddedSiblingDragReportsLocalCoordinates();
   void embeddedPlaylistResizeReportsLocalCoordinates();
+  void secondaryCloseAcceptsAndHides();
   void siblingDragDoesNotPayFullClusterPaint();
   void movingAPanelDoesNotRerasteriseIt();
   void hitRegionsCoverWhatIsPainted();
@@ -97,6 +98,16 @@ void HostWindowMoveTest::parentedPanelMoveDoesNotEmitNativeMoved() {
   QSignalSpy spy(&panel, &HostWindow::nativeMoved);
   panel.move(40, 20);
   QCOMPARE(spy.count(), 0);
+}
+
+void HostWindowMoveTest::secondaryCloseAcceptsAndHides() {
+  HostWindow eq(aoide::windowSpecs()[1]);
+  eq.show();
+  QSignalSpy hidden(&eq, &HostWindow::extraHidden);
+  QVERIFY(eq.close());
+  QVERIFY(eq.isHidden());
+  QCOMPARE(hidden.count(), 1);
+  QVERIFY(!eq.testAttribute(Qt::WA_DeleteOnClose));
 }
 
 void HostWindowMoveTest::embeddedSiblingDragReportsLocalCoordinates() {
