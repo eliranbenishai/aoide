@@ -195,6 +195,9 @@ local to a checkout rather than published.
 `ctest` includes `native_window_session` and `embedded_window_session`. Both start
 an isolated session, exercise panel placement and title dragging through the real
 app wiring, and verify that minimize/restore preserves panel visibility. They
+open and reopen Settings, About and Skins without moving the player; native
+desktop runs also check that each opened panel is exposed and its title is in
+front. Qt's offscreen backend cannot check native stacking. They
 also cancel and confirm application quit, checking that open panels survive a
 cancel and their visibility remains saved on quit. Settings and playlists are
 temporary. The shell tests additionally check native window

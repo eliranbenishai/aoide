@@ -75,6 +75,9 @@
             a normal resizable window.
           </li>
           <li>
+            About, Settings and Skins open and reopen reliably on macOS.
+          </li>
+          <li>
             Create a playlist from files — pick audio files and save them as a
             playlist; it becomes the current playlist without interrupting what
             is playing.

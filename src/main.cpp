@@ -672,6 +672,30 @@ int smokeWindows(aoide::AoideSession& session, HostShell& shell,
     if (!require(exposed(eq) && exposed(pl), "secondary window never became exposed")) return 1;
   }
 
+  const QPoint mainBeforeOpening = main->nativeTopLeft();
+  for (int attempt = 0; attempt < 2; ++attempt) {
+    for (aoide::WindowId id : {aoide::WindowId::settings, aoide::WindowId::about,
+                               aoide::WindowId::skins}) {
+      HostWindow* panel = panels[id];
+      if (panel->isVisible()) panel->close();
+      session.setWindowVisible(id, true);
+      settle();
+      if (!require(panel->isVisible(), "opened auxiliary panel is hidden")) return 1;
+      if (!require(main->nativeTopLeft() == mainBeforeOpening, "opening an auxiliary panel moved main")) return 1;
+      if (!shell.embedsPanels()) {
+        if (!require(exposed(panel), "opened auxiliary window is not exposed")) return 1;
+        const QPoint title = panel->mapToGlobal(QPoint(100, 8));
+        // The offscreen backend does not implement raising windows.
+        if (QGuiApplication::platformName() != QLatin1String("offscreen") &&
+            QGuiApplication::topLevelAt(title) != panel->windowHandle()) {
+          std::fprintf(stderr, "window smoke: %s title is obscured at %d,%d\n",
+                       qPrintable(panel->windowTitle()), title.x(), title.y());
+          return 1;
+        }
+      }
+    }
+  }
+
   // A sibling drag travels through HostWindow's real event handlers, the
   // session's connections and LayoutSync. Keep away from snapping targets.
   const QPoint mainBefore = main->nativeTopLeft();
