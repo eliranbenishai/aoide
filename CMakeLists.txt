@@ -569,6 +569,11 @@ add_test(NAME native_window_session COMMAND aoide --smoke-windows)
 add_test(NAME embedded_window_session COMMAND aoide --smoke-embedded-windows)
 set_tests_properties(native_window_session embedded_window_session
   PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
+if(AOIDE_HAVE_MPV)
+  add_test(NAME file_open_session COMMAND aoide --smoke-file-open)
+  set_tests_properties(file_open_session
+    PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
+endif()
 
 # A test needs a QPA platform iff it constructs something that loads one:
 # QTEST_MAIN builds a QApplication, and font_metrics_test builds a

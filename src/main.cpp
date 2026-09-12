@@ -17,6 +17,7 @@
 
 #include <QApplication>
 #include <QCoreApplication>
+#include <QDataStream>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QEventLoop>
@@ -759,6 +760,15 @@ class AoideApplication : public QApplication {
  public:
   using QApplication::QApplication;
 
+  void startSession(aoide::AoideSession& session, const QStringList& args) {
+    QStringList files = launchFiles(args);
+    files.append(takeQueuedFileOpens());
+    session.bootstrap(files);
+    setFileOpenHandler([&session](const QStringList& paths) {
+      session.openRequestedFiles(paths);
+    });
+  }
+
   QStringList takeQueuedFileOpens() {
     QStringList out;
     queuedFileOpens_.swap(out);
@@ -805,6 +815,107 @@ class AoideApplication : public QApplication {
   QStringList queuedFileOpens_;
 };
 
+int smokeFileOpen(AoideApplication& app) {
+  QTemporaryDir temporary;
+  if (!temporary.isValid()) return 1;
+  auto writeAudio = [&](const QString& name) {
+    const QString path = temporary.filePath(name);
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) return QString();
+    const QByteArray pcm(80000, '\0');
+    QDataStream wav(&file);
+    wav.setByteOrder(QDataStream::LittleEndian);
+    wav.writeRawData("RIFF", 4);
+    wav << quint32(36 + pcm.size());
+    wav.writeRawData("WAVEfmt ", 8);
+    wav << quint32(16) << quint16(1) << quint16(1) << quint32(8000)
+        << quint32(16000) << quint16(2) << quint16(16);
+    wav.writeRawData("data", 4);
+    wav << quint32(pcm.size());
+    wav.writeRawData(pcm.constData(), pcm.size());
+    return wav.status() == QDataStream::Ok ? path : QString();
+  };
+  const QString oldPath = writeAudio(QStringLiteral("previous.wav"));
+  const QString requestedPath = writeAudio(QStringLiteral("requested track é.wav"));
+  if (oldPath.isEmpty() || requestedPath.isEmpty()) return 1;
+  enum class Delivery { argv, queuedEvent, liveEvent, none, inAppAdd, invalid };
+  struct Case {
+    const char* name;
+    Delivery delivery;
+    bool keptPlaylist = true;
+    bool resumePlayback = true;
+    bool wasPlaying = false;
+  };
+  const Case cases[] = {
+      {"fresh command line", Delivery::argv, false},
+      {"command line over paused resume", Delivery::argv},
+      {"command line over playing resume", Delivery::argv, true, true, true},
+      {"command line with resume disabled", Delivery::argv, true, false},
+      {"queued Finder file", Delivery::queuedEvent},
+      {"queued Finder file over playing resume", Delivery::queuedEvent, true, true, true},
+      {"queued Finder file with resume disabled", Delivery::queuedEvent, true, false},
+      {"running Finder file over pause", Delivery::liveEvent},
+      {"running Finder file over playback", Delivery::liveEvent, true, true, true},
+      {"running Finder file with resume disabled", Delivery::liveEvent, true, false},
+      {"ordinary paused resume", Delivery::none},
+      {"ordinary playing resume", Delivery::none, true, true, true},
+      {"ordinary resume disabled", Delivery::none, true, false},
+      {"in-app add during playback", Delivery::inAppAdd, true, true, true},
+      {"in-app add during pause", Delivery::inAppAdd},
+      {"unrecognized path keeps resume", Delivery::invalid},
+  };
+  for (const Case& test : cases) {
+    app.setFileOpenHandler({});
+    aoide::SupportStore store(temporary.filePath(QString::fromLatin1(test.name)));
+    aoide::AoideSettings settings;
+    settings.resumeLastSession = test.resumePlayback;
+    if (!store.writeSettings(settings)) return 1;
+    if (test.keptPlaylist) {
+      aoide::Track old;
+      old.path = oldPath;
+      aoide::SessionResume resume;
+      resume.playingIndex = 0;
+      resume.playingPath = oldPath;
+      resume.wasPlaying = test.wasPlaying;
+      if (!store.writeAltered({{old}, {}}) || !store.writeResume(resume)) return 1;
+    }
+    aoide::AoideSession session(store.dir());
+    QStringList args{QStringLiteral("aoide")};
+    if (test.delivery == Delivery::argv) args.append(requestedPath);
+    if (test.delivery == Delivery::invalid) args.append(temporary.filePath(QStringLiteral("missing.wav")));
+    if (test.delivery == Delivery::queuedEvent) {
+      QFileOpenEvent event(requestedPath);
+      QCoreApplication::sendEvent(&app, &event);
+    }
+    app.startSession(session, args);
+    if (test.delivery == Delivery::liveEvent) {
+      QFileOpenEvent event(QUrl::fromLocalFile(requestedPath));
+      QCoreApplication::sendEvent(&app, &event);
+    } else if (test.delivery == Delivery::inAppAdd) {
+      session.applyDroppedPaths({requestedPath}, false);
+    }
+    app.setFileOpenHandler({});
+    const bool requested = test.delivery == Delivery::argv ||
+                           test.delivery == Delivery::queuedEvent ||
+                           test.delivery == Delivery::liveEvent;
+    const bool hasCurrent = requested || (test.keptPlaylist && test.resumePlayback);
+    const bool playing = requested || (hasCurrent && test.wasPlaying);
+    const int index = requested ? (test.keptPlaylist ? 1 : 0) : (hasCurrent ? 0 : -1);
+    const auto view = session.view();
+    const QString expectedName = QFileInfo(requested ? requestedPath : oldPath).fileName();
+    if (view.noAudioEngine || view.playing != playing || view.hasCurrentTrack != hasCurrent ||
+        view.playingIndex.value_or(-1) != index ||
+        (hasCurrent && view.tracks.value(index).title != expectedName)) {
+      std::fprintf(stderr, "file-open smoke: %s failed; title=%s playing=%d paused=%d row=%d\n",
+                   test.name, qPrintable(view.title), view.playing, view.paused,
+                   view.playingIndex.value_or(-1));
+      return 1;
+    }
+  }
+  std::fprintf(stderr, "file-open smoke: passed\n");
+  return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -842,6 +953,10 @@ int main(int argc, char** argv) {
   if (dragBench.on || invalidateBench || smoke) qputenv("AOIDE_AUTO_QUIT", "1");
 
   aoide::loadAoideFonts();
+  if (args.contains(QStringLiteral("--smoke-file-open"))) {
+    qputenv("AOIDE_AUTO_QUIT", "1");
+    return smokeFileOpen(app);
+  }
   std::unique_ptr<QTemporaryDir> smokeSupport;
   if (smoke) {
     smokeSupport = std::make_unique<QTemporaryDir>();
@@ -1034,13 +1149,9 @@ int main(int argc, char** argv) {
   QObject::connect(quitAction, &QAction::triggered, &hostShell, [&]() { mainWindow->close(); });
 #endif
 
-  QStringList startupFiles = launchFiles(args);
-  startupFiles.append(app.takeQueuedFileOpens());
-  session.bootstrap(startupFiles);
+  app.startSession(session, args);
   applyZoom(session.zoomPercent());
   refresh();
-  app.setFileOpenHandler(
-      [&](const QStringList& paths) { session.applyDroppedPaths(paths, false); });
 
   hostShell.show();
   session.reapplyWindowFrames();

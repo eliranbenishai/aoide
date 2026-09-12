@@ -90,6 +90,13 @@ Must decode and play: **MP3, AAC/M4A, FLAC, WAV, Ogg Vorbis, Opus**.
 
 Associate Aoide with v1 audio formats and `.m3u` / `.m3u8` so “Open with Aoide” / double-click opens (or focuses) the app and loads/plays appropriately. OS registration details are implementation concerns.
 
+An audio file opened from the desktop starts playing, whether Aoide is launching
+or already running. If a playlist is already present, the requested audio is
+added and playback starts with the first newly supplied track. Saved playback
+does not override an accepted file-open request, including its paused state or
+the Resume playback preference. Ordinary in-app additions retain their current
+playback behavior.
+
 ## Accessibility
 
 - **The whole keyboard surface:** Space toggles play/pause; Ctrl+A selects every row of the current playlist; Delete and Backspace remove the selected rows; the four media keys drive play/pause, stop, next and previous. Arrow keys, Enter and Escape work inside an open options menu. Shift and Ctrl qualify a mouse gesture rather than standing alone — range- and toggle-select in the track list, and **Shift** to undock a panel that a slow drag would never peel. That is all of it.

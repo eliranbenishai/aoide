@@ -111,7 +111,7 @@ What a launch brings back. The **current playlist** always comes back — the **
 _Avoid_: session restore (OS session management — a different thing), remembering the queue, autoplay (for the resumed-playing case), treating a stopped quit as a lost session
 
 **Resume playback**:
-The Settings row (on by default) that starts the transport on launch. Playlist, geometry and zoom always come back; this switch is only whether Aoide is audible. The retired label was *Resume last session*.
+The Settings row (on by default) that resumes the transport when Aoide launches without a file to play. Playlist, geometry and zoom return independently; opening a file from the desktop plays that file regardless of this preference.
 _Avoid_: Resume last session (retired label); treating the switch as what restores the playlist
 
 **Empty state**:

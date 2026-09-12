@@ -344,10 +344,8 @@ void AoideSession::bootstrap(const QStringList& argvFiles) {
       collection_.select(playlist_.sourcePath());
     }
   }
-  if (!argvFiles.isEmpty()) {
-    openPaths(argvFiles, !playlist_.tracks().isEmpty());
-  }
-  if (settings_.resumeLastSession) {
+  const bool openedRequest = !argvFiles.isEmpty() && openRequestedFiles(argvFiles);
+  if (!openedRequest && settings_.resumeLastSession) {
     const auto resume = store_.readResume();
     if (resume.playingIndex && *resume.playingIndex >= 0 &&
         *resume.playingIndex < playlist_.tracks().size()) {
@@ -1009,7 +1007,11 @@ void AoideSession::applyDroppedPaths(const QStringList& paths, bool replace) {
   openPaths(paths, !replace && !playlist_.tracks().isEmpty());
 }
 
-void AoideSession::openPaths(const QStringList& paths, bool enqueue) {
+bool AoideSession::openRequestedFiles(const QStringList& paths) {
+  return openPaths(paths, !playlist_.tracks().isEmpty(), OpenSource::operatingSystem);
+}
+
+bool AoideSession::openPaths(const QStringList& paths, bool enqueue, OpenSource source) {
   // Every path from outside the app arrives here -- argv, a drop, a pick -- and
   // some of them are document-portal exports that expire at logout. Trade them
   // for the paths they stand in for before anything writes them down. A
@@ -1029,27 +1031,36 @@ void AoideSession::openPaths(const QStringList& paths, bool enqueue) {
   const bool replaces = !playlists.isEmpty() || (!enqueue && !others.isEmpty());
   if (replaces &&
       !confirmReplaceAltered(QStringLiteral("Opening these files replaces it."))) {
-    return;
+    return false;
   }
 
   bool playFirst = false;
+  std::optional<int> firstRequested;
   if (!playlists.isEmpty()) {
     const QVector<Track> tracks = ingestPlaylistFile(playlists.first());
     playlist_.loadTracks(tracks, playlists.first());
     playFirst = !playlist_.tracks().isEmpty();
+    if (playFirst) firstRequested = 0;
     schedulePathVerify();
   }
   const auto audio = tracksFromPaths(others);
   if (!audio.isEmpty()) {
+    const int firstAudio = !enqueue && playlists.isEmpty() ? 0 : int(playlist_.tracks().size());
     if (!enqueue && playlists.isEmpty()) playlist_.loadTracks(audio);
     else playlist_.addTracks(audio);
+    if (!firstRequested) firstRequested = firstAudio;
     if (!playFirst && !playback_->playingIndex()) playFirst = true;
   }
   // One route for a dropped file and an opened playlist alike: the rows are
   // already showing, and the durations arrive behind them.
   if (!playlists.isEmpty() || !audio.isEmpty()) startDurationProbe(playlist_.tracks());
   refreshChrome();
-  if (playFirst) playback_->playFrom(0);
+  if (source == OpenSource::operatingSystem) {
+    if (firstRequested) playback_->playFrom(*firstRequested);
+  } else if (playFirst) {
+    playback_->playFrom(0);
+  }
+  return firstRequested.has_value();
 }
 
 QString AoideSession::pickAudio(bool multiple) {

@@ -107,6 +107,9 @@ class AoideSession : public QObject, public PanelSurfaces {
   void persistNow();
   void detachWindows();
   void reapplyWindowFrames();
+  /// OS file-open requests start the supplied files, even with a kept playlist.
+  /// Returns whether the request supplied tracks, so startup can defer resume.
+  bool openRequestedFiles(const QStringList& paths);
   void applyDroppedPaths(const QStringList& paths, bool replace);
   void extraClosed(WindowId id);
   void mainMinimized(bool minimized);
@@ -178,7 +181,8 @@ class AoideSession : public QObject, public PanelSurfaces {
   void raiseWindow(WindowId id);
   QString pickAudio(bool multiple);
   QString pickPlaylist(bool save);
-  void openPaths(const QStringList& paths, bool enqueue);
+  enum class OpenSource { inApp, operatingSystem };
+  bool openPaths(const QStringList& paths, bool enqueue, OpenSource source = OpenSource::inApp);
   void loadCollectionRow(int index);
   QRect hostRect() const override;
   QRect workAreaFor(QRect clusterNative) const override;
