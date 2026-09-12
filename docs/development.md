@@ -159,6 +159,14 @@ From [`aoide-v1-spec.md`](aoide-v1-spec.md).
 
 Automated gate: `ctest` in `build/`.
 
+`playlist_create_session` drives Create → From files through the real session,
+selects temporary MP3 fixtures, and verifies that Save starts beside those files
+and creates the playlist there, even when Aoide's working directory is `/`.
+`native_file_dialog` also covers the home-folder fallback, an explicit starting
+folder, cancellation, and changing the save destination. These checks automate
+Qt's widget dialogs; native picker interaction and live NAS permissions still
+need a desktop check.
+
 ## File associations
 
 Aoide accepts file paths on the command line. Double-click / “Open with” must register the OS handler to pass those paths to the executable (`Exec=aoide %F`).

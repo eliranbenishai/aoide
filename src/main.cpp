@@ -22,12 +22,16 @@
 #include <QElapsedTimer>
 #include <QEventLoop>
 #include <QFileOpenEvent>
+#include <QFileDialog>
 #include <QGuiApplication>
 #include <QImage>
+#include <QKeyEvent>
+#include <QLineEdit>
 #include <QMessageBox>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QSet>
+#include <QSettings>
 #include <QShortcut>
 #include <QWindow>
 #include <QTemporaryDir>
@@ -815,6 +819,82 @@ class AoideApplication : public QApplication {
   QStringList queuedFileOpens_;
 };
 
+int smokePlaylistCreate() {
+  QTemporaryDir temporary;
+  if (!temporary.isValid()) return 1;
+  QApplication::setAttribute(Qt::AA_DontUseNativeDialogs);
+  QSettings::setDefaultFormat(QSettings::IniFormat);
+  QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, temporary.path());
+#ifdef Q_OS_LINUX
+  qputenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent/aoide-test-bus");
+  qputenv("PATH", "");
+#endif
+  const QString music = temporary.filePath(QStringLiteral("mounted NAS/Album é"));
+  if (!QDir().mkpath(music)) return 1;
+  for (const QString& name : {QStringLiteral("Track 1.mp3"), QStringLiteral("Track 2.MP3")}) {
+    QFile file(QDir(music).filePath(name));
+    if (!file.open(QIODevice::WriteOnly) || file.write("fixture") != 7) return 1;
+  }
+  const QString previousDirectory = QDir::currentPath();
+  if (!QDir::setCurrent(QDir::rootPath())) return 1;
+  const QString expected = QDir(music).filePath(QStringLiteral("playlist.m3u"));
+
+  // Drive Create -> From files -> pick MP3s -> accept the offered save path.
+  // Only temporary files are ever written, even if the save path is wrong.
+  HostWindow panel(aoide::windowSpecs()[aoide::panelIndex(aoide::WindowId::playlist)]);
+  aoide::AoideSession session(temporary.filePath(QStringLiteral("support")));
+  aoide::PanelWindows panels;
+  panels.set(aoide::WindowId::playlist, &panel);
+  session.setWindows(panels);
+  panel.show();
+  int stage = 0;
+  QString offered;
+  QTimer drive;
+  QObject::connect(&drive, &QTimer::timeout, [&] {
+    if (stage == 0) {
+      if (QWidget* menu = QApplication::activePopupWidget()) {
+        ++stage;
+        QKeyEvent down(QEvent::KeyPress, Qt::Key_Down, Qt::NoModifier);
+        QKeyEvent enter(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
+        QCoreApplication::sendEvent(menu, &down);
+        QCoreApplication::sendEvent(menu, &enter);
+      }
+      return;
+    }
+    for (QWidget* widget : QApplication::topLevelWidgets()) {
+      auto* dialog = qobject_cast<QFileDialog*>(widget);
+      if (!dialog || !dialog->isVisible()) continue;
+      if (stage == 1 && dialog->acceptMode() == QFileDialog::AcceptOpen) {
+        ++stage;
+        dialog->setDirectory(music);
+        auto* name = dialog->findChild<QLineEdit*>(QStringLiteral("fileNameEdit"));
+        if (name) name->setText(QStringLiteral("\"Track 1.mp3\" \"Track 2.MP3\""));
+        QMetaObject::invokeMethod(dialog, "accept", Qt::QueuedConnection);
+      } else if (stage == 2 && dialog->acceptMode() == QFileDialog::AcceptSave) {
+        ++stage;
+        offered = dialog->selectedFiles().value(0);
+        QMetaObject::invokeMethod(dialog, offered == expected ? "accept" : "reject",
+                                  Qt::QueuedConnection);
+      }
+    }
+  });
+  drive.start(10);
+  aoide::ChromeHit create;
+  create.kind = aoide::ChromeHit::Kind::plCreate;
+  session.handleHit(aoide::WindowId::playlist, create, Qt::NoModifier, {});
+  drive.stop();
+  const auto view = session.view();
+  QFile saved(expected);
+  const bool okay = stage == 3 && offered == expected && view.tracks.size() == 2 &&
+                    !view.playlistAltered && saved.open(QIODevice::ReadOnly) &&
+                    saved.readAll().contains(QDir(music).filePath(QStringLiteral("Track 1.mp3")).toUtf8());
+  session.detachWindows();
+  QDir::setCurrent(previousDirectory);
+  std::fprintf(stderr, "playlist-create smoke: %s; offered=%s expected=%s\n",
+               okay ? "passed" : "FAILED", qPrintable(offered), qPrintable(expected));
+  return okay ? 0 : 1;
+}
+
 int smokeFileOpen(AoideApplication& app) {
   QTemporaryDir temporary;
   if (!temporary.isValid()) return 1;
@@ -953,6 +1033,10 @@ int main(int argc, char** argv) {
   if (dragBench.on || invalidateBench || smoke) qputenv("AOIDE_AUTO_QUIT", "1");
 
   aoide::loadAoideFonts();
+  if (args.contains(QStringLiteral("--smoke-playlist-create"))) {
+    qputenv("AOIDE_AUTO_QUIT", "1");
+    return smokePlaylistCreate();
+  }
   if (args.contains(QStringLiteral("--smoke-file-open"))) {
     qputenv("AOIDE_AUTO_QUIT", "1");
     return smokeFileOpen(app);

@@ -70,6 +70,11 @@
       <description>
         <ul>
           <li>
+            Creating a playlist from files starts the Save dialog beside the
+            selected audio files, including on a NAS. On macOS, it no longer
+            defaults to the system root where the playlist cannot be written.
+          </li>
+          <li>
             Opening an audio file from the desktop plays the requested file,
             even with a saved playlist or a paused session. Saved playback no
             longer overrides the file you opened.

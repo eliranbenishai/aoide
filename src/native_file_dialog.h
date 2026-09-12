@@ -215,6 +215,7 @@ inline QVariant portalFiltersOption(const QString& qtFilter) {
 
 /// OS file chooser: xdg-desktop-portal on Linux (Dolphin/Nautilus), native
 /// QFileDialog on Windows/macOS. Falls back to kdialog, then the Qt widget dialog.
+/// Save picks without a directory start in the home folder, independent of cwd.
 QStringList pickFiles(const FilePick& pick);
 
 inline QString pickFile(const FilePick& pick) {
