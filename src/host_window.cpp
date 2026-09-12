@@ -1,4 +1,5 @@
 #include "host_window.h"
+#include "host_shell_window.h"
 
 #include "chrome_layout.h"
 #include "chrome_paint.h"
@@ -17,6 +18,7 @@
 #include <QMoveEvent>
 #include <QPainter>
 #include <QUrl>
+#include <QWindow>
 #include <cmath>
 #include <utility>
 
@@ -47,10 +49,7 @@ Qt::CursorShape playlistResizeCursor(aoide::PlaylistResizeEdges edges) {
 bool platformAllowsPointerGrab() {
   const QString name = QGuiApplication::platformName();
   // Qt Wayland prints a warning and does nothing on a non-popup toplevel.
-  if (name == QLatin1String("wayland")) return false;
-  // Unverified on a punched virtual-desktop host. Enable if a title-bar drag
-  // loses the pointer off the panel; keep skipped if grabMouse sticks.
-  if (name == QLatin1String("cocoa")) return false;
+  if (aoide::panelPresentationFor(name) == aoide::PanelPresentation::embedded) return false;
   return true;
 }
 
@@ -361,7 +360,10 @@ void HostWindow::setAlwaysOnTop(bool on) {
   if (vis) show();
 }
 
-QPoint HostWindow::nativeTopLeft() const { return mapToGlobal(QPoint(0, 0)); }
+QPoint HostWindow::nativeTopLeft() const {
+  const auto* shell = qobject_cast<HostShell*>(parentWidget());
+  return shell && shell->embedsPanels() ? pos() : mapToGlobal(QPoint());
+}
 
 void HostWindow::setPlaylistLogicalSize(QSize logical) {
   if (spec_.id != aoide::WindowId::playlist) return;
@@ -602,7 +604,7 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
   auto beginPlaylistResize = [&]() {
     resizingPlaylist_ = true;
     playlistResizeEdges_ = aoide::playlistResizeEdgesFromMask(chrome.resizeEdges);
-    playlistResizeStart_ = QRect(mapToGlobal(QPoint(0, 0)), size());
+    playlistResizeStart_ = QRect(nativeTopLeft(), size());
     playlistResizeLast_ = playlistResizeStart_;
     playlistResizePress_ = event->globalPosition().toPoint();
     grabPointerIfAllowed();
@@ -635,9 +637,17 @@ void HostWindow::mousePressEvent(QMouseEvent* event) {
       event->accept();
       return;
     case aoide::TitleChromeLayout::Hit::drag:
+      if (spec_.id == aoide::WindowId::main) {
+        auto* shell = qobject_cast<HostShell*>(parentWidget());
+        if (shell && shell->embedsPanels() && shell->windowHandle() &&
+            shell->windowHandle()->startSystemMove()) {
+          event->accept();
+          return;
+        }
+      }
       emit titleDragStarted();
       draggingTitle_ = true;
-      grabOffset_ = event->globalPosition().toPoint() - mapToGlobal(QPoint(0, 0));
+      grabOffset_ = event->globalPosition().toPoint() - nativeTopLeft();
       grabPointerIfAllowed();
       event->accept();
       return;

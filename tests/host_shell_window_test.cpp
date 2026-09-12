@@ -9,6 +9,7 @@
 #include <QImage>
 #include <QPixmap>
 #include <QTest>
+#include <QSignalSpy>
 #include <QVector>
 #include <QWindow>
 
@@ -30,16 +31,19 @@ class HostShellWindowTest : public QObject {
 
  private slots:
   void shellIsFramelessToplevelNotTool();
+  void nativeDesktopHasOnlyPanelSizedWindows();
+  void nativeWindowsAreExposedAndRestorable();
   void shellAdvertisesAppLogoOnTheTaskbar();
-  void applyLayoutSetsGeometryAndPunchedMask();
-  void emptyLayoutHidesTheShell();
-  void placePanelsKeepsMainVisibleInTheMask();
-  void movingOnePanelDoesNotMoveItsSibling();
-  void hostContainsPanelsAtRequestedScreenPositions();
-  void translatingEveryPanelLeavesTheHostPut();
-  void movingOnePanelDoesNotResizeTheHost();
-  void expandingPastTopLeftKeepsSiblingOnScreen();
-  void punchFollowsEveryPlacementWhileMapped();
+  void nativeClusterTranslationMovesEachWindow();
+  void nativeSiblingMoveLeavesPrimaryPut();
+  void nativeAlwaysOnTopIncludesHiddenSecondaries();
+  void nativePlacementDoesNotRestoreMinimizedPrimary();
+  void nativeWindowMoveReportsPrimaryPosition();
+  void embeddedPanelsUseContainerCoordinates();
+  void embeddedContainerHasNoDesktopMask();
+  void embeddedResizeReportsNewLayoutBounds();
+  void presentationMatchesDesktopCapabilities_data();
+  void presentationMatchesDesktopCapabilities();
   void alwaysOnTopSetsWindowStaysOnTopHint();
   void compositorKeepAboveAvailableIsFalseOnOffscreen();
   void keepAboveIsHonouredOnWindows();
@@ -61,6 +65,20 @@ class HostShellWindowTest : public QObject {
   void mainStaysTopMostAfterActivationAndUnminimize();
 };
 
+void HostShellWindowTest::nativeDesktopHasOnlyPanelSizedWindows() {
+  HostShell shell;
+  QWidget main(&shell);
+  QWidget eq(&shell);
+  shell.setPrimaryPanel(&main);
+  const QRect mainRect(40, 80, 200, 100);
+  const QRect eqRect(280, 80, 200, 100);
+  shell.placePanels({{&main, mainRect}, {&eq, eqRect}});
+  QCOMPARE(shell.geometry(), mainRect);
+  QVERIFY(eq.isWindow());
+  QCOMPARE(eq.geometry(), eqRect);
+  QCOMPARE(main.mapToGlobal(QPoint()), mainRect.topLeft());
+}
+
 void HostShellWindowTest::shellIsFramelessToplevelNotTool() {
   HostShell shell;
   QCOMPARE(shell.windowFlags() & Qt::WindowType_Mask, Qt::WindowFlags(Qt::Window));
@@ -70,6 +88,33 @@ void HostShellWindowTest::shellIsFramelessToplevelNotTool() {
   QVERIFY(!shell.windowFlags().testFlag(Qt::WindowTransparentForInput));
   QVERIFY(shell.testAttribute(Qt::WA_TranslucentBackground));
   QCOMPARE(shell.windowTitle(), QStringLiteral("Aoide"));
+}
+
+void HostShellWindowTest::nativeWindowsAreExposedAndRestorable() {
+  HostShell shell;
+  QWidget main(&shell);
+  QWidget eq(&shell);
+  shell.setPrimaryPanel(&main);
+  const QRect mainRect(100, 150, 200, 100);
+  const QRect eqRect(350, 150, 200, 100);
+  shell.placePanels({{&main, mainRect}, {&eq, eqRect}});
+  QVERIFY(QTest::qWaitForWindowExposed(&shell));
+  QVERIFY(QTest::qWaitForWindowExposed(&eq));
+  shell.activateWindow();
+  QVERIFY(QTest::qWaitForWindowActive(&shell));
+  eq.activateWindow();
+  QVERIFY(QTest::qWaitForWindowActive(&eq));
+  shell.showMinimized();
+  QTRY_VERIFY(shell.isMinimized());
+  shell.showNormal();
+  shell.activateWindow();
+  QVERIFY(QTest::qWaitForWindowActive(&shell));
+  QVERIFY(QTest::qWaitForWindowExposed(&shell));
+  QCOMPARE(shell.size(), mainRect.size());
+  QVERIFY(shell.rect().contains(main.geometry()));
+  QVERIFY(!shell.isFullScreen());
+  QVERIFY(shell.mask().isEmpty());
+  QCOMPARE(eq.size(), eqRect.size());
 }
 
 void HostShellWindowTest::shellAdvertisesAppLogoOnTheTaskbar() {
@@ -90,161 +135,144 @@ void HostShellWindowTest::shellAdvertisesAppLogoOnTheTaskbar() {
   QVERIFY2(opaque > 0, "taskbar icon must be painted logo pixels, not an empty pixmap");
 }
 
-void HostShellWindowTest::applyLayoutSetsGeometryAndPunchedMask() {
-  HostShell shell;
-  aoide::HostShellLayout layout;
-  layout.screenRect = QRect(10, 20, 300, 50);
-  QRegion mask;
-  mask += QRect(0, 0, 100, 50);
-  mask += QRect(200, 0, 100, 50);
-  layout.localMask = mask;
-
-  shell.applyLayout(layout);
-
-  QCOMPARE(shell.geometry(), QRect(10, 20, 300, 50));
-  QVERIFY(shell.mask().contains(QPoint(10, 10)));
-  QVERIFY(shell.mask().contains(QPoint(210, 10)));
-  QVERIFY(!shell.mask().contains(QPoint(150, 10)));
-}
-
-void HostShellWindowTest::emptyLayoutHidesTheShell() {
-  HostShell shell;
-  aoide::HostShellLayout visible;
-  visible.screenRect = QRect(0, 0, 100, 50);
-  visible.localMask = QRegion(QRect(0, 0, 100, 50));
-  shell.applyLayout(visible);
-  shell.show();
-  QVERIFY(shell.isVisible());
-
-  shell.applyLayout({});
-  QVERIFY(!shell.isVisible());
-  QVERIFY(!shell.mask().isEmpty());
-}
-
-void HostShellWindowTest::placePanelsKeepsMainVisibleInTheMask() {
+void HostShellWindowTest::nativeClusterTranslationMovesEachWindow() {
   HostShell shell;
   QWidget main(&shell);
   QWidget eq(&shell);
-  QWidget pl(&shell);
-  const QRect mainR(10, 20, 200, 80);
-  const QRect eqR(10, 100, 200, 80);
-  const QRect plR(220, 20, 200, 160);
-  shell.placePanels({{&main, mainR}, {&eq, eqR}, {&pl, plR}});
-  shell.show();
-
-  QVERIFY(main.isVisible());
-  QCOMPARE(main.size(), mainR.size());
-  QVERIFY(shell.mask().contains(main.geometry().center()));
-  QVERIFY(shell.mask().contains(eq.geometry().center()));
-  QVERIFY(shell.mask().contains(pl.geometry().center()));
+  shell.setPrimaryPanel(&main);
+  QRect mainRect(40, 80, 200, 100);
+  QRect eqRect(280, 80, 200, 100);
+  shell.placePanels({{&main, mainRect}, {&eq, eqRect}});
+  QSignalSpy moved(&shell, &HostShell::primaryMoved);
+  mainRect.translate(20, 30);
+  eqRect.translate(20, 30);
+  shell.placePanels({{&main, mainRect}, {&eq, eqRect}});
+  QCOMPARE(shell.geometry(), mainRect);
+  QCOMPARE(eq.geometry(), eqRect);
+  QCOMPARE(main.mapToGlobal(QPoint()), mainRect.topLeft());
+  QCOMPARE(moved.count(), 0); // A placement must not feed back as another drag.
 }
 
-void HostShellWindowTest::movingOnePanelDoesNotMoveItsSibling() {
-  HostShell shell;
-  QWidget eq(&shell);
-  QWidget pl(&shell);
-  const QRect eqR(0, 0, 100, 50);
-  const QRect plR(200, 0, 100, 80);
-  shell.placePanels({{&eq, eqR}, {&pl, plR}});
-  shell.show();
-  const QPoint pl0 = pl.mapToGlobal(QPoint(0, 0));
-
-  shell.placePanels({{&eq, QRect(40, 20, 100, 50)}, {&pl, plR}});
-  QCOMPARE(pl.mapToGlobal(QPoint(0, 0)), pl0);
-}
-
-void HostShellWindowTest::hostContainsPanelsAtRequestedScreenPositions() {
+void HostShellWindowTest::nativeSiblingMoveLeavesPrimaryPut() {
   HostShell shell;
   QWidget main(&shell);
-  const QRect mainR(40, 80, 100, 50);
-  shell.placePanels({{&main, mainR}});
-  shell.show();
+  QWidget eq(&shell);
+  const QRect mainRect(40, 80, 200, 100);
+  const QRect eqRect(280, 80, 200, 100);
+  shell.setPrimaryPanel(&main);
+  shell.placePanels({{&main, mainRect}, {&eq, eqRect}});
+  shell.placePanels({{&main, mainRect}, {&eq, eqRect.translated(-30, 40)}});
+  QCOMPARE(shell.geometry(), mainRect);
+  QCOMPARE(main.mapToGlobal(QPoint()), mainRect.topLeft());
+  QCOMPARE(eq.geometry(), eqRect.translated(-30, 40));
+}
 
-  QVERIFY(shell.isVisible());
+void HostShellWindowTest::nativeAlwaysOnTopIncludesHiddenSecondaries() {
+  HostShell shell;
+  QWidget main(&shell);
+  QWidget eq(&shell);
+  shell.preparePanel(&main, true);
+  shell.preparePanel(&eq);
+  shell.placePanels({{&main, QRect(40, 80, 200, 100)}});
+  for (bool on : {true, false}) {
+    shell.setAlwaysOnTop(on);
+    QCOMPARE(shell.windowFlags().testFlag(Qt::WindowStaysOnTopHint), on);
+    QCOMPARE(eq.windowFlags().testFlag(Qt::WindowStaysOnTopHint), on);
+    QVERIFY(eq.isHidden());
+    QVERIFY(shell.isVisible());
+    QCOMPARE(shell.size(), QSize(200, 100));
+  }
+}
+
+void HostShellWindowTest::nativePlacementDoesNotRestoreMinimizedPrimary() {
+  HostShell shell;
+  QWidget main(&shell);
+  const QRect mainRect(40, 80, 200, 100);
+  shell.setPrimaryPanel(&main);
+  shell.placePanels({{&main, mainRect}});
+  shell.showMinimized();
+  shell.placePanels({{&main, mainRect}});
+  QVERIFY(shell.isMinimized());
+  shell.setAlwaysOnTop(true);
+  QVERIFY(shell.isMinimized());
+  shell.showNormal();
+  QVERIFY(!shell.isMinimized());
   QVERIFY(main.isVisible());
-  QVERIFY(shell.rect().contains(main.geometry()));
-  QCOMPARE(main.mapToGlobal(QPoint(0, 0)), mainR.topLeft());
-  QCOMPARE(shell.geometry(), shell.virtualDesktop());
+  QCOMPARE(shell.size(), mainRect.size());
 }
 
-void HostShellWindowTest::translatingEveryPanelLeavesTheHostPut() {
+void HostShellWindowTest::nativeWindowMoveReportsPrimaryPosition() {
   HostShell shell;
+  QWidget main(&shell);
+  shell.setPrimaryPanel(&main);
+  shell.placePanels({{&main, QRect(40, 80, 200, 100)}});
+  QSignalSpy moved(&shell, &HostShell::primaryMoved);
+  shell.move(80, 120);
+  QCOMPARE(moved.count(), 1);
+  QCOMPARE(moved.front().front().toPoint(), QPoint(80, 120));
+  QCOMPARE(main.mapToGlobal(QPoint()), QPoint(80, 120));
+}
+
+void HostShellWindowTest::embeddedPanelsUseContainerCoordinates() {
+  HostShell shell(aoide::PanelPresentation::embedded);
+  QWidget main(&shell);
   QWidget eq(&shell);
-  QWidget pl(&shell);
-  const QRect eqR(0, 0, 100, 50);
-  const QRect plR(200, 0, 100, 80);
-  shell.placePanels({{&eq, eqR}, {&pl, plR}});
-  shell.show();
-  const QRect host0 = shell.geometry();
-  QCOMPARE(host0, shell.virtualDesktop());
-
-  const QRect eq1(30, 40, 100, 50);
-  const QRect pl1(230, 40, 100, 80);
-  shell.placePanels({{&eq, eq1}, {&pl, pl1}});
-  QCOMPARE(shell.geometry(), host0);
-  QCOMPARE(eq.mapToGlobal(QPoint(0, 0)), eq1.topLeft());
-  QCOMPARE(pl.mapToGlobal(QPoint(0, 0)), pl1.topLeft());
+  shell.resize(600, 400);
+  shell.move(100, 150);
+  shell.setPrimaryPanel(&main);
+  const QRect mainRect(20, 30, 200, 100);
+  const QRect eqRect(250, 30, 200, 100);
+  shell.placePanels({{&main, mainRect}, {&eq, eqRect}});
+  const QRect host = shell.geometry();
+  QVERIFY(!main.isWindow());
+  QVERIFY(!eq.isWindow());
+  QCOMPARE(main.geometry(), mainRect);
+  QCOMPARE(eq.geometry(), eqRect);
+  QCOMPARE(shell.layoutBounds(), QRect(0, 0, 600, 400));
+  shell.placePanels({{&main, mainRect}, {&eq, eqRect.translated(-30, 40)}});
+  QCOMPARE(shell.geometry(), host);
+  QCOMPARE(main.geometry(), mainRect);
+  shell.move(200, 250); // A compositor move must not alter panel layout.
+  QCOMPARE(main.geometry(), mainRect);
+  QCOMPARE(eq.geometry(), eqRect.translated(-30, 40));
 }
 
-void HostShellWindowTest::movingOnePanelDoesNotResizeTheHost() {
-  HostShell shell;
-  QWidget eq(&shell);
-  QWidget pl(&shell);
-  shell.placePanels({{&eq, QRect(0, 0, 100, 50)}, {&pl, QRect(200, 0, 100, 80)}});
-  shell.show();
-  const QSize hostSize = shell.size();
-
-  const QRect plCloser(100, 0, 100, 80);
-  shell.placePanels({{&eq, QRect(0, 0, 100, 50)}, {&pl, plCloser}});
-  QCOMPARE(shell.size(), hostSize);
-  QCOMPARE(shell.geometry(), shell.virtualDesktop());
-  QCOMPARE(eq.mapToGlobal(QPoint(0, 0)), QPoint(0, 0));
-  QCOMPARE(pl.mapToGlobal(QPoint(0, 0)), plCloser.topLeft());
+void HostShellWindowTest::embeddedContainerHasNoDesktopMask() {
+  HostShell shell(aoide::PanelPresentation::embedded);
+  QWidget main(&shell);
+  shell.setPrimaryPanel(&main);
+  shell.placePanels({{&main, QRect(20, 30, 200, 100)}});
+  QVERIFY(!shell.testAttribute(Qt::WA_TranslucentBackground));
+  QVERIFY(!shell.windowFlags().testFlag(Qt::FramelessWindowHint));
+  QVERIFY(shell.mask().isEmpty());
+  QVERIFY(shell.windowHandle()->mask().isEmpty());
+  QVERIFY(shell.width() < shell.virtualDesktop().width());
+  QVERIFY(shell.height() < shell.virtualDesktop().height());
 }
 
-void HostShellWindowTest::expandingPastTopLeftKeepsSiblingOnScreen() {
-  HostShell shell;
-  QWidget eq(&shell);
-  QWidget pl(&shell);
-  const QRect eq0(40, 40, 100, 50);
-  const QRect pl0(200, 40, 100, 80);
-  shell.placePanels({{&eq, eq0}, {&pl, pl0}});
+void HostShellWindowTest::embeddedResizeReportsNewLayoutBounds() {
+  HostShell shell(aoide::PanelPresentation::embedded);
   shell.show();
-  const QPoint plScreen = pl.mapToGlobal(QPoint(0, 0));
-  const QPoint hostPos = shell.pos();
-
-  const QRect eq1(10, 10, 100, 50);
-  shell.placePanels({{&eq, eq1}, {&pl, pl0}});
-  QCOMPARE(pl.mapToGlobal(QPoint(0, 0)), plScreen);
-  QCOMPARE(eq.mapToGlobal(QPoint(0, 0)), eq1.topLeft());
-  QCOMPARE(shell.pos(), hostPos);
+  QCoreApplication::processEvents();
+  QSignalSpy changed(&shell, &HostShell::desktopGeometryChanged);
+  shell.resize(550, 350);
+  QTRY_COMPARE(changed.count(), 1);
+  QCOMPARE(shell.layoutBounds(), QRect(0, 0, 550, 350));
 }
 
-// Punch deferral shipped once and left ghost rectangles on KWin, so the punch
-// follows the panels on every placement while the host is mapped — including the
-// one after the widgets have already moved, which is where a deferral would show
-// as a hole in the wrong place.
-void HostShellWindowTest::punchFollowsEveryPlacementWhileMapped() {
-  HostShell shell;
-  QWidget panel(&shell);
-  const QRect start(40, 40, 120, 60);
-  const QRect end(200, 80, 120, 60);
-  shell.placePanels({{&panel, start}});
-  shell.show();
-  QVERIFY(shell.mask().contains(panel.geometry().center()));
+void HostShellWindowTest::presentationMatchesDesktopCapabilities_data() {
+  QTest::addColumn<QString>("platform");
+  QTest::addColumn<bool>("embedded");
+  for (const char* name : {"cocoa", "windows", "xcb", "offscreen"})
+    QTest::newRow(name) << QString::fromLatin1(name) << false;
+  for (const char* name : {"wayland", "wayland-egl"})
+    QTest::newRow(name) << QString::fromLatin1(name) << true;
+}
 
-  shell.placePanels({{&panel, end}});
-  QCOMPARE(panel.mapToGlobal(QPoint(0, 0)), end.topLeft());
-  QVERIFY2(!shell.mask().isEmpty(),
-           "empty mask is full input on Wayland; punch must stay a panel union");
-  QVERIFY(shell.mask().contains(panel.geometry().center()));
-  const QRect vacated = panel.geometry().translated(start.topLeft() - end.topLeft());
-  QVERIFY2(!shell.mask().contains(vacated.center()),
-           "the vacated rectangle must leave the punch, or it stays on the canvas");
-
-  shell.placePanels({{&panel, end}});
-  QVERIFY(shell.mask().contains(panel.geometry().center()));
-  QVERIFY(!shell.mask().contains(QPoint(10, 10)));
+void HostShellWindowTest::presentationMatchesDesktopCapabilities() {
+  QFETCH(QString, platform);
+  QFETCH(bool, embedded);
+  QCOMPARE(aoide::panelPresentationFor(platform) == aoide::PanelPresentation::embedded, embedded);
 }
 
 void HostShellWindowTest::alwaysOnTopSetsWindowStaysOnTopHint() {
@@ -351,7 +379,7 @@ void HostShellWindowTest::kwinKeepAboveScriptLivesInASharedSubdirectory() {
 }
 
 void HostShellWindowTest::mainStaysTopMostAfterEachSiblingIsShown() {
-  HostShell shell;
+  HostShell shell(aoide::PanelPresentation::embedded);
   QWidget main(&shell);
   QWidget equalizer(&shell);
   QWidget playlist(&shell);
@@ -379,7 +407,7 @@ void HostShellWindowTest::mainStaysTopMostAfterEachSiblingIsShown() {
 }
 
 void HostShellWindowTest::mainStaysTopMostAfterARequestRaise() {
-  HostShell shell;
+  HostShell shell(aoide::PanelPresentation::embedded);
   QWidget main(&shell);
   QWidget settings(&shell);
   QWidget about(&shell);
@@ -395,7 +423,7 @@ void HostShellWindowTest::mainStaysTopMostAfterARequestRaise() {
 }
 
 void HostShellWindowTest::mainStaysTopMostAfterActivationAndUnminimize() {
-  HostShell shell;
+  HostShell shell(aoide::PanelPresentation::embedded);
   QWidget main(&shell);
   QWidget equalizer(&shell);
   QWidget playlist(&shell);

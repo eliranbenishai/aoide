@@ -18,7 +18,8 @@ namespace aoide {
 /// One panel's share of a placement pass.
 struct PanelPlacement {
   WindowId id = WindowId::main;
-  /// Native pixels, global. Meaningless when the panel is not visible.
+  /// Screen coordinates for native windows, content coordinates for embedded
+  /// panels. Meaningless when the panel is not visible.
   QRect screen;
   /// The logical canvas, before zoom and ignoring windowshade — the size the
   /// panel paints at and goes back to when it is unshaded.
@@ -29,14 +30,14 @@ struct PanelPlacement {
   bool visible = false;
 };
 
-/// The surfaces a layout is pushed onto. In the app the host shell and its five
-/// panels satisfy this; the geometry tests satisfy it with a recorder, which is
-/// the point — placement can be checked without a compositor.
+/// The surfaces a layout is pushed onto. The session adapts native windows or
+/// embedded panels; geometry tests use a recorder. Bounds, work areas and
+/// placements always use the same coordinate space.
 class PanelSurfaces {
  public:
   virtual ~PanelSurfaces() = default;
-  /// The virtual desktop every panel has to stay inside. Empty before there is
-  /// a host, and nothing is clamped against an empty rectangle.
+  /// Virtual desktop for native windows, content rectangle for embedded panels.
+  /// An unknown rectangle withdraws no space.
   virtual QRect hostRect() const = 0;
   /// The work area of the display the cluster is on: that screen less whatever
   /// the desktop keeps for itself. What a zoom step has to fit inside. Empty
@@ -44,8 +45,7 @@ class PanelSurfaces {
   virtual QRect workAreaFor(QRect clusterNative) const = 0;
   /// All panels arrive every pass, hidden ones included, because hiding is
   /// something this call has to do rather than something it can skip. A panel
-  /// missing from the list would keep its pixels on the canvas while dropping
-  /// out of the punch the shell builds from the visible ones.
+  /// missing from the list could keep a stale window visible.
   virtual void placePanels(const QVector<PanelPlacement>& panels) = 0;
 };
 

@@ -565,6 +565,10 @@ add_test(NAME wait_cursor COMMAND wait_cursor_test)
 add_test(NAME domain COMMAND domain_test)
 add_test(NAME look COMMAND look_test)
 add_test(NAME font_metrics COMMAND font_metrics_test)
+add_test(NAME native_window_session COMMAND aoide --smoke-windows)
+add_test(NAME embedded_window_session COMMAND aoide --smoke-embedded-windows)
+set_tests_properties(native_window_session embedded_window_session
+  PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 
 # A test needs a QPA platform iff it constructs something that loads one:
 # QTEST_MAIN builds a QApplication, and font_metrics_test builds a

@@ -50,6 +50,8 @@ class HostWindowMoveTest : public QObject {
 
  private slots:
   void parentedPanelMoveDoesNotEmitNativeMoved();
+  void embeddedSiblingDragReportsLocalCoordinates();
+  void embeddedPlaylistResizeReportsLocalCoordinates();
   void siblingDragDoesNotPayFullClusterPaint();
   void movingAPanelDoesNotRerasteriseIt();
   void hitRegionsCoverWhatIsPainted();
@@ -95,6 +97,55 @@ void HostWindowMoveTest::parentedPanelMoveDoesNotEmitNativeMoved() {
   QSignalSpy spy(&panel, &HostWindow::nativeMoved);
   panel.move(40, 20);
   QCOMPARE(spy.count(), 0);
+}
+
+void HostWindowMoveTest::embeddedSiblingDragReportsLocalCoordinates() {
+  HostShell shell(aoide::PanelPresentation::embedded);
+  HostWindow main(aoide::windowSpecs()[0], &shell);
+  HostWindow eq(aoide::windowSpecs()[1], &shell);
+  shell.setPrimaryPanel(&main);
+  shell.resize(1100, 750);
+  shell.move(120, 100);
+  const QPoint start(40, 350);
+  shell.placePanels({{&main, QRect(QPoint(40, 30), main.size())},
+                     {&eq, QRect(start, eq.size())}});
+  QSignalSpy moved(&eq, &HostWindow::nativeMoved);
+  const QPoint press(100, 10);
+  const QPoint delta(25, 35);
+  QTest::mousePress(&eq, Qt::LeftButton, Qt::NoModifier, press);
+  QMouseEvent move(QEvent::MouseMove, QPointF(press + delta),
+                   QPointF(eq.mapToGlobal(press + delta)), Qt::NoButton,
+                   Qt::LeftButton, Qt::NoModifier);
+  QCoreApplication::sendEvent(&eq, &move);
+  QTest::mouseRelease(&eq, Qt::LeftButton, Qt::NoModifier, press + delta);
+  QCOMPARE(moved.count(), 1);
+  QCOMPARE(moved.front().front().toPoint(), start + delta);
+  QCOMPARE(eq.nativeTopLeft(), start);
+  shell.move(220, 150);
+  QCOMPARE(eq.nativeTopLeft(), start);
+}
+
+void HostWindowMoveTest::embeddedPlaylistResizeReportsLocalCoordinates() {
+  HostShell shell(aoide::PanelPresentation::embedded);
+  HostWindow main(aoide::windowSpecs()[0], &shell);
+  HostWindow pl(aoide::windowSpecs()[2], &shell);
+  shell.setPrimaryPanel(&main);
+  shell.resize(1200, 850);
+  shell.move(120, 100);
+  const QRect start(QPoint(40, 280), pl.size());
+  shell.placePanels({{&main, QRect(QPoint(40, 10), main.size())}, {&pl, start}});
+  QSignalSpy resized(&pl, &HostWindow::nativeResized);
+  const QPoint press(pl.width() - 3, pl.height() - 3);
+  const QPoint delta(30, 20);
+  QTest::mousePress(&pl, Qt::LeftButton, Qt::NoModifier, press);
+  QMouseEvent move(QEvent::MouseMove, QPointF(press + delta),
+                   QPointF(pl.mapToGlobal(press + delta)), Qt::NoButton,
+                   Qt::LeftButton, Qt::NoModifier);
+  QCoreApplication::sendEvent(&pl, &move);
+  QTest::mouseRelease(&pl, Qt::LeftButton, Qt::NoModifier, press + delta);
+  QVERIFY(!resized.isEmpty());
+  const QRect wanted(start.topLeft(), start.size() + QSize(delta.x(), delta.y()));
+  QCOMPARE(resized.front().front().toRect(), wanted);
 }
 
 void HostWindowMoveTest::siblingDragDoesNotPayFullClusterPaint() {

@@ -28,6 +28,7 @@
 #include <QPainter>
 #include <QSet>
 #include <QShortcut>
+#include <QWindow>
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QUrl>
@@ -41,6 +42,7 @@
 #include <clocale>
 #include <cstdio>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -631,6 +633,81 @@ int runInvalidateBench(int trackCount, int reps, aoide::AoideSession& session,
   return 0;
 }
 
+// A launch-level check through the real session and signal wiring. Its caller
+// supplies an isolated support directory, so it never resumes or edits a
+// listener's music. Run on a desktop to check actual surface exposure too.
+int smokeWindows(aoide::AoideSession& session, HostShell& shell,
+                 const aoide::PanelWindows& panels) {
+  auto require = [](bool okay, const char* message) {
+    if (!okay) std::fprintf(stderr, "window smoke: %s\n", message);
+    return okay;
+  };
+  auto settle = []() { pumpFor(200); };
+  auto exposed = [&](QWidget* widget) {
+    for (int i = 0; i < 25; ++i) {
+      if (widget->windowHandle() && widget->windowHandle()->isExposed()) return true;
+      pumpFor(100);
+    }
+    return false;
+  };
+  HostWindow* main = panels[aoide::WindowId::main];
+  HostWindow* eq = panels[aoide::WindowId::equalizer];
+  HostWindow* pl = panels[aoide::WindowId::playlist];
+  session.setZoomPercent(50);
+  for (const aoide::PanelSpec& spec : aoide::panelSpecs()) {
+    session.setWindowVisible(spec.id, spec.id == aoide::WindowId::main ||
+                            spec.id == aoide::WindowId::equalizer ||
+                            spec.id == aoide::WindowId::playlist);
+  }
+  settle();
+  if (!require(exposed(&shell), "primary window never became exposed")) return 1;
+  if (!require(shell.rect().contains(main->geometry()), "main is outside its window")) return 1;
+  if (!require(!shell.isFullScreen() && shell.mask().isEmpty(), "primary is fullscreen or masked")) return 1;
+  if (shell.embedsPanels()) {
+    if (!require(!eq->isWindow() && !pl->isWindow(), "Wayland panels must stay embedded")) return 1;
+    if (!require(shell.layoutBounds() == shell.rect(), "embedded bounds are not local")) return 1;
+  } else {
+    if (!require(shell.size() == main->size(), "primary window exceeds the player")) return 1;
+    if (!require(eq->isWindow() && pl->isWindow(), "secondary panels are not native windows")) return 1;
+    if (!require(exposed(eq) && exposed(pl), "secondary window never became exposed")) return 1;
+  }
+
+  // A sibling drag travels through HostWindow's real event handlers, the
+  // session's connections and LayoutSync. Keep away from snapping targets.
+  const QPoint mainBefore = main->nativeTopLeft();
+  const QPoint eqBefore = eq->nativeTopLeft();
+  const QPoint press(100, 8);
+  const QPoint delta(12, 10);
+  const QPoint pressGlobal = eq->mapToGlobal(press);
+  QMouseEvent down(QEvent::MouseButtonPress, QPointF(press), QPointF(pressGlobal),
+                   Qt::LeftButton, Qt::LeftButton, Qt::ShiftModifier);
+  QCoreApplication::sendEvent(eq, &down);
+  QMouseEvent move(QEvent::MouseMove, QPointF(press + delta), QPointF(pressGlobal + delta),
+                   Qt::NoButton, Qt::LeftButton, Qt::ShiftModifier);
+  QCoreApplication::sendEvent(eq, &move);
+  if (!require(eq->nativeTopLeft() == eqBefore + delta, "sibling drag used the wrong coordinates")) return 1;
+  if (!require(main->nativeTopLeft() == mainBefore, "sibling drag moved main")) return 1;
+  QMouseEvent up(QEvent::MouseButtonRelease, QPointF(press), QPointF(pressGlobal + delta),
+                 Qt::LeftButton, Qt::NoButton, Qt::ShiftModifier);
+  QCoreApplication::sendEvent(eq, &up);
+
+  session.setWindowVisible(aoide::WindowId::equalizer, false);
+  shell.showMinimized();
+  settle();
+  if (!require(shell.isMinimized(), "placement undid minimization")) return 1;
+  if (!require(!pl->isVisible(), "minimization left the playlist visible")) return 1;
+  shell.showNormal();
+  settle();
+  if (!require(exposed(&shell) && pl->isVisible(), "restore lost the visible playlist")) return 1;
+  if (!require(!eq->isVisible(), "restore reopened a closed equalizer")) return 1;
+  session.setWindowVisible(aoide::WindowId::equalizer, true);
+  settle();
+  if (!require(eq->isVisible(), "equalizer could not reopen")) return 1;
+  std::fprintf(stderr, "window smoke: %s passed on %s\n",
+               shell.embedsPanels() ? "embedded" : "native", qPrintable(QGuiApplication::platformName()));
+  return 0;
+}
+
 /// macOS delivers Finder "Open With", Dock drops, and reopen-while-running as
 /// QFileOpenEvent, which never appears in argv. Those used to be dropped.
 class AoideApplication : public QApplication {
@@ -695,6 +772,8 @@ int main(int argc, char** argv) {
   if (args.contains(QStringLiteral("--bench-chrome"))) {
     return benchChrome();
   }
+  const bool smokeEmbedded = args.contains(QStringLiteral("--smoke-embedded-windows"));
+  const bool smoke = smokeEmbedded || args.contains(QStringLiteral("--smoke-windows"));
   const DragBenchOptions dragBench = parseDragBench(args);
   const bool invalidateBench = args.contains(QStringLiteral("--bench-invalidate"));
   int benchTracks = 400;
@@ -704,19 +783,28 @@ int main(int argc, char** argv) {
     if (n > 0) benchTracks = n;
   }
   // A bench run must never write the listener's settings.
-  if (dragBench.on || invalidateBench) qputenv("AOIDE_AUTO_QUIT", "1");
+  if (dragBench.on || invalidateBench || smoke) qputenv("AOIDE_AUTO_QUIT", "1");
 
   aoide::loadAoideFonts();
-  aoide::AoideSession session;
+  std::unique_ptr<QTemporaryDir> smokeSupport;
+  if (smoke) {
+    smokeSupport = std::make_unique<QTemporaryDir>();
+    if (!smokeSupport->isValid()) return 1;
+  }
+  aoide::AoideSession session(smoke ? smokeSupport->path() : aoide::aoideSupportDirectory());
 
-  HostShell hostShell;
+  HostShell hostShell(smokeEmbedded ? aoide::PanelPresentation::embedded :
+                      aoide::panelPresentationFor(QGuiApplication::platformName()));
   session.setShell(&hostShell);
 
   std::vector<HostWindow*> windows;
+  std::vector<std::unique_ptr<HostWindow>> ownedWindows;
   windows.reserve(aoide::kPanelCount);
   aoide::PanelWindows panels;
   for (const aoide::WindowSpec& spec : aoide::windowSpecs()) {
-    auto* window = new HostWindow(spec, &hostShell);
+    ownedWindows.push_back(std::make_unique<HostWindow>(spec, &hostShell));
+    auto* window = ownedWindows.back().get();
+    hostShell.preparePanel(window, spec.id == aoide::WindowId::main);
     windows.push_back(window);
     panels.set(spec.id, window);
   }
@@ -835,6 +923,9 @@ int main(int argc, char** argv) {
   QObject::connect(&hostShell, &HostShell::minimizedChanged, mainWindow,
                    [&](bool minimized) { session.mainMinimized(minimized); });
   QObject::connect(&hostShell, &HostShell::activated, mainWindow, [&]() { session.mainActivated(); });
+  QObject::connect(&hostShell, &HostShell::primaryMoved, mainWindow, [&](QPoint position) {
+    session.windowMoved(aoide::WindowId::main, position, false);
+  });
 
   auto addAppShortcut = [&](const QKeySequence& seq, auto fn) {
     auto* sc = new QShortcut(seq, &hostShell);
@@ -896,6 +987,11 @@ int main(int argc, char** argv) {
   hostShell.show();
   session.reapplyWindowFrames();
 
+  if (smoke) {
+    const int result = smokeWindows(session, hostShell, panels);
+    session.detachWindows();
+    return result;
+  }
   if (dragBench.on) {
     return runDragBench(dragBench, session, hostShell, windows, snapshots);
   }

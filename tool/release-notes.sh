@@ -36,7 +36,9 @@ fi
 
 # Strip comments first. The file keeps a <screenshots> block commented out,
 # and a text scan would treat a commented <release> as live.
-notes="$(perl - "$FILE" "$version" <<'PERL'
+# Perl rejects an absent/empty feature list itself. Execute it directly: macOS
+# Bash 3.2 misparses this heredoc's Perl quotes inside command substitution.
+exec perl - "$FILE" "$version" <<'PERL'
 use strict;
 use warnings;
 
@@ -90,11 +92,3 @@ if (!@items) {
 binmode STDOUT, ':utf8';
 print "- $_\n" for @items;
 PERL
-)"
-
-if [[ -z "$notes" ]]; then
-  echo "release-notes: notes for '$version' came out empty" >&2
-  exit 1
-fi
-
-printf '%s\n' "$notes"

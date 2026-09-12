@@ -4,97 +4,118 @@
 #include "compositor_keep_above.h"
 #include "window_spec.h"
 
+#include <QCloseEvent>
 #include <QGuiApplication>
+#include <QMoveEvent>
 #include <QPainter>
-#include <QRegion>
+#include <QResizeEvent>
+#include <QScopedValueRollback>
 #include <QScreen>
+#include <QShowEvent>
 #include <QTimer>
 #include <QWindow>
 
-namespace {
+HostShell::HostShell(QWidget* parent)
+    : HostShell(aoide::panelPresentationFor(QGuiApplication::platformName()), parent) {}
 
-bool platformIsWayland() {
-  const QString name = QGuiApplication::platformName();
-  return name == QLatin1String("wayland") || name.startsWith(QLatin1String("wayland-"));
-}
-
-}  // namespace
-
-HostShell::HostShell(QWidget* parent) : QWidget(parent) {
-  setWindowFlags(aoide::hostWindowFlags());
-  setAttribute(Qt::WA_TranslucentBackground);
+HostShell::HostShell(aoide::PanelPresentation presentation, QWidget* parent)
+    : QWidget(parent), presentation_(presentation) {
   setWindowTitle(QStringLiteral("Aoide"));
   setWindowIcon(aoide::appIcon());
+  if (embedsPanels()) {
+    // A normal desktop window: the compositor owns its position and decoration.
+    // No translucent desktop overlay or input mask is needed.
+    setWindowFlags(Qt::Window);
+    QPalette colors = palette();
+    colors.setColor(QPalette::Window, QColor(16, 18, 24));
+    setPalette(colors);
+    setAutoFillBackground(true);
+    const QScreen* display = QGuiApplication::primaryScreen();
+    const QSize work = display ? display->availableGeometry().size() : QSize(1280, 900);
+    resize(QSize(1280, 900).boundedTo(work - QSize(64, 64)).expandedTo(QSize(320, 240)));
+  } else {
+    setWindowFlags(aoide::hostWindowFlags());
+    setAttribute(Qt::WA_TranslucentBackground);
+  }
   bindDesktopScreens();
+  connect(qApp, &QGuiApplication::applicationStateChanged, this, [this](Qt::ApplicationState state) {
+    if (state == Qt::ApplicationActive && isVisible() && !isMinimized()) bringPanelsForward();
+  });
+}
+
+void HostShell::preparePanel(QWidget* panel, bool primary) {
+  if (!panel) return;
+  if (primary) primaryPanel_ = panel;
+  if (panels_.contains(panel)) return;
+  panels_.push_back(panel);
+  if (embedsPanels() || primary) {
+    if (panel->parentWidget() != this || panel->isWindow()) panel->setParent(this, Qt::Widget);
+  } else {
+    panel->setParent(nullptr, aoide::hostWindowFlags());
+    panel->setWindowIcon(windowIcon());
+    panel->setAttribute(Qt::WA_QuitOnClose, false);
+    panel->installEventFilter(this);
+    applyTopHint(panel);
+  }
 }
 
 void HostShell::bindDesktopScreens() {
   auto hook = [this](QScreen* screen) {
     if (!screen) return;
-    connect(screen, &QScreen::geometryChanged, this, &HostShell::desktopGeometryChanged);
+    connect(screen, &QScreen::geometryChanged, this, &HostShell::notifyBoundsChanged);
+    connect(screen, &QScreen::availableGeometryChanged, this, &HostShell::notifyBoundsChanged);
   };
   connect(qApp, &QGuiApplication::screenAdded, this, [this, hook](QScreen* screen) {
     hook(screen);
-    emit desktopGeometryChanged();
+    notifyBoundsChanged();
   });
-  connect(qApp, &QGuiApplication::screenRemoved, this, [this](QScreen*) {
-    emit desktopGeometryChanged();
-  });
+  connect(qApp, &QGuiApplication::screenRemoved, this, &HostShell::notifyBoundsChanged);
   for (QScreen* screen : QGuiApplication::screens()) hook(screen);
 }
 
-void HostShell::applyLayout(const aoide::HostShellLayout& layout) {
-  lastLayout_ = layout;
-  if (layout.screenRect.isNull() || layout.localMask.isEmpty()) {
-    hide();
-    return;
-  }
-  setGeometry(layout.screenRect);
-  applyPunch(layout.localMask);
-  update();
+void HostShell::notifyBoundsChanged() {
+  if (boundsPending_) return;
+  boundsPending_ = true;
+  QTimer::singleShot(0, this, [this]() {
+    boundsPending_ = false;
+    emit desktopGeometryChanged();
+  });
 }
 
 void HostShell::placePanels(const QVector<HostPanelPlacement>& panels) {
-  QVector<QRect> screenRects;
-  screenRects.reserve(panels.size());
-  for (const HostPanelPlacement& place : panels) {
-    if (place.widget) screenRects.push_back(place.screen);
-  }
-  if (screenRects.isEmpty()) {
-    applyLayout({});
+  if (placing_) return;
+  QScopedValueRollback<bool> placing(placing_, true);
+  if (panels.isEmpty()) {
+    hide();
     return;
   }
+  if (!primaryPanel_) setPrimaryPanel(panels.front().widget);
+  for (const HostPanelPlacement& place : panels) preparePanel(place.widget);
 
-  const QRect virt = virtualDesktop();
-  if (!virt.isNull() && lastRequestedVirtual_ != virt) {
-    lastRequestedVirtual_ = virt;
-    setGeometry(virt);
+  if (embedsPanels()) {
+    QSize minimum;
+    for (const HostPanelPlacement& place : panels) {
+      if (place.widget) minimum = minimum.expandedTo(place.widget->minimumSize());
+    }
+    setMinimumSize(minimum);
   }
-  if (!isVisible()) show();
-
-  const QPoint origin = mapToGlobal(QPoint(0, 0));
-  QRegion mask;
-  QRegion dirty;
   for (const HostPanelPlacement& place : panels) {
     if (!place.widget) continue;
-    const QRect local(aoide::panelLocalTopLeft(place.screen.topLeft(), origin), place.screen.size());
-    const QRect old = place.widget->geometry();
-    if (old != local) {
-      if (!old.isEmpty()) dirty += old;
-      dirty += local;
-      place.widget->setGeometry(local);
+    if (!embedsPanels() && place.widget == primaryPanel_) {
+      // The only child of the native primary window always starts at (0, 0).
+      // An OS-adjusted window origin can no longer strand main outside its host.
+      setGeometry(place.screen);
+      place.widget->setGeometry(QRect(QPoint(), place.screen.size()));
+    } else {
+      place.widget->setGeometry(place.screen);
     }
-    if (!place.widget->isVisible()) place.widget->show();
-    mask += local;
+    if (place.widget->isHidden()) place.widget->show();
   }
+  if (isHidden()) show();
+}
 
-  lastLayout_.screenRect = QRect(origin, size());
-  lastLayout_.localMask = mask;
-  // Re-pushed every call on purpose: setMask already early-returns when the
-  // region is unchanged, and always pushing keeps the punch self-healing if the
-  // native window is ever recreated underneath us.
-  applyPunch(mask);
-  if (!dirty.isEmpty()) update(dirty);
+QRect HostShell::layoutBounds() const {
+  return embedsPanels() ? rect() : virtualDesktop();
 }
 
 QRect HostShell::virtualDesktop() const {
@@ -105,21 +126,27 @@ QRect HostShell::virtualDesktop() const {
   return box;
 }
 
+void HostShell::applyTopHint(QWidget* window) {
+  if (window->windowFlags().testFlag(Qt::WindowStaysOnTopHint) == alwaysOnTop_) return;
+  const bool visible = window->isVisible();
+  const Qt::WindowStates state = window->windowState();
+  window->setWindowFlag(Qt::WindowStaysOnTopHint, alwaysOnTop_);
+  window->setWindowState(state);
+  if (visible) window->show();
+}
+
 void HostShell::setAlwaysOnTop(bool on) {
   alwaysOnTop_ = on;
-  // setWindowFlag remaps via setParent: it hides the widget and recreates
-  // the native window. On Wayland that is a virtual-desktop-sized punched
-  // toplevel — applyPunch refuses an empty mask while mapped (full-desktop
-  // input capture), and placePanels will not re-assert the host origin
-  // unless lastRequestedVirtual_ changed. xdg-shell also has no keep-above;
-  // KWin's keepAbove request is the whole mechanism there.
-  if (!platformIsWayland()) {
-    const bool have = windowFlags().testFlag(Qt::WindowStaysOnTopHint);
-    if (have != on) {
-      const bool vis = isVisible();
-      setWindowFlag(Qt::WindowStaysOnTopHint, on);
-      if (vis) show();
-      applyStoredMask();
+  // xdg-shell has no keep-above request. KWin's integration handles it there;
+  // the native window flag is supported by Cocoa, Windows and X11.
+  if (aoide::panelPresentationFor(QGuiApplication::platformName()) !=
+      aoide::PanelPresentation::embedded) {
+    QScopedValueRollback<bool> placing(placing_, true);
+    applyTopHint(this);
+    if (!embedsPanels()) {
+      for (const auto& panel : panels_) {
+        if (panel && panel->isWindow()) applyTopHint(panel);
+      }
     }
   }
   scheduleCompositorKeepAbove();
@@ -127,55 +154,49 @@ void HostShell::setAlwaysOnTop(bool on) {
 
 void HostShell::scheduleCompositorKeepAbove() {
   aoide::applyCompositorKeepAbove(windowHandle(), alwaysOnTop_);
-  // Immediate apply often runs before the xdg_toplevel exists (restore
-  // before map). KWin can only match a mapped window, so the 0ms and 150ms
-  // shots follow. Each apply is load-run-unload; a resident plugin is what
-  // leaked after quit. aboutToQuit latches release so a pending shot cannot
-  // reload the plugin on the way out.
-  QTimer::singleShot(0, this, [this]() {
-    aoide::applyCompositorKeepAbove(windowHandle(), alwaysOnTop_);
-  });
-  QTimer::singleShot(150, this, [this]() {
-    aoide::applyCompositorKeepAbove(windowHandle(), alwaysOnTop_);
-  });
-}
-
-void HostShell::setPrimaryPanel(QWidget* panel) { primaryPanel_ = panel; }
-
-void HostShell::applyPunch(const QRegion& mask) {
-  lastLayout_.localMask = mask;
-  // Qt Wayland: empty mask → wl_surface.set_input_region(nullptr) → the whole
-  // surface takes clicks. Never punch-to-everything while mapped.
-  if (mask.isEmpty()) {
-    if (isVisible()) return;
-    clearMask();
-    if (QWindow* native = windowHandle()) native->setMask(QRegion());
-    return;
+  // KWin can match only a mapped window. Retry after the first map.
+  for (int delay : {0, 150}) {
+    QTimer::singleShot(delay, this, [this]() {
+      aoide::applyCompositorKeepAbove(windowHandle(), alwaysOnTop_);
+    });
   }
-  setMask(mask);
-  if (QWindow* native = windowHandle()) native->setMask(mask);
 }
 
-void HostShell::applyStoredMask() {
-  applyPunch(lastLayout_.localMask);
-  update();
+void HostShell::bringPanelsForward() {
+  if (raising_ || placing_ || isMinimized()) return;
+  QScopedValueRollback<bool> raising(raising_, true);
+  if (!embedsPanels()) {
+    for (const auto& panel : panels_) {
+      if (panel && panel->isWindow() && panel->isVisible() && !panel->isMinimized()) panel->raise();
+    }
+    raise();
+  }
+  if (primaryPanel_) primaryPanel_->raise();
+}
+
+bool HostShell::eventFilter(QObject* watched, QEvent* event) {
+  if (!placing_ && !raising_ && !isMinimized() &&
+      (event->type() == QEvent::WindowActivate || event->type() == QEvent::ZOrderChange)) {
+    auto* panel = qobject_cast<QWidget*>(watched);
+    if (panel && panel->isVisible() && panel->geometry().intersects(geometry())) {
+      QScopedValueRollback<bool> raising(raising_, true);
+      raise();
+    }
+  }
+  return QWidget::eventFilter(watched, event);
 }
 
 void HostShell::showEvent(QShowEvent* event) {
   QWidget::showEvent(event);
-  if (QWindow* native = windowHandle()) native->setIcon(windowIcon());
-  applyStoredMask();
   scheduleCompositorKeepAbove();
 }
 
 void HostShell::changeEvent(QEvent* event) {
   QWidget::changeEvent(event);
-  if (event->type() == QEvent::DevicePixelRatioChange) {
-    applyStoredMask();
-  }
   if (event->type() == QEvent::WindowStateChange) {
-    emit minimizedChanged(windowState() & Qt::WindowMinimized);
+    emit minimizedChanged(isMinimized());
   } else if (event->type() == QEvent::WindowActivate) {
+    bringPanelsForward();
     emit activated();
   }
 }
@@ -188,13 +209,19 @@ void HostShell::closeEvent(QCloseEvent* event) {
   QWidget::closeEvent(event);
 }
 
+void HostShell::moveEvent(QMoveEvent* event) {
+  QWidget::moveEvent(event);
+  if (!embedsPanels() && !placing_ && isVisible()) emit primaryMoved(pos());
+}
+
+void HostShell::resizeEvent(QResizeEvent* event) {
+  QWidget::resizeEvent(event);
+  if (embedsPanels()) notifyBoundsChanged();
+}
+
 void HostShell::paintEvent(QPaintEvent* event) {
-  QPainter p(this);
-  p.setCompositionMode(QPainter::CompositionMode_Source);
-  // Fill the damaged rects, not their bounding box. On a virtual-desktop-sized
-  // surface a cluster drag damages several far-apart panel rects, and their
-  // bounding box can be most of the desktop.
-  for (const QRect& rect : event->region()) {
-    p.fillRect(rect, Qt::transparent);
-  }
+  if (embedsPanels()) return;
+  QPainter painter(this);
+  painter.setCompositionMode(QPainter::CompositionMode_Source);
+  for (const QRect& rect : event->region()) painter.fillRect(rect, Qt::transparent);
 }

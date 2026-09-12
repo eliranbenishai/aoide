@@ -144,31 +144,15 @@ All three are noticed by the person doing the work, which is the only measuring 
 
 ## 8. The virtual-desktop host with fully custom chrome
 
-Recorded 2026-08-21 · **Status:** cost evidenced, value unevidenced
+Recorded 2026-08-21 · **Closed 2026-09-12:** desktop-sized host retired after a macOS visibility report
 
-The most expensive premise here, and the one most likely to be right.
+**The bet.** App-owned multi-panel dragging justified a translucent window covering every display. Measured costs included about 64 MB per buffer and a roughly 38 ms stall per second of dragging, plus input-mask artifacts on KWin.
 
-**The bet.** App-owned multi-panel dragging and the mockup chrome are worth a virtual-desktop-sized translucent surface, a permanent stream of compositor edge cases, and no accessibility tree.
+**What reopened it.** On macOS the app appeared in Dock “Show All Windows” as a giant inaccessible window. The exact OS failure was not reproduced before replacement, but the oversized native geometry was reproduced in a regression test. The listener approved removing the overlay and accepting platform-specific window presentation.
 
-**Known — the costs, measured rather than estimated** ([`agents/title-bar-drag.md`](agents/title-bar-drag.md)):
+**Replacement.** macOS, Windows and X11 use panel-sized native windows. Wayland uses a bounded, opaque container with local panel docking and compositor-owned whole-window movement. Standard Wayland's lack of arbitrary top-level placement remains a constraint; it does not require applying its workaround to every desktop. [Decision](adr/0001-platform-window-presentation.md).
 
-- The host is one frameless toplevel sized to the bounding rectangle of every screen, with input punched to panel shapes. On the pairing host that is 4389×1188 at DPR 1.75 — about **64 MB per shm buffer**, up to five buffers.
-- One **~38 ms stall per second of dragging** comes from committing that surface. Reproducible, and ruled out as the analyser tick, as CPU contention, and as app painting. It is a property of the shape, not a bug to chase.
-- `WA_TranslucentBackground` means Qt never sets an opaque region, so the compositor cannot occlusion-cull anything beneath the host.
-- Deferring the punch to reduce that cost was tried and undone. On KWin the mask is the hole the compositor actually shows and hits, so a deferred punch left ghost rectangles on the canvas. `grabMouse` is refused outright for non-popup windows on Wayland.
-- **There is no accessibility tree.** Nothing under `src/` mentions `QAccessible` or `setAccessibleName`; the only `keyPressEvent` in the tree belongs to our own painted popup, and the tooltip explicitly takes `Qt::NoFocus`. Everything else — volume, seek, every EQ band, presets, the whole Playlist Manager, settings, skins, zoom, shade, dock — is mouse-only, and there is no focus indication to build on later. Shift-undock is not a counter-example: the modifier only qualifies a mouse drag, so it opens no keyboard route and leaves that one gesture needing both devices.
-
-**Known — the other side, and it is the strongest claim in this file.** There is no alternative mechanism. Wayland has no `xdg_toplevel` set_position, so a panel-per-toplevel shape cannot place its own windows; `startSystemMove` would slide a virtual-desktop-sized toplevel; extra OS windows per panel is a retired shape for exactly these reasons. If app-owned dragging and docking are product requirements, this host is the way to have them, not a preference among several.
-
-**What is unevidenced** is only the value side: whether listeners want the docking and the chrome enough to pay that bill. Nothing here measures that, and nothing will.
-
-**Cost, stated plainly.** On 2026-08-21 keyboard navigation and the accessibility tree were **deferred whole** — not staged, not partially delivered. So the accessibility cost of this premise is not merely unpaid; it is postponed by decision. It is also the only cost in this file that excludes a person rather than inconveniencing one, and it should be the first thing picked up next regardless of what happens to the premise.
-
-**Trigger.** Reopen when any of:
-
-- a compositor update breaks dragging again after it was fixed, or Wayland and compositor issues outnumber product issues across a release cycle;
-- a wanted feature cannot be built without changing the host shape. The shape is load-bearing for the layout and command-routing work already queued behind it, and every addition raises the price of reversing it;
-- someone who needs a screen reader or the keyboard reports that Aoide is unusable. This is a **lagging** trigger and a poor one — it only fires after the harm — which is an argument for closing the accessibility gap on its own schedule rather than waiting for this premise to be reopened.
+**Still outstanding.** Keyboard navigation and the accessibility tree were deferred on 2026-08-21. Replacing the host does not resolve that separate product gap.
 
 ---
 

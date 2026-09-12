@@ -115,6 +115,8 @@ mv -f "$BUILD/aoide.next" "$BUILD/aoide"
 # Paint budget + optimisation guard. Drag smoothness is a paint-cost property,
 # so it belongs in the gate next to the tests.
 QT_QPA_PLATFORM=offscreen "$BUILD/aoide" --bench-chrome
+QT_QPA_PLATFORM=offscreen "$BUILD/aoide" --smoke-windows
+QT_QPA_PLATFORM=offscreen "$BUILD/aoide" --smoke-embedded-windows
 
 # Domain tests (playlist / playback / docking / collection)
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DAOIDE_HAVE_MPV \

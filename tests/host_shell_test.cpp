@@ -6,16 +6,11 @@ class HostShellTest : public QObject {
   Q_OBJECT
 
 private slots:
-  void layoutUsesHostRectNotPanelUnion();
-  void twoPanelsWithAGapExcludeTheGapFromTheMask();
-  void overlappingPanelsUnionInTheMask();
-  void emptyInputYieldsNullScreenRectAndEmptyMask();
   void clampKeepsPanelInsideHost();
   void clampShrinksPanelLargerThanHost();
   void clusterDeltaFitsUnionInsideHost();
   void clusterDeltaNullWhenUnionExceedsHost();
   void panelNativeSizeUsesLogicalWhenWidgetHasNoSize();
-  void panelLocalUsesActualHostOriginNotRequestedBBox();
   void emptyWorkAreaReservesNoTopLift();
   void aPanelAlreadyBelowTheStripDoesNotMove();
   void aPanelUnderTheStripGetsExactlyTheShortfall();
@@ -26,37 +21,9 @@ private slots:
   void aPlaylistTallerThanTheWorkAreaShrinksToKeepTheGrip();
 };
 
-void HostShellTest::layoutUsesHostRectNotPanelUnion() {
-  const QRect host(0, 0, 1920, 1080);
-  const auto layout = aoide::hostShellLayout(host, {QRect(10, 20, 100, 50)});
-  QCOMPARE(layout.screenRect, host);
-  QCOMPARE(layout.localMask, QRegion(QRect(10, 20, 100, 50)));
-}
 
-void HostShellTest::twoPanelsWithAGapExcludeTheGapFromTheMask() {
-  const auto layout =
-      aoide::hostShellLayout(QRect(0, 0, 800, 600), {QRect(0, 0, 100, 50), QRect(200, 0, 100, 50)});
-  QCOMPARE(layout.screenRect, QRect(0, 0, 800, 600));
-  QVERIFY(layout.localMask.contains(QPoint(10, 10)));
-  QVERIFY(layout.localMask.contains(QPoint(210, 10)));
-  QVERIFY(!layout.localMask.contains(QPoint(150, 10)));
-}
 
-void HostShellTest::overlappingPanelsUnionInTheMask() {
-  const auto layout =
-      aoide::hostShellLayout(QRect(0, 0, 400, 200), {QRect(0, 0, 100, 50), QRect(50, 0, 100, 50)});
-  QCOMPARE(layout.screenRect, QRect(0, 0, 400, 200));
-  QRegion expected;
-  expected += QRect(0, 0, 100, 50);
-  expected += QRect(50, 0, 100, 50);
-  QCOMPARE(layout.localMask, expected);
-}
 
-void HostShellTest::emptyInputYieldsNullScreenRectAndEmptyMask() {
-  const auto layout = aoide::hostShellLayout(QRect(0, 0, 800, 600), {});
-  QVERIFY(layout.screenRect.isNull());
-  QVERIFY(layout.localMask.isEmpty());
-}
 
 void HostShellTest::clampKeepsPanelInsideHost() {
   const QRect host(0, 0, 200, 100);
@@ -85,13 +52,6 @@ void HostShellTest::panelNativeSizeUsesLogicalWhenWidgetHasNoSize() {
   QCOMPARE(aoide::panelNativeSize(QSize(619, 261), QSize(0, 0)), QSize(619, 261));
 }
 
-void HostShellTest::panelLocalUsesActualHostOriginNotRequestedBBox() {
-  const QPoint actualHost(100, 40);
-  const QPoint siblingScreen(200, 40);
-  const QPoint requestedOrigin(40, 40);
-  QCOMPARE(aoide::panelLocalTopLeft(siblingScreen, actualHost), QPoint(100, 0));
-  QVERIFY(aoide::panelLocalTopLeft(siblingScreen, requestedOrigin) != QPoint(100, 0));
-}
 
 void HostShellTest::emptyWorkAreaReservesNoTopLift() {
   QCOMPARE(aoide::reservedTopLift(QRect(0, 0, 825, 348), QRect()), 0);

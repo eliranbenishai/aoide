@@ -189,3 +189,29 @@ Document types are declared in [`packaging/macos/Info.plist.in`](../packaging/ma
 
 Agent-facing notes live under `docs/agents/` and are gitignored, so they are
 local to a checkout rather than published.
+
+## Window presentation checks
+
+`ctest` includes `native_window_session` and `embedded_window_session`. Both start
+an isolated session, exercise panel placement and title dragging through the real
+app wiring, and verify that minimize/restore preserves panel visibility. Settings
+and playlists are temporary. The shell tests additionally check native window
+exposure, focus, and the absence of a desktop-sized primary window.
+
+To exercise the desktop instead of Qt's offscreen plugin on macOS:
+
+```bash
+QT_QPA_PLATFORM=cocoa build/Aoide.app/Contents/MacOS/Aoide --smoke-windows
+QT_QPA_PLATFORM=cocoa build/host_shell_window_test nativeWindowsAreExposedAndRestorable
+```
+
+Use `QT_QPA_PLATFORM=windows` with `build/Release/aoide.exe` on Windows, or `xcb`
+with `build/aoide` on X11. `QT_QPA_PLATFORM=wayland build/aoide --smoke-windows`
+selects the bounded container on a Wayland desktop. CI runs these checks on
+Cocoa, Windows, Xvfb/X11 and headless Weston. `--smoke-embedded-windows` exercises
+the container with any Qt platform for local regression testing.
+
+A native smoke confirms visible surfaces, geometry and restore behavior. Check
+Dock/taskbar switching, macOS Spaces/Mission Control, cross-monitor movement and
+mixed display scaling interactively before claiming those desktop integrations
+fully validated.

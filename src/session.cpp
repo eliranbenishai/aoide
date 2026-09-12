@@ -61,7 +61,10 @@ constexpr int kProbeBatchMs = 120;
 }  // namespace
 
 AoideSession::AoideSession(QObject* parent)
-    : QObject(parent), store_(aoideSupportDirectory()) {
+    : AoideSession(aoideSupportDirectory(), parent) {}
+
+AoideSession::AoideSession(QString supportDirectory, QObject* parent)
+    : QObject(parent), store_(std::move(supportDirectory)) {
   settings_ = store_.readSettings();
   collection_.load(store_);
 #ifdef AOIDE_HAVE_MPV
@@ -158,7 +161,7 @@ AoideSession::AoideSession(QObject* parent)
   applyEq();
   {
     WaitCursorScope wait;
-    skins_.bootstrap(aoideSupportDirectory(), bundledSkinsDir(), settings_);
+    skins_.bootstrap(store_.dir(), bundledSkinsDir(), settings_);
     refreshSkinPreviews();
   }
   syncTitleMarquee();
@@ -665,9 +668,10 @@ QWidget* AoideSession::dialogParent(WindowId id) const {
   return windowFor(WindowId::main);
 }
 
-QRect AoideSession::hostRect() const { return shell_ ? shell_->virtualDesktop() : QRect(); }
+QRect AoideSession::hostRect() const { return shell_ ? shell_->layoutBounds() : QRect(); }
 
 QRect AoideSession::workAreaFor(QRect clusterNative) const {
+  if (shell_ && shell_->embedsPanels()) return shell_->layoutBounds();
   // An L-shaped monitor arrangement leaves dead zones inside the virtual
   // desktop that belong to no screen, so a cluster's centre can land on
   // nothing. The primary screen is the honest answer then: it is the display a
