@@ -70,6 +70,11 @@
       <description>
         <ul>
           <li>
+            Panel-sized windows on macOS, Windows and Linux/X11 replace the
+            desktop-sized background. On Wayland, arrange the panels inside
+            a normal resizable window.
+          </li>
+          <li>
             Create a playlist from files — pick audio files and save them as a
             playlist; it becomes the current playlist without interrupting what
             is playing.

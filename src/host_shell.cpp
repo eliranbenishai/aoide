@@ -4,17 +4,9 @@
 
 namespace aoide {
 
-HostShellLayout hostShellLayout(QRect hostScreenRect, const QVector<QRect>& visiblePanelScreenRects) {
-  if (visiblePanelScreenRects.isEmpty() || hostScreenRect.isNull()) {
-    return {};
-  }
-
-  QRegion localMask;
-  const QPoint origin = hostScreenRect.topLeft();
-  for (const QRect& panel : visiblePanelScreenRects) {
-    localMask += panel.translated(-origin);
-  }
-  return {hostScreenRect, localMask};
+PanelPresentation panelPresentationFor(QStringView platform) {
+  return platform == QLatin1String("wayland") || platform.startsWith(QLatin1String("wayland-"))
+             ? PanelPresentation::embedded : PanelPresentation::nativeWindows;
 }
 
 QRect clampRectToHost(QRect panel, QRect host) {
@@ -52,10 +44,6 @@ QRect clampPlaylistGripToWorkArea(QRect panel, QRect work) {
 int reservedTopLift(QRect panel, QRect workArea) {
   if (workArea.isEmpty()) return 0;
   return std::max(0, workArea.top() - panel.top());
-}
-
-QPoint panelLocalTopLeft(QPoint screenTopLeft, QPoint actualHostGlobal) {
-  return screenTopLeft - actualHostGlobal;
 }
 
 QSize panelNativeSize(QSize logicalZoomed, QSize widgetSize) {

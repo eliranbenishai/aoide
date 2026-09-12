@@ -212,8 +212,7 @@ void releaseCompositorKeepAbove() {
 
 void applyCompositorKeepAbove(QWindow* window, bool on) {
   // setFlag goes through QWindow::setParent and remaps the native window.
-  // On Wayland that recreates a virtual-desktop-sized punched toplevel;
-  // xdg-shell also has no keep-above, so the flag cannot stack us. KWin's
+  // xdg-shell has no keep-above, so the flag cannot stack us on Wayland. KWin's
   // keepAbove write below is the whole mechanism there.
   if (window && !platformIsWayland()) {
     window->setFlag(Qt::WindowStaysOnTopHint, on);

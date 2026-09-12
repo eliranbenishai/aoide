@@ -88,6 +88,7 @@ class AoideSession : public QObject, public PanelSurfaces {
 
  public:
   explicit AoideSession(QObject* parent = nullptr);
+  explicit AoideSession(QString supportDirectory, QObject* parent = nullptr);
   ~AoideSession() override;
 
   void setWindows(const PanelWindows& windows);

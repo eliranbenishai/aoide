@@ -46,21 +46,20 @@ _Premise_ (2026-08-21, constraint evidenced, bet unevidenced): that a skin commu
 _Avoid_: classic skin, WSZ, theme (when meaning this pack), graphite skin, look pack (retired product term — same concept)
 
 **Host window**:
-The single OS toplevel the compositor sees. Frameless; titled `Aoide`; the taskbar/pager entry. Geometry is the **virtual desktop** (bounding rectangle of every screen). It does not grow, shrink, or move with panel drags; it refits only when that desktop rectangle changes. Input is punched to panel shapes so the desktop is clickable in the gaps. Dragging the main panel’s title bar translates all panels inside the host (the cluster moves as a unit); dragging any other panel moves only that panel. Every panel stays fully on the virtual desktop. The playlist’s southeast resize grip also stays inside the **work area** of the display it sits on.
-_Premise_ (2026-08-21, cost evidenced, value unevidenced): that app-owned panel dragging is worth ~64 MB of translucent surface, a ~38 ms stall per second of dragging, a stream of Wayland edge cases, and no accessibility tree — keyboard navigation and that tree were deferred whole on 2026-08-21. Wayland offers no other mechanism, which is the strongest thing said for any premise here. Revisit if a compositor update breaks dragging again, or a wanted feature cannot be built on this shape — `docs/premises.md` §8.
-_Avoid_: treating this as the main player canvas, extra toplevels, tight union of panels (retired host geometry)
+The primary Aoide window: the player itself on macOS, Windows and Linux/X11, or a bounded window containing all panels on Linux/Wayland. It never spans the desktop merely to host panels.
+_Avoid_: desktop overlay, virtual-desktop host (retired), treating every panel as part of one OS window on every platform
 
 **Work area**:
-The usable rectangle of the display the cluster sits on — that screen minus the desktop’s own furniture (taskbar, panel, menu bar). Distinct from the **host window**’s **virtual desktop**. The playlist’s southeast resize grip stays inside it so it cannot sit under a taskbar. An unknown work area withdraws nothing.
+The usable part of a display, excluding its taskbar, Dock and menu bar. Native panels stay reachable within it; embedded panels use the space inside their host window.
 _Avoid_: virtual desktop (when the usable screen is meant), available geometry (toolkit jargon)
 
 **Panel**:
-A product chrome surface (main, equalizer, playlist, settings, about, skins) that Aoide draws and moves inside the host window. Main is always the top-most (child Z-order inside the host); no sibling covers it.
-_Avoid_: OS window (for these surfaces), extra window, dialog (for settings/about/skins as product surfaces); treating **always-on-top** as which panel sits on top of which
+One of Aoide's six chrome surfaces: main, equalizer, playlist, settings, about and skins. Panels occupy separate windows on native desktops and share the host window on Wayland; main stays above overlapping siblings.
+_Avoid_: dialog (for settings/about/skins as product surfaces), treating always-on-top as panel order
 
 **App chrome**:
-Aoide's own decoration — no OS title bar or standard window frame; the visible UI is six **panels** inside one **host window**, with Winamp-style docking among main/EQ/PL. Settings, about, and skins are freestanding (not snappable). Main player and equalizer never stretch; on-screen size follows the global zoom step only. The playlist panel may be freely resized on every edge and corner except the top — that strip is title-bar drag; the northwest and northeast corners grow it upward and outrank the drag. Main title bar carries logo + wordmark; EQ/playlist/settings/about/skins title bars show role title only. EQ band faders use a spectrum-gradient value fill.
-_Avoid_: borderless (alone), frameless window (implementation jargon in product talk), Scalable UI (retired as a whole-chrome free-resize mode), stretching the main or EQ canvas, single-window EQ/PL swap (retired product model), five OS windows (retired host shape)
+Aoide's own panel decoration, shared across platforms and skins. Wayland additionally has a desktop-managed frame around the host window; main and equalizer retain fixed canvases while playlist can be resized.
+_Avoid_: stretching main or equalizer, single-window EQ/PL swap (retired), requiring every platform to use the same OS window structure
 
 **Chosen playlist size** / **fitted playlist size**:
 The **chosen** size is what the listener last dragged the playlist to — what a session remembers, and what comes back when the display has room again. Placement may paint a smaller **fitted** size so the cluster and the grip stay on the **work area**, and does not overwrite the chosen size. Automatic correction — a host clamp, a cluster fit, a zoom step, a desktop that changes shape — is a fit, not a new choice.
@@ -75,12 +74,12 @@ The retired PNG-first chrome look (panel faces under `assets/skin/graphite/`). K
 _Avoid_: using this term for the current product look
 
 **Session host**:
-The single process that owns shared controllers (playback, playlist, EQ, zoom, settings) and the docking coordinator; the six panels are views onto that session inside one host window.
-_Avoid_: multi-process, separate apps per window, extra OS windows per panel
+The single running Aoide instance shared by all six panels. Playback, playlist, equalizer, zoom, settings and docking belong to this session regardless of how the desktop presents its windows.
+_Avoid_: separate apps per panel, separate playback engines per window
 
 **Docking** / **dock group**:
-Winamp-style edge snap between panels. Dragging the main title bar translates every panel inside the host so the cluster stays together; main never snaps and never creates dock edges. Dragging EQ, playlist, settings, about, or skins moves only that panel on screen; siblings stay put. EQ or playlist peel their dock edges on drag; snap runs only on EQ/PL drag end. Settings, about, and skins never snap and are never snap targets. EQ and playlist may snap to any side, and on both axes at once (flush under main and against a neighbor in the same drop). Undock via peel or **Shift**: peel breaks the edges when a drag jumps far enough in one movement, and Shift breaks them however slowly the panel is dragged, leaving it where it was dropped instead of snapping back. A dock edge lives only as long as the contact it names: every placement re-checks each edge against the panels' rectangles and drops the ones that are no longer flush, so a crawl too slow to peel still ends up undocked, and a panel dropped back within snapping distance re-docks rather than being stranded claiming an edge it is nowhere near. A panel cannot hang off the virtual desktop. Automatic placement keeps the equalizer and playlist off main — main keeps its rectangle; the playlist may shrink toward its minimum as a **fitted playlist size** — except after a title-bar drag, which is left where the listener put it. Main is always the top-most panel: child Z-order inside the host, not compositor stacking of extra toplevels. No sibling raises above it. A sibling a title-bar drag parks under main stays there, because main being on top means nothing important is hidden. Settings, about, and skins are moved clear of main when shown or raised — a one-shot correction so main never has to yield; it does not run on every placement pass, and a hand-drag is not fought. If a monitor is unplugged, the cluster is translated onto what remains when it still fits, otherwise each panel is clamped on its own and any dock edge that clamping breaks goes with it. Main minimize may hide/restore visible secondaries (including settings/about/skins) when the preference is on; **always-on-top** (where the platform can honour it) and main-minimize apply to the host window — the host above other apps, not which panel sits on top of which. The taskbar/pager shows Aoide (the host window).
-_Avoid_: tiling WM, snap layouts (OS), tabs; docking settings/about/skins to main/EQ/PL; extra OS windows for docked surfaces; raising a sibling above main; break-threshold undock (retired — never built, and Shift covers the slow drag peel misses)
+Winamp-style edge snapping among main, equalizer and playlist; settings, about and skins never snap. Dragging main moves the cluster, while dragging another panel moves only that panel; on Wayland the cluster travels in its host window and panel docking stays inside it.
+_Avoid_: OS snap layouts, docking settings/about/skins, requiring independent-window docking on native Wayland
 
 **Playlist**:
 An ordered list of playable tracks the user can manage (add, remove, reorder, play from).

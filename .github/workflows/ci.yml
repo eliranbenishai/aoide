@@ -48,7 +48,8 @@ jobs:
             libgl1-mesa-dev libx11-dev libmpv-dev libmpv2 patchelf \
             libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
             libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xkb1 \
-            libxkbcommon-x11-0 libwayland-client0 libwayland-cursor0 libwayland-egl1
+            libxkbcommon-x11-0 libwayland-client0 libwayland-cursor0 libwayland-egl1 \
+            xvfb weston
 
       - name: AppStream metainfo (Linux)
         if: runner.os == 'Linux'
@@ -134,8 +135,50 @@ jobs:
       # release instead.
       - name: Paint budget (Linux)
         if: runner.os == 'Linux'
-        run: QT_QPA_PLATFORM=offscreen ./build/aoide --bench-chrome
         shell: bash
+        run: QT_QPA_PLATFORM=offscreen ./build/aoide --bench-chrome
+
+      - name: Native windows (Linux X11)
+        if: runner.os == 'Linux'
+        timeout-minutes: 2
+        run: xvfb-run -a -s '-screen 0 1440x900x24' env QT_QPA_PLATFORM=xcb build/aoide --smoke-windows
+
+      - name: Bounded window (Linux Wayland)
+        if: runner.os == 'Linux'
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          export XDG_RUNTIME_DIR="$(mktemp -d)"
+          chmod 700 "$XDG_RUNTIME_DIR"
+          weston --backend=headless-backend.so --socket=aoide-test --idle-time=0 \
+            --width=1440 --height=900 --no-config > "$XDG_RUNTIME_DIR/weston.log" 2>&1 &
+          weston_pid=$!
+          trap 'kill "$weston_pid" || true; cat "$XDG_RUNTIME_DIR/weston.log"; rm -rf "$XDG_RUNTIME_DIR"' EXIT
+          for attempt in $(seq 1 50); do
+            test -S "$XDG_RUNTIME_DIR/aoide-test" && break
+            sleep 0.1
+          done
+          test -S "$XDG_RUNTIME_DIR/aoide-test"
+          if ! WAYLAND_DISPLAY=aoide-test QT_QPA_PLATFORM=wayland WAYLAND_DEBUG=client \
+              build/aoide --smoke-windows 2> "$XDG_RUNTIME_DIR/client.log"; then
+            tail -100 "$XDG_RUNTIME_DIR/client.log"
+            exit 1
+          fi
+          # xdg-shell cannot report minimized state. Check the actual request,
+          # while the app checks that remapping preserves panel visibility.
+          grep -q 'xdg_toplevel.*set_minimized' "$XDG_RUNTIME_DIR/client.log"
+          grep 'window smoke:' "$XDG_RUNTIME_DIR/client.log"
+
+      - name: Native windows (macOS)
+        if: runner.os == 'macOS'
+        timeout-minutes: 2
+        run: QT_QPA_PLATFORM=cocoa build/Aoide.app/Contents/MacOS/Aoide --smoke-windows
+
+      - name: Native windows (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        shell: bash
+        run: QT_QPA_PLATFORM=windows build/Release/aoide.exe --smoke-windows
 
       - name: Paint budget (Windows)
         if: runner.os == 'Windows'

@@ -1,0 +1,5 @@
+# Present panels according to desktop capabilities
+
+Accepted 2026-09-12. Replace the virtual-desktop transparent host after a macOS report of an inaccessible giant window. Cocoa, Windows and X11 get panel-sized native windows; Wayland gets a bounded opaque container because standard xdg-shell does not permit arbitrary top-level positioning. Playback, drawing and docking remain shared through `PanelSurfaces`; native layouts use screen coordinates and embedded layouts use container coordinates.
+
+Wayland keeps docking inside the container and delegates whole-window movement to the compositor. This intentionally gives up independent-window docking there. Native window grouping, focus and stacking are managed with the desktop, so the application cannot promise the old single-taskbar-window behavior on every window manager. Shrinking the old transparent host to the panel union was rejected because it retains gaps, masks and cross-display surfaces, while Wayland still cannot reliably move its origin.

@@ -40,7 +40,8 @@ macOS unsets `QT_PLUGIN_PATH`, `DYLD_FRAMEWORK_PATH` and `DYLD_LIBRARY_PATH`.
 That run proves the staged bundle starts offscreen with the Qt, libmpv, icns,
 assets and skins it carries. It does not open a DMG and it does not verify
 Gatekeeper. Pull-request CI does not sign, notarize, wrap a DMG or upload an
-artifact — those steps are release CI, and only macOS has a notary. A failed
+artifact — those steps are release CI, and only macOS has a notary. Window presentation is also exercised on Cocoa and Windows, plus Xvfb/X11 and
+headless Weston on Linux, using an isolated temporary session. A failed
 stage or smoke fails that host the same way a compile or `ctest` failure does;
 `CI passed` exits 1 unless every leg is green.
 
