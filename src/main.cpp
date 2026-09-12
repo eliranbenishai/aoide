@@ -694,9 +694,18 @@ int smokeWindows(aoide::AoideSession& session, HostShell& shell,
   session.setWindowVisible(aoide::WindowId::equalizer, false);
   shell.showMinimized();
   settle();
-  if (!require(shell.isMinimized(), "placement undid minimization")) return 1;
-  if (!require(!pl->isVisible(), "minimization left the playlist visible")) return 1;
-  shell.showNormal();
+  if (shell.embedsPanels()) {
+    if (!require(!pl->isHidden(), "container minimization changed panel visibility")) return 1;
+    // xdg-shell has neither a minimized-state notification nor an unminimize
+    // request. The Wayland CI driver checks set_minimized on the wire. Exercise
+    // a remap here; actual taskbar restore belongs to the compositor.
+    shell.hide();
+    shell.showNormal();
+  } else {
+    if (!require(shell.isMinimized(), "placement undid minimization")) return 1;
+    if (!require(!pl->isVisible(), "minimization left the playlist visible")) return 1;
+    shell.showNormal();
+  }
   settle();
   if (!require(exposed(&shell) && pl->isVisible(), "restore lost the visible playlist")) return 1;
   if (!require(!eq->isVisible(), "restore reopened a closed equalizer")) return 1;

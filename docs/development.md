@@ -215,3 +215,9 @@ A native smoke confirms visible surfaces, geometry and restore behavior. Check
 Dock/taskbar switching, macOS Spaces/Mission Control, cross-monitor movement and
 mixed display scaling interactively before claiming those desktop integrations
 fully validated.
+
+Wayland's xdg-shell does not report minimized state or provide an unminimize
+request. The Weston check verifies the actual `set_minimized` protocol request
+and a subsequent unmap/remap without changing panel visibility. Interactive
+restoration from the compositor's taskbar remains a desktop check; it is not
+inferred from `QWidget::isMinimized()`.

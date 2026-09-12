@@ -159,7 +159,15 @@ jobs:
             sleep 0.1
           done
           test -S "$XDG_RUNTIME_DIR/aoide-test"
-          WAYLAND_DISPLAY=aoide-test QT_QPA_PLATFORM=wayland build/aoide --smoke-windows
+          if ! WAYLAND_DISPLAY=aoide-test QT_QPA_PLATFORM=wayland WAYLAND_DEBUG=client \
+              build/aoide --smoke-windows 2> "$XDG_RUNTIME_DIR/client.log"; then
+            tail -100 "$XDG_RUNTIME_DIR/client.log"
+            exit 1
+          fi
+          # xdg-shell cannot report minimized state. Check the actual request,
+          # while the app checks that remapping preserves panel visibility.
+          grep -q 'xdg_toplevel.*set_minimized' "$XDG_RUNTIME_DIR/client.log"
+          grep 'window smoke:' "$XDG_RUNTIME_DIR/client.log"
 
       - name: Native windows (macOS)
         if: runner.os == 'macOS'

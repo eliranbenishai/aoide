@@ -883,6 +883,10 @@ void AoideSession::extraClosed(WindowId id) {
 }
 
 void AoideSession::mainMinimized(bool minimized) {
+  // Embedded panels disappear with their container. xdg-shell does not report
+  // minimized state, so deriving child visibility from it can lose panels or
+  // reconfigure a window while the compositor is minimizing it.
+  if (shell_ && shell_->embedsPanels()) return;
   if (!settings_.minimizeHidesSecondaries) return;
   layout_.setMainMinimized(minimized);
   if (!minimized) applyAlwaysOnTop();
