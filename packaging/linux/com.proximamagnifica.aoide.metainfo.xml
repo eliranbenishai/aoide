@@ -66,6 +66,20 @@
   <!-- Newest first: out-of-order entries fail validation. tool/version.sh and the
        release workflow check the top version against the VERSION file. -->
   <releases>
+    <release version="1.2.2" date="2026-09-21">
+      <description>
+        <ul>
+          <li>
+            Use the equaliser without interrupting playback — saved curves and
+            preamp settings work when opening tracks or resuming a session.
+          </li>
+          <li>
+            Scroll through saved playlists with the wheel, trackpad or scrollbar
+            — Add and Remove stay accessible when the list fills its pane.
+          </li>
+        </ul>
+      </description>
+    </release>
     <release version="1.2.1" date="2026-09-12">
       <description>
         <ul>
