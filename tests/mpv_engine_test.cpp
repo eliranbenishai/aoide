@@ -9,6 +9,7 @@
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QtTest>
+#include <clocale>
 #include <cmath>
 #include <mpv/client.h>
 
@@ -91,6 +92,12 @@ class MpvEngineTest : public QObject {
   }
 
  private slots:
+  void initTestCase() {
+    // Match application startup: Qt adopts the host locale, while libmpv
+    // requires the C numeric locale even for locales that use a decimal dot.
+    QVERIFY(std::setlocale(LC_NUMERIC, "C") != nullptr);
+  }
+
   void flatEnabledProducesAudio() {
     EqualizerSettings eq;
     eq.enabled = true;
