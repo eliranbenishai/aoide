@@ -1,5 +1,6 @@
 #include "app_icon.h"
 #include "chrome_bodies.h"
+#include "chrome_layout.h"
 #include "chrome_paint.h"
 #include "host_shell_window.h"
 #include "host_window.h"
@@ -123,6 +124,17 @@ int dumpChrome(const QString& dirPath) {
       clamped.playlistTrackCount = golden.playlistTrackCount - 1;
       clamped.playlistTotalMs = golden.playlistTotalMs - 220000;
       if (!shoot(smallest, clamped, dumpName(spec.id) + QStringLiteral("_clamped"))) return 1;
+
+      aoide::SessionView scrolled = clamped;
+      while (scrolled.collection.size() < 40) {
+        aoide::CollectionRowView row;
+        row.name = QStringLiteral("Saved playlist %1").arg(scrolled.collection.size() + 1);
+        row.count = 12;
+        scrolled.collection.push_back(row);
+      }
+      scrolled.collectionScroll = 17;
+      if (!shoot(smallest, scrolled,
+                 dumpName(spec.id) + QStringLiteral("_collection_scrolled"))) return 1;
 
       // The demo list fills both wells. Ticket 15's empty-state copy lives
       // only when there are no tracks and no saved playlists, with the
@@ -618,7 +630,19 @@ int runInvalidateBench(int trackCount, int reps, aoide::AoideSession& session,
   // The floor: whatever the timers cost with nobody touching anything. Every
   // row below is only worth reading against this one.
   measure("idle", [](int) { pumpFor(8); });
-  measure("scroll", [&](int) { session.handleWheel(aoide::WindowId::playlist, -120); });
+  QPoint trackWheelPosition;
+  const auto scrollView = session.view();
+  for (HostWindow* w : windows) {
+    if (w->id() != aoide::WindowId::playlist) continue;
+    const qreal zoom = session.zoomPercent() / 100.0;
+    const QRectF body = aoide::panelBody(QSize(qRound(w->width() / zoom), qRound(w->height() / zoom)));
+    trackWheelPosition = aoide::playlistListRowRect(aoide::playlistTrackInner(
+        aoide::playlistTracksPane(body, scrollView.collectionCollapsed ? 0 : scrollView.collectionWidth)))
+        .center().toPoint();
+  }
+  measure("scroll", [&](int) {
+    session.handleWheel(aoide::WindowId::playlist, -120, trackWheelPosition);
+  });
   measure("select", [&](int i) {
     aoide::ChromeHit hit;
     hit.kind = aoide::ChromeHit::Kind::plTrackRow;
@@ -895,6 +919,156 @@ int smokePlaylistCreate() {
   return okay ? 0 : 1;
 }
 
+int smokePlaylistScroll() {
+  QTemporaryDir temporary;
+  if (!temporary.isValid()) return 1;
+  aoide::SupportStore store(temporary.filePath(QStringLiteral("support")));
+  aoide::AoideSettings settings;
+  settings.resumeLastSession = false;
+  settings.zoomPercent = 50;
+  settings.equalizer.visible = false;
+  settings.playlist.top = 400;
+  settings.playlist.width = 1073;
+  settings.playlist.height = 400;
+  QVector<aoide::SavedPlaylist> entries;
+  for (int i = 0; i < 60; ++i) {
+    aoide::SavedPlaylist entry;
+    entry.name = QStringLiteral("Playlist %1").arg(i, 2, 10, QLatin1Char('0'));
+    entry.path = temporary.filePath(entry.name + QStringLiteral(".m3u"));
+    QFile file(entry.path);
+    if (!file.open(QIODevice::WriteOnly) || file.write("#EXTM3U\n") != 8) return 1;
+    entries.push_back(entry);
+  }
+  aoide::AlteredPlaylist kept;
+  for (int i = 0; i < 80; ++i) {
+    aoide::Track track;
+    track.path = temporary.filePath(QStringLiteral("track-%1.wav").arg(i));
+    track.title = QStringLiteral("Track %1").arg(i);
+    kept.tracks.push_back(track);
+  }
+  if (!store.writeSettings(settings) || !store.writeCollectionIndex(entries) ||
+      !store.writeAltered(kept)) return 1;
+
+  HostWindow panel(aoide::windowSpecs()[aoide::panelIndex(aoide::WindowId::playlist)]);
+  aoide::AoideSession session(store.dir());
+  aoide::PanelWindows panels;
+  panels.set(aoide::WindowId::playlist, &panel);
+  session.setWindows(panels);
+  session.bootstrap({});
+  const auto id = aoide::WindowId::playlist;
+  using Kind = aoide::ChromeHit::Kind;
+  auto logicalSize = [&] {
+    const qreal zoom = session.zoomPercent() / 100;
+    return QSize(qRound(panel.width() / zoom), qRound(panel.height() / zoom));
+  };
+  auto collectionWell = [&] {
+    return aoide::playlistCollectionWell(aoide::panelBody(logicalSize()),
+                                          session.view().collectionWidth);
+  };
+  auto tracksWell = [&] {
+    const auto view = session.view();
+    return aoide::playlistListRowRect(aoide::playlistTrackInner(aoide::playlistTracksPane(
+        aoide::panelBody(logicalSize()), view.collectionCollapsed ? 0 : view.collectionWidth)));
+  };
+  auto check = [&](bool condition, const char* detail) {
+    if (!condition) {
+      const auto view = session.view();
+      std::fprintf(stderr, "playlist-scroll smoke: FAILED %s; collection=%d tracks=%d\n",
+                   detail, view.collectionScroll, view.trackScroll);
+    }
+    return condition;
+  };
+  auto wheel = [&](int delta, const QPoint& point, int count = 1) {
+    for (int i = 0; i < count; ++i) session.handleWheel(id, delta, point);
+  };
+  auto lastRowHit = [&] {
+    const QRectF well = collectionWell();
+    const int visible = aoide::playlistCollectionVisibleRows(well.height());
+    const QPoint point(qRound(well.left() + 20),
+                       qRound(well.top() + aoide::kPlaylistCollectionRowPadTop +
+                              (visible - 0.5) * aoide::kPlaylistCollectionRowStride));
+    return aoide::hitTest(id, logicalSize(), point, session.view());
+  };
+  if (!check(session.view().collection.size() == 60 && session.view().tracks.size() == 80 &&
+             !session.view().playing, "temporary fixture")) return 1;
+  wheel(-120, collectionWell().center().toPoint());
+  if (!check(session.view().collectionScroll == 1 && session.view().trackScroll == 0,
+             "collection wheel routes only to saved playlists")) return 1;
+  wheel(-120, tracksWell().center().toPoint());
+  if (!check(session.view().collectionScroll == 1 && session.view().trackScroll == 1,
+             "track wheel routes only to tracks")) return 1;
+
+  const QPoint footer(qRound(collectionWell().left() + 15),
+                      qRound(collectionWell().bottom() + aoide::kPlaylistCollectionBtnGap + 12));
+  wheel(-120, footer);
+  wheel(0, collectionWell().center().toPoint());
+  if (!check(session.view().collectionScroll == 1 && session.view().trackScroll == 1 &&
+             aoide::hitTest(id, logicalSize(), footer, session.view()).kind == Kind::plAddCollection,
+             "footer remains accessible and does not scroll")) return 1;
+  wheel(120, collectionWell().center().toPoint(), 100);
+  if (!check(session.view().collectionScroll == 0, "collection stops at top")) return 1;
+  wheel(-120, collectionWell().center().toPoint(), 100);
+  const int bottom = session.view().collectionScroll;
+  wheel(-120, collectionWell().center().toPoint());
+  if (!check(bottom > 0 && session.view().collectionScroll == bottom &&
+             lastRowHit().kind == Kind::plCollectionRow && lastRowHit().index == 59,
+             "collection stops with last playlist visible")) return 1;
+
+  wheel(120, collectionWell().center().toPoint(), 100);
+  const QRectF scrollTrack = aoide::playlistCollectionScrollTrack(collectionWell());
+  const QPoint rail = scrollTrack.center().toPoint();
+  const auto railHit = aoide::hitTest(id, logicalSize(), rail, session.view());
+  session.handleHit(id, railHit, Qt::NoModifier, rail);
+  session.handleRelease(id);
+  if (!check(railHit.kind == Kind::plCollectionScroll && session.view().collectionScroll > 0 &&
+             session.view().collectionScroll < bottom && session.view().trackScroll == 1,
+             "clicking scrollbar rail scrolls saved playlists")) return 1;
+  wheel(120, collectionWell().center().toPoint(), 100);
+  const QRectF thumb = aoide::playlistCollectionThumb(scrollTrack, 60, 0, collectionWell().height());
+  const QPoint grab = thumb.center().toPoint();
+  const auto scrollHit = aoide::hitTest(id, logicalSize(), grab, session.view());
+  if (!check(scrollHit.kind == Kind::plCollectionScroll, "scrollbar can be grabbed")) return 1;
+  session.handleHit(id, scrollHit, Qt::NoModifier, grab);
+  if (!check(session.view().collectionScroll == 0, "grabbing thumb keeps its position")) return 1;
+  session.handleDrag(id, scrollHit, QPoint(grab.x(), qRound(scrollTrack.bottom())));
+  session.handleRelease(id);
+  if (!check(session.view().collectionScroll == bottom && session.view().trackScroll == 1 &&
+             lastRowHit().index == 59, "scrollbar drag reaches last playlist")) return 1;
+
+  aoide::ChromeHit collapse;
+  collapse.kind = Kind::plCollapse;
+  session.handleHit(id, collapse, Qt::NoModifier, {});
+  wheel(-120, tracksWell().center().toPoint());
+  if (!check(session.view().collectionCollapsed && session.view().collectionScroll == bottom &&
+             session.view().trackScroll == 2, "collapsed playlist wheel reaches tracks")) return 1;
+  session.handleHit(id, collapse, Qt::NoModifier, {});
+
+  const auto last = lastRowHit();
+  session.handleHit(id, last, Qt::ControlModifier, last.rect.center());
+  const QPoint removePoint(footer.x() + 3 * 36, footer.y());
+  const auto remove = aoide::hitTest(id, logicalSize(), removePoint, session.view());
+  if (!check(remove.kind == Kind::plRemoveCollection, "remove button remains accessible")) return 1;
+  session.handleHit(id, remove, Qt::NoModifier, removePoint);
+  if (!check(session.view().collection.size() == 59 &&
+             session.view().collectionScroll == bottom - 1 && lastRowHit().index == 58,
+             "removing bottom playlist clamps scrolling")) return 1;
+
+  const int oldHeight = logicalSize().height();
+  const qreal zoom = session.zoomPercent() / 100;
+  session.playlistResized(QRect(panel.nativeTopLeft(),
+                               QSize(panel.width(), qRound((oldHeight + 104) * zoom))));
+  if (!check(logicalSize().height() > oldHeight &&
+             session.view().collectionScroll < bottom - 1 && lastRowHit().index == 58,
+             "larger viewport clamps scrolling and keeps last playlist reachable")) return 1;
+  const int resizedBottom = session.view().collectionScroll;
+  wheel(120, collectionWell().center().toPoint());
+  if (!check(session.view().collectionScroll == resizedBottom - 1,
+             "wheel responds immediately after viewport clamp")) return 1;
+  session.detachWindows();
+  std::fprintf(stderr, "playlist-scroll smoke: passed\n");
+  return 0;
+}
+
 int smokeFileOpen(AoideApplication& app) {
   QTemporaryDir temporary;
   if (!temporary.isValid()) return 1;
@@ -1037,6 +1211,10 @@ int main(int argc, char** argv) {
     qputenv("AOIDE_AUTO_QUIT", "1");
     return smokePlaylistCreate();
   }
+  if (args.contains(QStringLiteral("--smoke-playlist-scroll"))) {
+    qputenv("AOIDE_AUTO_QUIT", "1");
+    return smokePlaylistScroll();
+  }
   if (args.contains(QStringLiteral("--smoke-file-open"))) {
     qputenv("AOIDE_AUTO_QUIT", "1");
     return smokeFileOpen(app);
@@ -1144,7 +1322,9 @@ int main(int argc, char** argv) {
     QObject::connect(window, &HostWindow::chromeReleased, mainWindow,
                      [&, window]() { session.handleRelease(window->id()); });
     QObject::connect(window, &HostWindow::wheelScrolled, mainWindow,
-                     [&, window](int d) { session.handleWheel(window->id(), d); });
+                     [&, window](int d, QPoint logical) {
+                       session.handleWheel(window->id(), d, logical);
+                     });
     QObject::connect(window, &HostWindow::nativeMoved, mainWindow,
                      [&, window](QPoint pos) { session.windowMoved(window->id(), pos, false); });
     QObject::connect(window, &HostWindow::titleDragStarted, mainWindow,

@@ -91,6 +91,7 @@ struct SessionView {
   /// reads this so that state is PLAYING rather than STOPPED.
   bool hasCurrentTrack = false;
   int trackScroll = 0;
+  int collectionScroll = 0;
   QVector<CollectionRowView> collection;
   QString collectionSelected;
   qreal collectionWidth = 240;

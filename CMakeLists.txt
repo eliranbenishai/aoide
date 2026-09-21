@@ -588,8 +588,9 @@ add_test(NAME font_metrics COMMAND font_metrics_test)
 add_test(NAME native_window_session COMMAND aoide --smoke-windows)
 add_test(NAME embedded_window_session COMMAND aoide --smoke-embedded-windows)
 add_test(NAME playlist_create_session COMMAND aoide --smoke-playlist-create)
+add_test(NAME playlist_scroll_session COMMAND aoide --smoke-playlist-scroll)
 set_tests_properties(native_window_session embedded_window_session
-  playlist_create_session
+  playlist_create_session playlist_scroll_session
   PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 if(AOIDE_HAVE_MPV)
   add_test(NAME file_open_session COMMAND aoide --smoke-file-open)

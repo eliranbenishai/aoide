@@ -65,6 +65,7 @@ ChromeCommandOutcome ChromeCommandRouter::handle(WindowId id, const ChromeHit& h
     case K::seek:
     case K::eqPreamp:
     case K::eqBand:
+    case K::plCollectionScroll:
       out.handled = true;
       out.beginSlider = true;
       out.sliderKind = hit.kind;

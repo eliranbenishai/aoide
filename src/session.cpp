@@ -796,6 +796,10 @@ SessionView AoideSession::view() const {
     row.disabled = collection_.disabledPaths().contains(e.path);
     v.collection.push_back(row);
   }
+  const QRectF collectionWell = playlistCollectionWell(
+      panelBody(layout_.docking().logicalSize(WindowId::playlist).toSize()), v.collectionWidth);
+  v.collectionScroll = playlistCollectionClampedScroll(
+      collectionScroll_, int(v.collection.size()), collectionWell.height());
   return v;
 }
 
@@ -1130,7 +1134,7 @@ void AoideSession::handleRelease(WindowId id) {
   }
 }
 
-void AoideSession::handleWheel(WindowId id, int delta) {
+void AoideSession::handleWheel(WindowId id, int delta, QPoint logical) {
   // A zero delta used to scroll down one row; Mac trackpads send that with
   // a non-zero pixelDelta that the window now consumes.
   if (delta == 0) return;
@@ -1145,6 +1149,21 @@ void AoideSession::handleWheel(WindowId id, int delta) {
   }
   if (id != WindowId::playlist) return;
   const int step = delta > 0 ? -1 : 1;
+  const QRectF body = panelBody(layout_.docking().logicalSize(id).toSize());
+  if (!settings_.playlistCollectionCollapsed) {
+    const QRectF well = playlistCollectionWell(body, settings_.playlistCollectionWidth);
+    if (well.contains(logical)) {
+      const int count = int(collection_.entries().size());
+      collectionScroll_ = playlistCollectionClampedScroll(
+          playlistCollectionClampedScroll(collectionScroll_, count, well.height()) + step,
+          count, well.height());
+      refreshChrome();
+      return;
+    }
+  }
+  const qreal collectionW = settings_.playlistCollectionCollapsed ? 0 : settings_.playlistCollectionWidth;
+  const QRectF trackList = playlistListRowRect(playlistTrackInner(playlistTracksPane(body, collectionW)));
+  if (!trackList.contains(logical)) return;
   const qreal plH = layout_.layout().playlist.height.value_or(kPlaylistDefault.height());
   const int maxScroll =
       playlistListMaxScroll(int(playlist_.tracks().size()), playlistListWellHeight(plH));
@@ -1185,6 +1204,18 @@ void AoideSession::handleDrag(WindowId id, ChromeHit hit, QPoint logical) {
         std::clamp(double(x), double(kPlaylistCollectionMinWidth), 480.0);
     schedulePersist();
     refreshChrome();
+  } else if (hit.kind == ChromeHit::Kind::plCollectionScroll) {
+    const QRectF well = playlistCollectionWell(
+        panelBody(layout_.docking().logicalSize(WindowId::playlist).toSize()),
+        settings_.playlistCollectionWidth);
+    const int count = int(collection_.entries().size());
+    const QRectF track = playlistCollectionScrollTrack(well);
+    const QRectF thumb = playlistCollectionThumb(track, count, collectionScroll_, well.height());
+    const qreal travel = track.height() - thumb.height();
+    const qreal t = travel <= 0 ? 0 : std::clamp(
+        (logical.y() - track.top() - collectionScrollGrabOffset_) / travel, qreal(0), qreal(1));
+    collectionScroll_ = int(qRound(t * playlistCollectionMaxScroll(count, well.height())));
+    refreshChrome();
   } else if (sliderKind_ == ChromeHit::Kind::settingsSkinScroll ||
              hit.kind == ChromeHit::Kind::settingsSkinScroll) {
     const QRectF viewport = skinsListViewport(skinsPane(kSkins));
@@ -1216,6 +1247,15 @@ void AoideSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
   if (out.beginSlider) {
     sliderKind_ = out.sliderKind;
     sliderIndex_ = out.sliderIndex;
+    if (sliderKind_ == ChromeHit::Kind::plCollectionScroll) {
+      const QRectF well = playlistCollectionWell(
+          panelBody(layout_.docking().logicalSize(WindowId::playlist).toSize()),
+          settings_.playlistCollectionWidth);
+      const QRectF thumb = playlistCollectionThumb(playlistCollectionScrollTrack(well),
+          int(collection_.entries().size()), collectionScroll_, well.height());
+      collectionScrollGrabOffset_ = thumb.contains(logical) ? logical.y() - thumb.top()
+                                                           : thumb.height() / 2;
+    }
     handleDrag(id, hit, sliderPressPoint(hit.rect, logical));
   }
   if (out.toggleVisible) {

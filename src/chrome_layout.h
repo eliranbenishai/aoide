@@ -822,6 +822,8 @@ inline qreal playlistEmptyWellTextWidth(qreal collectionW) {
 inline constexpr qreal kPlaylistCollectionHeaderH = 30;
 inline constexpr qreal kPlaylistCollectionBtnGap = 8;
 inline constexpr qreal kPlaylistCollectionBtnH = 24;
+inline constexpr qreal kPlaylistCollectionRowPadTop = 4;
+inline constexpr qreal kPlaylistCollectionRowStride = 26;
 
 inline QRectF playlistCollectionColumn(const QRectF& body, qreal collectionW) {
   return QRectF(body.left(), body.top(), collectionW, body.height());
@@ -843,6 +845,38 @@ inline QRectF playlistCollectionWell(const QRectF& colInner) {
 
 inline QRectF playlistCollectionWell(const QRectF& body, qreal collectionW) {
   return playlistCollectionWell(playlistCollectionInner(playlistCollectionColumn(body, collectionW)));
+}
+
+inline int playlistCollectionVisibleRows(qreal wellH) {
+  return std::max(0, int((wellH - kPlaylistCollectionRowPadTop) / kPlaylistCollectionRowStride));
+}
+
+inline int playlistCollectionMaxScroll(int count, qreal wellH) {
+  return std::max(0, count - playlistCollectionVisibleRows(wellH));
+}
+
+inline int playlistCollectionClampedScroll(int scrollRows, int count, qreal wellH) {
+  return std::clamp(scrollRows, 0, playlistCollectionMaxScroll(count, wellH));
+}
+
+inline QRectF playlistCollectionRowsRect(const QRectF& well, int count) {
+  return playlistCollectionMaxScroll(count, well.height()) > 0
+             ? well.adjusted(0, 0, -kPlaylistScrollW - 4, 0) : well;
+}
+
+inline QRectF playlistCollectionScrollTrack(const QRectF& well) {
+  return QRectF(well.right() - kPlaylistScrollW - 2, well.top() + 2,
+                kPlaylistScrollW, std::max(qreal(0), well.height() - 4));
+}
+
+inline QRectF playlistCollectionThumb(const QRectF& track, int count, int scrollRows, qreal wellH) {
+  const qreal content = std::max(qreal(1), count * kPlaylistCollectionRowStride);
+  const qreal thumbH = std::min(track.height(),
+                                std::max(qreal(18), track.height() * wellH / content));
+  const int maxScroll = playlistCollectionMaxScroll(count, wellH);
+  const qreal t = maxScroll > 0 ? qreal(std::clamp(scrollRows, 0, maxScroll)) / maxScroll : 0;
+  return QRectF(track.left() + 1, track.top() + t * (track.height() - thumbH),
+                track.width() - 2, thumbH);
 }
 
 inline QRectF playlistTrackInner(const QRectF& tracksPane) {

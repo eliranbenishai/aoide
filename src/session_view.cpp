@@ -60,7 +60,7 @@ bool paintsSame(WindowId id, const SessionView& a, const SessionView& b) {
                bitrate, sampleRate, channels, formatChip, volume, muted, forceMono, playing,
                paused, shuffle, repeat, zoomPercent, zoomInEnabled, zoomOutEnabled, spectrum,
                spectrumPeaks, eq, tracks, selectedIndices, playingIndex, hasCurrentTrack,
-               trackScroll, collection,
+               trackScroll, collectionScroll, collection,
                collectionSelected, collectionWidth, collectionCollapsed, playlistName,
                playlistAltered, playlistTotalMs, playlistTrackCount, playlistRefreshEnabled,
                playlistRefreshing, settingsTab, resumeLastSession, confirmBeforeQuit, scrollTitle,
@@ -126,6 +126,7 @@ bool paintsSame(WindowId id, const SessionView& a, const SessionView& b) {
       // rows are one per playlist file, so comparing them outright is cheap;
       // it is `tracks` below that is long, and no counter speaks for that.
       return collection == b.collection && collectionWidth == b.collectionWidth &&
+             collectionScroll == b.collectionScroll &&
              collectionCollapsed == b.collectionCollapsed && tracks == b.tracks &&
              trackScroll == b.trackScroll && playingIndex == b.playingIndex &&
              hasCurrentTrack == b.hasCurrentTrack &&

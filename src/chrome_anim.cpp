@@ -21,6 +21,7 @@ bool takesPointerFeedback(ChromeHit::Kind kind) {
     case ChromeHit::Kind::plResize:
     case ChromeHit::Kind::plTrackRow:
     case ChromeHit::Kind::plCollectionRow:
+    case ChromeHit::Kind::plCollectionScroll:
     case ChromeHit::Kind::settingsSkinScroll:
     // Bare text and readouts: no face to light.
     case ChromeHit::Kind::timeToggle:

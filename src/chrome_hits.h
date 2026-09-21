@@ -43,6 +43,7 @@ struct ChromeHit {
     eqBand,
     plCollapse,
     plCollectionRow,
+    plCollectionScroll,
     plAddCollection,
     plCreate,
     plRename,

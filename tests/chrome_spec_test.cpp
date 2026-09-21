@@ -29,6 +29,10 @@ class ChromeSpecTest : public QObject {
   void skinsErrorStripClearsTheListAndTheScrollbar();
   void skinsFooterButtonsSitOnThePane();
   void playlistHidesScrollbarWhenRowsFit();
+  void playlistCollectionScrollsLastRowIntoView();
+  void playlistCollectionKeepsItsScrollbarInsideTheWellAndOutsideRows();
+  void playlistCollectionThumbStaysReadableAndTracksBothEnds();
+  void playlistCollectionScrollClampsAfterResizeOrRemoval();
   void collapsedCollectionKeepsTheColumnItsReopenTabPaintsIn();
   void playlistStripKeepsGapBeforeLengthWell();
   void playlistStripRefreshSitsRightOfTotal();
@@ -338,6 +342,76 @@ void ChromeSpecTest::playlistHidesScrollbarWhenRowsFit() {
            listRow.width() - aoide::kPlaylistScrollGap - aoide::kPlaylistScrollW);
 }
 
+void ChromeSpecTest::playlistCollectionScrollsLastRowIntoView() {
+  for (const QSize size : {aoide::kPlaylistDefault, aoide::kPlaylistMinWithCollection}) {
+    const QRectF well = aoide::playlistCollectionWell(aoide::panelBody(size), 240);
+    const int count = 100;
+    const int scroll = aoide::playlistCollectionMaxScroll(count, well.height());
+    QVERIFY(scroll > 0);
+    const qreal lastTop = well.top() + aoide::kPlaylistCollectionRowPadTop +
+                          (count - 1 - scroll) * aoide::kPlaylistCollectionRowStride;
+    const QRectF lastRow(well.left(), lastTop, well.width(),
+                         aoide::kPlaylistCollectionRowStride);
+    QVERIFY(well.contains(lastRow));
+    QVERIFY(lastRow.bottom() + aoide::kPlaylistCollectionRowStride > well.bottom());
+  }
+}
+
+void ChromeSpecTest::playlistCollectionKeepsItsScrollbarInsideTheWellAndOutsideRows() {
+  const QRectF well =
+      aoide::playlistCollectionWell(aoide::panelBody(aoide::kPlaylistDefault), 240);
+  const int visible = aoide::playlistCollectionVisibleRows(well.height());
+  for (const int count : {0, 1, visible}) {
+    QCOMPARE(aoide::playlistCollectionMaxScroll(count, well.height()), 0);
+    QCOMPARE(aoide::playlistCollectionRowsRect(well, count), well);
+  }
+
+  const QRectF rows = aoide::playlistCollectionRowsRect(well, visible + 1);
+  const QRectF rail = aoide::playlistCollectionScrollTrack(well);
+  QCOMPARE(aoide::playlistCollectionMaxScroll(visible + 1, well.height()), 1);
+  QCOMPARE(rows.topLeft(), well.topLeft());
+  QCOMPARE(rows.height(), well.height());
+  QVERIFY(rows.width() < well.width());
+  QVERIFY(well.contains(rows));
+  QVERIFY(well.contains(rail));
+  QVERIFY(rows.right() < rail.left());
+  QVERIFY(!rows.intersects(rail));
+}
+
+void ChromeSpecTest::playlistCollectionThumbStaysReadableAndTracksBothEnds() {
+  const QRectF well =
+      aoide::playlistCollectionWell(aoide::panelBody(aoide::kPlaylistDefault), 240);
+  const QRectF rail = aoide::playlistCollectionScrollTrack(well);
+  const int count = 10000;
+  const int maxScroll = aoide::playlistCollectionMaxScroll(count, well.height());
+  const QRectF first = aoide::playlistCollectionThumb(rail, count, 0, well.height());
+  const QRectF last = aoide::playlistCollectionThumb(rail, count, maxScroll, well.height());
+  QVERIFY(first.height() >= 18);
+  QVERIFY(rail.contains(first));
+  QVERIFY(rail.contains(last));
+  QCOMPARE(first.top(), rail.top());
+  QCOMPARE(last.bottom(), rail.bottom());
+  QCOMPARE(aoide::playlistCollectionThumb(rail, count, -1, well.height()), first);
+  QCOMPARE(aoide::playlistCollectionThumb(rail, count, maxScroll + 1, well.height()), last);
+}
+
+void ChromeSpecTest::playlistCollectionScrollClampsAfterResizeOrRemoval() {
+  const int count = 100;
+  const qreal smallWellH =
+      aoide::playlistCollectionWell(aoide::panelBody(aoide::kPlaylistMinWithCollection), 240)
+          .height();
+  const qreal largeWellH =
+      aoide::playlistCollectionWell(aoide::panelBody(aoide::kPlaylistDefault), 240).height();
+  const int scroll = aoide::playlistCollectionMaxScroll(count, smallWellH);
+  const int resizedMax = aoide::playlistCollectionMaxScroll(count, largeWellH);
+  QVERIFY(resizedMax < scroll);
+  QCOMPARE(aoide::playlistCollectionClampedScroll(scroll, count, largeWellH), resizedMax);
+  QCOMPARE(aoide::playlistCollectionClampedScroll(scroll, 1, largeWellH), 0);
+  QCOMPARE(aoide::playlistCollectionClampedScroll(scroll, 0, largeWellH), 0);
+  QCOMPARE(aoide::playlistCollectionClampedScroll(-1, count, smallWellH), 0);
+  QCOMPARE(aoide::playlistCollectionClampedScroll(2, count, smallWellH), 2);
+}
+
 // Collapsed, the tab is the whole of the collection: it is the only thing
 // painted down that edge and the only thing that reopens the pane. Track rows
 // reaching into its column are rows the reopen region takes the left edge off,
@@ -528,6 +602,7 @@ void ChromeSpecTest::pointerFeedbackSkipsSlidersAndListRows() {
   // Hovering these would rebuild a whole panel chassis per mouse move.
   QVERIFY(!aoide::takesPointerFeedback(K::plTrackRow));
   QVERIFY(!aoide::takesPointerFeedback(K::plCollectionRow));
+  QVERIFY(!aoide::takesPointerFeedback(K::plCollectionScroll));
   QVERIFY(!aoide::takesPointerFeedback(K::settingsSkinScroll));
   QVERIFY(aoide::takesPointerFeedback(K::settingsSkinRow));
   QVERIFY(aoide::takesPointerFeedback(K::settingsSkinRemove));

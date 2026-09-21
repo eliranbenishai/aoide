@@ -124,7 +124,7 @@ class AoideSession : public QObject, public PanelSurfaces {
   void handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical);
   void handleDrag(WindowId id, ChromeHit hit, QPoint logical);
   void handleRelease(WindowId id);
-  void handleWheel(WindowId id, int delta);
+  void handleWheel(WindowId id, int delta, QPoint logical);
   void setZoomPercent(qreal percent);
   void setWindowVisible(WindowId id, bool visible);
   void setShaded(WindowId id, bool shaded);
@@ -249,6 +249,8 @@ class AoideSession : public QObject, public PanelSurfaces {
   std::unique_ptr<MainOnTopGuard> mainOnTop_;
   int settingsTab_ = 0;
   int trackScroll_ = 0;
+  int collectionScroll_ = 0;
+  qreal collectionScrollGrabOffset_ = 0;
   ChromeHit::Kind sliderKind_ = ChromeHit::Kind::none;
   int sliderIndex_ = -1;
   QPoint dragOrigin_;

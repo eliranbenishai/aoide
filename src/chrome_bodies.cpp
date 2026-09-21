@@ -561,17 +561,26 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
               T().glyphInk);
 
   const QRectF colWell = playlistCollectionWell(colInner);
+  const int collectionCount = int(lists.size());
+  const QRectF collectionRows = playlistCollectionRowsRect(colWell, collectionCount);
+  const int collectionScroll =
+      playlistCollectionClampedScroll(view.collectionScroll, collectionCount, colWell.height());
   drawScreenWell(p, colWell);
   p.save();
   QPainterPath colClip;
   const qreal colR = T().surfaceRadius(colWell);
   colClip.addRoundedRect(colWell, colR, colR);
-  p.setClipPath(colClip);
+  p.setClipPath(colClip, Qt::IntersectClip);
+  p.setClipRect(collectionRows, Qt::IntersectClip);
   if (lists.isEmpty()) {
     paintEmptyWellCopy(p, colWell, collectionEmptyCopy(), 15);
   }
-  for (int i = 0; i < lists.size(); ++i) {
-    QRectF row(colWell.left(), colWell.top() + 4 + i * 26, colWell.width(), 26);
+  const int collectionVisible = playlistCollectionVisibleRows(colWell.height()) + 1;
+  for (int vis = 0; vis < collectionVisible && collectionScroll + vis < collectionCount; ++vis) {
+    const int i = collectionScroll + vis;
+    const QRectF row(collectionRows.left(), collectionRows.top() + kPlaylistCollectionRowPadTop +
+                                               vis * kPlaylistCollectionRowStride,
+                     collectionRows.width(), kPlaylistCollectionRowStride);
     if (lists[i].selected) {
       QLinearGradient g(row.topLeft(), row.bottomLeft());
       g.setColorAt(0, withAlpha(T().phos, 33));
@@ -588,6 +597,12 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   }
   p.restore();
   drawScreenOverlay(p, colWell);
+  if (playlistCollectionMaxScroll(collectionCount, colWell.height()) > 0) {
+    const QRectF scroll = playlistCollectionScrollTrack(colWell);
+    const QRectF thumb = playlistCollectionThumb(scroll, collectionCount, collectionScroll,
+                                                 colWell.height());
+    drawScrollbar(p, scroll, thumb.top() - scroll.top(), thumb.height());
+  }
 
   qreal cx = colInner.left();
   const qreal cy = colInner.bottom() - 24;

@@ -71,7 +71,7 @@ class HostWindow : public QWidget {
   void chromePressed(aoide::ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical);
   void chromeDragged(aoide::ChromeHit hit, QPoint logical);
   void chromeReleased();
-  void wheelScrolled(int delta);
+  void wheelScrolled(int delta, QPoint logical);
   void nativeMoved(QPoint pos);
   void nativeResized(QRect nativeRect);
   void filesDropped(QStringList paths);
@@ -150,6 +150,7 @@ class HostWindow : public QWidget {
   QPoint playlistResizePress_;
   bool grabbedPointer_ = false;
   int wheelPixelCarry_ = 0;
+  int collectionWheelPixelCarry_ = 0;
   QPoint grabOffset_;
   aoide::ChromeHit dragHit_;
   aoide::ChromePhases phases_;

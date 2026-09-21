@@ -23,6 +23,7 @@ class ChromeCommandTest : public QObject {
   void eqBandPressRemembersWhichBand();
   void removingATrackMarksThePlaylistAlteredAndDoesNotPersistSettings();
   void collapsingTheCollectionPersistsAndAsksForARefresh();
+  void playlistCollectionScrollbarBeginsASliderWithoutPersisting();
   void togglingElapsedTimePersistsAndAsksForARefresh();
   void monoPersistsAndDoesNotMarkThePlaylistAltered();
   void skinsAddButtonAsksForTheInstallMenu();
@@ -146,6 +147,18 @@ void ChromeCommandTest::collapsingTheCollectionPersistsAndAsksForARefresh() {
   QVERIFY(f.settings.playlistCollectionCollapsed);
   QVERIFY(out.persist);
   QVERIFY(out.refreshChrome);
+  QVERIFY(!f.playlist.altered());
+}
+
+void ChromeCommandTest::playlistCollectionScrollbarBeginsASliderWithoutPersisting() {
+  Fixture f;
+  const aoide::ChromeCommandOutcome out = f.router().handle(
+      aoide::WindowId::playlist, hit(aoide::ChromeHit::Kind::plCollectionScroll), Qt::NoModifier,
+      {});
+  QVERIFY(out.handled);
+  QVERIFY(out.beginSlider);
+  QCOMPARE(out.sliderKind, aoide::ChromeHit::Kind::plCollectionScroll);
+  QVERIFY(!out.persist);
   QVERIFY(!f.playlist.altered());
 }
 

@@ -196,20 +196,30 @@ ChromeHit hitPlaylist(QSize logical, QPoint pos, const SessionView& view) {
       return h;
     }
   } else {
-    const QRectF collection(body.left(), body.top(), collectionW, body.height());
-    const QRectF colInner = collection.adjusted(12, 12, -6, -12);
+    const QRectF collection = playlistCollectionColumn(body, collectionW);
+    const QRectF colInner = playlistCollectionInner(collection);
     const QRect collapse(int(colInner.right() - 24), int(colInner.top()), 24, 20);
     if (auto h = hitIf(collapse, pos, ChromeHit::Kind::plCollapse); h.kind != ChromeHit::Kind::none) {
       return h;
     }
-    const QRectF colWell(colInner.left(), colInner.top() + 30, colInner.width(),
-                         colInner.height() - 30 - 8 - 24);
+    const QRectF colWell = playlistCollectionWell(colInner);
     const int n = int(view.collection.size());
-    for (int i = 0; i < n; ++i) {
-      const QRect row(int(colWell.left()), int(colWell.top() + 4 + i * 26), int(colWell.width()), 26);
-      if (auto h = hitIf(row, pos, ChromeHit::Kind::plCollectionRow, i);
-          h.kind != ChromeHit::Kind::none) {
-        return h;
+    const QRectF rowsRect = playlistCollectionRowsRect(colWell, n);
+    if (playlistCollectionMaxScroll(n, colWell.height()) > 0) {
+      if (auto h = hitIf(toHitRect(playlistCollectionScrollTrack(colWell)), pos,
+                         ChromeHit::Kind::plCollectionScroll);
+          h.kind != ChromeHit::Kind::none) return h;
+    }
+    if (rowsRect.contains(pos)) {
+      const int first = playlistCollectionClampedScroll(view.collectionScroll, n, colWell.height());
+      const int visible = playlistCollectionVisibleRows(colWell.height()) + 1;
+      for (int i = 0; i < visible && first + i < n; ++i) {
+        const QRectF row(rowsRect.left(), rowsRect.top() + kPlaylistCollectionRowPadTop +
+                                            i * kPlaylistCollectionRowStride,
+                         rowsRect.width(), kPlaylistCollectionRowStride);
+        if (auto h = hitIf(toHitRect(row.intersected(rowsRect)), pos,
+                           ChromeHit::Kind::plCollectionRow, first + i);
+            h.kind != ChromeHit::Kind::none) return h;
       }
     }
     qreal cx = colInner.left();

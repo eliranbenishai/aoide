@@ -77,6 +77,10 @@ class HostWindowMoveTest : public QObject {
   void skinsErrorStaysOnTheSkinsStrip();
   void eqCurveWellIgnoresPreamp();
   void wordmarkKeepsBrandFaceWhenChromeFontChanges();
+  void overflowingCollectionKeepsItsToolbarVisibleAndClickable();
+  void collectionScrollbarAndRowsStayWithinTheirWell();
+  void scrolledCollectionClicksUseTheVisiblePlaylistIndex();
+  void wheelScrollCarriesLogicalPositionAtEveryZoom();
   void collectionRowSingleClickIsDeferredUntilTheDoubleClickInterval();
   void collectionRowDoubleClickRenamesAndNeverLoads();
   void collectionRowCtrlClickSelectsImmediately();
@@ -897,6 +901,7 @@ std::vector<FieldChange> everyFieldOfTheSnapshot() {
       {"hasCurrentTrack", "playlist",
        [](aoide::SessionView& v) { v.hasCurrentTrack = !v.hasCurrentTrack; }},
       {"trackScroll", "playlist", [](aoide::SessionView& v) { v.trackScroll = 3; }},
+      {"collectionScroll", "playlist", [](aoide::SessionView& v) { v.collectionScroll = 3; }},
       {"collection", "playlist", [](aoide::SessionView& v) { v.collection[0].count = 99; }},
       {"collectionWidth", "playlist", [](aoide::SessionView& v) { v.collectionWidth = 300; }},
       {"collectionCollapsed", "playlist",
@@ -1702,6 +1707,136 @@ void HostWindowMoveTest::wordmarkKeepsBrandFaceWhenChromeFontChanges() {
   QVERIFY2(builtin.copy(role) != skinned.copy(role),
            "a chrome-font override must still restyle the role title");
   QCOMPARE(builtin.copy(wordmark), skinned.copy(wordmark));
+}
+
+void HostWindowMoveTest::overflowingCollectionKeepsItsToolbarVisibleAndClickable() {
+  aoide::loadAoideFonts();
+  const aoide::SessionView shortList = playlistViewWithCollection();
+  aoide::SessionView overflowing = shortList;
+  const QRectF inner = aoide::playlistCollectionInner(aoide::playlistCollectionColumn(
+      aoide::panelBody(aoide::kPlaylistDefault), shortList.collectionWidth));
+  const QRect toolbar(int(inner.left()), int(inner.bottom() - 24), int(inner.width()), 24);
+  const QRectF well = aoide::playlistCollectionWell(inner);
+  const int overflowingRows = int((toolbar.bottom() - well.top()) / 26) + 2;
+  for (int i = overflowing.collection.size(); i < overflowingRows; ++i) {
+    overflowing.collection.push_back(
+        {QStringLiteral("Saved playlist %1").arg(i + 1), i + 1, false, false});
+  }
+
+  // Adding offscreen rows must neither paint over nor intercept the toolbar.
+  // The same first row stays selected so the controls' state does not change.
+  QCOMPARE(paintPlaylistPanel(overflowing).copy(toolbar),
+           paintPlaylistPanel(shortList).copy(toolbar));
+  using K = aoide::ChromeHit::Kind;
+  int buttonX = toolbar.left() + 15;
+  for (const K kind : {K::plAddCollection, K::plCreate, K::plRename, K::plRemoveCollection}) {
+    const QPoint buttonCenter(buttonX, toolbar.center().y());
+    const aoide::ChromeHit button = aoide::hitTest(
+        aoide::WindowId::playlist, aoide::kPlaylistDefault, buttonCenter, shortList);
+    QCOMPARE(button.kind, kind);
+    const aoide::ChromeHit actual = aoide::hitTest(
+        aoide::WindowId::playlist, aoide::kPlaylistDefault, buttonCenter, overflowing);
+    QCOMPARE(actual.kind, kind);
+    buttonX += 36;
+  }
+}
+
+void HostWindowMoveTest::collectionScrollbarAndRowsStayWithinTheirWell() {
+  aoide::SessionView view = playlistViewWithCollection();
+  const QRectF well = aoide::playlistCollectionWell(
+      aoide::panelBody(aoide::kPlaylistDefault), view.collectionWidth);
+  const QRectF scrollTrack = aoide::playlistCollectionScrollTrack(well);
+  using K = aoide::ChromeHit::Kind;
+  QCOMPARE(aoide::hitTest(aoide::WindowId::playlist, aoide::kPlaylistDefault,
+                         scrollTrack.center().toPoint(), view).kind,
+           K::none);
+  for (int i = view.collection.size(); i < 40; ++i) {
+    view.collection.push_back({QStringLiteral("Saved playlist %1").arg(i + 1), i, false, false});
+  }
+  view.collectionScroll = 11;
+  const aoide::ChromeHit scroll = aoide::hitTest(
+      aoide::WindowId::playlist, aoide::kPlaylistDefault, scrollTrack.center().toPoint(), view);
+  QCOMPARE(scroll.kind, K::plCollectionScroll);
+  QVERIFY(well.contains(scroll.rect));
+  for (int y = int(well.top()); y <= int(well.bottom()) + 2; ++y) {
+    const QPoint point(int(well.left()) + 20, y);
+    const aoide::ChromeHit row =
+        aoide::hitTest(aoide::WindowId::playlist, aoide::kPlaylistDefault, point, view);
+    if (row.kind != K::plCollectionRow) continue;
+    QVERIFY2(well.contains(row.rect), "a playlist collection row must not hit outside its well");
+    QVERIFY(row.index >= view.collectionScroll);
+    QVERIFY(row.index < view.collection.size());
+  }
+  const QPoint belowScrollbar(int(scrollTrack.center().x()), int(well.bottom()) + 2);
+  QVERIFY(aoide::hitTest(aoide::WindowId::playlist, aoide::kPlaylistDefault,
+                        belowScrollbar, view).kind != K::plCollectionScroll);
+}
+
+void HostWindowMoveTest::scrolledCollectionClicksUseTheVisiblePlaylistIndex() {
+  HostShell shell;
+  HostWindow pl(aoide::windowSpecs()[2], &shell);
+  shell.show();
+  pl.show();
+  QVERIFY(QTest::qWaitForWindowExposed(&pl));
+
+  aoide::SessionView view = playlistViewWithCollection();
+  for (int i = view.collection.size(); i < 40; ++i) {
+    view.collection.push_back({QStringLiteral("Saved playlist %1").arg(i + 1), i, false, false});
+  }
+  const QImage unscrolled = paintPlaylistPanel(view);
+  view.collectionScroll = 17;
+  pl.setSessionView(view);
+  QVERIFY(paintPlaylistPanel(view) != unscrolled);
+  const QRectF well = aoide::playlistCollectionWell(
+      aoide::panelBody(aoide::kPlaylistDefault), view.collectionWidth);
+  const aoide::ChromeHit row = aoide::hitTest(
+      aoide::WindowId::playlist, aoide::kPlaylistDefault,
+      QPoint(int(well.left()) + 20, int(well.top()) + 12), view);
+  QCOMPARE(row.kind, aoide::ChromeHit::Kind::plCollectionRow);
+  QCOMPARE(row.index, 17);
+
+  QSignalSpy pressed(&pl, &HostWindow::chromePressed);
+  QSignalSpy activated(&pl, &HostWindow::collectionRowActivated);
+  QTest::mouseClick(&pl, Qt::LeftButton, Qt::ControlModifier, widgetPosFor(pl, row));
+  QCOMPARE(pressed.count(), 1);
+  QCOMPARE(qvariant_cast<aoide::ChromeHit>(pressed.at(0).at(0)).index, 17);
+  pressed.clear();
+  QTest::mouseDClick(&pl, Qt::LeftButton, Qt::NoModifier, widgetPosFor(pl, row));
+  QCOMPARE(activated.count(), 1);
+  QCOMPARE(activated.at(0).at(0).toInt(), 17);
+  QTest::qWait(collectionClickWaitMs());
+  QCOMPARE(pressed.count(), 0);
+}
+
+void HostWindowMoveTest::wheelScrollCarriesLogicalPositionAtEveryZoom() {
+  HostWindow pl(aoide::windowSpecs()[2]);
+  const auto view = playlistViewWithCollection();
+  pl.setSessionView(view);
+  QSignalSpy scrolled(&pl, &HostWindow::wheelScrolled);
+  const QRectF body = aoide::panelBody(aoide::kPlaylistDefault);
+  const QPoint collection = aoide::playlistCollectionWell(body, view.collectionWidth).center().toPoint();
+  const QPoint tracks = aoide::playlistListRowRect(aoide::playlistTrackInner(
+      aoide::playlistTracksPane(body, view.collectionWidth))).center().toPoint();
+  for (qreal zoom : aoide::kZoomSteps) {
+    pl.setZoomPercent(zoom);
+    for (const QPoint logical : {collection, tracks}) {
+      const int stride = int(logical == collection ? aoide::kPlaylistCollectionRowStride
+                                                   : aoide::kPlaylistRowStride);
+      const QPointF widgetPos((logical.x() + 0.25) * pl.width() / aoide::kPlaylistDefault.width(),
+                              (logical.y() + 0.25) * pl.height() / aoide::kPlaylistDefault.height());
+      for (bool pixelOnly : {false, true}) {
+        QWheelEvent event(widgetPos, pl.mapToGlobal(widgetPos.toPoint()),
+                          pixelOnly ? QPoint(0, -stride) : QPoint(),
+                          pixelOnly ? QPoint() : QPoint(0, -120), Qt::NoButton, Qt::NoModifier,
+                          Qt::NoScrollPhase, false);
+        QCoreApplication::sendEvent(&pl, &event);
+        QCOMPARE(scrolled.count(), 1);
+        QCOMPARE(scrolled.at(0).at(0).toInt(), -120);
+        QCOMPARE(scrolled.at(0).at(1).toPoint(), logical);
+        scrolled.clear();
+      }
+    }
+  }
 }
 
 // A single click on a saved playlist used to load it at once, which made a

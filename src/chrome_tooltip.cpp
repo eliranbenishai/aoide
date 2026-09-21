@@ -171,6 +171,7 @@ QString chromeKindTip(const ChromeHit& chrome, const SessionView& view) {
     case K::eqPreamp:
     case K::eqBand:
     case K::plCollectionRow:
+    case K::plCollectionScroll:
     case K::plDivider:
     case K::plTrackRow:
     case K::plResize:

@@ -475,6 +475,7 @@ void HostWindow::applyHitCursor(const QPointF& widgetPos) {
       setCursor(Qt::SplitHCursor);
     } else if (hit.kind == aoide::ChromeHit::Kind::volume || hit.kind == aoide::ChromeHit::Kind::seek ||
                hit.kind == aoide::ChromeHit::Kind::eqPreamp ||
+               hit.kind == aoide::ChromeHit::Kind::plCollectionScroll ||
                hit.kind == aoide::ChromeHit::Kind::eqBand) {
       setCursor(Qt::ArrowCursor);
     } else if (hit.kind != aoide::ChromeHit::Kind::none &&
@@ -765,16 +766,21 @@ void HostWindow::mouseDoubleClickEvent(QMouseEvent* event) {
 }
 
 void HostWindow::wheelEvent(QWheelEvent* event) {
+  const QPoint logical = logicalFrom(event->position());
+  const bool inCollection = spec_.id == aoide::WindowId::playlist && !view_.collectionCollapsed &&
+      aoide::playlistCollectionWell(aoide::panelBody(paintLogical()), view_.collectionWidth)
+          .contains(logical);
+  int& carry = inCollection ? collectionWheelPixelCarry_ : wheelPixelCarry_;
+  const qreal stride = inCollection ? aoide::kPlaylistCollectionRowStride : aoide::kPlaylistRowStride;
   const int angleY = event->angleDelta().y();
-  const int rows = aoide::wheelRowSteps(event->pixelDelta().y(), angleY, wheelPixelCarry_,
-                                        int(qRound(aoide::kPlaylistRowStride)));
+  const int rows = aoide::wheelRowSteps(event->pixelDelta().y(), angleY, carry, int(qRound(stride)));
   if (rows == 0) return;
   if (angleY != 0) {
-    emit wheelScrolled(angleY);
+    emit wheelScrolled(angleY, logical);
     return;
   }
   const int notch = rows < 0 ? 120 : -120;
-  for (int i = 0; i < qAbs(rows); ++i) emit wheelScrolled(notch);
+  for (int i = 0; i < qAbs(rows); ++i) emit wheelScrolled(notch, logical);
 }
 
 void HostWindow::moveEvent(QMoveEvent* event) {
