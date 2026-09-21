@@ -3,9 +3,14 @@
 Aoide ships **full** libmpv (+ FFmpeg filter graph support), not a compressed
 “audio-default” / slim build. See [`docs/architecture.md`](../../docs/architecture.md).
 
-Slim builds often embed `--disable-filters`. That removes `aresample` from
-libavfilter, so EQ filter graphs silently no-op. Packaging must load the
-binaries under this tree (or a distro full libmpv) instead.
+Packaging must load the binaries under this tree (or a distro full libmpv).
+The pinned macOS audio-full build has `equalizer` but no `volume` filter. Runtime
+inspection of the arm64 framework also reports no `aresample`; finding that
+string in a binary is not proof that the filter is registered. Aoide therefore
+uses mpv's native `format` filter before its ten-band lavfi graph and implements
+preamp through mpv's software volume. The `mpv_engine` CTest exercises actual
+PCM output against the linked bundle, including non-flat EQ and recovery from
+invalid graphs. See [the diagnosis and verification](../../docs/equalizer-playback-fix.md).
 
 ## Layout
 

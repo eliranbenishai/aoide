@@ -359,15 +359,25 @@ int main() {
     EqualizerSettings enabledFlat = EqualizerSettings::flat();
     enabledFlat.enabled = true;
     const QString af = buildEqualizerAf(enabledFlat);
-    REQUIRE(af.startsWith(QStringLiteral("lavfi=[volume=0dB,")));
+    REQUIRE(af.startsWith(QStringLiteral("format=format=floatp,lavfi=[equalizer=")));
     REQUIRE(af.contains(QStringLiteral("equalizer=f=60:t=o:w=1:g=0")));
     REQUIRE(af.contains(QStringLiteral("equalizer=f=16000:t=o:w=1:g=0")));
     REQUIRE(af.count(QStringLiteral("equalizer=")) == 10);
+    REQUIRE(!af.contains(QStringLiteral("volume=")));
+    for (int frequency : EqualizerSettings::kBandFrequencies)
+      REQUIRE(af.contains(QStringLiteral("equalizer=f=%1:t=o:w=1:g=0").arg(frequency)));
+    EqualizerSettings extreme = enabledFlat;
+    extreme.gains.fill(-100);
+    REQUIRE(buildEqualizerAf(extreme).count(QStringLiteral("g=-12")) == 10);
+    extreme.gains.fill(100);
+    REQUIRE(buildEqualizerAf(extreme).count(QStringLiteral("g=12")) == 10);
+    extreme.gains.fill(std::nan(""));
+    REQUIRE(buildEqualizerAf(extreme) == af);
 
     EqualizerSettings pre;
     pre.enabled = true;
     pre.preamp = 3;
-    REQUIRE(buildEqualizerAf(pre).startsWith(QStringLiteral("lavfi=[volume=3dB,")));
+    REQUIRE(buildEqualizerAf(pre) == af);
 
     EqualizerSettings band;
     band.enabled = true;
@@ -380,7 +390,7 @@ int main() {
     mixed.gains[0] = 5;
     mixed.gains[9] = -3;
     const QString mixedAf = buildEqualizerAf(mixed);
-    REQUIRE(mixedAf.startsWith(QStringLiteral("lavfi=[volume=-2.5dB,")));
+    REQUIRE(!mixedAf.contains(QStringLiteral("volume=")));
     REQUIRE(mixedAf.contains(QStringLiteral("equalizer=f=60:t=o:w=1:g=5")));
     REQUIRE(mixedAf.contains(QStringLiteral("equalizer=f=16000:t=o:w=1:g=-3")));
   }

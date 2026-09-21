@@ -372,7 +372,10 @@ void AoideSession::bootstrap(const QStringList& argvFiles) {
   refreshChrome();
 }
 
-void AoideSession::applyEq() { engine_->setEqualizerAf(buildEqualizerAf(settings_.equalizerCurve)); }
+void AoideSession::applyEq() {
+  const auto& eq = settings_.equalizerCurve;
+  engine_->setEqualizerAf(buildEqualizerAf(eq), eq.preamp);
+}
 
 void AoideSession::scheduleApplyEq() {
   if (!eqApplyTimer_.isActive()) eqApplyTimer_.start();

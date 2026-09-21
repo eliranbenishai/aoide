@@ -26,7 +26,7 @@ class PlayerEngine {
   virtual void seekMs(qint64 positionMs) = 0;
   virtual void setVolume(double volume) = 0;
   virtual void setForceMono(bool enabled) = 0;
-  virtual void setEqualizerAf(const QString& af) = 0;
+  virtual void setEqualizerAf(const QString& af, double preampDb = 0) = 0;
   virtual QVector<AudioOutputDevice> listAudioOutputs() { return {}; }
   virtual void setAudioDevice(const QString& name) { Q_UNUSED(name); }
   virtual void setAudioExclusive(bool enabled) { Q_UNUSED(enabled); }
@@ -65,7 +65,7 @@ class NullEngine : public PlayerEngine {
   }
   void setVolume(double) override {}
   void setForceMono(bool) override {}
-  void setEqualizerAf(const QString&) override {}
+  void setEqualizerAf(const QString&, double = 0) override {}
   void dispose() override {}
 };
 
@@ -91,7 +91,7 @@ class MissingAudioEngine : public PlayerEngine {
   void seekMs(qint64) override {}
   void setVolume(double) override {}
   void setForceMono(bool) override {}
-  void setEqualizerAf(const QString&) override {}
+  void setEqualizerAf(const QString&, double = 0) override {}
   void dispose() override {}
 
  private:

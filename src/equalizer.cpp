@@ -26,6 +26,7 @@ QString formatDb(double db) {
 }  // namespace
 
 double EqualizerSettings::clampGain(double value) {
+  if (!std::isfinite(value)) return 0;
   if (value < -kGainLimit) {
     return -kGainLimit;
   }
@@ -80,14 +81,16 @@ QString buildEqualizerAf(const EqualizerSettings& settings) {
     return {};
   }
   QStringList stages;
-  stages << QStringLiteral("volume=%1dB").arg(formatDb(settings.preamp));
+  // Preamp belongs to mpv's software volume: the shipped FFmpeg has no volume filter.
   const int count = EqualizerSettings::kBandCount;
   for (int i = 0; i < count; ++i) {
     stages << QStringLiteral("equalizer=f=%1:t=o:w=1:g=%2")
                   .arg(EqualizerSettings::kBandFrequencies[size_t(i)])
-                  .arg(formatDb(settings.gains[size_t(i)]));
+                  .arg(formatDb(EqualizerSettings::clampGain(settings.gains[size_t(i)])));
   }
-  return QStringLiteral("lavfi=[%1]").arg(stages.join(QLatin1Char(',')));
+  // Convert with mpv's native format filter (libswresample), before entering
+  // lavfi. Some audio-full bundles have equalizer but no lavfi aresample.
+  return QStringLiteral("format=format=floatp,lavfi=[%1]").arg(stages.join(QLatin1Char(',')));
 }
 
 }  // namespace aoide

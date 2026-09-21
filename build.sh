@@ -144,6 +144,16 @@ QT_QPA_PLATFORM=offscreen "$BUILD/aoide" --smoke-file-open
   -o "$BUILD/domain_test"
 "$BUILD/domain_test"
 
+# Real libmpv playback/PCM checks; keep the bundled EQ path in the local gate.
+"$MOC" "$ROOT/tests/mpv_engine_test.cpp" -o "$BUILD/mpv_engine_test.moc"
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" \
+  -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB \
+  "$ROOT/tests/mpv_engine_test.cpp" "$ROOT/src/mpv_engine.cpp" \
+  "$BUILD/moc_mpv_engine.cpp" "$ROOT/src/equalizer.cpp" \
+  "$ROOT/src/wav_reader.cpp" "$ROOT/src/settings.cpp" \
+  "${LIBS[@]}" -lQt6Test -o "$BUILD/mpv_engine_test"
+"$BUILD/mpv_engine_test"
+
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -DQT_GUI_LIB -DQT_CORE_LIB \
   -DAOIDE_SKINS_DIR="\"$ROOT/skins\"" \
   "$ROOT/src/look.cpp" "$ROOT/src/settings.cpp" "$ROOT/src/equalizer.cpp" \

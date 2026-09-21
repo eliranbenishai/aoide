@@ -32,6 +32,7 @@ struct EqualizerPresets {
   static const QVector<QPair<QString, QVector<double>>>& builtIn();
 };
 
+// Only band filtering. Pass preamp separately to PlayerEngine::setEqualizerAf.
 QString buildEqualizerAf(const EqualizerSettings& settings);
 
 }  // namespace aoide

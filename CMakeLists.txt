@@ -509,6 +509,20 @@ if(TARGET Qt6::DBus)
   target_compile_definitions(domain_test PRIVATE AOIDE_HAVE_DBUS)
 endif()
 if(AOIDE_HAVE_MPV)
+  qt_add_executable(mpv_engine_test
+    tests/mpv_engine_test.cpp src/mpv_engine.cpp src/mpv_engine.h
+    src/equalizer.cpp src/wav_reader.cpp src/settings.cpp)
+  target_include_directories(mpv_engine_test PRIVATE src "${AOIDE_MPV_ROOT}/include")
+  target_link_libraries(mpv_engine_test PRIVATE Qt6::Test Qt6::Widgets
+    ${AOIDE_MPV_LIBS} aoide_warnings)
+  if(APPLE AND AOIDE_MAC_MPV_RPATH_DIR)
+    set_property(TARGET mpv_engine_test APPEND PROPERTY BUILD_RPATH
+      "${AOIDE_MAC_MPV_RPATH_DIR}")
+  elseif(UNIX AND EXISTS "${BUNDLED_MPV_SO}" AND NOT TARGET PkgConfig::MPV)
+    target_link_options(mpv_engine_test PRIVATE "-Wl,--allow-shlib-undefined")
+    set_property(TARGET mpv_engine_test APPEND PROPERTY BUILD_RPATH
+      "${AOIDE_MPV_ROOT}/linux/x86_64" "${CMAKE_CURRENT_BINARY_DIR}/mpv-stubs")
+  endif()
   target_compile_definitions(domain_test PRIVATE AOIDE_HAVE_MPV)
   target_include_directories(domain_test PRIVATE "${AOIDE_MPV_ROOT}/include")
   target_link_libraries(domain_test PRIVATE ${AOIDE_MPV_LIBS})
@@ -556,12 +570,12 @@ foreach(aoide_target IN ITEMS
   target_link_libraries(${aoide_target} PRIVATE aoide_warnings)
 endforeach()
 
-# Both binaries carry a static import of libmpv-2.dll, so the Windows loader
+# These binaries carry a static import of libmpv-2.dll, so the Windows loader
 # resolves it at process start — before main, before any assertion. Without the
 # DLL in the build tree ctest dies with STATUS_DLL_NOT_FOUND (0xC0000135) and
 # reports nothing useful. The install rule below covers the package, not this.
 if(WIN32 AND AOIDE_HAVE_MPV)
-  foreach(win_mpv_target IN ITEMS aoide domain_test)
+  foreach(win_mpv_target IN ITEMS aoide domain_test mpv_engine_test)
     add_custom_command(TARGET ${win_mpv_target} POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${AOIDE_WIN_MPV_DLL}" "$<TARGET_FILE_DIR:${win_mpv_target}>"
@@ -593,6 +607,8 @@ set_tests_properties(native_window_session embedded_window_session
   playlist_create_session playlist_scroll_session
   PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 if(AOIDE_HAVE_MPV)
+  add_test(NAME mpv_engine COMMAND mpv_engine_test)
+  set_tests_properties(mpv_engine PROPERTIES TIMEOUT 60)
   add_test(NAME file_open_session COMMAND aoide --smoke-file-open)
   set_tests_properties(file_open_session
     PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)

@@ -27,7 +27,7 @@ class MpvEngine : public QObject, public PlayerEngine {
   void seekMs(qint64 positionMs) override;
   void setVolume(double volume) override;
   void setForceMono(bool enabled) override;
-  void setEqualizerAf(const QString& af) override;
+  void setEqualizerAf(const QString& af, double preampDb = 0) override;
   QVector<AudioOutputDevice> listAudioOutputs() override;
   void setAudioDevice(const QString& name) override;
   void setAudioExclusive(bool enabled) override;
@@ -38,17 +38,27 @@ class MpvEngine : public QObject, public PlayerEngine {
   void drainEvents();
 
  private:
+  // The integration test selects PCM/null output on the real bundled backend.
+  friend class MpvEngineTest;
   void observe(const char* name, int format);
   void applyPending();
+  void applyVolume();
+  void bypassEqualizer(const QString& reason);
+  void loadCurrent();
 
   mpv_handle* mpv_ = nullptr;
   std::atomic<bool> drainQueued_{false};
   QString pendingAf_;
+  double pendingPreampDb_ = 0;
   double pendingVolume_ = 1.0;
   bool pendingMono_ = false;
   QString pendingDevice_ = kDefaultAudioDeviceName();
   bool pendingExclusive_ = false;
   QString currentPath_;
+  qint64 lastPositionMs_ = 0;
+  bool paused_ = false;
+  bool restoringAfterEqFailure_ = false;
+  bool retryWithoutEq_ = false;
 };
 
 }  // namespace aoide
