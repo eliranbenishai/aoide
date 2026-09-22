@@ -151,6 +151,25 @@ int dumpChrome(const QString& dirPath) {
       audio.settingsTab = 1;
       if (!shoot(spec, audio, dumpName(spec.id) + QStringLiteral("_audio"))) return 1;
     }
+    if (spec.id == aoide::WindowId::trackInfo) {
+      aoide::SessionView empty = golden;
+      empty.currentTrack.reset();
+      if (!shoot(spec, empty, dumpName(spec.id) + QStringLiteral("_empty"))) return 1;
+
+      aoide::SessionView longTags = golden;
+      aoide::Track& track = *longTags.currentTrack;
+      track.title = QStringLiteral("The Long Way Home Through the City After Midnight (Extended Mix)");
+      track.artist = QStringLiteral("The Northern Lights Orchestra featuring Alexandra Nightingale");
+      track.album = QStringLiteral("Letters from the Edge of the World — The Complete Recordings");
+      track.albumArtist = QStringLiteral("The Northern Lights Orchestra and Friends");
+      track.composer = QStringLiteral("Alexandra Nightingale / Sebastian Montgomery");
+      track.genre = QStringLiteral("Electronic / Ambient / Contemporary Classical");
+      track.year = 2024;
+      track.discNumber = QStringLiteral("1 / 2");
+      track.path = QStringLiteral("/Users/listener/Music/The Northern Lights Orchestra/Letters from the Edge of the World/01 - The Long Way Home Through the City After Midnight (Extended Mix).flac");
+      longTags.formatChip = QStringLiteral("FLAC");
+      if (!shoot(spec, longTags, dumpName(spec.id) + QStringLiteral("_long_tags"))) return 1;
+    }
     // The Skins panel's matrix, scrollbar, footer glyphs and error line need a
     // picture of their own. The catalogue is longer than the viewport on purpose
     // — a grid that fits would leave the scrollbar unphotographed.
@@ -704,12 +723,17 @@ int smokeWindows(aoide::AoideSession& session, HostShell& shell,
   const QPoint mainBeforeOpening = main->nativeTopLeft();
   for (int attempt = 0; attempt < 2; ++attempt) {
     for (aoide::WindowId id : {aoide::WindowId::settings, aoide::WindowId::about,
-                               aoide::WindowId::skins}) {
+                               aoide::WindowId::skins, aoide::WindowId::trackInfo}) {
       HostWindow* panel = panels[id];
-      if (panel->isVisible()) panel->close();
+      if (panel->isVisible()) {
+        panel->close();
+        if (!require(!session.windowShouldShow(id), "closing an auxiliary panel kept it open")) return 1;
+      }
       session.setWindowVisible(id, true);
       settle();
       if (!require(panel->isVisible(), "opened auxiliary panel is hidden")) return 1;
+      if (!require(panel->isWindow() != shell.embedsPanels(),
+                   "auxiliary panel uses the wrong window presentation")) return 1;
       if (!require(main->nativeTopLeft() == mainBeforeOpening, "opening an auxiliary panel moved main")) return 1;
       if (!shell.embedsPanels()) {
         if (!require(exposed(panel), "opened auxiliary window is not exposed")) return 1;

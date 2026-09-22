@@ -2,12 +2,15 @@
 #include "chrome_hits.h"
 #include "chrome_layout.h"
 #include "chrome_paint.h"
+#include "chrome_tooltip.h"
 #include "mockup_draw.h"
 #include "title_chrome.h"
 #include "host_shell_window.h"
 #include "host_window.h"
 #include "look.h"
+#include "panel_registry.h"
 #include "session_view.h"
+#include "track_info.h"
 #include "aoide_fonts.h"
 #include "aoide_metrics.h"
 #include "wait_cursor.h"
@@ -63,6 +66,7 @@ class HostWindowMoveTest : public QObject {
   void refreshButtonLightsWhilePlaylistRefreshing();
   void refreshLampLightsOnTheLiveEventLoop();
   void goldenDemoPaintsTheStateItIsHanded();
+  void trackInfoControlsFollowTheLoadedTrack();
   void mockupHelpersLeaveThePainterAsTheyFoundIt();
   void panelPaintersLeaveThePainterAsTheyFoundIt();
   void panelPaintersDrawWithWhatTheySet();
@@ -486,6 +490,12 @@ void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
   // then disagrees with the hit by a pixel. The region is the outward-rounded
   // paint rect, same as the equaliser wells above.
   QCOMPARE(web.rect, pill.toAlignedRect());
+
+  const aoide::SessionView track = aoide::goldenDemoView();
+  const aoide::TrackInfoLayout info(aoide::kTrackInfo);
+  assertPaintIsGrabbable(aoide::WindowId::trackInfo, aoide::kTrackInfo, track, info.copy,
+                         aoide::ChromeHit::Kind::trackInfoCopy, -1,
+                         QStringLiteral("Copy details"));
 }
 
 // Covering the paint means rounding hit regions outwards, which grows them, and
@@ -610,6 +620,8 @@ void HostWindowMoveTest::hitRegionsDoNotOverlap() {
   panelHoldsItsRegionsApart(aoide::WindowId::skins, specs[5].logicalSize, skins,
                             QStringLiteral("the skins panel's"),
                             {int(aoide::ChromeHit::Kind::settingsSkinRow)});
+  panelHoldsItsRegionsApart(aoide::WindowId::trackInfo, aoide::kTrackInfo,
+                            aoide::goldenDemoView(), QStringLiteral("the track info panel's"));
 }
 
 // Dragging a panel used to re-run its whole procedural paint on every mouse
@@ -651,15 +663,7 @@ void HostWindowMoveTest::movingAPanelDoesNotRerasteriseIt() {
 namespace {
 
 QString panelLabel(aoide::WindowId id) {
-  switch (id) {
-    case aoide::WindowId::main: return QStringLiteral("main");
-    case aoide::WindowId::equalizer: return QStringLiteral("eq");
-    case aoide::WindowId::playlist: return QStringLiteral("playlist");
-    case aoide::WindowId::settings: return QStringLiteral("settings");
-    case aoide::WindowId::about: return QStringLiteral("about");
-    case aoide::WindowId::skins: return QStringLiteral("skins");
-  }
-  return QStringLiteral("?");
+  return aoide::panelSpec(id).commandNames.front();
 }
 
 QSize panelLogicalSize(aoide::WindowId id) {
@@ -669,10 +673,12 @@ QSize panelLogicalSize(aoide::WindowId id) {
   return {};
 }
 
-const std::array<aoide::WindowId, 6>& everyPanel() {
-  static const std::array<aoide::WindowId, 6> ids = {
-      aoide::WindowId::main, aoide::WindowId::equalizer, aoide::WindowId::playlist,
-      aoide::WindowId::settings, aoide::WindowId::about, aoide::WindowId::skins};
+const std::array<aoide::WindowId, aoide::kPanelCount>& everyPanel() {
+  static const auto ids = [] {
+    std::array<aoide::WindowId, aoide::kPanelCount> panels{};
+    for (const auto& panel : aoide::panelSpecs()) panels[aoide::panelIndex(panel.id)] = panel.id;
+    return panels;
+  }();
   return ids;
 }
 
@@ -760,9 +766,9 @@ QImage paintPanel(aoide::WindowId id, QSize logical, const aoide::SessionView& v
 }
 
 /// What a panel actually keeps in its raster. Main and the equaliser cache only
-/// their static chrome and redraw the live layer every frame; the other four
+/// their static chrome and redraw the live layer every frame; the other panels
 /// have no live layer, so the whole paint is what sits in the cache. Comparing
-/// the full paint for all six would hold main to pixels its cache never held.
+/// the full paint for every panel would hold main to pixels its cache never held.
 QImage paintCachedPass(aoide::WindowId id, QSize logical, const aoide::SessionView& view) {
   const bool live =
       id == aoide::WindowId::main || id == aoide::WindowId::equalizer;
@@ -832,7 +838,7 @@ struct FieldChange {
 /// point: a field missing from the list below is a field nobody has decided
 /// about, and `paintsSame` will not compile until someone has.
 std::vector<FieldChange> everyFieldOfTheSnapshot() {
-  const char* all = "main+eq+playlist+settings+about+skins";
+  const char* all = "main+eq+playlist+settings+about+skins+track-info";
   return {
       // The shell and the title bar, which every panel wears.
       {"goldenDemo", all, [](aoide::SessionView& v) { v.goldenDemo = true; }},
@@ -846,15 +852,17 @@ std::vector<FieldChange> everyFieldOfTheSnapshot() {
       {"skinsOn", "main", [](aoide::SessionView& v) { v.skinsOn = !v.skinsOn; }},
       {"trackInfoEnabled", "main",
        [](aoide::SessionView& v) { v.trackInfoEnabled = !v.trackInfoEnabled; }},
+      {"trackInfoOn", "main",
+       [](aoide::SessionView& v) { v.trackInfoOn = !v.trackInfoOn; }},
       {"showElapsed", "main", [](aoide::SessionView& v) { v.showElapsed = !v.showElapsed; }},
       {"positionMs", "main", [](aoide::SessionView& v) { v.positionMs += 4000; }},
-      {"durationMs", "main", [](aoide::SessionView& v) { v.durationMs += 4000; }},
+      {"durationMs", "main+track-info", [](aoide::SessionView& v) { v.durationMs += 4000; }},
       {"title", "main", [](aoide::SessionView& v) { v.title = QStringLiteral("Other"); }},
       {"subtitle", "main", [](aoide::SessionView& v) { v.subtitle = QStringLiteral("OTHER"); }},
-      {"bitrate", "main", [](aoide::SessionView& v) { v.bitrate = QStringLiteral("320 kbps"); }},
-      {"sampleRate", "main", [](aoide::SessionView& v) { v.sampleRate = QStringLiteral("48 kHz"); }},
-      {"channels", "main", [](aoide::SessionView& v) { v.channels = QStringLiteral("MONO"); }},
-      {"formatChip", "main", [](aoide::SessionView& v) { v.formatChip = QStringLiteral("FLAC"); }},
+      {"bitrate", "main+track-info", [](aoide::SessionView& v) { v.bitrate = QStringLiteral("320 kbps"); }},
+      {"sampleRate", "main+track-info", [](aoide::SessionView& v) { v.sampleRate = QStringLiteral("48 kHz"); }},
+      {"channels", "main+track-info", [](aoide::SessionView& v) { v.channels = QStringLiteral("MONO"); }},
+      {"formatChip", "main+track-info", [](aoide::SessionView& v) { v.formatChip = QStringLiteral("FLAC"); }},
       {"volume", "main", [](aoide::SessionView& v) { v.volume = 0.2; }},
       {"muted", "main", [](aoide::SessionView& v) { v.muted = !v.muted; }},
       {"forceMono", "main", [](aoide::SessionView& v) { v.forceMono = !v.forceMono; }},
@@ -948,6 +956,13 @@ std::vector<FieldChange> everyFieldOfTheSnapshot() {
       {"aboutTracks", "about", [](aoide::SessionView& v) { v.aboutTracks += 1; }},
       {"aboutTimeMs", "about", [](aoide::SessionView& v) { v.aboutTimeMs += 60000; }},
       {"aboutSpins", "about", [](aoide::SessionView& v) { v.aboutSpins += 1; }},
+
+      // Track info keeps the playing track's tags even while a different
+      // playlist is shown. Clearing it must also discard the previous raster.
+      {"currentTrack", "track-info",
+       [](aoide::SessionView& v) { v.currentTrack->album = QStringLiteral("Another release"); }},
+      {"currentTrack cleared", "track-info",
+       [](aoide::SessionView& v) { v.currentTrack.reset(); }},
 
       // Carried on the snapshot and painted by nobody.
       {"selectedIndices", "", [](aoide::SessionView& v) { v.selectedIndices = {1, 4}; }},
@@ -1070,6 +1085,13 @@ void HostWindowMoveTest::goldenDemoPaintsTheStateItIsHanded() {
                paintPanel(aoide::WindowId::skins, aoide::kSkins, golden),
            "the golden demo must be able to photograph a populated Skins panel");
 
+  QVERIFY(golden.currentTrack.has_value());
+  aoide::SessionView emptyInfo = golden;
+  emptyInfo.currentTrack.reset();
+  QVERIFY2(paintPanel(aoide::WindowId::trackInfo, aoide::kTrackInfo, emptyInfo) !=
+               paintPanel(aoide::WindowId::trackInfo, aoide::kTrackInfo, golden),
+           "track info must photograph both the loaded track and its empty state");
+
   // The demo list fits the default well exactly, so the clamped panel is the
   // only picture the track scrollbar appears in.
   const QRectF clampedList = aoide::playlistListRowRect(
@@ -1078,6 +1100,41 @@ void HostWindowMoveTest::goldenDemoPaintsTheStateItIsHanded() {
           aoide::kPlaylistCollectionMinWidth)));
   QVERIFY2(aoide::playlistListMaxScroll(int(golden.tracks.size()), clampedList.height()) > 0,
            "the clamped playlist must overflow, or the scrollbar loses its only picture");
+}
+
+void HostWindowMoveTest::trackInfoControlsFollowTheLoadedTrack() {
+  const auto spec = aoide::windowSpecs()[aoide::panelIndex(aoide::WindowId::trackInfo)];
+  HostWindow panel(spec);
+  panel.show();
+  QVERIFY(QTest::qWaitForWindowExposed(&panel));
+  aoide::SessionView view = aoide::goldenDemoView();
+  view.goldenDemo = false;
+  view.currentTrack->path = QStringLiteral(
+      "/Music/A very long album folder/The complete recording with an extended descriptive title.flac");
+  panel.setSessionView(view);
+
+  const aoide::TrackInfoLayout layout(spec.logicalSize);
+  const auto copy = aoide::hitTest(spec.id, spec.logicalSize, layout.copy.center().toPoint(), view);
+  QCOMPARE(copy.kind, aoide::ChromeHit::Kind::trackInfoCopy);
+  QSignalSpy pressed(&panel, &HostWindow::chromePressed);
+  QTest::mouseClick(&panel, Qt::LeftButton, Qt::NoModifier, widgetPosFor(panel, copy));
+  QCOMPARE(pressed.count(), 1);
+  QCOMPARE(qvariant_cast<aoide::ChromeHit>(pressed.at(0).at(0)).kind,
+           aoide::ChromeHit::Kind::trackInfoCopy);
+
+  const auto fields = aoide::trackInfoFields(view);
+  const auto location = aoide::hitTest(spec.id, spec.logicalSize, fields.back().rect.center().toPoint(), view);
+  QCOMPARE(location.kind, aoide::ChromeHit::Kind::trackInfoField);
+  QCOMPARE(aoide::chromeTooltip(aoide::TitleChromeLayout::Hit::none, location, view),
+           QStringLiteral("Location: ") + view.currentTrack->path);
+
+  pressed.clear();
+  view.currentTrack.reset();
+  panel.setSessionView(view);
+  QTest::mouseClick(&panel, Qt::LeftButton, Qt::NoModifier, widgetPosFor(panel, copy));
+  QCOMPARE(pressed.count(), 0);
+  QCOMPARE(aoide::hitTest(spec.id, spec.logicalSize, location.rect.center(), view).kind,
+           aoide::ChromeHit::Kind::none);
 }
 
 // A helper that leaves a pen or a brush behind is invisible until a caller
@@ -1216,6 +1273,8 @@ QVector<PanelState> panelStates() {
       {QStringLiteral("the Audio tab"), aoide::WindowId::settings, specs[3].logicalSize, skins},
       {QStringLiteral("the about panel"), aoide::WindowId::about, specs[4].logicalSize, golden},
       {QStringLiteral("the Skins panel"), aoide::WindowId::skins, specs[5].logicalSize, skins},
+      {QStringLiteral("the Track info panel"), aoide::WindowId::trackInfo, aoide::kTrackInfo, golden},
+      {QStringLiteral("an empty Track info panel"), aoide::WindowId::trackInfo, aoide::kTrackInfo, {}},
   };
 }
 
@@ -1246,7 +1305,7 @@ const char* passName(aoide::BodyPaint pass) {
 // going to see the next one.
 //
 // What this covers is the entry points, and only the entry points. From out
-// here the six panel painters are unreachable: `paintWindowBody` holds the
+// here the panel painters are unreachable: `paintWindowBody` holds the
 // painter's state across the whole switch, so a painter that drops its own
 // `PainterStateScope` still hands the caller back what it was given and this
 // stays green — verified by taking one back out. So the net is the reason a

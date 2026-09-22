@@ -369,27 +369,16 @@ bool PlaylistController::applyDurations(const QMap<QString, qint64>& durations) 
   return changed;
 }
 
-bool PlaylistController::applyMetadata(const QString& path, const QString& title,
-                                       const QString& artist, const QString& album,
-                                       qint64 durationMs) {
+bool PlaylistController::applyMetadata(const QString& path, const TrackMetadata& metadata) {
   const QString n = normalizePlaylistPath(path);
   bool changed = false;
   for (Track& t : tracks_) {
     if (normalizePlaylistPath(t.path) != n && t.path != path) continue;
-    auto take = [&](const QString& src, QString& dest) {
-      const QString trimmed = src.trimmed();
-      if (trimmed.isEmpty() || dest.trimmed() == trimmed) return;
-      if (!dest.trimmed().isEmpty()) return;
-      dest = trimmed;
-      changed = true;
-    };
-    take(title, t.title);
-    take(artist, t.artist);
-    take(album, t.album);
-    if (durationMs > 0 && (!t.durationMs || *t.durationMs != durationMs)) {
-      t.durationMs = durationMs;
-      changed = true;
-    }
+    const Track previous = t;
+    applyTrackMetadata(t, metadata, false);
+    // Measured duration is authoritative even when ingest keeps an M3U title.
+    if (metadata.durationMs && *metadata.durationMs > 0) t.durationMs = metadata.durationMs;
+    changed = (t != previous) || changed;
   }
   if (changed) notify();
   return changed;
@@ -410,8 +399,7 @@ void PlaylistController::markMissingPaths(const QSet<QString>& missingNormalized
 bool PlaylistController::updateTrackByPath(const QString& path, const Track& next) {
   for (Track& t : tracks_) {
     if (t.path == path) {
-      if (t.path == next.path && t.title == next.title && t.artist == next.artist &&
-          t.album == next.album && t.durationMs == next.durationMs && t.disabled == next.disabled) {
+      if (t == next) {
         return false;
       }
       const bool disabled = t.disabled;

@@ -9,6 +9,7 @@
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QtTest>
+#include <QtEndian>
 #include <clocale>
 #include <cmath>
 #include <mpv/client.h>
@@ -96,6 +97,56 @@ class MpvEngineTest : public QObject {
     // Match application startup: Qt adopts the host locale, while libmpv
     // requires the C numeric locale even for locales that use a decimal dot.
     QVERIFY(std::setlocale(LC_NUMERIC, "C") != nullptr);
+  }
+
+  void readsTrackMetadataFromAudioFile() {
+    QByteArray bytes = tone(3);
+    QByteArray info("INFO", 4);
+    auto tag = [&](const char* name, const QByteArray& value) {
+      info.append(name, 4);
+      const quint32 size = qToLittleEndian(quint32(value.size() + 1));
+      info.append(reinterpret_cast<const char*>(&size), 4);
+      info.append(value);
+      info.append(char(0));
+      if ((value.size() + 1) % 2) info.append(char(0));
+    };
+    tag("INAM", "Static Hymn");
+    tag("IART", "Wire Garden");
+    tag("IPRD", "Copper Rain EP");
+    tag("ICRD", "1998-09-22");
+    tag("IGNR", "Electronic");
+    tag("ITRK", "3/12");
+    bytes.append("LIST", 4);
+    const quint32 infoSize = qToLittleEndian(quint32(info.size()));
+    bytes.append(reinterpret_cast<const char*>(&infoSize), 4);
+    bytes.append(info);
+    const quint32 riffSize = qToLittleEndian(quint32(bytes.size() - 8));
+    bytes.replace(4, 4, reinterpret_cast<const char*>(&riffSize), 4);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    QFile file(dir.filePath("tagged.wav"));
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    QCOMPARE(file.write(bytes), bytes.size());
+    file.close();
+    MpvEngine engine;
+    QVERIFY(engine.available());
+    property(engine, "ao", "null");
+    TrackMetadata received;
+    QString receivedPath;
+    engine.onMetadata = [&](QString path, const TrackMetadata& metadata) {
+      receivedPath = path;
+      received = metadata;
+    };
+    Track track;
+    track.path = file.fileName();
+    engine.open(track);
+    QTRY_COMPARE_WITH_TIMEOUT(received.title, QStringLiteral("Static Hymn"), 3000);
+    QCOMPARE(receivedPath, track.path);
+    QCOMPARE(received.artist, QStringLiteral("Wire Garden"));
+    QCOMPARE(received.album, QStringLiteral("Copper Rain EP"));
+    QCOMPARE(received.year.value_or(0), 1998);
+    QCOMPARE(received.genre, QStringLiteral("Electronic"));
+    QCOMPARE(received.trackNumber, QStringLiteral("3/12"));
   }
 
   void flatEnabledProducesAudio() {

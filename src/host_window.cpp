@@ -237,6 +237,7 @@ void HostWindow::syncLatchedPhases(bool snap) {
       aim(K::eqToggle, view_.eqOn);
       aim(K::plToggle, view_.plOn);
       aim(K::skins, view_.skinsOn);
+      aim(K::trackInfo, view_.trackInfoOn);
       aim(K::play, view_.playing);
       aim(K::pause, view_.paused);
       aim(K::shuffle, view_.shuffle);
@@ -269,6 +270,7 @@ void HostWindow::syncLatchedPhases(bool snap) {
     case aoide::WindowId::about:
       break;
     case aoide::WindowId::skins:
+    case aoide::WindowId::trackInfo:
       break;
   }
   if (!snap) startButtonAnimation();
@@ -473,7 +475,8 @@ void HostWindow::applyHitCursor(const QPointF& widgetPos) {
       setCursor(playlistResizeCursor(aoide::playlistResizeEdgesFromMask(hit.resizeEdges)));
     } else if (hit.kind == aoide::ChromeHit::Kind::plDivider) {
       setCursor(Qt::SplitHCursor);
-    } else if (hit.kind == aoide::ChromeHit::Kind::volume || hit.kind == aoide::ChromeHit::Kind::seek ||
+    } else if (hit.kind == aoide::ChromeHit::Kind::trackInfoField ||
+               hit.kind == aoide::ChromeHit::Kind::volume || hit.kind == aoide::ChromeHit::Kind::seek ||
                hit.kind == aoide::ChromeHit::Kind::eqPreamp ||
                hit.kind == aoide::ChromeHit::Kind::plCollectionScroll ||
                hit.kind == aoide::ChromeHit::Kind::eqBand) {

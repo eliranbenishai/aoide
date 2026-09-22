@@ -2,6 +2,7 @@
 
 #include <QFile>
 #ifdef AOIDE_HAVE_MPV
+#include "mpv_metadata.h"
 #include <mpv/client.h>
 #include <QByteArray>
 #endif
@@ -52,24 +53,12 @@ mpv_handle* createProbeMpv() {
   return mpv;
 }
 
-void readMpvMetadata(mpv_handle* mpv, QString& title, QString& artist, QString& album) {
+TrackMetadata readMpvMetadata(mpv_handle* mpv) {
   mpv_node node{};
-  if (mpv_get_property(mpv, "metadata", MPV_FORMAT_NODE, &node) < 0) return;
-  if (node.format == MPV_FORMAT_NODE_MAP && node.u.list) {
-    auto take = [&](const char* want, QString& dest) {
-      for (int i = 0; i < node.u.list->num; ++i) {
-        if (QByteArray(node.u.list->keys[i]).toLower() != want) continue;
-        const mpv_node& val = node.u.list->values[i];
-        if (val.format == MPV_FORMAT_STRING && val.u.string) {
-          dest = QString::fromUtf8(val.u.string);
-        }
-      }
-    };
-    take("title", title);
-    take("artist", artist);
-    take("album", album);
-  }
+  if (mpv_get_property(mpv, "metadata", MPV_FORMAT_NODE, &node) < 0) return {};
+  const TrackMetadata metadata = metadataFromMpvNode(node);
   mpv_free_node_contents(&node);
+  return metadata;
 }
 
 void drainMpvEvents(mpv_handle* mpv) {
@@ -102,13 +91,12 @@ std::optional<ProbedAudio> probeWithMpv(mpv_handle* mpv, const QString& path,
     // END_FILE is the previous replace on this handle; keep waiting.
   }
   if (!loaded) return std::nullopt;
-  ProbedAudio out;
+  ProbedAudio out = readMpvMetadata(mpv);
   double secs = 0;
   if (mpv_get_property(mpv, "duration", MPV_FORMAT_DOUBLE, &secs) >= 0 && secs > 0) {
     out.durationMs = qint64(secs * 1000.0);
   }
-  readMpvMetadata(mpv, out.title, out.artist, out.album);
-  if (!out.durationMs && out.title.isEmpty() && out.artist.isEmpty() && out.album.isEmpty()) {
+  if (!out.durationMs && !out.hasTags()) {
     return std::nullopt;
   }
   return out;

@@ -62,8 +62,8 @@ class PlaylistCollection {
   QVector<Track> tracksFor(const QString& path) const;
   void hydrateDurations(QVector<Track>& tracks) const;
   void mergeTrackDuration(const QString& trackPath, qint64 durationMs);
-  void mergeTrackTags(const QString& trackPath, const QString& title, const QString& artist,
-                      const QString& album);
+  void mergeTrackTags(const QString& trackPath, const TrackMetadata& metadata,
+                      bool overwrite = false);
   /// A pure read of what the last track pass found. Called once per probed
   /// duration during an ingest, so it must not touch the filesystem.
   CollectionFigures readFigures() const;

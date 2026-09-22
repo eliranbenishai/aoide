@@ -2,12 +2,14 @@
 
 #include "aoide_fonts.h"
 #include "aoide_metrics.h"
+#include "track_info.h"
 
 #include <QFont>
 #include <QFontMetrics>
 #include <QGuiApplication>
 #include <QPainter>
 #include <QScreen>
+#include <QTextLayout>
 #include <QWidget>
 #include <algorithm>
 #include <cmath>
@@ -67,6 +69,15 @@ QString chromeKindTip(const ChromeHit& chrome, const SessionView& view) {
     case K::trackInfo:
       return view.trackInfoEnabled ? QStringLiteral("Track info")
                                    : QStringLiteral("No track loaded.");
+    case K::trackInfoCopy:
+      return QStringLiteral("Copy all track details");
+    case K::trackInfoField: {
+      const auto fields = trackInfoFields(view);
+      if (chrome.index < 0 || chrome.index >= fields.size()) return {};
+      const auto& field = fields[chrome.index];
+      return field.label + QStringLiteral(": ") +
+             (field.value.trimmed().isEmpty() ? QStringLiteral("No tag available") : field.value);
+    }
     case K::mute:
       return view.muted ? QStringLiteral("Unmute") : QStringLiteral("Mute");
     case K::mono:
@@ -194,18 +205,30 @@ class ChromeTooltipWindow : public QWidget {
   }
 
   void present(QPoint globalAbove, const QString& text, qreal zoomPercent, const ChromeTokens& look) {
-    text_ = text;
+    // Tags are untrusted in size. The clipboard keeps the full value; a hover
+    // preview need only lay out enough text to fill a screen.
+    constexpr qsizetype maxCharacters = 16384;
+    text_ = text.left(maxCharacters);
+    if (text.size() > maxCharacters) {
+      if (text_.back().isHighSurrogate()) text_.chop(1);
+      text_ += QChar(0x2026);
+    }
     zoom_ = qMax(qreal(1), zoomPercent) / 100.0;
     look_ = look;
-    const QSize sz = tipSize();
+    QScreen* screen = QGuiApplication::screenAt(globalAbove);
+    if (!screen) screen = QGuiApplication::primaryScreen();
+    const QRect avail = screen ? screen->availableGeometry() : QRect(0, 0, 640, 480);
+    const QSize sz = prepareText(avail.size());
     const int margin = int(std::lround(6 * zoom_));
-    QPoint pos(globalAbove.x() - sz.width() / 2, globalAbove.y() - sz.height() - margin);
-    if (QScreen* screen = QGuiApplication::screenAt(globalAbove)) {
-      const QRect avail = screen->availableGeometry();
-      pos.setX(std::clamp(pos.x(), avail.left(), avail.right() - sz.width() + 1));
-      if (pos.y() < avail.top()) pos.setY(globalAbove.y() + margin);
-    }
-    setGeometry(QRect(pos, sz));
+    qint64 y = qint64(globalAbove.y()) - sz.height() - margin;
+    if (y < avail.top()) y = qint64(globalAbove.y()) + margin;
+    const QPoint pos(
+        int(std::clamp<qint64>(qint64(globalAbove.x()) - sz.width() / 2, avail.left(),
+                               qint64(avail.right()) - sz.width() + 1)),
+        int(std::clamp<qint64>(y, avail.top(), qint64(avail.bottom()) - sz.height() + 1)));
+    const QRect geometry(pos, sz);
+    if (this->geometry() != geometry) setGeometry(geometry);
+    update();
     show();
     raise();
   }
@@ -226,7 +249,13 @@ class ChromeTooltipWindow : public QWidget {
     p.setPen(look_.ink);
     const int padX = int(std::lround(9 * zoom_));
     const int padY = int(std::lround(5 * zoom_));
-    p.drawText(rect().adjusted(padX, padY, -padX, -padY), Qt::AlignCenter, text_);
+    const QRect content = rect().adjusted(padX, padY, -padX, -padY);
+    if (wrapped_) {
+      p.setClipRect(content);
+      textLayout_.draw(&p, QPointF(padX, padY));
+    } else {
+      p.drawText(content, Qt::AlignCenter, text_);
+    }
   }
 
  private:
@@ -238,14 +267,57 @@ class ChromeTooltipWindow : public QWidget {
     return font;
   }
 
-  QSize tipSize() const {
+  QSize prepareText(QSize available) {
     const QFontMetrics fm(tipFont());
     const int padX = int(std::lround(9 * zoom_));
     const int padY = int(std::lround(5 * zoom_));
-    return QSize(fm.horizontalAdvance(text_) + padX * 2, fm.height() + padY * 2);
+    const int textWidth = qMax(1, qMin(int(std::lround(480 * zoom_)),
+                                      available.width() - padX * 2));
+    const int textHeight = qMax(1, available.height() - padY * 2);
+    const int singleLineWidth = fm.horizontalAdvance(text_);
+    wrapped_ = singleLineWidth > textWidth || text_.contains(QLatin1Char('\n'));
+    if (!wrapped_) {
+      return QSize(singleLineWidth + padX * 2, fm.height() + padY * 2).boundedTo(available);
+    }
+
+    text_.replace(QLatin1Char('\n'), QChar::LineSeparator);
+    textLayout_.setFont(tipFont());
+    QTextOption option;
+    option.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+    textLayout_.setTextOption(option);
+    auto layout = [&]() {
+      textLayout_.setText(text_);
+      textLayout_.beginLayout();
+      qreal width = 0;
+      qreal height = 0;
+      while (true) {
+        QTextLine line = textLayout_.createLine();
+        if (!line.isValid()) break;
+        line.setLineWidth(textWidth);
+        line.setPosition(QPointF(0, height));
+        width = qMax(width, line.naturalTextWidth());
+        height += line.height();
+        // Reserve only lines that fit. The final visible line is elided below
+        // if another line would run beyond the available screen height.
+        if (height + line.height() > textHeight) break;
+      }
+      textLayout_.endLayout();
+      return QSize(int(std::ceil(width)) + padX * 2, int(std::ceil(height)) + padY * 2);
+    };
+    QSize size = layout();
+    const QTextLine last = textLayout_.lineAt(textLayout_.lineCount() - 1);
+    if (last.textStart() + last.textLength() < text_.size()) {
+      const int start = last.textStart();
+      text_ = text_.left(start) +
+              fm.elidedText(text_.mid(start).simplified(), Qt::ElideRight, textWidth);
+      size = layout();
+    }
+    return size.boundedTo(available);
   }
 
   QString text_;
+  QTextLayout textLayout_;
+  bool wrapped_ = false;
   qreal zoom_ = 0.75;
   ChromeTokens look_{};
 };

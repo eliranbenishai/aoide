@@ -1,4 +1,5 @@
 #include "chrome_hits.h"
+#include "track_info.h"
 
 #include "chrome_layout.h"
 #include "mockup_draw.h"
@@ -411,6 +412,18 @@ ChromeHit hitTest(WindowId id, QSize logical, QPoint pos, const SessionView& vie
       return hitAbout(logical, pos);
     case WindowId::skins:
       return hitSkins(logical, pos, view);
+    case WindowId::trackInfo: {
+      if (!view.currentTrack) return {};
+      const TrackInfoLayout layout(logical);
+      if (auto h = hitIf(layout.copy.toRect(), pos, ChromeHit::Kind::trackInfoCopy);
+          h.kind != ChromeHit::Kind::none) return h;
+      const auto fields = trackInfoFields(view, logical);
+      for (int i = 0; i < fields.size(); ++i) {
+        if (auto h = hitIf(fields[i].rect.toRect(), pos, ChromeHit::Kind::trackInfoField, i);
+            h.kind != ChromeHit::Kind::none) return h;
+      }
+      return {};
+    }
   }
   return {};
 }

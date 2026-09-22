@@ -1,4 +1,5 @@
 #include "mpv_engine.h"
+#include "mpv_metadata.h"
 
 #include "audio_output.h"
 #include "equalizer.h"
@@ -329,25 +330,13 @@ void MpvEngine::drainEvents() {
         } else if (name == "metadata" && prop->format == MPV_FORMAT_NODE && prop->data &&
                    onMetadata) {
           const auto* node = static_cast<mpv_node*>(prop->data);
-          QString title, artist, album;
-          if (node->format == MPV_FORMAT_NODE_MAP) {
-            auto take = [&](const char* want, QString& dest) {
-              for (int i = 0; i < node->u.list->num; ++i) {
-                if (QByteArray(node->u.list->keys[i]).toLower() != want) continue;
-                const mpv_node& val = node->u.list->values[i];
-                if (val.format == MPV_FORMAT_STRING) dest = QString::fromUtf8(val.u.string);
-              }
-            };
-            take("title", title);
-            take("artist", artist);
-            take("album", album);
-          }
-          qint64 duration = 0;
+          TrackMetadata metadata = metadataFromMpvNode(*node);
           double secs = 0;
-          if (mpv_get_property(mpv_, "duration", MPV_FORMAT_DOUBLE, &secs) >= 0) {
-            duration = qint64(secs * 1000.0);
+          if (mpv_get_property(mpv_, "duration", MPV_FORMAT_DOUBLE, &secs) >= 0 &&
+              std::isfinite(secs) && secs > 0) {
+            metadata.durationMs = qint64(secs * 1000.0);
           }
-          onMetadata(currentPath_, title, artist, album, duration);
+          onMetadata(currentPath_, metadata);
         }
         break;
       }

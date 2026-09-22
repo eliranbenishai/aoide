@@ -46,11 +46,11 @@ struct PanelSpec {
   bool resizable = false;
   /// Whether the panel belongs to the docked cluster: it snaps to its
   /// neighbours, keeps dock edges, and travels when main is dragged. Settings,
-  /// About and Skins float free of all of that.
+  /// About, Skins and Track info float free of all of that.
   bool docks = false;
   /// Which side of main the panel is pushed out to when it would otherwise
   /// sit on top of it. Docked panels read this from the stacked-open nudge;
-  /// settings, about and skins read it when they are shown or raised.
+  /// freestanding panels read it when they are shown or raised.
   DockSide parkSide = DockSide::right;
   /// Which column of the first-run arrangement the panel is seeded into.
   int seedColumn = 0;
@@ -63,7 +63,7 @@ struct PanelSpec {
 /// Where [id] sits in every table keyed by a panel.
 inline constexpr std::size_t panelIndex(WindowId id) { return static_cast<std::size_t>(id); }
 
-/// Every panel, in `WindowId` order. The one table a sixth panel is added to.
+/// Every panel, in `WindowId` order. The one table a new panel is added to.
 inline const std::array<PanelSpec, kPanelCount>& panelSpecs() {
   static const std::array<PanelSpec, kPanelCount> specs = {{
       PanelSpec{
@@ -150,6 +150,20 @@ inline const std::array<PanelSpec, kPanelCount>& panelSpecs() {
           &AoideSettings::skins,
           &DockLayout::skins,
       },
+      PanelSpec{
+          WindowId::trackInfo,
+          QStringLiteral("Track info"),
+          QStringLiteral("trackInfo"),
+          QStringLiteral("track_info_window"),
+          {QStringLiteral("track-info"), QStringLiteral("trackinfo")},
+          kTrackInfo,
+          false,
+          false,
+          DockSide::right,
+          1,
+          &AoideSettings::trackInfo,
+          &DockLayout::trackInfo,
+      },
   }};
   return specs;
 }
@@ -174,7 +188,7 @@ inline std::optional<WindowId> panelForPersistKey(const QString& key) {
   return std::nullopt;
 }
 
-/// The live window behind each panel. A table rather than five named pointers,
+/// The live window behind each panel. A table rather than named pointers,
 /// so the app wiring and the session both reach a panel's window by id instead
 /// of switching on it.
 class PanelWindows {
@@ -189,7 +203,7 @@ class PanelWindows {
 
 /// Copy every panel's frame from a settings record into a live layout, or the
 /// other way: persist writes the layout back. The table is the list of frames,
-/// so a sixth panel is one more pointer pair, not another assignment.
+/// so a new panel is one more pointer pair, not another assignment.
 inline void copyPanelFrames(DockLayout& dest, const AoideSettings& src) {
   for (const PanelSpec& panel : panelSpecs()) {
     dest.*panel.layoutFrame = src.*panel.settingsFrame;

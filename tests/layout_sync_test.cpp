@@ -94,7 +94,7 @@ class LayoutSyncTest : public QObject {
   void aFitShrinksThePlaylistTowardItsMinimumToClearMain();
   void aFitNeverAsksForAPlaylistSmallerThanTheMinimumInForce();
   void aHandDragMayLeaveASiblingOverMain();
-  void settingsAboutAndSkinsMoveClearOfMainWhenShownStacked();
+  void freestandingPanelsMoveClearOfMainWhenShownStacked();
   void aLaterPlaceDoesNotClearAFreestandingPanelTheListenerParkedOnMain();
   void aMoveWithNoSurfacesDoesNotLatchTheNextPlace();
   void aReentrantPlaceLeavesTheLatchForTheOuterPass();
@@ -366,17 +366,19 @@ void LayoutSyncTest::aFitNeverAsksForAPlaylistSmallerThanTheMinimumInForce() {
   QVERIFY(playlist.height() >= min.height());
 }
 
-void LayoutSyncTest::settingsAboutAndSkinsMoveClearOfMainWhenShownStacked() {
+void LayoutSyncTest::freestandingPanelsMoveClearOfMainWhenShownStacked() {
   FakeDesktop desktop(QRect(0, 0, 1920, 1080));
   DockLayout dock;
   dock.main = {true, false, 0, 0, {}, {}};
   dock.settings = {true, false, 0, 0, {}, {}};
   dock.about = {true, false, 10, 10, {}, {}};
   dock.skins = {true, false, 20, 20, {}, {}};
+  dock.trackInfo = {true, false, 30, 30, {}, {}};
   LayoutSync layout(dock, 100);
   layout.setSurfaces(&desktop);
 
-  for (WindowId id : {WindowId::settings, WindowId::about, WindowId::skins}) {
+  for (WindowId id : {WindowId::settings, WindowId::about, WindowId::skins,
+                      WindowId::trackInfo}) {
     layout.nudgeFreestandingClearOfMain(id);
   }
   layout.place();
@@ -386,13 +388,16 @@ void LayoutSyncTest::settingsAboutAndSkinsMoveClearOfMainWhenShownStacked() {
   const QRect settings = desktop.placementOf(WindowId::settings).screen;
   const QRect about = desktop.placementOf(WindowId::about).screen;
   const QRect skins = desktop.placementOf(WindowId::skins).screen;
+  const QRect trackInfo = desktop.placementOf(WindowId::trackInfo).screen;
   QVERIFY2(!settings.intersects(main),
            "settings shown on main must be moved clear of the player");
   QVERIFY2(!about.intersects(main), "about shown on main must be moved clear of the player");
   QVERIFY2(!skins.intersects(main), "skins shown on main must be moved clear of the player");
+  QVERIFY2(!trackInfo.intersects(main), "track info shown on main must be moved clear of the player");
   QCOMPARE(settings, QRect(825, 0, 520, 420));
   QCOMPARE(about, QRect(825, 10, 480, 360));
   QCOMPARE(skins, QRect(825, 20, 600, 480));
+  QCOMPARE(trackInfo, QRect(825, 30, 620, 550));
 }
 
 void LayoutSyncTest::aLaterPlaceDoesNotClearAFreestandingPanelTheListenerParkedOnMain() {
@@ -1011,6 +1016,8 @@ void LayoutSyncTest::everyPanelReachesTheSurfacesIncludingTheHiddenOnes() {
   QVERIFY(!desktop.placementOf(WindowId::playlist).visible);
   QCOMPARE(desktop.placementOf(WindowId::skins).id, WindowId::skins);
   QVERIFY(!desktop.placementOf(WindowId::skins).visible);
+  QCOMPARE(desktop.placementOf(WindowId::trackInfo).id, WindowId::trackInfo);
+  QVERIFY(!desktop.placementOf(WindowId::trackInfo).visible);
 }
 
 void LayoutSyncTest::minimizingMainSuppressesThePanelsWithoutForgettingThem() {

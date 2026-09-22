@@ -40,8 +40,7 @@ class PlayerEngine {
   std::function<void()> onCompleted;
   std::function<void(AudioFormatInfo)> onFormat;
   std::function<void(QString)> onError;
-  std::function<void(QString path, QString title, QString artist, QString album, qint64 durationMs)>
-      onMetadata;
+  std::function<void(QString path, const TrackMetadata&)> onMetadata;
 };
 
 /// Inert stand-in used by tests. It reports playback so transport behaviour can

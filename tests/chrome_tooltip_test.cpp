@@ -1,6 +1,9 @@
 #include "chrome_tooltip.h"
 
+#include <QApplication>
+#include <QScreen>
 #include <QTest>
+#include <QWidget>
 
 class ChromeTooltipTest : public QObject {
   Q_OBJECT
@@ -17,6 +20,10 @@ class ChromeTooltipTest : public QObject {
   void skinsCellsStayQuiet();
   void hoverMotionHidesWhenBusyOrEmpty();
   void hoverMotionRestartsWhenTheNameChanges();
+  void longMetadataStaysInsideScreen_data();
+  void longMetadataStaysInsideScreen();
+  void tooltipOutsideScreensUsesPrimaryScreen();
+  void cleanup() { aoide::hideChromeTooltip(); }
 };
 
 static aoide::ChromeHit kind(aoide::ChromeHit::Kind k, int index = -1) {
@@ -240,6 +247,73 @@ void ChromeTooltipTest::hoverMotionRestartsWhenTheNameChanges() {
            aoide::TooltipMotion::keep);
   QCOMPARE(aoide::tooltipMotion(QStringLiteral("Previous"), QStringLiteral("Previous"), false, false),
            aoide::TooltipMotion::restartWait);
+}
+
+static QWidget* visibleTooltip() {
+  for (QWidget* widget : QApplication::topLevelWidgets()) {
+    if (widget->windowType() == Qt::ToolTip && widget->isVisible()) return widget;
+  }
+  return nullptr;
+}
+
+void ChromeTooltipTest::longMetadataStaysInsideScreen_data() {
+  QTest::addColumn<QString>("text");
+  QTest::newRow("long album") << QStringLiteral("Album: ") +
+                                   QStringLiteral("The Complete Recordings ").repeated(60);
+  QTest::newRow("uninterrupted path") << QStringLiteral("Location: /Music/") +
+                                           QString(1200, QLatin1Char('a')) + QStringLiteral(".flac");
+  QTest::newRow("enormous tag") << QStringLiteral("Composer: ") +
+                                     QString(1000000, QLatin1Char('W'));
+}
+
+void ChromeTooltipTest::longMetadataStaysInsideScreen() {
+  if (QGuiApplication::platformName().startsWith(QStringLiteral("wayland"))) {
+    QSKIP("Wayland owns native tooltip placement; this checks the requested screen geometry.");
+  }
+  QFETCH(QString, text);
+  QScreen* screen = QGuiApplication::primaryScreen();
+  QVERIFY(screen);
+  const QRect available = screen->availableGeometry();
+  const aoide::ChromeTokens look;
+  aoide::showChromeTooltip(available.center(), QStringLiteral("Play"), 100, look);
+  QWidget* tooltip = visibleTooltip();
+  QVERIFY(tooltip);
+  QVERIFY(QTest::qWaitForWindowExposed(tooltip));
+  const QSize shortSize = tooltip->size();
+
+  // Exercise the real window, including both placement branches and a path
+  // with no spaces. A one-line popup used to exceed the available width and
+  // pass reversed bounds to std::clamp.
+  for (QPoint anchor : {available.topLeft(), available.bottomRight()}) {
+    aoide::showChromeTooltip(anchor, text, 100, look);
+    QVERIFY(tooltip->isVisible());
+    QVERIFY(tooltip->height() > shortSize.height());
+    QVERIFY2(available.contains(tooltip->geometry()), qPrintable(
+        QStringLiteral("Tooltip %1,%2 %3x%4 exceeds screen %5,%6 %7x%8")
+            .arg(tooltip->x()).arg(tooltip->y()).arg(tooltip->width()).arg(tooltip->height())
+            .arg(available.x()).arg(available.y()).arg(available.width()).arg(available.height())));
+  }
+
+  aoide::showChromeTooltip(available.center(), QStringLiteral("Play"), 100, look);
+  QCOMPARE(tooltip->size(), shortSize);
+  QVERIFY(available.contains(tooltip->geometry()));
+}
+
+void ChromeTooltipTest::tooltipOutsideScreensUsesPrimaryScreen() {
+  if (QGuiApplication::platformName().startsWith(QStringLiteral("wayland"))) {
+    QSKIP("Wayland owns native tooltip placement; this checks the requested screen geometry.");
+  }
+  QScreen* screen = QGuiApplication::primaryScreen();
+  QVERIFY(screen);
+  const QPoint outside(-100000, -100000);
+  QVERIFY(!QGuiApplication::screenAt(outside));
+  aoide::showChromeTooltip(outside, QStringLiteral("Album: ") +
+                                      QStringLiteral("A very long release name ").repeated(60),
+                          100, aoide::ChromeTokens{});
+  QWidget* tooltip = visibleTooltip();
+  QVERIFY(tooltip);
+  QVERIFY(QTest::qWaitForWindowExposed(tooltip));
+  QVERIFY(screen->availableGeometry().contains(tooltip->geometry()));
 }
 
 QTEST_MAIN(ChromeTooltipTest)

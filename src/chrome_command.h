@@ -30,6 +30,7 @@ enum class ChromeIntent {
   loadCollectionRow,
   showOptionsMenu,
   showTrackInfo,
+  copyTrackInfo,
   showEqPresets,
   showAudioDevices,
   openWebsite,

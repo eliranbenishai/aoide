@@ -21,6 +21,8 @@ struct ChromeHit {
     options,
     skins,
     trackInfo,
+    trackInfoCopy,
+    trackInfoField,
     timeToggle,
     mute,
     volume,
@@ -171,6 +173,7 @@ SeekStamps mainSeekStamps(const SessionView& view);
 /// Everything else that has a kind is live.
 inline bool chromeHitEnabled(const ChromeHit& hit, const SessionView& view) {
   if (hit.kind == ChromeHit::Kind::trackInfo) return view.trackInfoEnabled;
+  if (hit.kind == ChromeHit::Kind::trackInfoCopy) return view.currentTrack.has_value();
   if (hit.kind == ChromeHit::Kind::plSave) return view.playlistAltered;
   return hit.kind != ChromeHit::Kind::none;
 }

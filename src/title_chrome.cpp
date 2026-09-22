@@ -30,6 +30,8 @@ QString roleTitle(WindowId id) {
       return QStringLiteral("About");
     case WindowId::skins:
       return QStringLiteral("Skins");
+    case WindowId::trackInfo:
+      return QStringLiteral("Track info");
   }
   return {};
 }

@@ -62,13 +62,12 @@ void PlaylistCollection::refreshFigures(SavedPlaylist& e, const QVector<Track>& 
     } else {
       total += qMax<qint64>(0, trackSets_.durationsMs.value(n, 0));
     }
-    if (!t.title.trimmed().isEmpty() || !t.artist.trimmed().isEmpty() ||
-        !t.album.trimmed().isEmpty()) {
-      CachedTrackMeta tags = trackSets_.meta.value(n);
-      if (!t.title.trimmed().isEmpty()) tags.title = t.title.trimmed();
-      if (!t.artist.trimmed().isEmpty()) tags.artist = t.artist.trimmed();
-      if (!t.album.trimmed().isEmpty()) tags.album = t.album.trimmed();
-      trackSets_.meta.insert(n, tags);
+    if (trackMetadata(t).hasTags()) {
+      Track cached;
+      applyTrackMetadata(cached, trackSets_.meta.value(n), true);
+      applyTrackMetadata(cached, trackMetadata(t), true);
+      cached.durationMs.reset();
+      trackSets_.meta.insert(n, trackMetadata(cached));
     }
   }
   e.totalDurationMs = total;
@@ -91,13 +90,7 @@ void PlaylistCollection::hydrateDurations(QVector<Track>& tracks) const {
       if (cached > 0) t.durationMs = cached;
       else t.durationMs.reset();
     }
-    const CachedTrackMeta tags = trackSets_.meta.value(n);
-    auto take = [](const QString& src, QString& dest) {
-      if (dest.trimmed().isEmpty() && !src.trimmed().isEmpty()) dest = src;
-    };
-    take(tags.title, t.title);
-    take(tags.artist, t.artist);
-    take(tags.album, t.album);
+    applyTrackMetadata(t, trackSets_.meta.value(n), false);
   }
 }
 
@@ -119,23 +112,17 @@ void PlaylistCollection::mergeTrackDuration(const QString& trackPath, qint64 dur
   }
 }
 
-void PlaylistCollection::mergeTrackTags(const QString& trackPath, const QString& title,
-                                        const QString& artist, const QString& album) {
+void PlaylistCollection::mergeTrackTags(const QString& trackPath, const TrackMetadata& metadata,
+                                         bool overwrite) {
   const QString n = normalizePlaylistPath(trackPath);
-  CachedTrackMeta tags = trackSets_.meta.value(n);
-  auto take = [](const QString& src, QString& dest) -> bool {
-    const QString trimmed = src.trimmed();
-    if (trimmed.isEmpty() || dest.trimmed() == trimmed) return false;
-    if (!dest.trimmed().isEmpty()) return false;
-    dest = trimmed;
-    return true;
-  };
-  bool changed = false;
-  changed = take(title, tags.title) || changed;
-  changed = take(artist, tags.artist) || changed;
-  changed = take(album, tags.album) || changed;
-  if (!changed) return;
-  trackSets_.meta.insert(n, tags);
+  Track cached;
+  applyTrackMetadata(cached, trackSets_.meta.value(n), true);
+  const Track previous = cached;
+  applyTrackMetadata(cached, metadata, overwrite);
+  // Durations have their own cache and figures; this entry holds tags only.
+  cached.durationMs.reset();
+  if (cached == previous) return;
+  trackSets_.meta.insert(n, trackMetadata(cached));
   trackSetsDirty_ = true;
 }
 
@@ -270,10 +257,7 @@ QVector<Track> PlaylistCollection::tracksFor(const QString& path) const {
     t.path = p;
     const qint64 cached = trackSets_.durationsMs.value(p, 0);
     if (cached > 0) t.durationMs = cached;
-    const CachedTrackMeta tags = trackSets_.meta.value(p);
-    t.title = tags.title;
-    t.artist = tags.artist;
-    t.album = tags.album;
+    applyTrackMetadata(t, trackSets_.meta.value(p), false);
     tracks.push_back(t);
   }
   return tracks;

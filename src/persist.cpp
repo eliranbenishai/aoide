@@ -11,13 +11,41 @@
 namespace aoide {
 namespace {
 
-QJsonObject trackToJson(const Track& t) {
+QJsonObject metadataToJson(const TrackMetadata& metadata) {
   QJsonObject o;
+  auto put = [&](const char* key, const QString& value) {
+    if (!value.isEmpty()) o.insert(QLatin1String(key), value);
+  };
+  put("title", metadata.title);
+  put("artist", metadata.artist);
+  put("album", metadata.album);
+  put("albumArtist", metadata.albumArtist);
+  put("genre", metadata.genre);
+  put("trackNumber", metadata.trackNumber);
+  put("discNumber", metadata.discNumber);
+  put("composer", metadata.composer);
+  if (metadata.year) o.insert(QStringLiteral("year"), *metadata.year);
+  return o;
+}
+
+TrackMetadata metadataFromJson(const QJsonObject& o) {
+  TrackMetadata metadata;
+  metadata.title = o.value(QStringLiteral("title")).toString();
+  metadata.artist = o.value(QStringLiteral("artist")).toString();
+  metadata.album = o.value(QStringLiteral("album")).toString();
+  metadata.albumArtist = o.value(QStringLiteral("albumArtist")).toString();
+  metadata.genre = o.value(QStringLiteral("genre")).toString();
+  metadata.trackNumber = o.value(QStringLiteral("trackNumber")).toString();
+  metadata.discNumber = o.value(QStringLiteral("discNumber")).toString();
+  metadata.composer = o.value(QStringLiteral("composer")).toString();
+  const int year = o.value(QStringLiteral("year")).toInt();
+  if (year > 0) metadata.year = year;
+  return metadata;
+}
+
+QJsonObject trackToJson(const Track& t) {
+  QJsonObject o = metadataToJson(trackMetadata(t));
   o.insert(QStringLiteral("path"), t.path);
-  if (!t.title.isEmpty()) o.insert(QStringLiteral("title"), t.title);
-  if (!t.artist.isEmpty()) o.insert(QStringLiteral("artist"), t.artist);
-  if (!t.album.isEmpty()) o.insert(QStringLiteral("album"), t.album);
-  if (t.year) o.insert(QStringLiteral("year"), *t.year);
   if (t.durationMs) o.insert(QStringLiteral("durationMs"), qint64(*t.durationMs));
   // A disabled row paints faint and is left out of the footer figures. Dropping
   // that on the way to disk made every restored row look playable until the
@@ -29,10 +57,7 @@ QJsonObject trackToJson(const Track& t) {
 Track trackFromJson(const QJsonObject& o) {
   Track t;
   t.path = o.value(QStringLiteral("path")).toString();
-  t.title = o.value(QStringLiteral("title")).toString();
-  t.artist = o.value(QStringLiteral("artist")).toString();
-  t.album = o.value(QStringLiteral("album")).toString();
-  if (o.contains(QStringLiteral("year"))) t.year = o.value(QStringLiteral("year")).toInt();
+  applyTrackMetadata(t, metadataFromJson(o), true);
   if (o.contains(QStringLiteral("durationMs"))) {
     t.durationMs = qint64(o.value(QStringLiteral("durationMs")).toDouble());
   }
@@ -283,11 +308,8 @@ CollectionTrackSets SupportStore::readTrackSets() const {
   for (auto it = meta.begin(); it != meta.end(); ++it) {
     if (it.key().isEmpty()) continue;
     const QJsonObject m = it.value().toObject();
-    CachedTrackMeta tags;
-    tags.title = m.value(QStringLiteral("title")).toString();
-    tags.artist = m.value(QStringLiteral("artist")).toString();
-    tags.album = m.value(QStringLiteral("album")).toString();
-    if (!tags.title.isEmpty() || !tags.artist.isEmpty() || !tags.album.isEmpty()) {
+    const CachedTrackMeta tags = metadataFromJson(m);
+    if (tags.hasTags()) {
       sets.meta.insert(absoluteKey(it.key()), tags);
     }
   }
@@ -313,10 +335,7 @@ bool SupportStore::writeTrackSets(const CollectionTrackSets& sets) const {
   QJsonObject meta;
   for (auto it = sets.meta.begin(); it != sets.meta.end(); ++it) {
     if (it.key().isEmpty()) continue;
-    QJsonObject m;
-    if (!it.value().title.isEmpty()) m.insert(QStringLiteral("title"), it.value().title);
-    if (!it.value().artist.isEmpty()) m.insert(QStringLiteral("artist"), it.value().artist);
-    if (!it.value().album.isEmpty()) m.insert(QStringLiteral("album"), it.value().album);
+    const QJsonObject m = metadataToJson(it.value());
     if (!m.isEmpty()) meta.insert(absoluteKey(it.key()), m);
   }
   QJsonObject root;

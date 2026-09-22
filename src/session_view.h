@@ -135,6 +135,9 @@ struct SessionView {
   bool persistWriteFailed = false;
   QString audioDeviceLabel = QStringLiteral("Auto");
   bool audioExclusive = false;
+  /// The transport's track, including an off-list paused or stopped track.
+  std::optional<Track> currentTrack;
+  bool trackInfoOn = false;
 };
 
 /// Whether the display well's marquee is moving rather than held at the start.

@@ -1,4 +1,6 @@
 #include "session.h"
+#include "track_info.h"
+#include <QClipboard>
 
 #include "audio_output.h"
 #include "chrome_command.h"
@@ -529,8 +531,7 @@ void AoideSession::startDurationProbe(const QVector<Track>& tracks, bool overwri
     probeAudioDurations(paths, stillWanted,
                         [&](const QString& path, const ProbedAudio& probed) {
                           if (!stillWanted()) return;
-                          batch.push_back({path, probed.title, probed.artist, probed.album,
-                                           probed.durationMs.value_or(0)});
+                          batch.push_back({path, probed});
                           if (batch.size() >= kProbeBatchSize ||
                               sinceFlush.elapsed() >= kProbeBatchMs) {
                             flush();
@@ -566,27 +567,20 @@ void AoideSession::applyProbedBatch(const QVector<ProbedTrack>& batch, int gen, 
       // that the file wins.
       const auto row = rows.constFind(normalizePlaylistPath(answer.path));
       if (row != rows.constEnd()) {
-        ProbedAudio probed;
-        probed.title = answer.title;
-        probed.artist = answer.artist;
-        probed.album = answer.album;
-        if (answer.durationMs > 0) probed.durationMs = answer.durationMs;
         Track next = *row;
-        applyProbedAudio(next, probed, true);
+        applyProbedAudio(next, answer.metadata, true);
         // Keeps whatever the path verify has said about the row since.
         playlist_.updateTrackByPath(next.path, next);
       }
     } else {
-      playlist_.applyMetadata(answer.path, answer.title, answer.artist, answer.album,
-                              answer.durationMs);
+      playlist_.applyMetadata(answer.path, answer.metadata);
     }
-    collection_.mergeTrackTags(answer.path, answer.title, answer.artist, answer.album);
-    if (answer.durationMs > 0) {
-      collection_.mergeTrackDuration(answer.path, answer.durationMs);
+    collection_.mergeTrackTags(answer.path, answer.metadata, overwrite);
+    if (answer.metadata.durationMs.value_or(0) > 0) {
+      collection_.mergeTrackDuration(answer.path, *answer.metadata.durationMs);
       gotDuration = true;
       touchedCache = true;
-    } else if (!answer.title.trimmed().isEmpty() || !answer.artist.trimmed().isEmpty() ||
-               !answer.album.trimmed().isEmpty()) {
+    } else if (answer.metadata.hasTags()) {
       touchedCache = true;
     }
   }
@@ -688,7 +682,9 @@ SessionView AoideSession::view() const {
   v.eqOn = layout_.layout().equalizer.visible;
   v.plOn = layout_.layout().playlist.visible;
   v.skinsOn = layout_.layout().skins.visible;
-  const bool hasCurrent = playback_->currentTrack().has_value();
+  v.currentTrack = playback_->currentTrack();
+  v.trackInfoOn = layout_.layout().trackInfo.visible;
+  const bool hasCurrent = v.currentTrack.has_value();
   v.trackInfoEnabled = hasCurrent;
   v.hasCurrentTrack = hasCurrent;
   v.showElapsed = settings_.showElapsed;
@@ -1316,6 +1312,9 @@ void AoideSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
     case ChromeIntent::showTrackInfo:
       showTrackInfo();
       break;
+    case ChromeIntent::copyTrackInfo:
+      QGuiApplication::clipboard()->setText(trackInfoText(view()));
+      break;
     case ChromeIntent::showEqPresets:
       presentEqPresets(hit);
       break;
@@ -1722,21 +1721,9 @@ int AoideSession::execAnchoredMenu(const QVector<ChromeMenuItem>& items, HostWin
 }
 
 void AoideSession::showTrackInfo() {
-  const auto track = playback_->currentTrack();
-  QString message = QStringLiteral("No track loaded.");
-  if (track) {
-    QStringList lines;
-    lines << track->displayTitle();
-    if (!track->artist.trimmed().isEmpty()) {
-      lines << QStringLiteral("Artist: %1").arg(track->artist);
-    }
-    if (!track->album.trimmed().isEmpty()) {
-      lines << QStringLiteral("Album: %1").arg(track->album);
-    }
-    lines << QStringLiteral("Path: %1").arg(track->path);
-    message = lines.join(QLatin1Char('\n'));
-  }
-  QMessageBox::information(windowFor(WindowId::main), QStringLiteral("Track info"), message);
+  if (!playback_->currentTrack()) return;
+  if (windowShouldShow(WindowId::trackInfo)) raiseWindow(WindowId::trackInfo);
+  else setWindowVisible(WindowId::trackInfo, true);
 }
 
 bool AoideSession::reportPlaylistWriteFailure(bool wrote, const QString& path) {

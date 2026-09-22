@@ -10,12 +10,7 @@
 
 namespace aoide {
 
-struct ProbedAudio {
-  QString title;
-  QString artist;
-  QString album;
-  std::optional<qint64> durationMs;
-};
+using ProbedAudio = TrackMetadata;
 
 inline bool trackNeedsAudioProbe(const Track& t) {
   if (!t.durationMs || *t.durationMs <= 0) return true;
@@ -23,18 +18,7 @@ inline bool trackNeedsAudioProbe(const Track& t) {
 }
 
 inline void applyProbedAudio(Track& t, const ProbedAudio& probed, bool overwrite) {
-  auto take = [&](const QString& src, QString& dest) {
-    const QString trimmed = src.trimmed();
-    if (trimmed.isEmpty()) return;
-    if (!overwrite && !dest.trimmed().isEmpty()) return;
-    dest = trimmed;
-  };
-  take(probed.title, t.title);
-  take(probed.artist, t.artist);
-  take(probed.album, t.album);
-  if (probed.durationMs && *probed.durationMs > 0) {
-    if (overwrite || !t.durationMs || *t.durationMs <= 0) t.durationMs = probed.durationMs;
-  }
+  applyTrackMetadata(t, probed, overwrite);
 }
 
 inline QStringList pathsNeedingAudioProbe(const QVector<Track>& tracks) {

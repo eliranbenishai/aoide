@@ -155,6 +155,10 @@ ChromeCommandOutcome ChromeCommandRouter::handle(WindowId id, const ChromeHit& h
       out.handled = true;
       if (playback_.currentTrack()) out.intent = ChromeIntent::showTrackInfo;
       break;
+    case K::trackInfoCopy:
+      out.handled = true;
+      if (playback_.currentTrack()) out.intent = ChromeIntent::copyTrackInfo;
+      break;
     case K::timeToggle:
       settings_.showElapsed = !settings_.showElapsed;
       out.handled = true;

@@ -26,11 +26,13 @@ bool takesPointerFeedback(ChromeHit::Kind kind) {
     // Bare text and readouts: no face to light.
     case ChromeHit::Kind::timeToggle:
     case ChromeHit::Kind::aboutWeb:
+    case ChromeHit::Kind::trackInfoField:
       return false;
 
     case ChromeHit::Kind::options:
     case ChromeHit::Kind::skins:
     case ChromeHit::Kind::trackInfo:
+    case ChromeHit::Kind::trackInfoCopy:
     case ChromeHit::Kind::mute:
     case ChromeHit::Kind::mono:
     case ChromeHit::Kind::eqToggle:

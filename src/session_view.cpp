@@ -67,7 +67,7 @@ bool paintsSame(WindowId id, const SessionView& a, const SessionView& b) {
                titleScrollMs, minimizeHidesSecondaries, dockSnap, aboutPlaylists, aboutTracks,
                aboutTimeMs, aboutSpins, aboutMeasured, look, skins, activeSkinId, skinsError,
                skinsScroll, spectrumUnmeasured, noAudioEngine, persistWriteFailed,
-               audioDeviceLabel, audioExclusive] = a;
+               audioDeviceLabel, audioExclusive, currentTrack, trackInfoOn] = a;
 
   // No painter reads these three. The playlist rows carry their own `selected`
   // flag, so `selectedIndices` is the session's copy; `aboutMeasured` is read
@@ -103,6 +103,7 @@ bool paintsSame(WindowId id, const SessionView& a, const SessionView& b) {
       // "Drop files to play".
       return zoomInEnabled == b.zoomInEnabled && zoomOutEnabled == b.zoomOutEnabled &&
              skinsOn == b.skinsOn && trackInfoEnabled == b.trackInfoEnabled &&
+             trackInfoOn == b.trackInfoOn &&
              showElapsed == b.showElapsed && positionMs == b.positionMs &&
              durationMs == b.durationMs && title == b.title &&
              mainEmptyTitle(a) == mainEmptyTitle(b) && subtitle == b.subtitle &&
@@ -149,6 +150,10 @@ bool paintsSame(WindowId id, const SessionView& a, const SessionView& b) {
     case WindowId::about:
       return aboutPlaylists == b.aboutPlaylists && aboutTracks == b.aboutTracks &&
              aboutTimeMs == b.aboutTimeMs && aboutSpins == b.aboutSpins;
+    case WindowId::trackInfo:
+      return currentTrack == b.currentTrack && durationMs == b.durationMs &&
+             bitrate == b.bitrate && sampleRate == b.sampleRate && channels == b.channels &&
+             formatChip == b.formatChip;
   }
   return false;
 }
@@ -214,6 +219,14 @@ SessionView goldenDemoView() {
   };
   v.playingIndex = 0;
   v.trackInfoEnabled = true;
+  Track demoTrack;
+  demoTrack.path = QStringLiteral("/Music/Chronoton/Particles EP/01 - Travelling Far In Short Strides.mp3");
+  demoTrack.title = QStringLiteral("Travelling Far In Short Strides");
+  demoTrack.artist = QStringLiteral("Chronoton");
+  demoTrack.album = QStringLiteral("Particles EP");
+  demoTrack.durationMs = v.durationMs;
+  demoTrack.trackNumber = QStringLiteral("1 / 5");
+  v.currentTrack = demoTrack;
   v.playlistName = QStringLiteral("Chronoton.m3u8");
   v.playlistTotalMs = 2818000;
   v.playlistTrackCount = v.tracks.size();

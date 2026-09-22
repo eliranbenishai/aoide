@@ -161,10 +161,7 @@ class AoideSession : public QObject, public PanelSurfaces {
   /// every panel a thousand times.
   struct ProbedTrack {
     QString path;
-    QString title;
-    QString artist;
-    QString album;
-    qint64 durationMs = 0;
+    TrackMetadata metadata;
   };
 
   QVector<Track> ingestPlaylistFile(const QString& path);

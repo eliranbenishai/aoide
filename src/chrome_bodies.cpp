@@ -6,6 +6,7 @@
 #include "aoide_fonts.h"
 #include "aoide_metrics.h"
 #include "aoide_version.h"
+#include "track_info.h"
 
 #include <QDateTime>
 #include <QFileInfo>
@@ -193,7 +194,7 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
     drawScreenWell(p, well);
     drawGlyphBtn(p, display.options, MockupIcon::options, faceOf(phases, K::options, false), 16);
     drawGlyphBtn(p, display.skins, MockupIcon::skins, faceOf(phases, K::skins, view.skinsOn), 16);
-    drawGlyphBtn(p, display.trackInfo, MockupIcon::trackInfo, faceOf(phases, K::trackInfo, false), 16,
+    drawGlyphBtn(p, display.trackInfo, MockupIcon::trackInfo, faceOf(phases, K::trackInfo, view.trackInfoOn), 16,
                  view.trackInfoEnabled);
     const QRectF marks = displayWellMarks(inner);
     qreal markX = marks.left();
@@ -1024,6 +1025,71 @@ void paintSkins(QPainter& p, const QRectF& body, const SessionView& view,
                faceOf(phases, K::settingsSkinsRefresh, false), 16);
 }
 
+void paintTrackInfo(QPainter& p, QSize logical, const SessionView& view,
+                    const ChromePhases& phases) {
+  const PainterStateScope hold(p);
+  const TrackInfoLayout layout(logical);
+  drawScreenWell(p, layout.hero);
+  if (!view.currentTrack) {
+    p.setFont(condensedFont(22));
+    p.setPen(T().phos);
+    p.drawText(layout.hero, Qt::AlignCenter, QStringLiteral("No track loaded"));
+    p.setFont(monoFont(12));
+    p.setPen(T().inkDim);
+    p.drawText(layout.tags, Qt::AlignHCenter | Qt::AlignTop,
+               QStringLiteral("Play a track to see its details here."));
+    return;
+  }
+
+  const auto heading = [&](const QRectF& box, const QString& text) {
+    p.setFont(condensedFont(10, 0.18));
+    p.setPen(T().inkDim);
+    p.drawText(box.adjusted(16, 5, -16, 0), Qt::AlignLeft | Qt::AlignTop, text);
+  };
+  heading(layout.hero, QStringLiteral("CURRENT TRACK"));
+  p.setFont(monoFont(10));
+  p.setPen(T().phos);
+  p.drawText(layout.hero.adjusted(16, 5, -16, 0), Qt::AlignRight | Qt::AlignTop,
+             view.formatChip);
+
+  for (const QRectF& box : {layout.tags, layout.audio, layout.file}) {
+    fillRound(p, box, T().surfaceRadius(box), mix(T().shellDeep, T().well, 0.45));
+    p.setPen(QPen(withAlpha(T().inkFaint, 60), 1));
+    p.setBrush(Qt::NoBrush);
+    p.drawRoundedRect(box.adjusted(0.5, 0.5, -0.5, -0.5), T().surfaceRadius(box),
+                      T().surfaceRadius(box));
+  }
+  heading(layout.tags, QStringLiteral("RELEASE & CREDITS"));
+  heading(layout.audio, QStringLiteral("AUDIO"));
+
+  const auto fields = trackInfoFields(view, logical);
+  for (int i = 0; i < fields.size(); ++i) {
+    const auto& field = fields[i];
+    const bool missing = field.value.trimmed().isEmpty();
+    const QString value = missing ? QStringLiteral("—") : field.value;
+    QRectF valueRect = field.rect;
+    if (i >= 2 && i != 14) {
+      p.setFont(condensedFont(10, 0.08));
+      p.setPen(T().inkDim);
+      p.drawText(field.rect, Qt::AlignLeft | Qt::AlignTop, field.label.toUpper());
+      valueRect.setTop(valueRect.top() + 13);
+    }
+    p.setFont(i == 0 ? condensedFont(23) : (i == 14 ? monoFont(10) : monoFont(12)));
+    p.setPen(missing ? T().inkFaint : (i <= 1 ? T().phos : T().ink));
+    const Qt::TextElideMode elide = i >= 13 ? Qt::ElideMiddle : Qt::ElideRight;
+    p.drawText(valueRect, Qt::AlignLeft | Qt::AlignVCenter,
+               QFontMetricsF(p.font()).elidedText(value, elide, valueRect.width()));
+  }
+
+  drawBtn(p, layout.copy, faceOf(phases, ChromeHit::Kind::trackInfoCopy, false),
+          QStringLiteral("COPY DETAILS"));
+  p.setFont(monoFont(10));
+  p.setPen(T().inkDim);
+  p.drawText(QRectF(layout.hero.left(), layout.copy.top(), layout.copy.left() - layout.hero.left() - 12,
+                    layout.copy.height()), Qt::AlignLeft | Qt::AlignVCenter,
+             QStringLiteral("—  No tag available"));
+}
+
 void paintAbout(QPainter& p, const QRectF& body, const QImage* logo, const SessionView& view) {
   const PainterStateScope hold(p);
   const QRectF inner = aboutInner(body);
@@ -1189,6 +1255,9 @@ void paintWindowBody(QPainter& painter, WindowId id, QSize logical, const QImage
       break;
     case WindowId::skins:
       paintSkins(painter, body, view, phases);
+      break;
+    case WindowId::trackInfo:
+      paintTrackInfo(painter, logical, view, phases);
       break;
   }
 }

@@ -40,6 +40,7 @@ struct WindowFrame {
   static WindowFrame settingsDefault() { return {false, false, 860, 40, {}, {}}; }
   static WindowFrame aboutDefault() { return {false, false, 860, 480, {}, {}}; }
   static WindowFrame skinsDefault() { return {false, false, 1340, 40, {}, {}}; }
+  static WindowFrame trackInfoDefault() { return {false, false, 860, 40, {}, {}}; }
 };
 
 struct DockEdge {
@@ -58,6 +59,7 @@ struct AoideSettings {
   WindowFrame settings = WindowFrame::settingsDefault();
   WindowFrame about = WindowFrame::aboutDefault();
   WindowFrame skins = WindowFrame::skinsDefault();
+  WindowFrame trackInfo = WindowFrame::trackInfoDefault();
   QVector<DockEdge> dockEdges;
   EqualizerSettings equalizerCurve;
   QString activeSkinId = QStringLiteral("builtin");

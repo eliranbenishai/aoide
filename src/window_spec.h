@@ -9,11 +9,11 @@
 
 namespace aoide {
 
-enum class WindowId { main, equalizer, playlist, settings, about, skins };
+enum class WindowId { main, equalizer, playlist, settings, about, skins, trackInfo };
 
 /// How many panels there are. `WindowId` is dense from zero, so this is also
 /// the length of every table keyed by one — see `panel_registry.h`.
-inline constexpr int kPanelCount = 6;
+inline constexpr int kPanelCount = 7;
 
 struct WindowSpec {
   WindowId id;

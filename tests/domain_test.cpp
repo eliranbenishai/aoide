@@ -1423,6 +1423,23 @@ int main() {
   }
 
   {
+    aoide::AoideSettings settings;
+    REQUIRE(!settings.trackInfo.visible);
+    settings.trackInfo.visible = true;
+    settings.trackInfo.shaded = true;
+    settings.trackInfo.left = 270;
+    settings.trackInfo.top = 180;
+    const auto restored = aoide::AoideSettings::fromJson(settings.toJson());
+    REQUIRE(restored.trackInfo.visible);
+    REQUIRE(restored.trackInfo.shaded);
+    REQUIRE_EQ(restored.trackInfo.left, 270);
+    REQUIRE_EQ(restored.trackInfo.top, 180);
+    QJsonObject legacy = settings.toJson();
+    legacy.remove(QStringLiteral("trackInfo"));
+    REQUIRE(!aoide::AoideSettings::fromJson(legacy).trackInfo.visible);
+  }
+
+  {
     // A corrupt state file must not vanish into defaults. Keep the bytes aside so
     // the listener's collection can be recovered rather than overwritten.
     QTemporaryDir tmp;
@@ -2276,8 +2293,8 @@ int main() {
     col.hydrateDurations(hydrated);
     REQUIRE(hydrated[0].durationMs == 50000);
 
-    col.mergeTrackTags(other, QStringLiteral("Other Side"), QStringLiteral("Wire Garden"),
-                       QStringLiteral("Demos"));
+    col.mergeTrackTags(other, {QStringLiteral("Other Side"), QStringLiteral("Wire Garden"),
+                                QStringLiteral("Demos")});
     Track titledBare;
     titledBare.path = other;
     QVector<Track> titled = {titledBare};
@@ -2705,20 +2722,169 @@ int main() {
   }
 
   {
+    // MP3/MP4 and Vorbis spell the same fields differently; dates and number
+    // totals must survive without becoming misleading zeros or losing /N.
+    const auto tags = aoide::trackMetadataFromTags({
+        {QStringLiteral("TITLE"), QStringLiteral(" Static Hymn ")},
+        {QStringLiteral("Artist"), QStringLiteral("Wire Garden")},
+        {QStringLiteral("ALBUM"), QStringLiteral("Demos")},
+        {QStringLiteral("ALBUM_ARTIST"), QStringLiteral("Various Artists")},
+        {QStringLiteral("date"), QStringLiteral("1998-09-22")},
+        {QStringLiteral("genre"), QStringLiteral("Electronic")},
+        {QStringLiteral("TRACKNUMBER"), QStringLiteral("3")},
+        {QStringLiteral("TRACKTOTAL"), QStringLiteral("12")},
+        {QStringLiteral("disc"), QStringLiteral("1/2")},
+        {QStringLiteral("composer"), QStringLiteral("A. Composer")}});
+    REQUIRE_EQ(tags.title, QStringLiteral("Static Hymn"));
+    REQUIRE_EQ(tags.artist, QStringLiteral("Wire Garden"));
+    REQUIRE_EQ(tags.album, QStringLiteral("Demos"));
+    REQUIRE_EQ(tags.albumArtist, QStringLiteral("Various Artists"));
+    REQUIRE_EQ(tags.year.value_or(0), 1998);
+    REQUIRE_EQ(tags.genre, QStringLiteral("Electronic"));
+    REQUIRE_EQ(tags.trackNumber, QStringLiteral("3/12"));
+    REQUIRE_EQ(tags.discNumber, QStringLiteral("1/2"));
+    REQUIRE_EQ(tags.composer, QStringLiteral("A. Composer"));
+    REQUIRE(!aoide::trackMetadataFromTags({{QStringLiteral("year"), QStringLiteral("unknown")}}).year);
+    REQUIRE(!aoide::trackMetadataFromTags({{QStringLiteral("date"), QStringLiteral("12345")}}).year);
+    REQUIRE_EQ(aoide::trackMetadataFromTags({{QStringLiteral("year"), QStringLiteral("2001")},
+                                            {QStringLiteral("date"), QStringLiteral("2002-01-01")}})
+                   .year.value_or(0), 2001);
+
+    Track track;
+    track.path = QStringLiteral("/music/tagged.flac");
+    aoide::applyTrackMetadata(track, tags, true);
+    track.durationMs = 221000;
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    aoide::SupportStore store(tmp.path());
+    REQUIRE(store.writeAltered({{track}, QStringLiteral("/music/set.m3u")}));
+    REQUIRE(store.readAltered().tracks == QVector<Track>{track});
+
+    aoide::PlaylistCollection collection;
+    collection.setExists([](const QString&) { return true; });
+    collection.addWritten(QStringLiteral("/music/set.m3u"), {track});
+    collection.saveIndex(store);
+    collection.saveTrackSets(store);
+    aoide::PlaylistCollection restored;
+    restored.load(store);
+    REQUIRE(restored.tracksFor(QStringLiteral("/music/set.m3u")) == QVector<Track>{track});
+    Track empty;
+    empty.path = track.path;
+    QVector<Track> hydrated{empty};
+    restored.hydrateDurations(hydrated);
+    REQUIRE(hydrated == QVector<Track>{track});
+
+    // A year-only change used to disappear in updateTrackByPath's comparison.
+    PlaylistController list;
+    list.setTracks({track});
+    Track changed = track;
+    changed.year = 2001;
+    REQUIRE(list.updateTrackByPath(track.path, changed));
+    REQUIRE_EQ(list.tracks()[0].year.value_or(0), 2001);
+  }
+
+  {
+    // Ingest fills gaps, while Refresh corrects cached tags too: loading the
+    // saved playlist again must not resurrect the values Refresh replaced.
+    const QString playlistPath = QStringLiteral("/music/refresh.m3u");
+    Track original;
+    original.path = QStringLiteral("/music/refresh.flac");
+    original.title = QStringLiteral("Original title");
+    original.album = QStringLiteral("Keep this album");
+    original.year = 1998;
+    original.genre = QStringLiteral("Electronic");
+    original.durationMs = 221000;
+    aoide::PlaylistCollection collection;
+    collection.setExists([](const QString&) { return true; });
+    collection.addWritten(playlistPath, {original});
+
+    aoide::TrackMetadata corrected;
+    corrected.title = QStringLiteral("Corrected title");
+    corrected.year = 2001;
+    corrected.genre = QStringLiteral("Ambient");
+    corrected.composer = QStringLiteral("A. Composer");
+    collection.mergeTrackTags(original.path, corrected);
+    const Track ingested = collection.tracksFor(playlistPath).front();
+    REQUIRE_EQ(ingested.title, original.title);
+    REQUIRE_EQ(ingested.year.value_or(0), 1998);
+    REQUIRE_EQ(ingested.genre, original.genre);
+    REQUIRE_EQ(ingested.composer, corrected.composer);
+
+    collection.mergeTrackTags(original.path, corrected, true);
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    aoide::SupportStore store(tmp.path());
+    collection.saveIndex(store);
+    collection.saveTrackSets(store);
+    aoide::PlaylistCollection restored;
+    restored.load(store);
+    Track bare;
+    bare.path = original.path;
+    QVector<Track> hydrated{bare};
+    restored.hydrateDurations(hydrated);
+    REQUIRE_EQ(hydrated[0].title, corrected.title);
+    REQUIRE_EQ(hydrated[0].year.value_or(0), 2001);
+    REQUIRE_EQ(hydrated[0].genre, corrected.genre);
+    REQUIRE_EQ(hydrated[0].composer, corrected.composer);
+    REQUIRE_EQ(hydrated[0].album, original.album);
+    REQUIRE(hydrated[0].durationMs == original.durationMs);
+    REQUIRE(restored.tracksFor(playlistPath) == hydrated);
+  }
+
+  {
+    // Track info follows the transport even after another playlist is opened.
+    PlaylistController playlist;
+    Track track;
+    track.path = QStringLiteral("/music/off-list.flac");
+    playlist.setTracks({track});
+    NullEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playback.playIndex(0);
+    Track other;
+    other.path = QStringLiteral("/music/new-list.flac");
+    playlist.setTracks({other});
+    playback.onPlaylistChanged();
+    aoide::TrackMetadata metadata;
+    metadata.title = QStringLiteral("Still Playing");
+    metadata.albumArtist = QStringLiteral("Wire Garden");
+    metadata.year = 1998;
+    metadata.genre = QStringLiteral("Electronic");
+    metadata.trackNumber = QStringLiteral("3/12");
+    metadata.discNumber = QStringLiteral("1/2");
+    metadata.composer = QStringLiteral("A. Composer");
+    engine.onMetadata(track.path, metadata);
+    int notifications = 0;
+    playback.setOnChanged([&] { ++notifications; });
+    engine.onFormat({192, 48000, 2});
+    REQUIRE_EQ(notifications, 1);
+    REQUIRE(playback.playing());
+    REQUIRE(playback.offList());
+    REQUIRE_EQ(playback.currentTrack()->title, metadata.title);
+    REQUIRE_EQ(playback.currentTrack()->year.value_or(0), 1998);
+    REQUIRE_EQ(playback.currentTrack()->albumArtist, metadata.albumArtist);
+    REQUIRE_EQ(playback.currentTrack()->genre, metadata.genre);
+    REQUIRE_EQ(playback.currentTrack()->trackNumber, metadata.trackNumber);
+    REQUIRE_EQ(playback.currentTrack()->discNumber, metadata.discNumber);
+    REQUIRE_EQ(playback.currentTrack()->composer, metadata.composer);
+    engine.onMetadata(QStringLiteral("/music/unrelated.flac"), {});
+    REQUIRE_EQ(playback.currentTrack()->title, metadata.title);
+  }
+
+  {
     PlaylistController list;
     Track t;
     t.path = QDir::cleanPath(QDir::current().filePath(QStringLiteral("tagged.mp3")));
     list.setTracks({t}, QStringLiteral("/tmp/p.m3u"));
     REQUIRE(list.tracks()[0].displayTitle() == QFileInfo(t.path).fileName());
-    REQUIRE(list.applyMetadata(t.path, QStringLiteral("Static Hymn"),
-                               QStringLiteral("Wire Garden"), QStringLiteral("Demos"), 221000));
+    REQUIRE(list.applyMetadata(t.path, {QStringLiteral("Static Hymn"),
+                                        QStringLiteral("Wire Garden"), QStringLiteral("Demos"), 221000}));
     REQUIRE(!list.altered());
     REQUIRE(list.tracks()[0].title == QStringLiteral("Static Hymn"));
     REQUIRE(list.tracks()[0].artist == QStringLiteral("Wire Garden"));
     REQUIRE(list.tracks()[0].album == QStringLiteral("Demos"));
     REQUIRE(list.tracks()[0].durationMs == 221000);
     REQUIRE(list.tracks()[0].displayTitle() == QStringLiteral("Static Hymn"));
-    REQUIRE(!list.applyMetadata(t.path, QString(), QString(), QString(), 0));
+    REQUIRE(!list.applyMetadata(t.path, {}));
     REQUIRE(list.tracks()[0].title == QStringLiteral("Static Hymn"));
   }
 
@@ -2782,17 +2948,15 @@ int main() {
     col.mergeTrackDuration(t.path, 221000);
     QVector<Track> copy = list.tracks();
     col.hydrateDurations(copy);
-    list.applyMetadata(copy[0].path, copy[0].title, copy[0].artist, copy[0].album,
-                       copy[0].durationMs.value_or(0));
+    list.applyMetadata(copy[0].path, aoide::trackMetadata(copy[0]));
     REQUIRE(list.tracks()[0].durationMs == 221000);
     REQUIRE(list.tracks()[0].displayTitle() == QFileInfo(t.path).fileName());
     REQUIRE(aoide::trackNeedsAudioProbe(list.tracks()[0]));
-    col.mergeTrackTags(t.path, QStringLiteral("Keep Playing"), QStringLiteral("Wire Garden"),
-                       QString());
+    col.mergeTrackTags(t.path, {QStringLiteral("Keep Playing"), QStringLiteral("Wire Garden"),
+                               QString()});
     copy = list.tracks();
     col.hydrateDurations(copy);
-    list.applyMetadata(copy[0].path, copy[0].title, copy[0].artist, copy[0].album,
-                       copy[0].durationMs.value_or(0));
+    list.applyMetadata(copy[0].path, aoide::trackMetadata(copy[0]));
     REQUIRE_EQ(list.tracks()[0].displayTitle(), QStringLiteral("Keep Playing"));
     REQUIRE(!aoide::trackNeedsAudioProbe(list.tracks()[0]));
   }

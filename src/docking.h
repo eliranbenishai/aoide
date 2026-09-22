@@ -20,6 +20,7 @@ struct DockLayout {
   WindowFrame settings = WindowFrame::settingsDefault();
   WindowFrame about = WindowFrame::aboutDefault();
   WindowFrame skins = WindowFrame::skinsDefault();
+  WindowFrame trackInfo = WindowFrame::trackInfoDefault();
   QVector<DockEdge> dockEdges;
 
   WindowFrame& frameOf(WindowId id);

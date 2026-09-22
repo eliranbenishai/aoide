@@ -105,11 +105,10 @@ void PlaybackController::bindEngine() {
       format_.channels = info.channels;
       changed = true;
     }
-    if (changed && !playing_) notify();
+    if (changed) notify();
   };
   engine_->onError = [this](const QString& message) { onEngineError(message); };
-  engine_->onMetadata = [this](const QString& path, const QString& title, const QString& artist,
-                               const QString& album, qint64 durationMs) {
+  engine_->onMetadata = [this](const QString& path, const TrackMetadata& metadata) {
     Track next;
     for (const Track& t : playlist_->tracks()) {
       if (t.path == path) {
@@ -121,13 +120,11 @@ void PlaybackController::bindEngine() {
       if (playingTrack_ && playingTrack_->path == path) next = *playingTrack_;
       else return;
     }
-    if (!title.isEmpty()) next.title = title;
-    if (!artist.isEmpty()) next.artist = artist;
-    if (!album.isEmpty()) next.album = album;
-    if (durationMs > 0) next.durationMs = durationMs;
+    applyTrackMetadata(next, metadata, true);
     const bool inList = playlist_->updateTrackByPath(path, next);
     if (playingPath_ == path) playingTrack_ = next;
-    if (durationMs > 0 && onTrackDuration_) onTrackDuration_(path, durationMs);
+    if (metadata.durationMs && *metadata.durationMs > 0 && onTrackDuration_)
+      onTrackDuration_(path, *metadata.durationMs);
     if (!inList && playingPath_ == path) notify();
   };
 }

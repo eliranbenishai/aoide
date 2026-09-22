@@ -386,8 +386,9 @@ void HostShellWindowTest::mainStaysTopMostAfterEachSiblingIsShown() {
   QWidget settings(&shell);
   QWidget about(&shell);
   QWidget skins(&shell);
-  const QVector<QWidget*> panels = {&main, &equalizer, &playlist, &settings, &about, &skins};
-  const QVector<QWidget*> siblings = {&equalizer, &playlist, &settings, &about, &skins};
+  QWidget trackInfo(&shell);
+  const QVector<QWidget*> panels = {&main, &equalizer, &playlist, &settings, &about, &skins, &trackInfo};
+  const QVector<QWidget*> siblings = {&equalizer, &playlist, &settings, &about, &skins, &trackInfo};
   aoide::MainOnTopGuard guard(&shell, &main);
 
   QVERIFY2(topmostOf(&shell, panels) == &main,
@@ -412,10 +413,11 @@ void HostShellWindowTest::mainStaysTopMostAfterARequestRaise() {
   QWidget settings(&shell);
   QWidget about(&shell);
   QWidget skins(&shell);
-  const QVector<QWidget*> panels = {&main, &settings, &about, &skins};
+  QWidget trackInfo(&shell);
+  const QVector<QWidget*> panels = {&main, &settings, &about, &skins, &trackInfo};
   aoide::MainOnTopGuard guard(&shell, &main);
 
-  for (QWidget* sibling : {&settings, &skins, &about}) {
+  for (QWidget* sibling : {&settings, &skins, &about, &trackInfo}) {
     sibling->raise();
     QVERIFY2(topmostOf(&shell, panels) == &main,
              "main must stay the top-most panel after a requestRaise");
@@ -430,8 +432,9 @@ void HostShellWindowTest::mainStaysTopMostAfterActivationAndUnminimize() {
   QWidget settings(&shell);
   QWidget about(&shell);
   QWidget skins(&shell);
-  const QVector<QWidget*> panels = {&main, &equalizer, &playlist, &settings, &about, &skins};
-  const QVector<QWidget*> siblings = {&equalizer, &playlist, &settings, &about, &skins};
+  QWidget trackInfo(&shell);
+  const QVector<QWidget*> panels = {&main, &equalizer, &playlist, &settings, &about, &skins, &trackInfo};
+  const QVector<QWidget*> siblings = {&equalizer, &playlist, &settings, &about, &skins, &trackInfo};
   aoide::MainOnTopGuard guard(&shell, &main);
 
   // Un-minimize restores suppressed siblings. Show+raise is what a restore that
