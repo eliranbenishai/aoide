@@ -70,6 +70,11 @@
       <description>
         <ul>
           <li>
+            Inspect the current track in its own window — artist, album, year,
+            credits, audio details and file location stay visible while you
+            listen, with full details ready to copy.
+          </li>
+          <li>
             Use the equaliser without interrupting playback — saved curves and
             preamp settings work when opening tracks or resuming a session.
           </li>
