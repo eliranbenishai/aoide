@@ -5,19 +5,25 @@ string(STRIP "${AOIDE_VERSION_RAW}" AOIDE_VERSION)
 # APPLE is not defined until project(). These must be set before it so the
 # toolchain records the deployment target. 13.0 is Qt 6.10's official floor;
 # never lower it — a binary built for 12 will not load that Qt. Raise via the
-# cache if a future kit requires it. The DMG is named -universal; the default
-# architectures are what make that true. Override when the Qt kit or libmpv is
-# single-arch: a universal link against a thin library fails at configure.
+# cache if a future kit requires it. Aoide supports Apple silicon only;
+# upstream universal Qt/libmpv archives are reduced to arm64 during staging.
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
   if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "Minimum macOS version")
   endif()
   if(NOT CMAKE_OSX_ARCHITECTURES)
-    set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "macOS architectures")
+    set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "macOS architecture (arm64 only)")
   endif()
 endif()
 
 project(aoide VERSION ${AOIDE_VERSION} LANGUAGES C CXX)
+
+if(APPLE AND NOT CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
+  message(FATAL_ERROR
+    "Aoide for macOS supports Apple silicon (arm64) only. "
+    "Reconfigure with -DCMAKE_OSX_ARCHITECTURES=arm64. "
+    "Intel and universal macOS builds are no longer supported.")
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -584,6 +590,11 @@ if(WIN32 AND AOIDE_HAVE_MPV)
 endif()
 
 enable_testing()
+if(APPLE)
+  add_test(NAME macos_architecture
+    COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/macos_architecture_test.sh")
+  set_tests_properties(macos_architecture PROPERTIES TIMEOUT 30)
+endif()
 add_test(NAME window_spec COMMAND window_spec_test)
 add_test(NAME host_shell COMMAND host_shell_test)
 add_test(NAME host_shell_window COMMAND host_shell_window_test)

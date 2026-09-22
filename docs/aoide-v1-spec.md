@@ -16,7 +16,7 @@ Aoide is a multi-platform desktop music player — a spiritual successor to Wina
 - One codebase; shippable artifacts via the Qt host (`src/`) and platform installers.
 - **Official download** is `https://aoide.music`. Windows lists on the **Microsoft Store** as **Aoide** (MSIX) **and** offers an unsigned website EXE. Linux lists on **Flathub** **and** offers an AppImage. macOS is a notarized DMG from the site in **1.1**. Mac App Store and Snap are **not** 1.0.
 - License: **GPL-3.0-or-later**.
-- Release artifacts are built on **GitHub Actions**. 1.0 CPUs: Windows x64, Linux x86_64. macOS universal is 1.1.
+- Release artifacts are built on **GitHub Actions**. 1.0 CPUs: Windows x64, Linux x86_64. macOS launched in 1.1 as a universal build. Current macOS builds support **Apple Silicon (arm64) only**, require macOS 13 or later, and ship as `Aoide-<ver>-macos-arm64.dmg`; Intel Mac support has been removed.
 - **In-app new-version prompt — intended, not built.** The design is to follow the **install channel** (Store → Store, Flathub → Flathub, otherwise aoide.music) and send the listener there rather than replace the app in place. Nothing in `src/` detects the channel, checks for a new version, or prompts.
 
 ## Stack

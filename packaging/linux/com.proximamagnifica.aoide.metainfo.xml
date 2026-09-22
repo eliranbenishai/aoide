@@ -74,6 +74,7 @@
             credits, audio details and file location stay visible while you
             listen, with full details ready to copy.
           </li>
+          <li>macOS now requires an Apple silicon Mac (M1 or later).</li>
           <li>
             Use the equaliser without interrupting playback — saved curves and
             preamp settings work when opening tracks or resuming a session.

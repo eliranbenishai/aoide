@@ -6,6 +6,8 @@
 # sealed signature stays intact inside the image.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# shellcheck source=packaging/macos/architecture.sh
+source "$ROOT/packaging/macos/architecture.sh"
 # shellcheck disable=SC1090
 eval "$(bash "$ROOT/tool/version.sh")"
 
@@ -30,7 +32,8 @@ if ! APP="$(pick_app)"; then
   echo "notarize: $APP is not a complete Aoide.app" >&2
   exit 1
 fi
-DMG="${1:-${AOIDE_MAC_DMG:-$ROOT/build/macos/Aoide-${version}-macos-universal.dmg}}"
+require_arm64_bundle "$APP"
+DMG="${1:-${AOIDE_MAC_DMG:-$ROOT/build/macos/Aoide-${version}-macos-arm64.dmg}}"
 
 if [[ -z "${MACOS_CERTIFICATE_BASE64:-}" || -z "${MACOS_CERTIFICATE_PASSWORD:-}" ]]; then
   echo "notarize: MACOS_CERTIFICATE_BASE64 / PASSWORD unset — skipping (unsigned DMG)" >&2

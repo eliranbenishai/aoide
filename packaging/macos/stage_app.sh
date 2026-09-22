@@ -7,6 +7,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# shellcheck source=packaging/macos/architecture.sh
+source "$ROOT/packaging/macos/architecture.sh"
 BUILD="${AOIDE_BUILD_DIR:-}"
 DEST="${AOIDE_BUNDLE_DIR:-$ROOT/build/macos/stage}"
 
@@ -38,6 +40,7 @@ if ! built="$(find_built_app)"; then
   echo "stage_app: missing Aoide.app under $BUILD — cmake --build first" >&2
   exit 1
 fi
+require_arm64_binary "$built/Contents/MacOS/Aoide"
 
 APP="$DEST/Aoide.app"
 rm -rf "$DEST"
@@ -58,6 +61,7 @@ if [[ ! -x "$APP/Contents/MacOS/Aoide" ]]; then
   echo "stage_app: $APP is not a complete Aoide.app" >&2
   exit 1
 fi
+require_arm64_binary "$APP/Contents/MacOS/Aoide"
 
 find_macdeployqt() {
   if command -v macdeployqt >/dev/null; then
@@ -206,6 +210,10 @@ if [[ ! -f "$APP/Contents/PlugIns/platforms/libqcocoa.dylib" ]]; then
   echo "stage_app: macdeployqt did not deploy platforms/libqcocoa.dylib" >&2
   exit 1
 fi
+if [[ ! -f "$APP/Contents/PlugIns/platforms/libqoffscreen.dylib" ]]; then
+  echo "stage_app: platforms/libqoffscreen.dylib is missing after deploy" >&2
+  exit 1
+fi
 if links_mpv_framework && ! bundle_has_mpv_framework; then
   echo "stage_app: Mpv.framework is still missing after deploy" >&2
   exit 1
@@ -222,6 +230,16 @@ if [[ ! -d "$APP/Contents/Resources/assets" || ! -d "$APP/Contents/Resources/ski
   echo "stage_app: $APP is missing Contents/Resources/assets or skins" >&2
   exit 1
 fi
+
+# Official Qt and libmpv archives may be universal. Strip their Intel slices
+# only in this staged copy, after every dependency and plugin has been added.
+thin_arm64_bundle_dependencies "$APP"
+# Thinning and adding qoffscreen invalidate macdeployqt's signatures. Reseal
+# the complete stage for local runs; notarize.sh replaces this ad hoc signature
+# with Developer ID when release credentials are available.
+xattr -cr "$APP"
+codesign --force --deep --sign - "$APP"
+codesign --verify --deep --strict "$APP"
 
 echo "Staged $APP"
 echo "  macdeployqt $MACDEPLOYQT"

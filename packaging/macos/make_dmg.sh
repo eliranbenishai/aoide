@@ -5,6 +5,8 @@
 # it first, and a post-hoc resource copy would break that seal.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# shellcheck source=packaging/macos/architecture.sh
+source "$ROOT/packaging/macos/architecture.sh"
 # shellcheck disable=SC1090
 eval "$(bash "$ROOT/tool/version.sh")"
 
@@ -38,9 +40,10 @@ if [[ ! -f "$APP/Contents/Resources/aoide.icns" ]]; then
   echo "make_dmg: $APP is missing Contents/Resources/aoide.icns (CMake must install it; this script will not inject one)" >&2
   exit 1
 fi
+require_arm64_bundle "$APP"
 
 STAGE="$ROOT/build/macos/dmg"
-OUT="${AOIDE_MAC_DMG:-$ROOT/build/macos/Aoide-${version}-macos-universal.dmg}"
+OUT="${AOIDE_MAC_DMG:-$ROOT/build/macos/Aoide-${version}-macos-arm64.dmg}"
 
 rm -rf "$STAGE"
 mkdir -p "$STAGE"

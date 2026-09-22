@@ -36,6 +36,11 @@ name into the build. Each framework's install name is
 `@rpath/<Name>.framework/Versions/A/<Name>`; the app's rpath is
 `@executable_path/../Frameworks`.
 
+The upstream archive and its `macos/universal/` staging path retain their names,
+but Aoide supports only Apple Silicon (`arm64`) on macOS. The app links the
+arm64 slice; packaging removes Intel slices from frameworks copied into the
+app, leaving the downloaded dependencies intact.
+
 ## Fetch (Windows)
 
 From the repo / worktree root:
@@ -107,7 +112,7 @@ higher API — which today means building libmpv from source, not changing a pin
 |----------|------|
 | Windows | Root `CMakeLists.txt` links `libmpv.dll.a` and copies `libmpv-2.dll` beside the binaries it builds and into the install prefix; `packaging/windows/stage.ps1` copies it next to `aoide.exe` when present. |
 | Linux | Root `CMakeLists.txt` install stages `third_party/libmpv/linux/x86_64/libmpv.so*` into the bundle `lib/` when present (else system libmpv). |
-| macOS | Root `CMakeLists.txt` links `Mpv.framework` from the staged xcframework and copies the whole `@rpath` graph into `Aoide.app/Contents/Frameworks`. `packaging/macos/stage_app.sh` runs `macdeployqt` and fails if libmpv is still missing. Do not ship slim `audio-default`. |
+| macOS | Root `CMakeLists.txt` links the arm64 slice of `Mpv.framework` from the staged xcframework and copies the whole `@rpath` graph into `Aoide.app/Contents/Frameworks`. `packaging/macos/stage_app.sh` runs `macdeployqt`, strips Intel slices from the staged bundle, and fails if libmpv is still missing. Do not ship slim `audio-default`. |
 
 ## Do not commit slim libs
 

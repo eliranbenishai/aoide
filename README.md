@@ -37,7 +37,7 @@ listening. No sign-up, no trial, nothing to unlock later.
 |---|---|---|
 | **Windows** | Installer (`.exe`) | Windows may say it doesn't recognise the app the first time — choose **More info**, then **Run anyway**. The installer takes care of the rest. |
 | **Linux** | AppImage, or a portable `.tar.gz` | The AppImage is one file with everything inside it: mark it executable and it runs. The tarball is the same player as a folder you can keep anywhere, including a USB stick. |
-| **macOS** | Disk image (`.dmg`) | One universal build for Apple silicon and Intel, signed and notarised, so macOS will not refuse it. Needs macOS 13 or later. |
+| **macOS** | Disk image (`.dmg`) | For Apple Silicon Macs, signed and notarised. Needs macOS 13 or later. Intel Macs are not supported. |
 
 Every file is published with the SHA-256 it carried when it was uploaded, so you
 can check that the copy on your disk is the one we published.

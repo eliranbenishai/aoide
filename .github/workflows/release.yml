@@ -236,7 +236,7 @@ jobs:
   # without the download its own notes advertise — and say nothing. A macOS
   # break now costs the release rather than one asset.
   macos:
-    name: macOS universal DMG
+    name: macOS Apple Silicon DMG
     needs: preflight
     runs-on: macos-latest
     steps:
@@ -262,7 +262,8 @@ jobs:
           ./tool/fetch_full_libmpv.sh
       - name: Configure and build
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          test "$(uname -m)" = arm64
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64
           cmake --build build --config Release
           ctest --test-dir build -C Release --output-on-failure
       - name: Stage
@@ -306,7 +307,7 @@ jobs:
         run: |
           set -euo pipefail
           eval "$(./tool/version.sh)"
-          export AOIDE_MAC_DMG="${GITHUB_WORKSPACE}/build/macos/Aoide-${version}-macos-universal.dmg"
+          export AOIDE_MAC_DMG="${GITHUB_WORKSPACE}/build/macos/Aoide-${version}-macos-arm64.dmg"
           # notarize.sh no-ops (exit 0) when the certificate secrets are unset
           # and does not write a DMG. When they are set it signs the app, then
           # calls make_dmg.sh itself so the sealed bundle is what gets wrapped.
@@ -317,9 +318,9 @@ jobs:
           fi
       - uses: actions/upload-artifact@v6
         with:
-          name: macos
+          name: macos-arm64
           if-no-files-found: error
-          path: build/macos/Aoide-*-macos-universal.dmg
+          path: build/macos/Aoide-*-macos-arm64.dmg
 
   # Required, like every other channel on the download page. This was
   # continue-on-error, which made a missing .flatpak indistinguishable from one
@@ -445,7 +446,8 @@ jobs:
             Source: this tag. Product downloads: https://aoide.music
 
             Windows Store and Flathub listings are submitted separately from these bits.
-            The macOS channel opened in 1.1. Each DMG is signed and notarized with a Developer ID.
+            macOS downloads require Apple Silicon. Release CI signs and notarizes the DMG
+            when signing and notary credentials are available.
             CI builds and smoke-starts one on every run, and one has been
             installed and played on a MacBook — a single machine, not a channel.
         run: |
@@ -480,7 +482,7 @@ jobs:
           # missing — a job that succeeds while producing nothing under the name
           # the flatten glob looks for.
           missing=0
-          for pattern in '*.exe' '*.msix' '*.AppImage' '*.tar.gz' '*.dmg' '*.flatpak'; do
+          for pattern in '*.exe' '*.msix' '*.AppImage' '*.tar.gz' '*-macos-arm64.dmg' '*.flatpak'; do
             if ! ls upload/$pattern >/dev/null 2>&1; then
               echo "nothing matching $pattern in upload/" >&2
               missing=1

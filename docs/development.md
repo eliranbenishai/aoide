@@ -79,9 +79,9 @@ It defaults `CXX`/`CC` to Linuxbrew LLVM (`/home/linuxbrew/.linuxbrew/opt/llvm/b
 
 ## macOS
 
-[`fetch_qt.sh`](../tool/fetch_qt.sh) exits 1 here. Needs Xcode 15+ (macOS 14 SDK or higher), CMake, `python3`, and `curl`. Deployment target is **13.0**; CMake refuses anything lower. Default architectures are `x86_64;arm64`.
+[`fetch_qt.sh`](../tool/fetch_qt.sh) exits 1 here. Needs an Apple Silicon Mac, Xcode 15+ (macOS 14 SDK or higher), CMake, `python3`, and `curl`. Deployment target is **13.0**; CMake refuses anything lower. Aoide supports **arm64 only**: CMake defaults to `arm64` and rejects Intel or universal architectures, including values retained in an old build cache. Reconfigure an existing build with `cmake -S . -B build -DCMAKE_OSX_ARCHITECTURES=arm64`.
 
-The Qt kit must be the official desktop `clang_64` build of 6.11.1 (universal for Qt 6.5+). Homebrew Qt will not work: the pin is exact, and a universal link against a thin kit or libmpv fails. `qttools` is required for `macdeployqt`.
+The Qt kit must be the official desktop `clang_64` build of 6.11.1. That upstream kit is universal; Aoide links its arm64 slice, and packaging removes Intel slices from the staged app and its dependencies. Homebrew Qt does not track the exact pin. `qttools` is required for `macdeployqt`.
 
 ```bash
 aqt install-qt mac desktop 6.11.1 clang_64 --outputdir .local/qt --archives qtbase qttools
@@ -92,9 +92,9 @@ ctest --test-dir build -C Release --output-on-failure
 open build/Aoide.app
 ```
 
-That `aqt` line unpacks to `.local/qt/6.11.1/macos`, which CMake auto-detects (`lib/cmake/Qt6/Qt6Config.cmake`). Otherwise pass `-DCMAKE_PREFIX_PATH`. The product is `build/Aoide.app` (`OUTPUT_NAME Aoide`), or `build/Release/Aoide.app` on a multi-config generator — not `build/aoide`. If the kit or libmpv is single-arch, set `CMAKE_OSX_ARCHITECTURES` to match.
+That `aqt` line unpacks to `.local/qt/6.11.1/macos`, which CMake auto-detects (`lib/cmake/Qt6/Qt6Config.cmake`). Otherwise pass `-DCMAKE_PREFIX_PATH`. The product is `build/Aoide.app` (`OUTPUT_NAME Aoide`), or `build/Release/Aoide.app` on a multi-config generator — not `build/aoide`. Qt and libmpv must contain an arm64 slice.
 
-CMakeLists also accepts `pkg-config mpv` (its error text mentions `brew install mpv`); that will not satisfy a default universal configure against a thin Homebrew libmpv. `./tool/fetch_full_libmpv.sh` is what CI runs.
+CMakeLists also accepts `pkg-config mpv` (its error text mentions `brew install mpv`); it must supply an arm64 library. `./tool/fetch_full_libmpv.sh` is what CI runs. Its `macos/universal/` directory names the pinned upstream archive, not the architectures Aoide supports.
 
 ## Windows
 

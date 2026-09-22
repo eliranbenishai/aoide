@@ -124,7 +124,12 @@ jobs:
 
       - name: Configure and build
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake_args=(-DCMAKE_BUILD_TYPE=Release)
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            test "$(uname -m)" = arm64
+            cmake_args+=(-DCMAKE_OSX_ARCHITECTURES=arm64)
+          fi
+          cmake -S . -B build "${cmake_args[@]}"
           cmake --build build --config Release
           ctest --test-dir build -C Release --output-on-failure
         shell: bash
@@ -297,7 +302,7 @@ jobs:
           REPO="${{ github.repository }}"
           if [ "${{ needs.test.result }}" = "success" ]; then
             gh pr review "$NUMBER" --repo "$REPO" --comment \
-              --body "CI passed on Ubuntu, Windows and macOS. This PR can squash-merge."
+              --body "CI passed on Ubuntu, Windows and Apple Silicon macOS. This PR can squash-merge."
           else
             gh pr comment "$NUMBER" --repo "$REPO" \
               --body "CI failed. This PR will not merge until every Qt job is green."

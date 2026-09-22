@@ -284,6 +284,9 @@ and release jobs install the same pin with `jurplel/install-qt-action` (`host: m
 there for `macdeployqt`; on Windows that tool lives in `qtbase`, which is why
 the Windows job can slice further. A local Mac host places the official desktop
 kit under `.local/qt/<QT_VERSION>/macos` or points `CMAKE_PREFIX_PATH` at it.
+The upstream `clang_64` kit is universal, but Aoide builds only `arm64` for
+Apple Silicon Macs. Staging removes Intel slices from the copied dependencies
+before signing; it does not modify the downloaded Qt or libmpv archives.
 
 **Windows needs an unreleased `aqtinstall` to install Qt 6.11 at all**, and both
 Windows jobs pin one through the action's `aqtsource` input. Qt restructured that
@@ -356,7 +359,7 @@ list at all.
 | `Aoide-<ver>-linux-x86_64.AppImage` | Official download |
 | `Aoide-<ver>-linux-x86_64.tar.gz` | Official download, portable layout |
 | `Aoide-<ver>-linux-x86_64.flatpak` | Sideloadable bundle — a second Linux channel, not a fourth OS. It feeds **nothing** on Flathub: that build compiles from the source tag instead, so no release artifact is an input to it. Required like the rest, and `flatpak-builder` pulls `org.kde.Platform` over the network, so this is the job most likely to fail for a reason that is nobody's bug. Re-run it; a flake costing a re-run is cheaper than a release quietly short one download. |
-| `Aoide-<ver>-macos-universal.dmg` | Official download since **1.1**. Release CI wraps and uploads one, notarized wherever the signing secrets reach. Pull-request CI does not upload a DMG. One has been installed on a MacBook and played audio. The smoke proves the staged bundle starts offscreen — not that a listener can open the DMG past Gatekeeper. |
+| `Aoide-<ver>-macos-arm64.dmg` | Official download for **Apple Silicon only**, requiring macOS 13 or later. The macOS channel opened in **1.1** with universal builds; Intel Macs are no longer supported. Release CI wraps and uploads a DMG, notarized wherever the signing secrets reach. Pull-request CI does not upload a DMG. A previous release has been installed on a MacBook and played audio. The smoke proves the staged bundle starts offscreen — not that a listener can open the DMG past Gatekeeper. |
 
 Partner Center and Flathub submit stay **human**. Packaging scripts live under `packaging/`.
 
@@ -549,7 +552,7 @@ places have to agree on what Qt is.
 
 Windows (on a Windows host): `tool/fetch_full_libmpv.ps1`, CMake Release build, then `packaging/windows/stage.ps1`, Inno (`ISCC /DMyAppVersion=<version> packaging\windows\aoide.iss`) and `packaging/windows/make_msix.ps1 -Version <msix>`. Take both fields from [`tool/version.sh`](../tool/version.sh); neither packager will run without one, because a default would name the artifact for a release it is not. The EXE installer runs `vc_redist.x64.exe` when `MSVCP140.dll` / `VCRUNTIME140.dll` are missing. The MSIX declares `Microsoft.VCLibs.140.00.UWPDesktop` so the Store supplies that runtime. Keep the `.ps1` files ASCII: Windows PowerShell 5.1 (what `powershell` is on the runner) reads UTF-8 source as ANSI, and an em-dash inside a string is decoded as a closing quote.
 
-macOS (on a Mac — pull-request CI builds and smokes the staged bundle;
+macOS (on an Apple Silicon Mac — pull-request CI builds and smokes the staged bundle;
 release CI wraps a DMG; one image has been installed and played):
 
 ```bash
@@ -569,7 +572,7 @@ cmake --build build
 `stage_app.sh` honours `AOIDE_BUILD_DIR`, `AOIDE_BUNDLE_DIR`, and
 `AOIDE_MAC_APP`. `make_dmg.sh` / `notarize.sh` honour `AOIDE_MAC_APP` and
 `AOIDE_MAC_DMG`. The default image is
-`build/macos/Aoide-<ver>-macos-universal.dmg`. The bundle is **`Aoide.app`**,
+`build/macos/Aoide-<ver>-macos-arm64.dmg`. The bundle is **`Aoide.app`**,
 not `aoide.app`. `packaging/macos/aoide.entitlements` is the hardened-runtime
 exceptions (`allow-jit`, `allow-unsigned-executable-memory`,
 `disable-library-validation`) applied only when signing actually runs.
