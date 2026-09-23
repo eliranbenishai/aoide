@@ -2751,7 +2751,7 @@ int main() {
                    .year.value_or(0), 2001);
 
     Track track;
-    track.path = QStringLiteral("/music/tagged.flac");
+    track.path = aoide::normalizePlaylistPath(QStringLiteral("/music/tagged.flac"));
     aoide::applyTrackMetadata(track, tags, true);
     track.durationMs = 221000;
     QTemporaryDir tmp;
@@ -2788,7 +2788,7 @@ int main() {
     // saved playlist again must not resurrect the values Refresh replaced.
     const QString playlistPath = QStringLiteral("/music/refresh.m3u");
     Track original;
-    original.path = QStringLiteral("/music/refresh.flac");
+    original.path = aoide::normalizePlaylistPath(QStringLiteral("/music/refresh.flac"));
     original.title = QStringLiteral("Original title");
     original.album = QStringLiteral("Keep this album");
     original.year = 1998;
