@@ -138,7 +138,7 @@ Drag the title strip (not the window buttons) to move a panel. Closing **Aoide**
 
 Listener installers are built by GitHub Actions. See [`distribution.md`](distribution.md).
 
-A version tag `v*` (matching [`VERSION`](../VERSION), currently **1.2**) runs the Release workflow and attaches artifacts to a GitHub Release (a mirror; the product page is aoide.music).
+A version tag `v*` (matching [`VERSION`](../VERSION)) runs the Release workflow and attaches artifacts to a GitHub Release (a mirror; the product page is aoide.music).
 
 ## Known v1 limits
 

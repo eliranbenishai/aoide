@@ -66,6 +66,36 @@
   <!-- Newest first: out-of-order entries fail validation. tool/version.sh and the
        release workflow check the top version against the VERSION file. -->
   <releases>
+    <release version="1.2.3" date="2026-09-25">
+      <description>
+        <ul>
+          <li>
+            Organize playlists into color groups — assign multiple groups and
+            see their colors beside each playlist's track count.
+          </li>
+          <li>
+            Filter playlists from the compact Playlist groups button, and give
+            each group a name. Group assignments and the active filter are
+            remembered between sessions.
+          </li>
+          <li>
+            Keep favorite tracks together automatically — right-click a track
+            to add or remove it from Favorites. The built-in playlist stays
+            pinned at the top, even while filtering other playlists, and
+            remembers your favorites between sessions.
+          </li>
+          <li>
+            Import Hebrew and other legacy M3U playlists with readable names
+            and usable file paths. Preview uncertain text before creating or
+            adding a playlist, without changing the original file.
+          </li>
+          <li>
+            Open Track Info and other panels reliably on macOS, without the
+            cursor-related crash.
+          </li>
+        </ul>
+      </description>
+    </release>
     <release version="1.2.2" date="2026-09-23">
       <description>
         <ul>
