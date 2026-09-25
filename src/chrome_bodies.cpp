@@ -7,6 +7,7 @@
 #include "aoide_metrics.h"
 #include "aoide_version.h"
 #include "track_info.h"
+#include "playlist_group_colors.h"
 
 #include <QDateTime>
 #include <QFileInfo>
@@ -530,6 +531,20 @@ void paintEmptyWellCopy(QPainter& p, const QRectF& well, const EmptyWellCopy& co
   p.drawText(bodyBox, Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap, copy.body);
 }
 
+void paintFavoriteStar(QPainter& p, const QRectF& box, const QColor& color) {
+  QPainterPath star;
+  constexpr qreal pi = 3.14159265358979323846;
+  for (int i = 0; i < 10; ++i) {
+    const qreal angle = -pi / 2 + i * pi / 5;
+    const qreal radius = box.width() * (i % 2 ? 0.22 : 0.5);
+    const QPointF point = box.center() + QPointF(std::cos(angle), std::sin(angle)) * radius;
+    if (i == 0) star.moveTo(point);
+    else star.lineTo(point);
+  }
+  star.closeSubpath();
+  p.fillPath(star, color);
+}
+
 void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const SessionView& view,
                    const ChromePhases& phases) {
   const PainterStateScope hold(p);
@@ -577,24 +592,67 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
     paintEmptyWellCopy(p, colWell, collectionEmptyCopy(), 15);
   }
   const int collectionVisible = playlistCollectionVisibleRows(colWell.height()) + 1;
-  for (int vis = 0; vis < collectionVisible && collectionScroll + vis < collectionCount; ++vis) {
-    const int i = collectionScroll + vis;
+  const bool favoritesPinned = !lists.isEmpty() && lists.front().favorites;
+  const QFont collectionNameFont = condensedFont(11, 0.1);
+  const QFont collectionCountFont = monoFont(12);
+  qreal countW = 24;
+  for (const auto& list : lists) {
+    countW = qMax(countW, textWidth(collectionCountFont, QString::number(list.count)));
+  }
+  for (int vis = 0; vis < collectionVisible; ++vis) {
+    const int i = playlistCollectionVisibleIndex(vis, collectionScroll, favoritesPinned);
+    if (i >= collectionCount) break;
+    const auto& list = lists[i];
     const QRectF row(collectionRows.left(), collectionRows.top() + kPlaylistCollectionRowPadTop +
                                                vis * kPlaylistCollectionRowStride,
                      collectionRows.width(), kPlaylistCollectionRowStride);
-    if (lists[i].selected) {
+    if (list.favorites) p.fillRect(row, withAlpha(T().phos, 10));
+    if (list.selected) {
       QLinearGradient g(row.topLeft(), row.bottomLeft());
       g.setColorAt(0, withAlpha(T().phos, 33));
       g.setColorAt(1, withAlpha(T().phos, 10));
       p.fillRect(row, g);
     }
-    p.setFont(condensedFont(11, 0.1));
-    p.setPen(lists[i].disabled ? T().inkFaint : (lists[i].selected ? T().phosHot : T().inkDim));
-    p.drawText(row.adjusted(10, 0, -36, 0), Qt::AlignVCenter, lists[i].name.toUpper());
-    p.setFont(monoFont(12));
-    p.setPen(lists[i].selected ? T().phos : T().phosDim);
-    p.drawText(row.adjusted(10, 0, -10, 0), Qt::AlignVCenter | Qt::AlignRight,
-               QString::number(lists[i].count));
+    const QRectF count(row.right() - 10 - countW, row.top(), countW, row.height());
+    // Stable colour order makes combinations scan as one mark immediately
+    // beside the count. Long names yield before either the marks or digits.
+    int groupCount = 0;
+    for (int id = 0; id < 7; ++id) if (list.groupIds.contains(id)) ++groupCount;
+    const qreal marksW = groupCount ? groupCount * 8 - 3 : 0;
+    const qreal marksLeft = count.left() - (groupCount ? 8 + marksW : 0);
+    qreal markX = marksLeft;
+    for (int id = 0; id < 7; ++id) {
+      if (!list.groupIds.contains(id)) continue;
+      p.fillRect(QRectF(markX, row.center().y() - 6, 5, 12), playlistGroupColor(id));
+      markX += 8;
+    }
+    qreal nameLeft = row.left() + 10;
+    if (list.favorites) {
+      paintFavoriteStar(p, QRectF(nameLeft, row.center().y() - 6, 12, 12), T().phos);
+      nameLeft += 18;
+    }
+    QRectF name(nameLeft, row.top(), qMax(qreal(0), marksLeft - 8 - nameLeft), row.height());
+    const QString label = list.name.toUpper();
+    const QFont autoFont = condensedFont(9, 0.1);
+    const qreal autoW = textWidth(autoFont, QStringLiteral("AUTO"));
+    if (list.favorites && name.width() > textWidth(collectionNameFont, label) + autoW + 12) {
+      p.setFont(autoFont);
+      p.setPen(T().inkFaint);
+      p.drawText(QRectF(name.right() - autoW, name.top(), autoW, name.height()),
+                 Qt::AlignVCenter | Qt::AlignRight, QStringLiteral("AUTO"));
+      name.setRight(name.right() - autoW - 12);
+    }
+    p.setFont(collectionNameFont);
+    p.setPen(list.disabled ? T().inkFaint : (list.selected ? T().phosHot : T().inkDim));
+    p.drawText(name, Qt::AlignVCenter | Qt::AlignLeft,
+               QFontMetricsF(collectionNameFont).elidedText(label, Qt::ElideRight, name.width()));
+    p.setFont(collectionCountFont);
+    p.setPen(list.selected ? T().phos : T().phosDim);
+    p.drawText(count, Qt::AlignVCenter | Qt::AlignRight, QString::number(list.count));
+    if (list.favorites) {
+      p.setPen(QPen(withAlpha(T().coolSheen, 32), 1));
+      p.drawLine(row.bottomLeft(), row.bottomRight());
+    }
   }
   p.restore();
   drawScreenOverlay(p, colWell);
@@ -605,33 +663,40 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
     drawScrollbar(p, scroll, thumb.top() - scroll.top(), thumb.height());
   }
 
-  qreal cx = colInner.left();
-  const qreal cy = colInner.bottom() - 24;
-  auto cbtn = [&](ChromeHit::Kind kind, auto paintFace, bool menu) {
-    const QRectF r(cx, cy, 30, 24);
-    drawBtn(p, r, faceOf(phases, kind, false), {});
-    paintFace(r);
+  const auto collectionButtons = layoutPlaylistCollectionButtons(colInner);
+  auto cbtn = [&](const QRectF& r, ChromeHit::Kind kind, auto paintFace, bool menu) {
+    const bool enabled = chromeHitEnabled({kind, -1, {}}, view);
+    drawBtn(p, r, enabled ? faceOf(phases, kind, false) : BtnFace{}, {});
+    paintFace(r, enabled ? T().glyphInk : withAlpha(T().glyphInk, 77));
     if (menu) {
       drawMenuCaret(p, r);
     }
-    cx += 36;
   };
-  cbtn(K::plAddCollection, [&](const QRectF& r) {
+  cbtn(collectionButtons.add, K::plAddCollection, [&](const QRectF& r, const QColor& ink) {
     drawIcon(p, QRectF(r.center().x() - 6.5, r.center().y() - 6.5, 13, 13), MockupIcon::add,
-             T().glyphInk);
+             ink);
   }, false);
-  cbtn(K::plCreate, [&](const QRectF& r) {
+  cbtn(collectionButtons.create, K::plCreate, [&](const QRectF& r, const QColor& ink) {
     drawCreateMark(p, QRectF(r.center().x() - 6, r.center().y() - 6, 12, 12),
-                   T().glyphInk);
+                   ink);
   }, true);
-  cbtn(K::plRename, [&](const QRectF& r) {
+  cbtn(collectionButtons.rename, K::plRename, [&](const QRectF& r, const QColor& ink) {
     drawRenameMark(p, QRectF(r.center().x() - 6, r.center().y() - 6, 12, 12),
-                   T().glyphInk);
+                   ink);
   }, false);
-  cbtn(K::plRemoveCollection, [&](const QRectF& r) {
+  cbtn(collectionButtons.remove, K::plRemoveCollection, [&](const QRectF& r, const QColor& ink) {
     drawIcon(p, QRectF(r.center().x() - 6.5, r.center().y() - 6.5, 13, 13), MockupIcon::remove,
-             T().glyphInk);
+             ink);
   }, false);
+  const BtnFace groupsFace = faceOf(phases, K::plGroups, !view.playlistGroupFilterLabel.isEmpty());
+  drawBtn(p, collectionButtons.groups, groupsFace);
+  const QFont groupsFont = condensedFont(12, 0.02);
+  const QRectF groupsText = collectionButtons.groups.adjusted(5, 0, -5, 0);
+  p.setFont(groupsFont);
+  p.setPen(groupsFace.on > 0.5 ? T().btnOnInk : T().ink);
+  p.drawText(groupsText, Qt::AlignCenter,
+             QFontMetricsF(groupsFont).elidedText(QStringLiteral("Playlist groups"),
+                                                 Qt::ElideRight, groupsText.width()));
   } else {
     const QRectF tab = playlistReopenTab(body);
     drawBtn(p, tab, faceOf(phases, K::plCollapse, false), {});
@@ -662,7 +727,10 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   }
   const qreal timeTextW = widestTime ? textWidth(lcd, *widestTime) : 0;
   if (rows.isEmpty()) {
-    paintEmptyWellCopy(p, listWell, playlistEmptyCopy());
+    paintEmptyWellCopy(p, listWell, view.playlistIsFavorites
+        ? EmptyWellCopy{QStringLiteral("NO FAVORITES YET"),
+                        QStringLiteral("Right-click a track and choose Add to Favorites.")}
+        : playlistEmptyCopy());
   }
   for (int vis = 0; vis < visible && scrollRows + vis < rows.size(); ++vis) {
     const int i = scrollRows + vis;
@@ -711,6 +779,10 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
     p.setFont(lcd);
     p.setPen(QColor(color.red(), color.green(), color.blue(), 204));
     p.drawText(col.time, Qt::AlignVCenter | Qt::AlignRight, rows[i].time);
+    if (rows[i].favorite) {
+      paintFavoriteStar(p, QRectF(col.time.left() - 13, row.center().y() - 5, 10, 10),
+                         disabled ? T().inkFaint : T().phos);
+    }
   }
   drawLogoMark(p, QRectF(listWell.right() - 26 - 178, listWell.bottom() - 8 - 178, 178, 178),
                logo, 0.05);
@@ -739,11 +811,13 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   };
   const qreal toolIcon = strip.save.width() >= kPlaylistStripBtn ? 21 : 16;
   const qreal transportIcon = strip.save.width() >= kPlaylistStripBtn ? 18 : 16;
-  paintBtn(strip.save, MockupIcon::save, K::plSave, false, toolIcon, false, view.playlistAltered);
-  paintBtn(strip.add, MockupIcon::add, K::plAdd, false, toolIcon);
-  paintBtn(strip.remove, MockupIcon::remove, K::plRemove, false, toolIcon);
+  paintBtn(strip.save, MockupIcon::save, K::plSave, false, toolIcon, false,
+           chromeHitEnabled({K::plSave, -1, {}}, view));
+  paintBtn(strip.add, MockupIcon::add, K::plAdd, false, toolIcon, false, !view.playlistIsFavorites);
+  paintBtn(strip.remove, MockupIcon::remove, K::plRemove, false, toolIcon, false,
+           !view.playlistIsFavorites);
   drawFooterSep(p, strip.sep);
-  paintBtn(strip.sort, MockupIcon::sort, K::plSort, true, toolIcon);
+  paintBtn(strip.sort, MockupIcon::sort, K::plSort, true, toolIcon, false, !view.playlistIsFavorites);
   paintBtn(strip.options, MockupIcon::options, K::plOptions, true, toolIcon);
   paintBtn(strip.prev, MockupIcon::previous, K::plPrev, false, transportIcon);
   paintBtn(strip.play, view.playing ? MockupIcon::pause : MockupIcon::play, K::plPlay, false,
@@ -757,7 +831,7 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   drawGlowText(p, strip.total.adjusted(0, 0, -18, 0), totalText, totalValue, T().phos,
                withAlpha(T().phos, 115), 4, Qt::AlignVCenter | Qt::AlignRight);
   drawScreenOverlay(p, strip.total);
-  const bool refreshEnabled = view.playlistRefreshEnabled;
+  const bool refreshEnabled = view.playlistRefreshEnabled && !view.playlistIsFavorites;
   const bool refreshLit = view.playlistRefreshing;
   drawBtn(p, strip.refresh, faceOf(phases, K::plRefresh, refreshLit));
   {
@@ -775,7 +849,8 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
   const QRectF status(footer.left() + 6, footer.bottom() - 26, footer.width() - 28, 26);
   const QString tracksText = QStringLiteral("%1 TRACKS").arg(view.playlistTrackCount);
   const QString playingText = playlistStatusPlaying(view.hasCurrentTrack, view.playingIndex);
-  const QString drop = QStringLiteral("DROP FILES HERE TO ENQUEUE");
+  const QString drop = view.playlistIsFavorites ? QStringLiteral("UPDATES FROM FAVORITE TRACKS")
+                                               : QStringLiteral("DROP FILES HERE TO ENQUEUE");
   const qreal tracksW = textWidth(statusFont, tracksText);
   const qreal playingW = textWidth(statusFont, playingText);
   // A playlist can be named anything, and the run had nothing clipping it, so a

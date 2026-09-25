@@ -216,6 +216,7 @@ set(AOIDE_SOURCES
   src/host_window.cpp
   src/host_window.h
   src/session.cpp
+  src/session_playlists.cpp
   src/session.h
   src/chrome_command.cpp
   src/chrome_command.h
@@ -603,6 +604,24 @@ if(WIN32 AND AOIDE_HAVE_MPV)
 endif()
 
 enable_testing()
+qt_add_executable(m3u_encoding_test tests/m3u_encoding_test.cpp src/m3u.cpp)
+target_include_directories(m3u_encoding_test PRIVATE src)
+target_link_libraries(m3u_encoding_test PRIVATE Qt6::Test aoide_warnings)
+qt_add_executable(playlist_library_test tests/playlist_library_test.cpp
+  src/collection.cpp src/persist.cpp src/settings.cpp src/equalizer.cpp src/m3u.cpp)
+target_include_directories(playlist_library_test PRIVATE src)
+target_link_libraries(playlist_library_test PRIVATE aoide_window_spec Qt6::Test aoide_warnings)
+qt_add_executable(playlist_groups_chrome_test tests/playlist_groups_chrome_test.cpp
+  src/chrome_anim.cpp src/chrome_paint.cpp src/chrome_bodies.cpp src/chrome_hits.cpp
+  src/session_view.cpp src/mockup_draw.cpp src/aoide_fonts.cpp src/look.cpp
+  src/settings.cpp src/equalizer.cpp)
+target_include_directories(playlist_groups_chrome_test PRIVATE src)
+target_compile_definitions(playlist_groups_chrome_test PRIVATE AOIDE_ASSET_DIR="${AOIDE_ASSET_DIR}")
+target_link_libraries(playlist_groups_chrome_test PRIVATE aoide_window_spec Qt6::Test aoide_warnings)
+add_test(NAME m3u_encoding COMMAND m3u_encoding_test)
+add_test(NAME playlist_library COMMAND playlist_library_test)
+add_test(NAME playlist_groups_chrome COMMAND playlist_groups_chrome_test)
+set_tests_properties(playlist_groups_chrome PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 if(APPLE)
   add_test(NAME macos_architecture
     COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/macos_architecture_test.sh")
@@ -630,8 +649,9 @@ add_test(NAME native_window_session COMMAND aoide --smoke-windows)
 add_test(NAME embedded_window_session COMMAND aoide --smoke-embedded-windows)
 add_test(NAME playlist_create_session COMMAND aoide --smoke-playlist-create)
 add_test(NAME playlist_scroll_session COMMAND aoide --smoke-playlist-scroll)
+add_test(NAME playlist_groups_session COMMAND aoide --smoke-playlist-groups)
 set_tests_properties(native_window_session embedded_window_session
-  playlist_create_session playlist_scroll_session
+  playlist_create_session playlist_scroll_session playlist_groups_session
   PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 if(AOIDE_HAVE_MPV)
   add_test(NAME mpv_engine COMMAND mpv_engine_test)

@@ -214,23 +214,27 @@ ChromeHit hitPlaylist(QSize logical, QPoint pos, const SessionView& view) {
     if (rowsRect.contains(pos)) {
       const int first = playlistCollectionClampedScroll(view.collectionScroll, n, colWell.height());
       const int visible = playlistCollectionVisibleRows(colWell.height()) + 1;
-      for (int i = 0; i < visible && first + i < n; ++i) {
+      const bool pinned = !view.collection.isEmpty() && view.collection.front().favorites;
+      for (int i = 0; i < visible; ++i) {
+        const int index = playlistCollectionVisibleIndex(i, first, pinned);
+        if (index >= n) break;
         const QRectF row(rowsRect.left(), rowsRect.top() + kPlaylistCollectionRowPadTop +
                                             i * kPlaylistCollectionRowStride,
                          rowsRect.width(), kPlaylistCollectionRowStride);
         if (auto h = hitIf(toHitRect(row.intersected(rowsRect)), pos,
-                           ChromeHit::Kind::plCollectionRow, first + i);
+                           ChromeHit::Kind::plCollectionRow, index);
             h.kind != ChromeHit::Kind::none) return h;
       }
     }
-    qreal cx = colInner.left();
-    const qreal cy = colInner.bottom() - 24;
-    const ChromeHit::Kind kinds[] = {ChromeHit::Kind::plAddCollection, ChromeHit::Kind::plCreate,
-                                     ChromeHit::Kind::plRename, ChromeHit::Kind::plRemoveCollection};
-    for (auto kind : kinds) {
-      const QRect r(int(cx), int(cy), 30, 24);
-      if (auto h = hitIf(r, pos, kind); h.kind != ChromeHit::Kind::none) return h;
-      cx += 36;
+    const auto buttons = layoutPlaylistCollectionButtons(colInner);
+    const std::pair<QRectF, ChromeHit::Kind> controls[] = {
+        {buttons.add, ChromeHit::Kind::plAddCollection},
+        {buttons.create, ChromeHit::Kind::plCreate},
+        {buttons.rename, ChromeHit::Kind::plRename},
+        {buttons.remove, ChromeHit::Kind::plRemoveCollection},
+        {buttons.groups, ChromeHit::Kind::plGroups}};
+    for (const auto& [rect, kind] : controls) {
+      if (auto h = hitIf(toHitRect(rect), pos, kind); h.kind != ChromeHit::Kind::none) return h;
     }
     const QRect divider(int(collection.right()), int(collection.top()), 8, int(collection.height()));
     if (auto h = hitIf(divider, pos, ChromeHit::Kind::plDivider); h.kind != ChromeHit::Kind::none) {

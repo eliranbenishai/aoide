@@ -50,6 +50,7 @@ struct ChromeHit {
     plCreate,
     plRename,
     plRemoveCollection,
+    plGroups,
     plDivider,
     plTrackRow,
     plAdd,
@@ -169,12 +170,17 @@ struct SeekStamps {
 
 SeekStamps mainSeekStamps(const SessionView& view);
 
-/// Track Info and Save stay hits so their tooltips can name why they are dead.
-/// Everything else that has a kind is live.
+/// Disabled controls stay hits so their tooltips can name why they are dead.
 inline bool chromeHitEnabled(const ChromeHit& hit, const SessionView& view) {
   if (hit.kind == ChromeHit::Kind::trackInfo) return view.trackInfoEnabled;
   if (hit.kind == ChromeHit::Kind::trackInfoCopy) return view.currentTrack.has_value();
-  if (hit.kind == ChromeHit::Kind::plSave) return view.playlistAltered;
+  if (hit.kind == ChromeHit::Kind::plSave) return view.playlistAltered && !view.playlistIsFavorites;
+  if (hit.kind == ChromeHit::Kind::plRename || hit.kind == ChromeHit::Kind::plRemoveCollection) {
+    return view.collectionCanEdit;
+  }
+  if (view.playlistIsFavorites &&
+      (hit.kind == ChromeHit::Kind::plAdd || hit.kind == ChromeHit::Kind::plRemove ||
+       hit.kind == ChromeHit::Kind::plSort || hit.kind == ChromeHit::Kind::plRefresh)) return false;
   return hit.kind != ChromeHit::Kind::none;
 }
 

@@ -4,6 +4,7 @@
 #include "popup_anchor.h"
 
 #include <QRect>
+#include <QColor>
 #include <QSize>
 #include <QString>
 #include <QVector>
@@ -25,6 +26,7 @@ struct ChromeMenuItem {
   bool enabled = true;
   bool checkable = false;
   bool checked = false;
+  QColor swatch{};
 
   static ChromeMenuItem action(QString label, bool enabled = true) {
     ChromeMenuItem item;
@@ -75,6 +77,7 @@ struct ChromeMenuMetrics {
   int checkColumn = 0;
   int trailing = 0;
   int labelPx = 0;
+  int swatchColumn = 0;
 };
 
 inline ChromeMenuMetrics chromeMenuMetrics(qreal zoom) {
@@ -89,6 +92,7 @@ inline ChromeMenuMetrics chromeMenuMetrics(qreal zoom) {
   m.checkColumn = scale(18);
   m.trailing = scale(22);
   m.labelPx = scale(13);
+  m.swatchColumn = scale(19);
   return m;
 }
 
@@ -107,7 +111,10 @@ inline int chromeMenuHeight(const QVector<ChromeMenuItem>& items, const ChromeMe
 inline QSize chromeMenuSize(const QVector<ChromeMenuItem>& items, qreal widestLabel,
                             const ChromeMenuMetrics& m) {
   const int label = qMax(0, int(std::ceil(widestLabel)));
-  return QSize(m.padX * 2 + m.checkColumn + label + m.trailing, chromeMenuHeight(items, m));
+  bool swatches = false;
+  for (const auto& item : items) swatches = swatches || item.swatch.isValid();
+  return QSize(m.padX * 2 + m.checkColumn + (swatches ? m.swatchColumn : 0) + label + m.trailing,
+               chromeMenuHeight(items, m));
 }
 
 inline int chromeMenuRowTop(const QVector<ChromeMenuItem>& items, int index,

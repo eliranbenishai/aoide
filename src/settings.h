@@ -72,6 +72,8 @@ struct AoideSettings {
   DockSnapStrength dockSnapStrength = DockSnapStrength::normal;
   double playlistCollectionWidth = 240;
   bool playlistCollectionCollapsed = false;
+  // -1 shows all groups; -2 shows unassigned playlists.
+  int playlistGroupFilter = -1;
   QString audioDevice;
   bool audioExclusive = false;
 

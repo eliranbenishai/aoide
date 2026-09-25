@@ -18,6 +18,10 @@
 
 #include <QApplication>
 #include <QCoreApplication>
+#include <QContextMenuEvent>
+#include <QComboBox>
+#include <QDialogButtonBox>
+#include <QPlainTextEdit>
 #include <QDataStream>
 #include <QDir>
 #include <QElapsedTimer>
@@ -135,6 +139,13 @@ int dumpChrome(const QString& dirPath) {
       scrolled.collectionScroll = 17;
       if (!shoot(smallest, scrolled,
                  dumpName(spec.id) + QStringLiteral("_collection_scrolled"))) return 1;
+
+      aoide::SessionView grouped = golden;
+      grouped.collection.prepend({QStringLiteral("Favorites"), 4, false, false, {}, true});
+      if (grouped.collection.size() > 1) grouped.collection[1].groupIds = {1, 4, 5};
+      if (grouped.collection.size() > 2) grouped.collection[2].groupIds = {0, 3};
+      if (!grouped.tracks.isEmpty()) grouped.tracks[0].favorite = true;
+      if (!shoot(spec, grouped, dumpName(spec.id) + QStringLiteral("_groups"))) return 1;
 
       // The demo list fills both wells. Ticket 15's empty-state copy lives
       // only when there are no tracks and no saved playlists, with the
@@ -943,6 +954,194 @@ int smokePlaylistCreate() {
   return okay ? 0 : 1;
 }
 
+int smokePlaylistGroups() {
+  // This fixture verifies real session writes, unlike the paint-only smoke paths.
+  qputenv("AOIDE_AUTO_QUIT", "0");
+  QTemporaryDir temporary;
+  if (!temporary.isValid()) return 1;
+  aoide::SupportStore store(temporary.filePath(QStringLiteral("support")));
+  aoide::AoideSettings settings;
+  settings.resumeLastSession = false;
+  if (!store.writeSettings(settings)) return 1;
+  const QString audio = temporary.filePath(QStringLiteral("song.mp3"));
+  QFile trackFile(audio);
+  if (!trackFile.open(QIODevice::WriteOnly)) return 1;
+  trackFile.write("fixture");
+  trackFile.close();
+  aoide::Track track;
+  track.path = audio;
+  track.title = QStringLiteral("One shared track");
+  aoide::PlaylistCollection collection;
+  for (const auto& name : {QStringLiteral("Alpha"), QStringLiteral("Beta")}) {
+    const QString path = temporary.filePath(name + QStringLiteral(".m3u"));
+    if (!aoide::writeM3uFile(path, {track})) return 1;
+    collection.addWritten(path, {track});
+  }
+  if (!collection.saveIndex(store) || !collection.saveTrackSets(store)) return 1;
+  auto check = [](bool okay, const char* message) {
+    if (!okay) std::fprintf(stderr, "playlist-groups smoke: FAILED %s\n", message);
+    return okay;
+  };
+  const auto id = aoide::WindowId::playlist;
+  auto loadRow = [](aoide::AoideSession& session, int row) {
+    session.handleHit(id, {aoide::ChromeHit::Kind::plCollectionRow, row, {}}, Qt::NoModifier, {});
+  };
+  HostWindow mainPanel(aoide::windowSpecs()[aoide::panelIndex(aoide::WindowId::main)]);
+  HostWindow playlistPanel(aoide::windowSpecs()[aoide::panelIndex(aoide::WindowId::playlist)]);
+  aoide::PanelWindows panels;
+  panels.set(aoide::WindowId::main, &mainPanel);
+  panels.set(aoide::WindowId::playlist, &playlistPanel);
+  {
+    aoide::AoideSession session(store.dir());
+    session.setWindows(panels);
+    session.bootstrap({});
+    playlistPanel.show();
+    playlistPanel.raise();
+    playlistPanel.activateWindow();
+    pumpFor(100);
+    QObject::connect(&session, &aoide::AoideSession::chromeChanged, &playlistPanel, [&] {
+      playlistPanel.setSessionView(session.view());
+    });
+    if (!check(session.view().collection.size() == 3 && session.view().collection[0].favorites,
+               "Favorites starts above saved playlists")) return 1;
+    session.assignPlaylistGroups(2, {0, 4});
+    session.setPlaylistGroupFilter(4);
+    if (!check(session.view().collection.size() == 2 &&
+               session.view().collection[1].name == QStringLiteral("Beta"),
+               "filter keeps Favorites and matching saved playlist")) return 1;
+    bool acceptNames = false;
+    bool editedNames = false;
+    QTimer manageGroups;
+    QObject::connect(&manageGroups, &QTimer::timeout, [&] {
+      if (QWidget* popup = QApplication::activePopupWidget()) {
+        const auto metrics = aoide::chromeMenuMetrics(session.zoomPercent() / 100);
+        const QPoint point(popup->width() / 2, popup->height() - metrics.padY - metrics.rowHeight / 2);
+        QMouseEvent down(QEvent::MouseButtonPress, QPointF(point), QPointF(popup->mapToGlobal(point)),
+                         Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+        QMouseEvent up(QEvent::MouseButtonRelease, QPointF(point), QPointF(popup->mapToGlobal(point)),
+                       Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(popup, &down);
+        QCoreApplication::sendEvent(popup, &up);
+      } else if (auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget())) {
+        if (dialog->windowTitle() != QStringLiteral("Playlist groups")) return;
+        const auto inputs = dialog->findChildren<QLineEdit*>();
+        if (inputs.size() != 7) { dialog->reject(); return; }
+        inputs[4]->setText(QStringLiteral("Writing"));
+        editedNames = true;
+        if (acceptNames) dialog->accept(); else dialog->reject();
+      }
+    });
+    manageGroups.start(10);
+    session.handleHit(id, {aoide::ChromeHit::Kind::plGroups, -1, {}}, Qt::NoModifier, {});
+    if (!check(editedNames && session.view().playlistGroupFilterLabel == QStringLiteral("Focus"),
+               "cancelled Manage groups leaves group names intact")) return 1;
+    acceptNames = true;
+    session.handleHit(id, {aoide::ChromeHit::Kind::plGroups, -1, {}}, Qt::NoModifier, {});
+    manageGroups.stop();
+    if (!check(session.view().playlistGroupFilterLabel == QStringLiteral("Writing"),
+               "Manage groups updates active filter name")) return 1;
+    loadRow(session, 1);
+    if (!check(session.view().playlistName == QStringLiteral("Beta.m3u"),
+               "filtered row loads the matching file, not its old index")) return 1;
+    // Exercise a real context event and the popup's keyboard activation.
+    playlistPanel.setSessionView(session.view());
+    const qreal zoom = session.zoomPercent() / 100;
+    const QSize logical(qRound(playlistPanel.width() / zoom), qRound(playlistPanel.height() / zoom));
+    const QRectF trackRect = aoide::playlistListRowRect(aoide::playlistTrackInner(
+        aoide::playlistTracksPane(aoide::panelBody(logical), session.view().collectionWidth)));
+    const QPoint local = playlistPanel.widgetRectFromLogical(
+        QRect(qRound(trackRect.left() + 30), qRound(trackRect.top() + 10), 1, 1)).topLeft();
+    bool contextActivated = false;
+    QTimer chooseFavorite;
+    QObject::connect(&chooseFavorite, &QTimer::timeout, [&] {
+      if (QWidget* popup = QApplication::activePopupWidget()) {
+        chooseFavorite.stop();
+        contextActivated = true;
+        QKeyEvent down(QEvent::KeyPress, Qt::Key_Down, Qt::NoModifier);
+        QKeyEvent enter(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
+        QCoreApplication::sendEvent(popup, &down);
+        QCoreApplication::sendEvent(popup, &enter);
+      }
+    });
+    chooseFavorite.start(10);
+    QContextMenuEvent context(QContextMenuEvent::Mouse, local, playlistPanel.mapToGlobal(local));
+    QCoreApplication::sendEvent(&playlistPanel, &context);
+    chooseFavorite.stop();
+    if (!check(contextActivated, "native context menu opens and activates Favorites")) return 1;
+    if (!check(session.view().tracks[0].favorite && session.view().collection[0].count == 1,
+               "favoriting updates current row and automatic count")) return 1;
+    session.setPlaylistGroupFilter(5);
+    if (!check(session.view().collection.size() == 1 && session.view().collection[0].favorites,
+               "Favorites survives an empty group filter")) return 1;
+    loadRow(session, 0);
+    if (!check(session.view().playlistIsFavorites && session.view().tracks.size() == 1 &&
+               !session.view().playlistAltered, "automatic playlist loads")) return 1;
+    session.toggleFavoriteTrack(0);
+    if (!check(session.view().tracks.isEmpty() && session.view().collection[0].count == 0 &&
+               !session.view().playlistAltered, "unfavoriting updates automatic playlist")) return 1;
+    session.setPlaylistGroupFilter(4);
+    loadRow(session, 1);
+    session.toggleFavoriteTrack(0);
+    loadRow(session, 0);
+    session.persistNow();
+  }
+  {
+    aoide::AoideSession resumed(store.dir());
+    resumed.setWindows(panels);
+    resumed.bootstrap({});
+    const auto view = resumed.view();
+    if (!check(view.playlistIsFavorites && view.tracks.size() == 1 && view.tracks[0].favorite &&
+               view.collection.size() == 2 && view.collection[1].groupIds == QSet<int>({0, 4}) &&
+               view.playlistGroupFilterLabel == QStringLiteral("Writing"),
+               "restart restores Favorites, groups, active filter and current playlist")) return 1;
+    // Choosing a saved target while Favorites plays enables its row actions.
+    resumed.handleHit(id, {aoide::ChromeHit::Kind::plCollectionRow, 1, {}}, Qt::ControlModifier, {});
+    if (!check(resumed.view().collectionCanEdit, "saved target can be edited while Favorites is loaded")) return 1;
+    resumed.setPlaylistGroupFilter(5);
+    if (!check(!resumed.view().collectionCanEdit, "hidden target cannot be renamed or removed")) return 1;
+    resumed.handleHit(id, {aoide::ChromeHit::Kind::plRemoveCollection, -1, {}}, Qt::NoModifier, {});
+    resumed.setPlaylistGroupFilter(-1);
+    if (!check(resumed.view().collection.size() == 3, "filter cannot remove an invisible target")) return 1;
+
+    // An ambiguous name after a long ASCII prefix must remain inspectable.
+    const QString legacyPath = temporary.filePath(QStringLiteral("Hebrew.m3u"));
+    QByteArray legacy = "#EXTM3U\n";
+    legacy += QByteArray(13000, '#') + "\n#EXTINF:1,";
+    legacy += QByteArray::fromHex("f2e1f8e920ece9e3f8") + " - title\nsong.mp3\n";
+    QFile legacyFile(legacyPath);
+    if (!legacyFile.open(QIODevice::WriteOnly) || legacyFile.write(legacy) != legacy.size()) return 1;
+    legacyFile.close();
+    bool sawHebrew = false;
+    bool acceptText = false;
+    QTimer reviewText;
+    QObject::connect(&reviewText, &QTimer::timeout, [&] {
+      auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+      if (!dialog || dialog->windowTitle() != QStringLiteral("Check playlist text")) return;
+      auto* combo = dialog->findChild<QComboBox*>();
+      auto* preview = dialog->findChild<QPlainTextEdit*>();
+      if (!combo || !preview) { dialog->reject(); return; }
+      combo->setCurrentText(QStringLiteral("Windows-1255"));
+      sawHebrew = preview->toPlainText().contains(QStringLiteral("עברי לידר"));
+      if (acceptText) dialog->accept(); else dialog->reject();
+    });
+    reviewText.start(10);
+    resumed.applyDroppedPaths({legacyPath}, false);
+    if (!check(sawHebrew && resumed.view().playlistIsFavorites &&
+               resumed.view().collection.size() == 3, "cancelled text review preserves current list and collection")) return 1;
+    acceptText = true;
+    resumed.applyDroppedPaths({legacyPath}, false);
+    reviewText.stop();
+    if (!check(resumed.view().tracks.size() == 1 &&
+               resumed.view().tracks[0].artist == QStringLiteral("עברי לידר"),
+               "chosen encoding reaches the loaded track")) return 1;
+    QFile original(legacyPath);
+    if (!check(original.open(QIODevice::ReadOnly) && original.readAll() == legacy,
+               "text recovery leaves the source bytes unchanged")) return 1;
+  }
+  std::fprintf(stderr, "playlist-groups smoke: passed\n");
+  return 0;
+}
+
 int smokePlaylistScroll() {
   QTemporaryDir temporary;
   if (!temporary.isValid()) return 1;
@@ -1013,7 +1212,7 @@ int smokePlaylistScroll() {
                               (visible - 0.5) * aoide::kPlaylistCollectionRowStride));
     return aoide::hitTest(id, logicalSize(), point, session.view());
   };
-  if (!check(session.view().collection.size() == 60 && session.view().tracks.size() == 80 &&
+  if (!check(session.view().collection.size() == 61 && session.view().tracks.size() == 80 &&
              !session.view().playing, "temporary fixture")) return 1;
   wheel(-120, collectionWell().center().toPoint());
   if (!check(session.view().collectionScroll == 1 && session.view().trackScroll == 0,
@@ -1035,7 +1234,7 @@ int smokePlaylistScroll() {
   const int bottom = session.view().collectionScroll;
   wheel(-120, collectionWell().center().toPoint());
   if (!check(bottom > 0 && session.view().collectionScroll == bottom &&
-             lastRowHit().kind == Kind::plCollectionRow && lastRowHit().index == 59,
+             lastRowHit().kind == Kind::plCollectionRow && lastRowHit().index == 60,
              "collection stops with last playlist visible")) return 1;
 
   wheel(120, collectionWell().center().toPoint(), 100);
@@ -1048,7 +1247,7 @@ int smokePlaylistScroll() {
              session.view().collectionScroll < bottom && session.view().trackScroll == 1,
              "clicking scrollbar rail scrolls saved playlists")) return 1;
   wheel(120, collectionWell().center().toPoint(), 100);
-  const QRectF thumb = aoide::playlistCollectionThumb(scrollTrack, 60, 0, collectionWell().height());
+  const QRectF thumb = aoide::playlistCollectionThumb(scrollTrack, 61, 0, collectionWell().height());
   const QPoint grab = thumb.center().toPoint();
   const auto scrollHit = aoide::hitTest(id, logicalSize(), grab, session.view());
   if (!check(scrollHit.kind == Kind::plCollectionScroll, "scrollbar can be grabbed")) return 1;
@@ -1057,7 +1256,7 @@ int smokePlaylistScroll() {
   session.handleDrag(id, scrollHit, QPoint(grab.x(), qRound(scrollTrack.bottom())));
   session.handleRelease(id);
   if (!check(session.view().collectionScroll == bottom && session.view().trackScroll == 1 &&
-             lastRowHit().index == 59, "scrollbar drag reaches last playlist")) return 1;
+             lastRowHit().index == 60, "scrollbar drag reaches last playlist")) return 1;
 
   aoide::ChromeHit collapse;
   collapse.kind = Kind::plCollapse;
@@ -1069,12 +1268,14 @@ int smokePlaylistScroll() {
 
   const auto last = lastRowHit();
   session.handleHit(id, last, Qt::ControlModifier, last.rect.center());
-  const QPoint removePoint(footer.x() + 3 * 36, footer.y());
+  const QPoint removePoint = aoide::layoutPlaylistCollectionButtons(
+      aoide::playlistCollectionInner(aoide::playlistCollectionColumn(
+          aoide::panelBody(logicalSize()), session.view().collectionWidth))).remove.center().toPoint();
   const auto remove = aoide::hitTest(id, logicalSize(), removePoint, session.view());
   if (!check(remove.kind == Kind::plRemoveCollection, "remove button remains accessible")) return 1;
   session.handleHit(id, remove, Qt::NoModifier, removePoint);
-  if (!check(session.view().collection.size() == 59 &&
-             session.view().collectionScroll == bottom - 1 && lastRowHit().index == 58,
+  if (!check(session.view().collection.size() == 60 &&
+             session.view().collectionScroll == bottom - 1 && lastRowHit().index == 59,
              "removing bottom playlist clamps scrolling")) return 1;
 
   const int oldHeight = logicalSize().height();
@@ -1082,7 +1283,7 @@ int smokePlaylistScroll() {
   session.playlistResized(QRect(panel.nativeTopLeft(),
                                QSize(panel.width(), qRound((oldHeight + 104) * zoom))));
   if (!check(logicalSize().height() > oldHeight &&
-             session.view().collectionScroll < bottom - 1 && lastRowHit().index == 58,
+             session.view().collectionScroll < bottom - 1 && lastRowHit().index == 59,
              "larger viewport clamps scrolling and keeps last playlist reachable")) return 1;
   const int resizedBottom = session.view().collectionScroll;
   wheel(120, collectionWell().center().toPoint());
@@ -1238,6 +1439,10 @@ int main(int argc, char** argv) {
   if (args.contains(QStringLiteral("--smoke-playlist-scroll"))) {
     qputenv("AOIDE_AUTO_QUIT", "1");
     return smokePlaylistScroll();
+  }
+  if (args.contains(QStringLiteral("--smoke-playlist-groups"))) {
+    qputenv("AOIDE_AUTO_QUIT", "1");
+    return smokePlaylistGroups();
   }
   if (args.contains(QStringLiteral("--smoke-file-open"))) {
     qputenv("AOIDE_AUTO_QUIT", "1");

@@ -61,7 +61,8 @@ bool paintsSame(WindowId id, const SessionView& a, const SessionView& b) {
                paused, shuffle, repeat, zoomPercent, zoomInEnabled, zoomOutEnabled, spectrum,
                spectrumPeaks, eq, tracks, selectedIndices, playingIndex, hasCurrentTrack,
                trackScroll, collectionScroll, collection,
-               collectionSelected, collectionWidth, collectionCollapsed, playlistName,
+               collectionSelected, collectionCanEdit, collectionWidth, collectionCollapsed, playlistName,
+               playlistIsFavorites, playlistGroupFilterLabel,
                playlistAltered, playlistTotalMs, playlistTrackCount, playlistRefreshEnabled,
                playlistRefreshing, settingsTab, resumeLastSession, confirmBeforeQuit, scrollTitle,
                titleScrollMs, minimizeHidesSecondaries, dockSnap, aboutPlaylists, aboutTracks,
@@ -127,11 +128,14 @@ bool paintsSame(WindowId id, const SessionView& a, const SessionView& b) {
       // rows are one per playlist file, so comparing them outright is cheap;
       // it is `tracks` below that is long, and no counter speaks for that.
       return collection == b.collection && collectionWidth == b.collectionWidth &&
+             collectionCanEdit == b.collectionCanEdit &&
              collectionScroll == b.collectionScroll &&
              collectionCollapsed == b.collectionCollapsed && tracks == b.tracks &&
              trackScroll == b.trackScroll && playingIndex == b.playingIndex &&
              hasCurrentTrack == b.hasCurrentTrack &&
              playlistName == b.playlistName && playlistAltered == b.playlistAltered &&
+             playlistIsFavorites == b.playlistIsFavorites &&
+             playlistGroupFilterLabel == b.playlistGroupFilterLabel &&
              playlistTotalMs == b.playlistTotalMs &&
              playlistTrackCount == b.playlistTrackCount &&
              playlistRefreshEnabled == b.playlistRefreshEnabled &&

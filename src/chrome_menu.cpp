@@ -114,7 +114,10 @@ class ChromeMenuWindow : public QWidget {
     // Rows stop short of the chassis edge so a full-width highlight cannot
     // spill past the rounded corners.
     const qreal bleed = qMax(qreal(1), 3 * zoom_);
-    const qreal labelLeft = metrics_.padX + metrics_.checkColumn;
+    const bool hasSwatches = std::any_of(items_.begin(), items_.end(),
+                                        [](const auto& item) { return item.swatch.isValid(); });
+    const qreal swatchLeft = metrics_.padX + metrics_.checkColumn;
+    const qreal labelLeft = swatchLeft + (hasSwatches ? metrics_.swatchColumn : 0);
     for (int i = 0; i < int(items_.size()); ++i) {
       const ChromeMenuItem& item = items_[i];
       const QRectF row(bleed, chromeMenuRowTop(items_, i, metrics_), width() - bleed * 2,
@@ -135,6 +138,13 @@ class ChromeMenuWindow : public QWidget {
       if (item.checkable && item.checked) {
         drawCheck(p, QPointF(metrics_.padX + metrics_.checkColumn / 2.0, row.center().y()),
                   item.enabled ? look_.phos : look_.inkFaint, zoom_);
+      }
+      if (item.swatch.isValid()) {
+        const qreal size = 11 * zoom_;
+        const QRectF swatch(swatchLeft, row.center().y() - size / 2, size, size);
+        p.setPen(Qt::NoPen);
+        p.setBrush(item.enabled ? item.swatch : withAlpha(item.swatch, 90));
+        p.drawRoundedRect(swatch, 2 * zoom_, 2 * zoom_);
       }
       p.setFont(font);
       p.setPen(item.enabled ? look_.ink : look_.inkFaint);

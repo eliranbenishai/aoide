@@ -44,6 +44,7 @@ class PlaylistController {
   void select(int index);
   void selectRange(int index);
   void toggleSelection(int index);
+  void selectIndices(const QSet<int>& indices);
   void selectAll();
   void invertSelection();
   void sortBy(PlaylistSortKey key);

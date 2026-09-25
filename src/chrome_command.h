@@ -25,6 +25,7 @@ enum class ChromeIntent {
   renameCollectionEntry,
   showPlSortMenu,
   showPlOptionsMenu,
+  showPlaylistGroups,
   saveCurrentPlaylist,
   refreshCurrentPlaylist,
   loadCollectionRow,

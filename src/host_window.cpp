@@ -249,6 +249,7 @@ void HostWindow::syncLatchedPhases(bool snap) {
       break;
     case aoide::WindowId::playlist:
       aim(K::plPlay, view_.playing);
+      aim(K::plGroups, !view_.playlistGroupFilterLabel.isEmpty());
       // Refresh's `on` tracks an ingest, not a press on this button — a drop or
       // an open lights it too — and an ingest can be over inside
       // `kBtnTransitionMs`. Eased, the short ones would manage a dim blip and
@@ -766,6 +767,19 @@ void HostWindow::mouseDoubleClickEvent(QMouseEvent* event) {
     return;
   }
   QWidget::mouseDoubleClickEvent(event);
+}
+
+void HostWindow::contextMenuEvent(QContextMenuEvent* event) {
+  if (spec_.id != aoide::WindowId::playlist || shaded_) return;
+  pendingCollectionClick_ = false;
+  collectionClickTimer_.stop();
+  hideChromeTooltipNow();
+  const QPoint logical = logicalFrom(event->pos());
+  const auto hit = aoide::hitTest(spec_.id, spec_.logicalSize, logical, view_);
+  if (hit.kind != aoide::ChromeHit::Kind::plCollectionRow &&
+      hit.kind != aoide::ChromeHit::Kind::plTrackRow) return;
+  emit playlistContextRequested(hit, logical);
+  event->accept();
 }
 
 void HostWindow::wheelEvent(QWheelEvent* event) {

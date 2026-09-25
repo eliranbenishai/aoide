@@ -834,6 +834,31 @@ inline QRectF playlistCollectionInner(const QRectF& collection) {
                              -kPlaylistCollectionPadR, -kPlaylistCollectionPadB);
 }
 
+struct PlaylistCollectionButtons {
+  QRectF add;
+  QRectF create;
+  QRectF rename;
+  QRectF remove;
+  QRectF groups;
+};
+
+/// All five controls share the existing footer row. At the minimum column
+/// width the glyph buttons tighten before the filter's label gives way.
+inline PlaylistCollectionButtons layoutPlaylistCollectionButtons(const QRectF& inner) {
+  constexpr qreal gap = 4;
+  constexpr qreal groupPreferred = 86;
+  const qreal iconW = std::clamp((inner.width() - groupPreferred - gap * 4) / 4,
+                                qreal(20), qreal(30));
+  const qreal y = inner.bottom() - kPlaylistCollectionBtnH;
+  auto icon = [&](int i) {
+    return QRectF(inner.left() + i * (iconW + gap), y, iconW, kPlaylistCollectionBtnH);
+  };
+  const qreal groupX = inner.left() + 4 * (iconW + gap);
+  return {icon(0), icon(1), icon(2), icon(3),
+          QRectF(groupX, y, std::clamp(inner.right() - groupX, qreal(0), groupPreferred),
+                 kPlaylistCollectionBtnH)};
+}
+
 /// The saved-playlists well under PLAYLISTS. Paint and the empty-state crop
 /// both come from here so the copy is centred in the same rectangle the rows
 /// would have occupied.
@@ -857,6 +882,13 @@ inline int playlistCollectionMaxScroll(int count, qreal wellH) {
 
 inline int playlistCollectionClampedScroll(int scrollRows, int count, qreal wellH) {
   return std::clamp(scrollRows, 0, playlistCollectionMaxScroll(count, wellH));
+}
+
+/// A pinned Favorites row consumes the first visible slot, while scroll is an
+/// offset into the remaining rows. Total count and scrollbar limits still
+/// include that pinned slot, preserving the same maximum scroll calculation.
+inline int playlistCollectionVisibleIndex(int visibleRow, int scrollRows, bool favoritesPinned) {
+  return favoritesPinned && visibleRow == 0 ? 0 : scrollRows + visibleRow;
 }
 
 inline QRectF playlistCollectionRowsRect(const QRectF& well, int count) {

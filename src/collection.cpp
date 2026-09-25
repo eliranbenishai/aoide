@@ -9,7 +9,12 @@ namespace aoide {
 
 void PlaylistCollection::load(const SupportStore& store) {
   entries_ = store.readCollectionIndex();
+  groups_ = store.readPlaylistGroups();
+  favorites_ = store.readFavorites();
   trackSets_ = store.readTrackSets();
+  for (SavedPlaylist& entry : entries_) {
+    if (isReservedPlaylistName(entry.displayName())) entry.name = availableSavedFavoritesName();
+  }
   sortEntries();
   // Reading the state files says nothing about what is still on the disk, and
   // this is not the place to go and ask — `validateReferences` is, right after
@@ -22,15 +27,81 @@ bool PlaylistCollection::onDisk(const QString& path) const {
   return exists_ ? exists_(path) : QFileInfo::exists(path);
 }
 
-void PlaylistCollection::saveIndex(const SupportStore& store) const {
-  store.writeCollectionIndex(entries_);
+bool PlaylistCollection::saveIndex(const SupportStore& store) const {
+  const bool indexOk = store.writeCollectionIndex(entries_);
+  const bool groupsOk = store.writePlaylistGroups(groups_);
+  const bool favoritesOk = store.writeFavorites(favorites_);
+  return indexOk && groupsOk && favoritesOk;
 }
 
-void PlaylistCollection::saveTrackSets(const SupportStore& store) {
+bool PlaylistCollection::saveTrackSets(const SupportStore& store) {
   QSet<QString> live;
   for (const SavedPlaylist& e : entries_) live.insert(e.path);
   trackSets_ = pruneTrackSets(trackSets_, live);
-  store.writeTrackSets(trackSets_);
+  return store.writeTrackSets(trackSets_);
+}
+
+bool PlaylistCollection::renameGroup(int id, const QString& name) {
+  const QString trimmed = name.trimmed();
+  if (id < 0 || id >= groups_.size() || trimmed.isEmpty()) return false;
+  if (groups_[id].name == trimmed) return false;
+  groups_[id].name = trimmed;
+  return true;
+}
+
+bool PlaylistCollection::setGroups(const QString& path, const QSet<int>& groupIds) {
+  const int index = indexOf(path);
+  if (index < 0) return false;
+  for (int id : groupIds) {
+    if (id < 0 || id >= groups_.size()) return false;
+  }
+  if (entries_[index].groupIds == groupIds) return false;
+  entries_[index].groupIds = groupIds;
+  return true;
+}
+
+SavedPlaylist PlaylistCollection::favoritesEntry() const {
+  SavedPlaylist entry;
+  entry.path = favoritesPlaylistPath();
+  entry.name = QStringLiteral("Favorites");
+  entry.trackCount = favorites_.size();
+  for (const Track& track : favorites_) {
+    entry.totalDurationMs += qMax<qint64>(0, track.durationMs.value_or(0));
+  }
+  return entry;
+}
+
+QVector<Track> PlaylistCollection::favoriteTracks() const {
+  QVector<Track> tracks = favorites_;
+  for (Track& track : tracks) track.disabled = missingTracks_.contains(track.path);
+  return tracks;
+}
+
+bool PlaylistCollection::isFavorite(const QString& trackPath) const {
+  if (trackPath.isEmpty()) return false;
+  const QString path = normalizePlaylistPath(trackPath);
+  return std::any_of(favorites_.cbegin(), favorites_.cend(), [&](const Track& track) {
+    return track.path == path;
+  });
+}
+
+bool PlaylistCollection::setFavorite(const Track& track, bool favorite) {
+  if (track.path.isEmpty() || track.path.contains(QChar::Null) ||
+      isFavoritesPlaylist(track.path)) return false;
+  const QString path = normalizePlaylistPath(track.path);
+  for (int i = 0; i < favorites_.size(); ++i) {
+    if (favorites_[i].path != path) continue;
+    if (favorite) return false;
+    favorites_.removeAt(i);
+    return true;
+  }
+  if (!favorite) return false;
+  QVector<Track> tracks{track};
+  tracks[0].path = path;
+  hydrateDurations(tracks);
+  favorites_.push_back(tracks[0]);
+  checkTrackFiles({path});
+  return true;
 }
 
 int PlaylistCollection::indexOf(const QString& path) const {
@@ -39,6 +110,19 @@ int PlaylistCollection::indexOf(const QString& path) const {
     if (entries_[i].path == n) return i;
   }
   return -1;
+}
+
+QString PlaylistCollection::availableSavedFavoritesName() const {
+  QSet<QString> names;
+  for (const SavedPlaylist& entry : entries_) {
+    names.insert(entry.displayName().normalized(QString::NormalizationForm_KC).toCaseFolded());
+  }
+  QString name = QStringLiteral("Favorites (saved)");
+  int suffix = 2;
+  while (names.contains(name.toCaseFolded())) {
+    name = QStringLiteral("Favorites (saved %1)").arg(suffix++);
+  }
+  return name;
 }
 
 void PlaylistCollection::sortEntries() {
@@ -97,6 +181,9 @@ void PlaylistCollection::hydrateDurations(QVector<Track>& tracks) const {
 void PlaylistCollection::mergeTrackDuration(const QString& trackPath, qint64 durationMs) {
   if (durationMs <= 0) return;
   const QString n = normalizePlaylistPath(trackPath);
+  for (Track& favorite : favorites_) {
+    if (favorite.path == n) favorite.durationMs = durationMs;
+  }
   if (trackSets_.durationsMs.value(n, -1) == durationMs) return;
   trackSets_.durationsMs.insert(n, durationMs);
   trackSetsDirty_ = true;
@@ -115,6 +202,9 @@ void PlaylistCollection::mergeTrackDuration(const QString& trackPath, qint64 dur
 void PlaylistCollection::mergeTrackTags(const QString& trackPath, const TrackMetadata& metadata,
                                          bool overwrite) {
   const QString n = normalizePlaylistPath(trackPath);
+  for (Track& favorite : favorites_) {
+    if (favorite.path == n) applyTrackMetadata(favorite, metadata, overwrite);
+  }
   Track cached;
   applyTrackMetadata(cached, trackSets_.meta.value(n), true);
   const Track previous = cached;
@@ -127,15 +217,20 @@ void PlaylistCollection::mergeTrackTags(const QString& trackPath, const TrackMet
 }
 
 QVector<Track> PlaylistCollection::add(const QString& path) {
+  if (isFavoritesPlaylist(path)) {
+    selectedPath_ = favoritesPlaylistPath();
+    return favoriteTracks();
+  }
   const QString n = normalizePlaylistPath(path);
   QVector<Track> tracks;
   QFile f(n);
-  if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
-    const QString contents = decodeM3uBytes(f.readAll());
+  if (f.open(QIODevice::ReadOnly)) {
+    const M3uCodec codec;
+    const QString contents = codec.decode(f.readAll(), n).text;
     // A NUL means this is not a playlist (audio, or any binary). Parsing it
     // as M3U is unbounded work and not a useful result.
     if (!isPlaylistText(contents)) return {};
-    tracks = M3uCodec().parse(contents, n);
+    tracks = codec.parse(contents, n);
     hydrateDurations(tracks);
   }
   const int existing = indexOf(n);
@@ -149,6 +244,7 @@ QVector<Track> PlaylistCollection::add(const QString& path) {
   }
   SavedPlaylist e;
   e.path = n;
+  if (isReservedPlaylistName(e.displayName())) e.name = availableSavedFavoritesName();
   refreshFigures(e, tracks);
   entries_.push_back(e);
   selectedPath_ = n;
@@ -157,6 +253,7 @@ QVector<Track> PlaylistCollection::add(const QString& path) {
 }
 
 void PlaylistCollection::addWritten(const QString& path, const QVector<Track>& tracks) {
+  if (isFavoritesPlaylist(path)) return;
   const QString n = normalizePlaylistPath(path);
   QVector<Track> hydrated = tracks;
   hydrateDurations(hydrated);
@@ -164,6 +261,7 @@ void PlaylistCollection::addWritten(const QString& path, const QVector<Track>& t
   if (i < 0) {
     SavedPlaylist e;
     e.path = n;
+    if (isReservedPlaylistName(e.displayName())) e.name = availableSavedFavoritesName();
     entries_.push_back(e);
     i = entries_.size() - 1;
   }
@@ -187,6 +285,10 @@ void PlaylistCollection::remove(const QString& path) {
 }
 
 void PlaylistCollection::select(const QString& path) {
+  if (isFavoritesPlaylist(path)) {
+    selectedPath_ = favoritesPlaylistPath();
+    return;
+  }
   const int i = indexOf(path);
   selectedPath_ = i >= 0 ? entries_[i].path : QString();
 }
@@ -194,13 +296,22 @@ void PlaylistCollection::select(const QString& path) {
 void PlaylistCollection::rename(const QString& path, const QString& name) {
   const int i = indexOf(path);
   if (i < 0) return;
+  const QString displayName = name.trimmed().isEmpty() ? QFileInfo(entries_[i].path).completeBaseName()
+                                                      : name.trimmed();
+  if (isReservedPlaylistName(displayName)) return;
   entries_[i].name = name.trimmed();
   sortEntries();
 }
 
-bool PlaylistCollection::contains(const QString& path) const { return indexOf(path) >= 0; }
+bool PlaylistCollection::contains(const QString& path) const {
+  return isFavoritesPlaylist(path) || indexOf(path) >= 0;
+}
 
 bool PlaylistCollection::resolveForLoad(const QString& path, SavedPlaylist* out) const {
+  if (isFavoritesPlaylist(path)) {
+    if (out) *out = favoritesEntry();
+    return true;
+  }
   const int i = indexOf(path);
   if (i < 0) return false;
   if (out) *out = entries_[i];
@@ -231,6 +342,7 @@ void PlaylistCollection::checkAllTrackFiles() {
   for (const SavedPlaylist& e : entries_) {
     for (const QString& track : trackSets_.byEntry.value(e.path)) reachable.insert(track);
   }
+  for (const Track& track : favorites_) reachable.insert(track.path);
   missingTracks_.clear();
   for (const QString& track : reachable) {
     if (!onDisk(track)) missingTracks_.insert(track);
@@ -250,6 +362,7 @@ QSet<QString> PlaylistCollection::disabledPaths() const {
 }
 
 QVector<Track> PlaylistCollection::tracksFor(const QString& path) const {
+  if (isFavoritesPlaylist(path)) return favoriteTracks();
   const QString n = normalizePlaylistPath(path);
   QVector<Track> tracks;
   for (const QString& p : trackSets_.byEntry.value(n)) {
@@ -280,6 +393,11 @@ CollectionFigures PlaylistCollection::readFigures() const {
       unique.insert(p);
       total += trackSets_.durationsMs.value(p, 0);
     }
+  }
+  for (const Track& track : favorites_) {
+    if (unique.contains(track.path) || missingTracks_.contains(track.path)) continue;
+    unique.insert(track.path);
+    total += qMax<qint64>(0, track.durationMs.value_or(0));
   }
   fig.tracks = unique.size();
   fig.totalDurationMs = total;

@@ -8,6 +8,7 @@
 #include "window_spec.h"
 
 #include <QCloseEvent>
+#include <QContextMenuEvent>
 #include <QElapsedTimer>
 #include <QDragEnterEvent>
 #include <QDropEvent>
@@ -81,6 +82,7 @@ class HostWindow : public QWidget {
   void mainActivated();
   void trackActivated(int index);
   void collectionRowActivated(int index);
+  void playlistContextRequested(aoide::ChromeHit hit, QPoint logical);
   void titleDragStarted();
   void titleDragFinished();
 
@@ -95,6 +97,7 @@ class HostWindow : public QWidget {
   void mouseReleaseEvent(QMouseEvent* event) override;
   void leaveEvent(QEvent* event) override;
   void mouseDoubleClickEvent(QMouseEvent* event) override;
+  void contextMenuEvent(QContextMenuEvent* event) override;
   void wheelEvent(QWheelEvent* event) override;
   void moveEvent(QMoveEvent* event) override;
   void resizeEvent(QResizeEvent* event) override;

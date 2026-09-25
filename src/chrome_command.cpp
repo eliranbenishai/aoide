@@ -98,6 +98,10 @@ ChromeCommandOutcome ChromeCommandRouter::handle(WindowId id, const ChromeHit& h
       out.handled = true;
       out.intent = ChromeIntent::pickPlaylistFile;
       break;
+    case K::plGroups:
+      out.handled = true;
+      out.intent = ChromeIntent::showPlaylistGroups;
+      break;
     case K::plCreate:
       out.handled = true;
       out.intent = ChromeIntent::showPlCreateMenu;

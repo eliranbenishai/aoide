@@ -101,6 +101,7 @@ SRCS=(
   "$ROOT/src/skin_preview.cpp"
   "$ROOT/src/document_portal.cpp"
   "$ROOT/src/session.cpp"
+  "$ROOT/src/session_playlists.cpp"
   "$ROOT/src/host_window.cpp"
   "$ROOT/src/main.cpp"
   "$BUILD/moc_host_window.cpp"

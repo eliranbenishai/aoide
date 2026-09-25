@@ -121,7 +121,7 @@ AoideSession::AoideSession(QString supportDirectory, QObject* parent)
       persistHealth_.alteredOk =
           store_.writeAltered({playlist_.tracks(), playlist_.sourcePath()});
     } else {
-      store_.clearAltered();
+      persistHealth_.alteredOk = store_.clearAltered();
     }
     if (persistHealth_.anyFailed() != wasFailed) refreshChrome();
   });
@@ -308,6 +308,10 @@ void AoideSession::startSpectrumDecode(const QString& path, int gen) {
 
 void AoideSession::setWindows(const PanelWindows& windows) {
   windows_ = windows;
+  if (HostWindow* playlist = windowFor(WindowId::playlist)) {
+    connect(playlist, &HostWindow::playlistContextRequested,
+            this, &AoideSession::presentPlaylistContextMenu, Qt::UniqueConnection);
+  }
   HostWindow* main = windowFor(WindowId::main);
   QWidget* host = shell_;
   if (!host && main) host = main->parentWidget();
@@ -404,19 +408,22 @@ void AoideSession::refreshAboutFigures() {
 }
 
 void AoideSession::persistCollectionCache() {
-  collection_.saveIndex(store_);
-  collection_.saveTrackSets(store_);
+  const bool wasFailed = persistHealth_.anyFailed();
+  persistHealth_.collectionOk = collection_.saveIndex(store_);
+  persistHealth_.trackSetsOk = collection_.saveTrackSets(store_);
   figures_ = collection_.readFigures();
   figuresLoaded_ = true;
   HostWindow* about = windowFor(WindowId::about);
-  if (about && about->isVisible()) refreshChrome();
+  if ((about && about->isVisible()) || persistHealth_.anyFailed() != wasFailed) refreshChrome();
 }
 
-/// Rows first, durations later. `collection_.add` reads the file and fills in
-/// whatever the cache already knows; the rest is a question for a worker, and
-/// the caller asks it once it has decided what the list is.
-QVector<Track> AoideSession::ingestPlaylistFile(const QString& path) {
-  const QVector<Track> tracks = collection_.add(path);
+/// Review uncertain text before changing the cache. Durations arrive later
+/// from the worker started by the caller.
+std::optional<QVector<Track>> AoideSession::ingestPlaylistFile(const QString& path) {
+  const auto text = readPlaylistText(path);
+  if (!text) return std::nullopt;
+  QVector<Track> tracks = M3uCodec().parse(*text, path);
+  collection_.hydrateDurations(tracks);
   collection_.addWritten(path, tracks);
   persistCollectionCache();
   return tracks;
@@ -451,19 +458,17 @@ void AoideSession::schedulePathVerify() {
 void AoideSession::refreshCurrentPlaylist() {
   const QString path = playlist_.sourcePath();
   if (path.isEmpty() || !QFileInfo::exists(path)) return;
-  QFile file(path);
-  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return;
-  const QString contents = decodeM3uBytes(file.readAll());
+  const auto contents = readPlaylistText(path);
+  if (!contents) return;
   // An empty playlist file legitimately empties the list. A file that is not
   // playlist text at all is no answer, so the list it would have replaced
   // stands — and there is nothing to ask the listener about.
-  if (!isPlaylistText(contents)) return;
   if (!confirmReplaceAltered(QStringLiteral(
           "Refreshing this playlist replaces it with the file on disk. "
           "Missing tracks are removed."))) {
     return;
   }
-  const QVector<Track> parsed = M3uCodec().parse(contents, path);
+  const QVector<Track> parsed = M3uCodec().parse(*contents, path);
   QVector<Track> tracks = dropMissingTrackFiles(parsed);
   const bool dropped = tracks.size() != parsed.size();
   collection_.hydrateDurations(tracks);
@@ -716,6 +721,11 @@ SessionView AoideSession::view() const {
   v.collectionWidth = settings_.playlistCollectionWidth;
   v.collectionCollapsed = settings_.playlistCollectionCollapsed;
   v.playlistAltered = playlist_.altered();
+  v.playlistIsFavorites = isFavoritesPlaylist(playlist_.sourcePath());
+  if (settings_.playlistGroupFilter == -2) v.playlistGroupFilterLabel = QStringLiteral("Unassigned");
+  for (const auto& group : collection_.groups()) {
+    if (group.id == settings_.playlistGroupFilter) v.playlistGroupFilterLabel = group.name;
+  }
   v.settingsTab = settingsTab_;
   v.resumeLastSession = settings_.resumeLastSession;
   v.confirmBeforeQuit = settings_.confirmBeforeQuit;
@@ -738,6 +748,8 @@ SessionView AoideSession::view() const {
                                                                         skinsViewport)));
 
   const auto tracks = playlist_.tracks();
+  QSet<QString> favoritePaths;
+  for (const Track& favorite : collection_.favoriteTracks()) favoritePaths.insert(favorite.path);
   qint64 total = 0;
   int listed = 0;
   for (int i = 0; i < tracks.size(); ++i) {
@@ -748,6 +760,7 @@ SessionView AoideSession::view() const {
     row.selected = playlist_.selectedIndices().contains(i);
     row.playing = playback_->playingIndex() == i;
     row.disabled = tracks[i].disabled;
+    row.favorite = favoritePaths.contains(normalizePlaylistPath(tracks[i].path));
     v.tracks.push_back(row);
     if (tracks[i].disabled) continue;
     ++listed;
@@ -759,7 +772,8 @@ SessionView AoideSession::view() const {
       !playlist_.sourcePath().isEmpty() && QFileInfo::exists(playlist_.sourcePath());
   v.playlistRefreshing = ingesting_;
   if (!playlist_.sourcePath().isEmpty()) {
-    v.playlistName = QFileInfo(playlist_.sourcePath()).fileName();
+    v.playlistName = v.playlistIsFavorites ? QStringLiteral("Favorites")
+                                        : QFileInfo(playlist_.sourcePath()).fileName();
   }
 
   const auto nowPlaying =
@@ -785,15 +799,24 @@ SessionView AoideSession::view() const {
     v.subtitle = playback_->failureMessage().toUpper();
   }
 
-  for (const SavedPlaylist& e : collection_.entries()) {
+  for (const SavedPlaylist& e : visibleCollection()) {
     CollectionRowView row;
     row.name = e.displayName();
     row.count = e.trackCount;
+    row.groupIds = e.groupIds;
+    row.favorites = isFavoritesPlaylist(e.path);
     const QString marked =
         collectionHighlightPath(playlist_.sourcePath(), collection_.selectedPath());
     row.selected = e.path == marked;
     row.disabled = collection_.disabledPaths().contains(e.path);
     v.collection.push_back(row);
+  }
+  v.collectionCanEdit = false;
+  for (const auto& entry : visibleCollection()) {
+    if (entry.path == collection_.selectedPath() && !isFavoritesPlaylist(entry.path)) {
+      v.collectionCanEdit = true;
+      break;
+    }
   }
   const QRectF collectionWell = playlistCollectionWell(
       panelBody(layout_.docking().logicalSize(WindowId::playlist).toSize()), v.collectionWidth);
@@ -930,7 +953,17 @@ void AoideSession::playTrackAt(int index) {
 void AoideSession::togglePlayPause() { playback_->playPause(); }
 
 void AoideSession::selectAllTracks() { playlist_.selectAll(); }
-void AoideSession::removeSelectedTracks() { playlist_.removeSelected(); }
+void AoideSession::removeSelectedTracks() {
+  if (!isFavoritesPlaylist(playlist_.sourcePath())) {
+    playlist_.removeSelected();
+    return;
+  }
+  const auto tracks = playlist_.tracks();
+  for (int index : playlist_.selectedIndices()) collection_.setFavorite(tracks[index], false);
+  syncFavoritesPlaylist();
+  persistCollectionCache();
+  refreshChrome();
+}
 
 void AoideSession::windowMoved(WindowId id, QPoint nativeTopLeft, bool finalize) {
   if (layout_.placing()) return;
@@ -1040,14 +1073,20 @@ bool AoideSession::openPaths(const QStringList& paths, bool enqueue, OpenSource 
   bool playFirst = false;
   std::optional<int> firstRequested;
   if (!playlists.isEmpty()) {
-    const QVector<Track> tracks = ingestPlaylistFile(playlists.first());
-    playlist_.loadTracks(tracks, playlists.first());
+    const auto tracks = ingestPlaylistFile(playlists.first());
+    if (!tracks) return false;
+    playlist_.loadTracks(*tracks, playlists.first());
     playFirst = !playlist_.tracks().isEmpty();
     if (playFirst) firstRequested = 0;
     schedulePathVerify();
   }
   const auto audio = tracksFromPaths(others);
   if (!audio.isEmpty()) {
+    if (isFavoritesPlaylist(playlist_.sourcePath())) {
+      // Opening audio starts an ordinary current list; Favorites stays derived.
+      playlist_.loadTracks({});
+      enqueue = false;
+    }
     const int firstAudio = !enqueue && playlists.isEmpty() ? 0 : int(playlist_.tracks().size());
     if (!enqueue && playlists.isEmpty()) playlist_.loadTracks(audio);
     else playlist_.addTracks(audio);
@@ -1092,7 +1131,13 @@ QString AoideSession::pickPlaylist(bool save, const QString& directory) {
     pick.title = QStringLiteral("Save playlist");
     pick.suggestedName = QStringLiteral("playlist.m3u");
     pick.kind = FilePickKind::saveFile;
-    return pickFile(pick);
+    const QString path = pickFile(pick);
+    if (isReservedPlaylistName(QFileInfo(path).completeBaseName())) {
+      QMessageBox::information(dialogParent(WindowId::playlist), QStringLiteral("Playlist name"),
+          QStringLiteral("Favorites is built in. Choose a different name for your playlist."));
+      return {};
+    }
+    return path;
   }
   pick.title = QStringLiteral("Open playlist");
   pick.kind = FilePickKind::openFile;
@@ -1101,7 +1146,7 @@ QString AoideSession::pickPlaylist(bool save, const QString& directory) {
 }
 
 void AoideSession::loadCollectionRow(int index) {
-  const auto entries = collection_.entries();
+  const auto entries = visibleCollection();
   if (index < 0 || index >= entries.size()) return;
   SavedPlaylist e;
   if (!collection_.resolveForLoad(entries[index].path, &e)) {
@@ -1152,7 +1197,7 @@ void AoideSession::handleWheel(WindowId id, int delta, QPoint logical) {
   if (!settings_.playlistCollectionCollapsed) {
     const QRectF well = playlistCollectionWell(body, settings_.playlistCollectionWidth);
     if (well.contains(logical)) {
-      const int count = int(collection_.entries().size());
+      const int count = int(visibleCollection().size());
       collectionScroll_ = playlistCollectionClampedScroll(
           playlistCollectionClampedScroll(collectionScroll_, count, well.height()) + step,
           count, well.height());
@@ -1207,7 +1252,7 @@ void AoideSession::handleDrag(WindowId id, ChromeHit hit, QPoint logical) {
     const QRectF well = playlistCollectionWell(
         panelBody(layout_.docking().logicalSize(WindowId::playlist).toSize()),
         settings_.playlistCollectionWidth);
-    const int count = int(collection_.entries().size());
+    const int count = int(visibleCollection().size());
     const QRectF track = playlistCollectionScrollTrack(well);
     const QRectF thumb = playlistCollectionThumb(track, count, collectionScroll_, well.height());
     const qreal travel = track.height() - thumb.height();
@@ -1235,6 +1280,7 @@ void AoideSession::handleDrag(WindowId id, ChromeHit hit, QPoint logical) {
     const int delta = dy / 37;
     const int to = from + delta;
     if (to == from || to < 0 || to >= playlist_.tracks().size()) return;
+    if (isFavoritesPlaylist(playlist_.sourcePath())) return;
     playlist_.move(from, to < from ? to : to + 1);
     sliderIndex_ = to;
     dragOrigin_ = logical;
@@ -1251,7 +1297,7 @@ void AoideSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
           panelBody(layout_.docking().logicalSize(WindowId::playlist).toSize()),
           settings_.playlistCollectionWidth);
       const QRectF thumb = playlistCollectionThumb(playlistCollectionScrollTrack(well),
-          int(collection_.entries().size()), collectionScroll_, well.height());
+          int(visibleCollection().size()), collectionScroll_, well.height());
       collectionScrollGrabOffset_ = thumb.contains(logical) ? logical.y() - thumb.top()
                                                            : thumb.height() / 2;
     }
@@ -1280,7 +1326,7 @@ void AoideSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
     case ChromeIntent::pickPlaylistFile: {
       const QString path = pickPlaylist(false);
       if (!path.isEmpty()) {
-        startDurationProbe(ingestPlaylistFile(path));
+        if (const auto tracks = ingestPlaylistFile(path)) startDurationProbe(*tracks);
         refreshChrome();
       }
       break;
@@ -1296,6 +1342,9 @@ void AoideSession::presentChromeOutcome(const ChromeCommandOutcome& out, WindowI
       break;
     case ChromeIntent::showPlOptionsMenu:
       presentPlOptionsMenu(hit);
+      break;
+    case ChromeIntent::showPlaylistGroups:
+      presentPlaylistGroups(hit);
       break;
     case ChromeIntent::saveCurrentPlaylist:
       saveCurrentPlaylist();
@@ -1452,6 +1501,7 @@ void AoideSession::createPlaylistFromCurrent() {
 }
 
 void AoideSession::saveCurrentPlaylist() {
+  if (isFavoritesPlaylist(playlist_.sourcePath())) return;
   if (!playlist_.altered()) return;
   if (playlist_.sourcePath().isEmpty()) {
     createPlaylistFromCurrent();
@@ -1468,8 +1518,9 @@ void AoideSession::saveCurrentPlaylist() {
 }
 
 void AoideSession::renameCollectionRow(int index) {
-  const auto entries = collection_.entries();
+  const auto entries = visibleCollection();
   if (index < 0 || index >= entries.size()) return;
+  if (isFavoritesPlaylist(entries[index].path)) return;
   collection_.select(entries[index].path);
   // Publish the selection before the modal: the row being renamed is the one
   // the listener double-clicked, and the highlight is what says so.
@@ -1478,7 +1529,7 @@ void AoideSession::renameCollectionRow(int index) {
 }
 
 void AoideSession::presentPlRename() {
-  if (collection_.selectedPath().isEmpty()) return;
+  if (collection_.selectedPath().isEmpty() || isFavoritesPlaylist(collection_.selectedPath())) return;
   QString current;
   for (const SavedPlaylist& e : collection_.entries()) {
     if (e.path == collection_.selectedPath()) {
@@ -1493,12 +1544,18 @@ void AoideSession::presentPlRename() {
                      "Aoide only renames its own entry — the file on disk keeps its name."),
       QLineEdit::Normal, current, &ok);
   if (!ok) return;
+  if (isReservedPlaylistName(name)) {
+    QMessageBox::information(dialogParent(WindowId::playlist), QStringLiteral("Playlist name"),
+        QStringLiteral("Favorites is built in. Choose a different name for your playlist."));
+    return;
+  }
   collection_.rename(collection_.selectedPath(), name);
   persistCollectionCache();
   refreshChrome();
 }
 
 void AoideSession::presentPlSortMenu(const ChromeHit& hit) {
+  if (isFavoritesPlaylist(playlist_.sourcePath())) return;
   enum Row { kTitle, kArtist, kDuration, kPath, kReverse };
   const QVector<ChromeMenuItem> items{
       ChromeMenuItem::action(QStringLiteral("Title")),
@@ -1534,7 +1591,7 @@ void AoideSession::presentPlOptionsMenu(const ChromeHit& hit) {
       ChromeMenuItem::action(QStringLiteral("Select all")),
       ChromeMenuItem::action(QStringLiteral("Invert selection")),
       ChromeMenuItem::action(QStringLiteral("Save playlist…")),
-      ChromeMenuItem::action(QStringLiteral("Clear")),
+      ChromeMenuItem::action(QStringLiteral("Clear"), !isFavoritesPlaylist(playlist_.sourcePath())),
   };
   switch (execAnchoredMenu(items, windowFor(WindowId::playlist), hit.rect, PopupAnchor::aboveLeft)) {
     case kSelectAll:
@@ -1669,6 +1726,23 @@ void AoideSession::presentSkinFolderInstall() {
 
 void AoideSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical) {
   dragOrigin_ = logical;
+  if ((hit.kind == ChromeHit::Kind::plRename || hit.kind == ChromeHit::Kind::plRemoveCollection) &&
+      !view().collectionCanEdit) return;
+  if (hit.kind == ChromeHit::Kind::plCollectionRow) {
+    const auto entries = visibleCollection();
+    if (hit.index < 0 || hit.index >= entries.size()) return;
+    if (mods & Qt::ControlModifier) {
+      collection_.select(entries[hit.index].path);
+      refreshChrome();
+    } else {
+      loadCollectionRow(hit.index);
+    }
+    return;
+  }
+  if (hit.kind == ChromeHit::Kind::plRemove) {
+    removeSelectedTracks();
+    return;
+  }
   ChromeCommandRouter router(*playback_, playlist_, settings_, collection_, *engine_,
                              layout_.docking());
   presentChromeOutcome(router.handle(id, hit, mods, logical), id, hit, logical);

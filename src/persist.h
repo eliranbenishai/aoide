@@ -5,6 +5,7 @@
 #include "track.h"
 
 #include <QMap>
+#include <QSet>
 #include <QString>
 #include <QVector>
 #include <optional>
@@ -36,8 +37,16 @@ struct SavedPlaylist {
   int trackCount = 0;
   qint64 totalDurationMs = 0;
   qint64 modifiedMs = 0;
+  QSet<int> groupIds;
   QString displayName() const;
 };
+
+struct PlaylistGroup {
+  int id = 0;
+  QString name;
+};
+
+QVector<PlaylistGroup> defaultPlaylistGroups();
 
 using CachedTrackMeta = TrackMetadata;
 
@@ -72,13 +81,17 @@ class SupportStore {
 
   AlteredPlaylist readAltered() const;
   bool writeAltered(const AlteredPlaylist& p) const;
-  void clearAltered() const;
+  bool clearAltered() const;
 
   QString readLastPlaylistPath() const;
   bool writeLastPlaylistPath(const QString& path) const;
 
   QVector<SavedPlaylist> readCollectionIndex() const;
   bool writeCollectionIndex(const QVector<SavedPlaylist>& entries) const;
+  QVector<PlaylistGroup> readPlaylistGroups() const;
+  bool writePlaylistGroups(const QVector<PlaylistGroup>& groups) const;
+  QVector<Track> readFavorites() const;
+  bool writeFavorites(const QVector<Track>& tracks) const;
   CollectionTrackSets readTrackSets() const;
   bool writeTrackSets(const CollectionTrackSets& sets) const;
 
@@ -97,9 +110,12 @@ struct PersistHealth {
   bool usageOk = true;
   bool alteredOk = true;
   bool lastPlaylistOk = true;
+  bool collectionOk = true;
+  bool trackSetsOk = true;
 
   bool anyFailed() const {
-    return !settingsOk || !resumeOk || !usageOk || !alteredOk || !lastPlaylistOk;
+    return !settingsOk || !resumeOk || !usageOk || !alteredOk || !lastPlaylistOk ||
+           !collectionOk || !trackSetsOk;
   }
 };
 
@@ -111,6 +127,9 @@ void writeSessionPersist(const SupportStore& store, PersistHealth& health,
                          const AlteredPlaylist* altered);
 
 QString normalizePlaylistPath(const QString& path);
+QString favoritesPlaylistPath();
+bool isFavoritesPlaylist(const QString& path);
+bool isReservedPlaylistName(const QString& name);
 
 inline bool samePlaylistFile(const QString& a, const QString& b) {
   if (a.isEmpty() || b.isEmpty()) return false;

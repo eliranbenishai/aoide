@@ -154,6 +154,7 @@ QJsonObject AoideSettings::toJson() const {
   o.insert(QStringLiteral("dockSnapStrength"), snap);
   o.insert(QStringLiteral("playlistCollectionWidth"), playlistCollectionWidth);
   o.insert(QStringLiteral("playlistCollectionCollapsed"), playlistCollectionCollapsed);
+  o.insert(QStringLiteral("playlistGroupFilter"), playlistGroupFilter);
   o.insert(QStringLiteral("audioDevice"), normalizeAudioDeviceName(audioDevice));
   o.insert(QStringLiteral("audioExclusive"), audioExclusive);
   return o;
@@ -216,6 +217,8 @@ AoideSettings AoideSettings::fromJson(const QJsonObject& json) {
   if (json.value(QStringLiteral("playlistCollectionCollapsed")).isBool()) {
     s.playlistCollectionCollapsed = json.value(QStringLiteral("playlistCollectionCollapsed")).toBool();
   }
+  const int groupFilter = json.value(QStringLiteral("playlistGroupFilter")).toInt(-1);
+  if (groupFilter >= -2 && groupFilter < 7) s.playlistGroupFilter = groupFilter;
   if (json.contains(QStringLiteral("audioDevice")) &&
       json.value(QStringLiteral("audioDevice")).isString()) {
     s.audioDevice = json.value(QStringLiteral("audioDevice")).toString();

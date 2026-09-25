@@ -120,23 +120,34 @@ QString chromeKindTip(const ChromeHit& chrome, const SessionView& view) {
     case K::plCreate:
       return QStringLiteral("Create playlist");
     case K::plRename:
+      if (!chromeHitEnabled(chrome, view)) return QStringLiteral("Select a saved playlist to rename");
       return QStringLiteral("Rename playlist");
     case K::plRemoveCollection:
+      if (!chromeHitEnabled(chrome, view)) return QStringLiteral("Select a saved playlist to remove");
       return QStringLiteral("Remove playlist from collection");
+    case K::plGroups:
+      return view.playlistGroupFilterLabel.isEmpty()
+          ? QStringLiteral("Playlist groups")
+          : QStringLiteral("Playlist groups: %1").arg(view.playlistGroupFilterLabel);
     case K::plSave:
+      if (view.playlistIsFavorites) return QStringLiteral("Favorites updates automatically");
       return view.playlistAltered ? QStringLiteral("Save playlist")
                                   : QStringLiteral("No changes to save");
     case K::plAdd:
+      if (view.playlistIsFavorites) return QStringLiteral("Right-click a track to add it to Favorites");
       return QStringLiteral("Add tracks");
     case K::plRemove:
+      if (view.playlistIsFavorites) return QStringLiteral("Right-click a track to remove it from Favorites");
       return QStringLiteral("Remove selected tracks");
     case K::plSort:
+      if (view.playlistIsFavorites) return QStringLiteral("Favorites updates automatically");
       return QStringLiteral("Sort playlist");
     case K::plOptions:
       return QStringLiteral("Playlist options");
     case K::plPlay:
       return view.playing ? QStringLiteral("Pause") : QStringLiteral("Play");
     case K::plRefresh:
+      if (view.playlistIsFavorites) return QStringLiteral("Favorites updates automatically");
       return QStringLiteral("Refresh playlist");
     case K::settingsGeneral:
       return QStringLiteral("General");

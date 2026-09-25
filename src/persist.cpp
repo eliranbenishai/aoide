@@ -82,11 +82,28 @@ QString SavedPlaylist::displayName() const {
   return QFileInfo(path).completeBaseName();
 }
 
+QVector<PlaylistGroup> defaultPlaylistGroups() {
+  return {{0, QStringLiteral("On repeat")}, {1, QStringLiteral("Road trips")},
+          {2, QStringLiteral("Weekend")}, {3, QStringLiteral("At home")},
+          {4, QStringLiteral("Focus")}, {5, QStringLiteral("After dark")},
+          {6, QStringLiteral("To explore")}};
+}
+
 QString normalizePlaylistPath(const QString& path) {
+  if (isFavoritesPlaylist(path)) return favoritesPlaylistPath();
   const QFileInfo info(path);
   const QString abs = info.isAbsolute() ? info.absoluteFilePath()
                                         : QDir::current().absoluteFilePath(path);
   return QDir::cleanPath(abs);
+}
+
+QString favoritesPlaylistPath() { return QStringLiteral("aoide:favorites"); }
+
+bool isFavoritesPlaylist(const QString& path) { return path == favoritesPlaylistPath(); }
+
+bool isReservedPlaylistName(const QString& name) {
+  return name.normalized(QString::NormalizationForm_KC).trimmed().toCaseFolded() ==
+         QStringLiteral("favorites");
 }
 
 SupportStore::SupportStore(QString dir) : dir_(std::move(dir)) {
@@ -227,8 +244,9 @@ bool SupportStore::writeAltered(const AlteredPlaylist& p) const {
   return writeObject(QStringLiteral("altered_playlist.json"), o);
 }
 
-void SupportStore::clearAltered() const {
-  QFile::remove(filePath(QStringLiteral("altered_playlist.json")));
+bool SupportStore::clearAltered() const {
+  const QString path = filePath(QStringLiteral("altered_playlist.json"));
+  return !QFileInfo::exists(path) || QFile::remove(path);
 }
 
 QString SupportStore::readLastPlaylistPath() const {
@@ -254,12 +272,16 @@ QVector<SavedPlaylist> SupportStore::readCollectionIndex() const {
     const QJsonObject o = v.toObject();
     SavedPlaylist e;
     e.path = o.value(QStringLiteral("path")).toString();
-    if (e.path.isEmpty()) continue;
+    if (e.path.isEmpty() || isFavoritesPlaylist(e.path)) continue;
     e.path = normalizePlaylistPath(e.path);
     e.name = o.value(QStringLiteral("name")).toString();
     e.trackCount = o.value(QStringLiteral("trackCount")).toInt();
     e.totalDurationMs = qint64(o.value(QStringLiteral("totalDurationMs")).toDouble());
     e.modifiedMs = qint64(o.value(QStringLiteral("modifiedMs")).toDouble());
+    for (const QJsonValue& group : o.value(QStringLiteral("groupIds")).toArray()) {
+      const int id = group.toInt(-1);
+      if (id >= 0 && id < 7) e.groupIds.insert(id);
+    }
     out.push_back(e);
   }
   return out;
@@ -268,18 +290,84 @@ QVector<SavedPlaylist> SupportStore::readCollectionIndex() const {
 bool SupportStore::writeCollectionIndex(const QVector<SavedPlaylist>& entries) const {
   QJsonArray raw;
   for (const SavedPlaylist& e : entries) {
-    if (e.path.isEmpty()) continue;
+    if (e.path.isEmpty() || isFavoritesPlaylist(e.path)) continue;
     QJsonObject o;
     o.insert(QStringLiteral("path"), absoluteKey(e.path));
     if (!e.name.isEmpty()) o.insert(QStringLiteral("name"), e.name);
     o.insert(QStringLiteral("trackCount"), e.trackCount);
     o.insert(QStringLiteral("totalDurationMs"), e.totalDurationMs);
     if (e.modifiedMs != 0) o.insert(QStringLiteral("modifiedMs"), e.modifiedMs);
+    QJsonArray groups;
+    for (int id = 0; id < 7; ++id) {
+      if (e.groupIds.contains(id)) groups.append(id);
+    }
+    if (!groups.isEmpty()) o.insert(QStringLiteral("groupIds"), groups);
     raw.append(o);
   }
   QJsonObject root;
   root.insert(QStringLiteral("entries"), raw);
   return writeObject(QStringLiteral("playlists.json"), root);
+}
+
+QVector<PlaylistGroup> SupportStore::readPlaylistGroups() const {
+  QVector<PlaylistGroup> groups = defaultPlaylistGroups();
+  const QJsonArray raw =
+      readObject(QStringLiteral("playlist_groups.json")).value(QStringLiteral("groups")).toArray();
+  for (const QJsonValue& value : raw) {
+    const QJsonObject group = value.toObject();
+    const int id = group.value(QStringLiteral("id")).toInt(-1);
+    const QString name = group.value(QStringLiteral("name")).toString().trimmed();
+    if (id >= 0 && id < groups.size() && !name.isEmpty()) groups[id].name = name;
+  }
+  return groups;
+}
+
+bool SupportStore::writePlaylistGroups(const QVector<PlaylistGroup>& groups) const {
+  QJsonArray raw;
+  for (const PlaylistGroup& group : groups) {
+    if (group.id < 0 || group.id >= 7 || group.name.trimmed().isEmpty()) continue;
+    QJsonObject value;
+    value.insert(QStringLiteral("id"), group.id);
+    value.insert(QStringLiteral("name"), group.name.trimmed());
+    raw.append(value);
+  }
+  QJsonObject root;
+  root.insert(QStringLiteral("groups"), raw);
+  return writeObject(QStringLiteral("playlist_groups.json"), root);
+}
+
+QVector<Track> SupportStore::readFavorites() const {
+  QVector<Track> tracks;
+  QSet<QString> seen;
+  const QJsonArray raw =
+      readObject(QStringLiteral("favorites.json")).value(QStringLiteral("tracks")).toArray();
+  for (const QJsonValue& value : raw) {
+    if (!value.isObject()) continue;
+    Track track = trackFromJson(value.toObject());
+    if (track.path.isEmpty() || track.path.contains(QChar::Null) ||
+        isFavoritesPlaylist(track.path)) continue;
+    track.path = absoluteKey(track.path);
+    if (seen.contains(track.path)) continue;
+    seen.insert(track.path);
+    tracks.push_back(track);
+  }
+  return tracks;
+}
+
+bool SupportStore::writeFavorites(const QVector<Track>& tracks) const {
+  QJsonArray raw;
+  QSet<QString> seen;
+  for (Track track : tracks) {
+    if (track.path.isEmpty() || track.path.contains(QChar::Null) ||
+        isFavoritesPlaylist(track.path)) continue;
+    track.path = absoluteKey(track.path);
+    if (seen.contains(track.path)) continue;
+    seen.insert(track.path);
+    raw.append(trackToJson(track));
+  }
+  QJsonObject root;
+  root.insert(QStringLiteral("tracks"), raw);
+  return writeObject(QStringLiteral("favorites.json"), root);
 }
 
 CollectionTrackSets SupportStore::readTrackSets() const {
@@ -357,6 +445,10 @@ void writeSessionPersist(const SupportStore& store, PersistHealth& health,
   }
   if (altered) {
     health.alteredOk = store.writeAltered(*altered);
+  } else if (!lastPlaylistPath.isEmpty() && health.lastPlaylistOk) {
+    // A quit may precede the debounced cleanup after loading Favorites (or
+    // another saved list). Do not let an older altered list win next launch.
+    health.alteredOk = store.clearAltered();
   }
 }
 

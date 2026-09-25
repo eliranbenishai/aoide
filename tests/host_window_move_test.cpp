@@ -1787,16 +1787,19 @@ void HostWindowMoveTest::overflowingCollectionKeepsItsToolbarVisibleAndClickable
   QCOMPARE(paintPlaylistPanel(overflowing).copy(toolbar),
            paintPlaylistPanel(shortList).copy(toolbar));
   using K = aoide::ChromeHit::Kind;
-  int buttonX = toolbar.left() + 15;
-  for (const K kind : {K::plAddCollection, K::plCreate, K::plRename, K::plRemoveCollection}) {
-    const QPoint buttonCenter(buttonX, toolbar.center().y());
+  const auto buttons = aoide::layoutPlaylistCollectionButtons(inner);
+  const std::pair<QRectF, K> controls[] = {
+      {buttons.add, K::plAddCollection}, {buttons.create, K::plCreate},
+      {buttons.rename, K::plRename}, {buttons.remove, K::plRemoveCollection},
+      {buttons.groups, K::plGroups}};
+  for (const auto& [rect, kind] : controls) {
+    const QPoint buttonCenter = rect.center().toPoint();
     const aoide::ChromeHit button = aoide::hitTest(
         aoide::WindowId::playlist, aoide::kPlaylistDefault, buttonCenter, shortList);
     QCOMPARE(button.kind, kind);
     const aoide::ChromeHit actual = aoide::hitTest(
         aoide::WindowId::playlist, aoide::kPlaylistDefault, buttonCenter, overflowing);
     QCOMPARE(actual.kind, kind);
-    buttonX += 36;
   }
 }
 

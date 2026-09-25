@@ -119,6 +119,9 @@ class AoideSession : public QObject, public PanelSurfaces {
   void togglePlayPause();
   void selectAllTracks();
   void removeSelectedTracks();
+  void setPlaylistGroupFilter(int groupId);
+  void assignPlaylistGroups(int row, const QSet<int>& groupIds);
+  void toggleFavoriteTrack(int index);
 
  public slots:
   void handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical);
@@ -164,7 +167,13 @@ class AoideSession : public QObject, public PanelSurfaces {
     TrackMetadata metadata;
   };
 
-  QVector<Track> ingestPlaylistFile(const QString& path);
+  std::optional<QVector<Track>> ingestPlaylistFile(const QString& path);
+  std::optional<QString> readPlaylistText(const QString& path);
+  QVector<SavedPlaylist> visibleCollection() const;
+  void syncFavoritesPlaylist();
+  void presentPlaylistContextMenu(ChromeHit hit, QPoint logical);
+  void presentPlaylistGroups(const ChromeHit& hit);
+  void presentManageGroups();
   void schedulePathVerify();
   void refreshCurrentPlaylist();
   /// Ask about every track this list still needs, on a worker. [overwrite] is

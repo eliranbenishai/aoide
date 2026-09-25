@@ -20,11 +20,13 @@ struct CollectionRowView {
   int count = 0;
   bool selected = false;
   bool disabled = false;
+  QSet<int> groupIds{};
+  bool favorites = false;
 };
 
 inline bool operator==(const CollectionRowView& a, const CollectionRowView& b) {
   return a.name == b.name && a.count == b.count && a.selected == b.selected &&
-         a.disabled == b.disabled;
+         a.disabled == b.disabled && a.groupIds == b.groupIds && a.favorites == b.favorites;
 }
 inline bool operator!=(const CollectionRowView& a, const CollectionRowView& b) {
   return !(a == b);
@@ -37,11 +39,13 @@ struct TrackRowView {
   bool selected = false;
   bool playing = false;
   bool disabled = false;
+  bool favorite = false;
 };
 
 inline bool operator==(const TrackRowView& a, const TrackRowView& b) {
   return a.artist == b.artist && a.title == b.title && a.time == b.time &&
-         a.selected == b.selected && a.playing == b.playing && a.disabled == b.disabled;
+         a.selected == b.selected && a.playing == b.playing && a.disabled == b.disabled &&
+         a.favorite == b.favorite;
 }
 inline bool operator!=(const TrackRowView& a, const TrackRowView& b) { return !(a == b); }
 
@@ -94,9 +98,15 @@ struct SessionView {
   int collectionScroll = 0;
   QVector<CollectionRowView> collection;
   QString collectionSelected;
+  /// The collection's actual selected reference is visible and editable.
+  /// Distinct from the current playlist, which may still be Favorites.
+  bool collectionCanEdit = true;
   qreal collectionWidth = 240;
   bool collectionCollapsed = false;
   QString playlistName;
+  bool playlistIsFavorites = false;
+  /// Empty means every group. A selected group lights the compact filter button.
+  QString playlistGroupFilterLabel;
   bool playlistAltered = false;
   qint64 playlistTotalMs = 0;
   int playlistTrackCount = 0;

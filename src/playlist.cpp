@@ -252,6 +252,19 @@ void PlaylistController::invertSelection() {
   notify();
 }
 
+void PlaylistController::selectIndices(const QSet<int>& indices) {
+  QSet<int> next;
+  for (int index : indices) {
+    if (index >= 0 && index < tracks_.size()) next.insert(index);
+  }
+  selectedIndices_ = next;
+  selectedIndex_.reset();
+  for (int index : next) {
+    if (!selectedIndex_ || index < *selectedIndex_) selectedIndex_ = index;
+  }
+  notify();
+}
+
 int PlaylistController::compareTracks(const Track& a, const Track& b, PlaylistSortKey key) {
   auto cmp = [](const QString& x, const QString& y) {
     return QString::localeAwareCompare(x.toLower(), y.toLower());
@@ -414,10 +427,10 @@ bool PlaylistController::updateTrackByPath(const QString& path, const Track& nex
 
 bool PlaylistController::openPlaylistFile(const QString& path, const M3uCodec& codec) {
   QFile file(path);
-  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+  if (!file.open(QIODevice::ReadOnly)) {
     return false;
   }
-  const QString contents = decodeM3uBytes(file.readAll());
+  const QString contents = codec.decode(file.readAll(), path).text;
   if (!isPlaylistText(contents)) return false;
   setTracks(codec.parse(contents, path), path);
   return true;

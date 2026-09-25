@@ -36,13 +36,22 @@ class PlaylistCollection {
   void setValidationIntervalMs(int ms) { validationIntervalMs_ = ms; }
 
   void load(const SupportStore& store);
-  void saveIndex(const SupportStore& store) const;
+  bool saveIndex(const SupportStore& store) const;
   /// Writes the cache, collecting its garbage on the way out. A pass over what
   /// the collection still holds cannot leak by forgetting a call site, the way
   /// per-removal bookkeeping can.
-  void saveTrackSets(const SupportStore& store);
+  bool saveTrackSets(const SupportStore& store);
 
   QVector<SavedPlaylist> entries() const { return entries_; }
+  QVector<PlaylistGroup> groups() const { return groups_; }
+  bool renameGroup(int id, const QString& name);
+  bool setGroups(const QString& path, const QSet<int>& groupIds);
+  /// The automatic playlist is separate from saved file references. Its track
+  /// records survive removal of any saved playlist that also names them.
+  SavedPlaylist favoritesEntry() const;
+  QVector<Track> favoriteTracks() const;
+  bool isFavorite(const QString& trackPath) const;
+  bool setFavorite(const Track& track, bool favorite);
   QString selectedPath() const { return selectedPath_; }
   /// Brings the validation pass up to date if it has gone stale — one question
   /// per entry, never per track.
@@ -70,6 +79,7 @@ class PlaylistCollection {
 
  private:
   int indexOf(const QString& path) const;
+  QString availableSavedFavoritesName() const;
   void sortEntries();
   void refreshFigures(SavedPlaylist& e, const QVector<Track>& tracks);
   bool onDisk(const QString& path) const;
@@ -84,6 +94,8 @@ class PlaylistCollection {
   void checkTrackFiles(const QStringList& paths);
 
   QVector<SavedPlaylist> entries_;
+  QVector<PlaylistGroup> groups_ = defaultPlaylistGroups();
+  QVector<Track> favorites_;
   QString selectedPath_;
   CollectionTrackSets trackSets_;
   Exists exists_;
