@@ -11,7 +11,8 @@ runtime: org.kde.Platform
 # QT_RUNTIME, and it has to stay that way in both directions: Flathub requires
 # the newest runtime at submission time, and CMake fails the build unless the Qt
 # it finds equals QT_VERSION exactly. The runtime's Qt is therefore what sets
-# the pin -- 6.11 ships 6.11.1 -- so bumping this means bumping QT_VERSION.
+# the pin -- 6.11 now ships 6.11.2. Match its Qt patch version in QT_VERSION;
+# the runtime line itself stays 6.11 for patch updates.
 runtime-version: '6.11'
 sdk: org.kde.Sdk
 command: aoide

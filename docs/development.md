@@ -4,7 +4,7 @@ Aoide is Qt 6 (QWidget + QPainter) in [`src/`](../src/). Product: [`README.md`](
 
 ## Prerequisites
 
-Qt is pinned to **6.11.1** in [`QT_VERSION`](../QT_VERSION). A different kit is a hard error in CMake (`VERSION_EQUAL`) and in the Linux scripts ([`tool/qt-env.sh`](../tool/qt-env.sh), [`tool/fetch_qt.sh`](../tool/fetch_qt.sh)).
+Qt is pinned to **6.11.2** in [`QT_VERSION`](../QT_VERSION). A different kit is a hard error in CMake (`VERSION_EQUAL`) and in the Linux scripts ([`tool/qt-env.sh`](../tool/qt-env.sh), [`tool/fetch_qt.sh`](../tool/fetch_qt.sh)). This patch release includes the macOS image-conversion lifetime fix needed by Aoide's wait cursor; rationale and upstream reference: [Qt version](distribution.md#qt-version).
 
 CMake ≥ 3.16, C++17. Unset `CMAKE_BUILD_TYPE` on a single-config generator defaults to `RelWithDebInfo`. `-G Ninja` is optional; CI does not pass it.
 
@@ -57,7 +57,7 @@ sudo pacman -S cmake gcc mpv
 sudo apt-get install cmake g++ pkg-config libgl1-mesa-dev libx11-dev libmpv-dev
 ```
 
-The official kit's xcb/Wayland plugins also need the client libs listed in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) (`libxcb-*`, `libxkbcommon-x11-0`, `libwayland-*`). A kit that is not 6.11.1 fails configure.
+The official kit's xcb/Wayland plugins also need the client libs listed in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) (`libxcb-*`, `libxkbcommon-x11-0`, `libwayland-*`). A kit that is not 6.11.2 fails configure.
 
 ```bash
 ./tool/fetch_qt.sh
@@ -67,7 +67,7 @@ ctest --test-dir build -C Release --output-on-failure
 ./build/aoide
 ```
 
-`fetch_qt.sh` writes `.local/qt/6.11.1/gcc_64` (`qtbase qtwayland icu`), which CMake auto-detects. Binary: `build/aoide`.
+`fetch_qt.sh` writes `.local/qt/6.11.2/gcc_64` (`qtbase qtwayland icu`), which CMake auto-detects. Binary: `build/aoide`.
 
 ### `build.sh`
 
@@ -81,10 +81,10 @@ It defaults `CXX`/`CC` to Linuxbrew LLVM (`/home/linuxbrew/.linuxbrew/opt/llvm/b
 
 [`fetch_qt.sh`](../tool/fetch_qt.sh) exits 1 here. Needs an Apple Silicon Mac, Xcode 15+ (macOS 14 SDK or higher), CMake, `python3`, and `curl`. Deployment target is **13.0**; CMake refuses anything lower. Aoide supports **arm64 only**: CMake defaults to `arm64` and rejects Intel or universal architectures, including values retained in an old build cache. Reconfigure an existing build with `cmake -S . -B build -DCMAKE_OSX_ARCHITECTURES=arm64`.
 
-The Qt kit must be the official desktop `clang_64` build of 6.11.1. That upstream kit is universal; Aoide links its arm64 slice, and packaging removes Intel slices from the staged app and its dependencies. Homebrew Qt does not track the exact pin. `qttools` is required for `macdeployqt`.
+The Qt kit must be the official desktop `clang_64` build of 6.11.2. That upstream kit is universal; Aoide links its arm64 slice, and packaging removes Intel slices from the staged app and its dependencies. Homebrew Qt does not track the exact pin. `qttools` is required for `macdeployqt`.
 
 ```bash
-aqt install-qt mac desktop 6.11.1 clang_64 --outputdir .local/qt --archives qtbase qttools
+aqt install-qt mac desktop 6.11.2 clang_64 --outputdir .local/qt --archives qtbase qttools
 ./tool/fetch_full_libmpv.sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
@@ -92,15 +92,22 @@ ctest --test-dir build -C Release --output-on-failure
 open build/Aoide.app
 ```
 
-That `aqt` line unpacks to `.local/qt/6.11.1/macos`, which CMake auto-detects (`lib/cmake/Qt6/Qt6Config.cmake`). Otherwise pass `-DCMAKE_PREFIX_PATH`. The product is `build/Aoide.app` (`OUTPUT_NAME Aoide`), or `build/Release/Aoide.app` on a multi-config generator — not `build/aoide`. Qt and libmpv must contain an arm64 slice.
+That `aqt` line unpacks to `.local/qt/6.11.2/macos`, which CMake auto-detects (`lib/cmake/Qt6/Qt6Config.cmake`). Otherwise pass `-DCMAKE_PREFIX_PATH`. The product is `build/Aoide.app` (`OUTPUT_NAME Aoide`), or `build/Release/Aoide.app` on a multi-config generator — not `build/aoide`. Qt and libmpv must contain an arm64 slice.
 
 CMakeLists also accepts `pkg-config mpv` (its error text mentions `brew install mpv`); it must supply an arm64 library. `./tool/fetch_full_libmpv.sh` is what CI runs. Its `macos/universal/` directory names the pinned upstream archive, not the architectures Aoide supports.
 
+`ctest -R '^macos_wait_cursor$' --test-dir build --output-on-failure` needs a
+macOS desktop session. It exercises the real Cocoa wait cursor and checks that
+Qt keeps its color space owned through native image creation (QTBUG-147602).
+A test-only interposition library observes that conversion; a cached color space
+cannot hide the premature release, and zero observed conversions fails the test.
+The checker is never linked into Aoide or included in its bundle.
+
 ## Windows
 
-[`fetch_qt.sh`](../tool/fetch_qt.sh) exits 1 here. CMakeLists does not search `.local/qt/` on Windows — pass `-DCMAKE_PREFIX_PATH` at the official 6.11.1 desktop kit unless the environment already exports it (`install-qt-action` does).
+[`fetch_qt.sh`](../tool/fetch_qt.sh) exits 1 here. CMakeLists does not search `.local/qt/` on Windows — pass `-DCMAKE_PREFIX_PATH` at the official 6.11.2 desktop kit unless the environment already exports it (`install-qt-action` does).
 
-Needs Visual Studio C++ tools and CMake. Put the kit's `bin` on `PATH` so the build-tree exe can load Qt. `windeployqt` lives in `qtbase`. Official aqtinstall 3.3.0 cannot locate Qt 6.11.1 on Windows (repository layout change); CI pins a newer aqtinstall commit — see [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
+Needs Visual Studio C++ tools and CMake. Put the kit's `bin` on `PATH` so the build-tree exe can load Qt. `windeployqt` lives in `qtbase`. Official aqtinstall 3.3.0 cannot locate Qt 6.11 on Windows (repository layout change); CI pins a newer aqtinstall commit — see [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tool/fetch_full_libmpv.ps1

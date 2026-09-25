@@ -249,7 +249,7 @@ returns cleanly.
 
 The [`QT_VERSION`](../QT_VERSION) file is the authority: one official desktop
 kit, built and tested against everywhere something ships, and the same kit
-`./build.sh` compiles against. It is **6.11.1**. `QT_RUNTIME` is its
+`./build.sh` compiles against. It is **6.11.2**. `QT_RUNTIME` is its
 major.minor (`6.11`), which is what both Flatpak manifests and
 `org.kde.Platform` use. Workflows read the file via
 [`tool/export-qt-pin.sh`](../tool/export-qt-pin.sh).
@@ -257,13 +257,22 @@ major.minor (`6.11`), which is what both Flatpak manifests and
 Which line to sit on is not a free choice, because Flathub
 [requires](https://docs.flathub.org/docs/for-app-authors/requirements) the
 newest runtime at submission time and CMake fails the build unless the Qt it
-finds equals the pin exactly. The runtime's Qt therefore sets the pin, not the
-other way around: `org.kde.Platform` 6.11 ships 6.11.1, so the pin is 6.11.1,
-and it moves when KDE's newest runtime moves. Picking a newer official kit than
-the runtime carries — 6.11.2 exists — would build every bundled artifact fine
-and fail the Flathub build.
+finds equals the pin exactly. The pin must match the runtime's Qt:
+`org.kde.Platform` 6.11 now uses 6.11.2, as verified in the
+[KDE runtime manifest](https://invent.kde.org/packaging/flatpak-kde-runtime/-/blob/f0e7d57d48d56129b10791c1ffe6e8e287efeeae/org.kde.Sdk.json.in)
+on 2026-09-25. The runtime line remains `6.11` when its Qt patch version
+changes. Recheck that manifest before moving the pin; a different patch version
+in the Flathub SDK fails CMake's exact-version check.
 
-Both Flatpak manifests repeat the pin as a literal. `make_flatpak.sh` compares
+Qt 6.11.2 includes the upstream fix for
+[QTBUG-147602](https://github.com/qt/qtbase/commit/08e464f8559719662c5b2207d1d4c84c251eca07):
+`QImage::toCGImage()` could receive a color space after its last owned reference
+had been released. Aoide reaches that conversion when Cocoa creates a wait
+cursor while opening a panel. The fix keeps the color space owned until the
+conversion finishes; upgrading the shared pin preserves the same exact Qt
+version across local builds, bundled downloads and the Flatpak runtime.
+
+Both Flatpak manifests repeat the runtime line as a literal. `make_flatpak.sh` compares
 the local one's `runtime-version` against `QT_VERSION` and refuses to build on a
 mismatch, so a Qt bump surfaces there instead of as a `flatpak-builder` error
 about a runtime nobody installed. Nothing guards the Flathub manifest that way,

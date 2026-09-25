@@ -470,6 +470,19 @@ target_include_directories(wait_cursor_test PRIVATE src)
 target_link_libraries(wait_cursor_test PRIVATE Qt6::Test Qt6::Widgets)
 set_target_properties(wait_cursor_test PROPERTIES AUTOMOC ON)
 
+if(APPLE)
+  # Keep the lifetime checker out of the app: it observes the actual Cocoa
+  # cursor conversion, including a premature release hidden by system caches.
+  add_library(macos_colorspace_check SHARED tests/macos_colorspace_check.cpp)
+  set_target_properties(macos_colorspace_check PROPERTIES AUTOMOC OFF AUTOUIC OFF)
+  target_link_libraries(macos_colorspace_check PRIVATE
+    aoide_warnings "-framework CoreGraphics" "-framework CoreFoundation")
+  qt_add_executable(macos_wait_cursor_test tests/macos_wait_cursor_test.cpp src/wait_cursor.cpp)
+  target_include_directories(macos_wait_cursor_test PRIVATE src)
+  target_link_libraries(macos_wait_cursor_test PRIVATE
+    aoide_warnings Qt6::Test Qt6::Widgets macos_colorspace_check)
+endif()
+
 qt_add_executable(native_file_dialog_test
   tests/native_file_dialog_test.cpp
   src/native_file_dialog.cpp
@@ -594,6 +607,9 @@ if(APPLE)
   add_test(NAME macos_architecture
     COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/macos_architecture_test.sh")
   set_tests_properties(macos_architecture PROPERTIES TIMEOUT 30)
+  add_test(NAME macos_wait_cursor COMMAND macos_wait_cursor_test)
+  set_tests_properties(macos_wait_cursor PROPERTIES TIMEOUT 15
+    ENVIRONMENT "QT_QPA_PLATFORM=cocoa;DYLD_INSERT_LIBRARIES=$<TARGET_FILE:macos_colorspace_check>")
 endif()
 add_test(NAME window_spec COMMAND window_spec_test)
 add_test(NAME host_shell COMMAND host_shell_test)

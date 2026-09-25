@@ -3,7 +3,7 @@
 app-id: com.proximamagnifica.aoide
 runtime: org.kde.Platform
 # Must equal QT_RUNTIME from QT_VERSION (major.minor). The pin is the same
-# official kit CI and local builds use.
+# official kit CI and local builds use; runtime 6.11 now supplies Qt 6.11.2.
 runtime-version: "6.11"
 sdk: org.kde.Sdk
 command: aoide
