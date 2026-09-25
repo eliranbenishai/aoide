@@ -217,6 +217,8 @@ set(AOIDE_SOURCES
   src/host_window.h
   src/session.cpp
   src/session_playlists.cpp
+  src/playlist_groups_window.cpp
+  src/playlist_groups_window.h
   src/session.h
   src/chrome_command.cpp
   src/chrome_command.h
@@ -618,9 +620,18 @@ qt_add_executable(playlist_groups_chrome_test tests/playlist_groups_chrome_test.
 target_include_directories(playlist_groups_chrome_test PRIVATE src)
 target_compile_definitions(playlist_groups_chrome_test PRIVATE AOIDE_ASSET_DIR="${AOIDE_ASSET_DIR}")
 target_link_libraries(playlist_groups_chrome_test PRIVATE aoide_window_spec Qt6::Test aoide_warnings)
+qt_add_executable(playlist_groups_window_test tests/playlist_groups_window_test.cpp
+  src/playlist_groups_window.cpp src/chrome_anim.cpp src/chrome_paint.cpp
+  src/chrome_bodies.cpp src/chrome_hits.cpp src/session_view.cpp src/mockup_draw.cpp
+  src/aoide_fonts.cpp src/look.cpp src/settings.cpp src/equalizer.cpp)
+target_include_directories(playlist_groups_window_test PRIVATE src)
+target_compile_definitions(playlist_groups_window_test PRIVATE AOIDE_ASSET_DIR="${AOIDE_ASSET_DIR}")
+target_link_libraries(playlist_groups_window_test PRIVATE aoide_window_spec Qt6::Test aoide_warnings)
 add_test(NAME m3u_encoding COMMAND m3u_encoding_test)
 add_test(NAME playlist_library COMMAND playlist_library_test)
 add_test(NAME playlist_groups_chrome COMMAND playlist_groups_chrome_test)
+add_test(NAME playlist_groups_window COMMAND playlist_groups_window_test)
+set_tests_properties(playlist_groups_window PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 set_tests_properties(playlist_groups_chrome PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 if(APPLE)
   add_test(NAME macos_architecture

@@ -295,26 +295,11 @@ void drawTitleContents(QPainter& p, const TitleChromeLayout& title, const QImage
   p.restore();
 }
 
-}  // namespace
-
-void paintMockupWindow(QPainter& painter,
-                       QSize logical,
-                       WindowId id,
-                       const TitleChromeLayout& title,
-                       const QImage* logo,
-                       const SessionView& view,
-                       BodyPaint pass,
-                       const ChromePhases& phases) {
+void paintFramedWindow(QPainter& painter, QSize logical, const TitleChromeLayout& title,
+                       const QImage* logo, const SessionView& view, const ChromePhases& phases,
+                       const std::function<void(QPainter&)>& paintBody) {
   LookPaintScope scope(view.look);
-  if (pass == BodyPaint::live) {
-    // The chassis pass paints inside the clip below, which is saved either way.
-    // The live pass has no such wrapper, and this is the module's front door:
-    // whatever the body layer does behind it, a caller's painter comes back
-    // untouched.
-    const PainterStateScope hold(painter);
-    paintWindowBody(painter, id, logical, logo, view, pass, phases);
-    return;
-  }
+  const PainterStateScope hold(painter);
   const QRectF rect(0, 0, logical.width(), logical.height());
   QPainterPath shell;
   const qreal shellRadius = T().windowRadius(rect);
@@ -325,12 +310,38 @@ void paintMockupWindow(QPainter& painter,
   drawNoiseOverlay(painter, rect, shellRadius);
   drawTitleFace(painter, QRectF(title.titleBar), shellRadius);
   drawTitleContents(painter, title, logo, view, phases);
-  if (logical.height() > kTitleBar) {
-    paintWindowBody(painter, id, logical, logo, view, pass, phases);
-  }
+  if (logical.height() > kTitleBar && paintBody) paintBody(painter);
   drawRivet(painter, QPointF(9 + 3.5, logical.height() - 8 - 3.5));
   drawRivet(painter, QPointF(logical.width() - 9 - 3.5, logical.height() - 8 - 3.5));
   painter.restore();
+}
+
+}  // namespace
+
+void paintMockupWindow(QPainter& painter,
+                       QSize logical,
+                       WindowId id,
+                       const TitleChromeLayout& title,
+                       const QImage* logo,
+                       const SessionView& view,
+                       BodyPaint pass,
+                       const ChromePhases& phases) {
+  if (pass == BodyPaint::live) {
+    const LookPaintScope scope(view.look);
+    const PainterStateScope hold(painter);
+    paintWindowBody(painter, id, logical, logo, view, pass, phases);
+    return;
+  }
+  paintFramedWindow(painter, logical, title, logo, view, phases, [&](QPainter& body) {
+    paintWindowBody(body, id, logical, logo, view, pass, phases);
+  });
+}
+
+void paintWindowFrame(QPainter& painter, QSize logical, const TitleChromeLayout& title,
+                      const ChromeTokens& look, const ChromePhases& phases) {
+  SessionView view;
+  view.look = look;
+  paintFramedWindow(painter, logical, title, nullptr, view, phases, {});
 }
 
 }  // namespace aoide

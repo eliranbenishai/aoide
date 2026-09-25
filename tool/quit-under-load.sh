@@ -79,6 +79,7 @@ APP_SRCS=(
   "$ROOT/src/wav_reader.cpp" "$ROOT/src/stft.cpp" "$ROOT/src/spectrum.cpp"
   "$ROOT/src/docking.cpp" "$ROOT/src/look.cpp" "$ROOT/src/skin_preview.cpp" \
   "$ROOT/src/document_portal.cpp" "$ROOT/src/session.cpp" "$ROOT/src/session_playlists.cpp"
+  "$ROOT/src/playlist_groups_window.cpp"
   "$ROOT/src/host_window.cpp"
   "$BUILD/moc_host_window.cpp" "$BUILD/moc_host_shell_window.cpp" "$BUILD/moc_session.cpp"
   "$BUILD/moc_mpv_engine.cpp"

@@ -57,4 +57,10 @@ void paintMockupWindow(QPainter& painter,
                        BodyPaint pass = BodyPaint::full,
                        const ChromePhases& phases = ChromePhases());
 
+/// Shared Aoide shell and title chrome for transient editing windows whose
+/// body is made of accessible input widgets rather than a session panel.
+void paintWindowFrame(QPainter& painter, QSize logical, const TitleChromeLayout& title,
+                      const ChromeTokens& look,
+                      const ChromePhases& phases = ChromePhases());
+
 }  // namespace aoide

@@ -74,9 +74,15 @@
             see their colors beside each playlist's track count.
           </li>
           <li>
-            Filter playlists from the compact Playlist groups button, and give
-            each group a name. Group assignments and the active filter are
-            remembered between sessions.
+            Filter playlists with a dedicated group icon in the collection
+            toolbar. Add and Remove sit together, separated from Rename,
+            Create and Groups.
+          </li>
+          <li>
+            Rename playlist groups in an Aoide window that follows your skin
+            and zoom, with color swatches and Save and Cancel controls. Group
+            names, assignments and the active filter are remembered between
+            sessions.
           </li>
           <li>
             Keep favorite tracks together automatically — right-click a track

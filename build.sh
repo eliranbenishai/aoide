@@ -102,6 +102,7 @@ SRCS=(
   "$ROOT/src/document_portal.cpp"
   "$ROOT/src/session.cpp"
   "$ROOT/src/session_playlists.cpp"
+  "$ROOT/src/playlist_groups_window.cpp"
   "$ROOT/src/host_window.cpp"
   "$ROOT/src/main.cpp"
   "$BUILD/moc_host_window.cpp"

@@ -3,15 +3,14 @@
 #include "host_window.h"
 #include "m3u.h"
 #include "playlist_group_colors.h"
+#include "playlist_groups_window.h"
 
 #include <QComboBox>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QFile>
 #include <QFileInfo>
-#include <QFormLayout>
 #include <QLabel>
-#include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QVBoxLayout>
@@ -138,35 +137,11 @@ void AoideSession::presentPlaylistGroups(const ChromeHit& hit) {
 }
 
 void AoideSession::presentManageGroups() {
-  QDialog dialog(dialogParent(WindowId::playlist));
-  dialog.setWindowTitle(QStringLiteral("Playlist groups"));
-  auto* layout = new QVBoxLayout(&dialog);
-  auto* form = new QFormLayout;
-  layout->addLayout(form);
   const auto groups = collection_.groups();
-  QVector<QLineEdit*> names;
-  for (const auto& group : groups) {
-    auto* swatch = new QLabel(QStringLiteral("■"), &dialog);
-    swatch->setStyleSheet(QStringLiteral("color: %1").arg(playlistGroupColor(group.id).name()));
-    auto* name = new QLineEdit(group.name, &dialog);
-    name->setAccessibleName(QStringLiteral("Group %1 name").arg(group.id + 1));
-    name->setMaxLength(60);
-    form->addRow(swatch, name);
-    names.append(name);
-  }
-  auto* buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, &dialog);
-  layout->addWidget(buttons);
-  connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
-  connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
-  for (auto* name : names) {
-    connect(name, &QLineEdit::textChanged, &dialog, [names, buttons]() {
-      bool valid = true;
-      for (auto* field : names) valid = valid && !field->text().trimmed().isEmpty();
-      buttons->button(QDialogButtonBox::Save)->setEnabled(valid);
-    });
-  }
+  PlaylistGroupsWindow dialog(groups, view().look, zoomPercent(), dialogParent(WindowId::playlist));
   if (dialog.exec() != QDialog::Accepted) return;
-  for (int i = 0; i < groups.size(); ++i) collection_.renameGroup(groups[i].id, names[i]->text());
+  const auto names = dialog.groupNames();
+  for (int i = 0; i < groups.size(); ++i) collection_.renameGroup(groups[i].id, names[i]);
   persistCollectionCache();
   refreshChrome();
 }
