@@ -676,27 +676,22 @@ void paintPlaylist(QPainter& p, const QRectF& body, const QImage* logo, const Se
     drawIcon(p, QRectF(r.center().x() - 6.5, r.center().y() - 6.5, 13, 13), MockupIcon::add,
              ink);
   }, false);
-  cbtn(collectionButtons.create, K::plCreate, [&](const QRectF& r, const QColor& ink) {
-    drawCreateMark(p, QRectF(r.center().x() - 6, r.center().y() - 6, 12, 12),
-                   ink);
-  }, true);
-  cbtn(collectionButtons.rename, K::plRename, [&](const QRectF& r, const QColor& ink) {
-    drawRenameMark(p, QRectF(r.center().x() - 6, r.center().y() - 6, 12, 12),
-                   ink);
-  }, false);
   cbtn(collectionButtons.remove, K::plRemoveCollection, [&](const QRectF& r, const QColor& ink) {
     drawIcon(p, QRectF(r.center().x() - 6.5, r.center().y() - 6.5, 13, 13), MockupIcon::remove,
              ink);
   }, false);
+  drawFooterSep(p, collectionButtons.separator);
+  cbtn(collectionButtons.rename, K::plRename, [&](const QRectF& r, const QColor& ink) {
+    drawRenameMark(p, QRectF(r.center().x() - 6, r.center().y() - 6, 12, 12),
+                   ink);
+  }, false);
+  cbtn(collectionButtons.create, K::plCreate, [&](const QRectF& r, const QColor& ink) {
+    drawCreateMark(p, QRectF(r.center().x() - 6, r.center().y() - 6, 12, 12),
+                   ink);
+  }, true);
   const BtnFace groupsFace = faceOf(phases, K::plGroups, !view.playlistGroupFilterLabel.isEmpty());
-  drawBtn(p, collectionButtons.groups, groupsFace);
-  const QFont groupsFont = condensedFont(12, 0.02);
-  const QRectF groupsText = collectionButtons.groups.adjusted(5, 0, -5, 0);
-  p.setFont(groupsFont);
-  p.setPen(groupsFace.on > 0.5 ? T().btnOnInk : T().ink);
-  p.drawText(groupsText, Qt::AlignCenter,
-             QFontMetricsF(groupsFont).elidedText(QStringLiteral("Playlist groups"),
-                                                 Qt::ElideRight, groupsText.width()));
+  drawGlyphBtn(p, collectionButtons.groups, MockupIcon::groups, groupsFace, 14);
+  drawMenuCaret(p, collectionButtons.groups);
   } else {
     const QRectF tab = playlistReopenTab(body);
     drawBtn(p, tab, faceOf(phases, K::plCollapse, false), {});

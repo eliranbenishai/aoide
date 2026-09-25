@@ -836,27 +836,32 @@ inline QRectF playlistCollectionInner(const QRectF& collection) {
 
 struct PlaylistCollectionButtons {
   QRectF add;
-  QRectF create;
-  QRectF rename;
   QRectF remove;
+  QRectF separator;
+  QRectF rename;
+  QRectF create;
   QRectF groups;
 };
 
-/// All five controls share the existing footer row. At the minimum column
-/// width the glyph buttons tighten before the filter's label gives way.
+/// Equal icon buttons: Add/Remove, then Rename/Create/Groups after a divider.
 inline PlaylistCollectionButtons layoutPlaylistCollectionButtons(const QRectF& inner) {
   constexpr qreal gap = 4;
-  constexpr qreal groupPreferred = 86;
-  const qreal iconW = std::clamp((inner.width() - groupPreferred - gap * 4) / 4,
+  constexpr qreal groupGap = 14;
+  const qreal iconW = std::clamp((inner.width() - gap * 3 - groupGap) / 5,
                                 qreal(20), qreal(30));
   const qreal y = inner.bottom() - kPlaylistCollectionBtnH;
-  auto icon = [&](int i) {
-    return QRectF(inner.left() + i * (iconW + gap), y, iconW, kPlaylistCollectionBtnH);
+  auto icon = [&](qreal x) {
+    return QRectF(x, y, iconW, kPlaylistCollectionBtnH);
   };
-  const qreal groupX = inner.left() + 4 * (iconW + gap);
-  return {icon(0), icon(1), icon(2), icon(3),
-          QRectF(groupX, y, std::clamp(inner.right() - groupX, qreal(0), groupPreferred),
-                 kPlaylistCollectionBtnH)};
+  PlaylistCollectionButtons buttons;
+  buttons.add = icon(inner.left());
+  buttons.remove = icon(buttons.add.right() + gap);
+  buttons.separator = QRectF(buttons.remove.right() + groupGap / 2 - 0.5, y + 4,
+                              1, kPlaylistCollectionBtnH - 8);
+  buttons.rename = icon(buttons.remove.right() + groupGap);
+  buttons.create = icon(buttons.rename.right() + gap);
+  buttons.groups = icon(buttons.create.right() + gap);
+  return buttons;
 }
 
 /// The saved-playlists well under PLAYLISTS. Paint and the empty-state crop

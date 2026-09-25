@@ -417,6 +417,28 @@ QPainterPath pathFolder() {
   return path;
 }
 
+QPainterPath pathGroups() {
+  // Two overlapping tags, with a punched hole in the front tag.
+  QPainterPath path;
+  path.moveTo(3, 6);
+  path.lineTo(10, 6);
+  path.lineTo(19, 15);
+  path.lineTo(12, 22);
+  path.lineTo(3, 13);
+  path.closeSubpath();
+  path.addEllipse(QPointF(7, 10), 1.5, 1.5);
+  path.moveTo(10, 2);
+  path.lineTo(14, 2);
+  path.lineTo(23, 11);
+  path.lineTo(20, 14);
+  path.lineTo(18.5, 12.5);
+  path.lineTo(20, 11);
+  path.lineTo(13, 4);
+  path.lineTo(10, 4);
+  path.closeSubpath();
+  return path;
+}
+
 QPainterPath pathSort() {
   QPainterPath path;
   path.addRoundedRect(2.6, 5.4, 11, 2.2, 1.1, 1.1);
@@ -923,6 +945,9 @@ void drawIcon(QPainter& p, const QRectF& box, MockupIcon icon, const QColor& col
       return;
     case MockupIcon::folder:
       paintIconPath(p, box, 24, pathFolder(), color);
+      return;
+    case MockupIcon::groups:
+      paintIconPath(p, box, 24, pathGroups(), color);
       return;
     case MockupIcon::refresh:
       drawReload(p, box, color);

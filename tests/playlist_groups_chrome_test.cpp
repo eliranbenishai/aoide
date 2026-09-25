@@ -64,12 +64,20 @@ void PlaylistGroupsChromeTest::groupButtonSharesTheExistingToolbarAtEveryCollect
         aoide::playlistCollectionColumn(aoide::panelBody(aoide::kPlaylistDefault), width));
     const auto toolbar = aoide::layoutPlaylistCollectionButtons(inner);
     const std::pair<QRectF, K> controls[] = {
-        {toolbar.add, K::plAddCollection}, {toolbar.create, K::plCreate},
-        {toolbar.rename, K::plRename}, {toolbar.remove, K::plRemoveCollection},
+        {toolbar.add, K::plAddCollection}, {toolbar.remove, K::plRemoveCollection},
+        {toolbar.rename, K::plRename}, {toolbar.create, K::plCreate},
         {toolbar.groups, K::plGroups}};
     QCOMPARE(toolbar.groups.height(), qreal(24));
-    QVERIFY(toolbar.groups.width() >= 66);
+    QCOMPARE(toolbar.add.left(), inner.left());
+    QVERIFY(toolbar.separator.left() > toolbar.remove.right());
+    QVERIFY(toolbar.separator.right() < toolbar.rename.left());
+    QCOMPARE(aoide::hitTest(aoide::WindowId::playlist, aoide::kPlaylistDefault,
+                            toolbar.separator.center().toPoint(), view).kind, K::none);
+    qreal previousRight = inner.left() - 1;
     for (const auto& [rect, kind] : controls) {
+      QVERIFY(rect.left() > previousRight);
+      previousRight = rect.right();
+      QCOMPARE(rect.size(), toolbar.add.size());
       QCOMPARE(rect.top(), toolbar.groups.top());
       QVERIFY(inner.contains(rect));
       const QRect target = rect.toAlignedRect();
