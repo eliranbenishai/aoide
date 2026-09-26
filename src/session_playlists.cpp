@@ -1,6 +1,7 @@
 #include "session.h"
 
 #include "host_window.h"
+#include "host_shell_window.h"
 #include "m3u.h"
 #include "playlist_group_colors.h"
 #include "playlist_groups_window.h"
@@ -137,13 +138,41 @@ void AoideSession::presentPlaylistGroups(const ChromeHit& hit) {
 }
 
 void AoideSession::presentManageGroups() {
-  const auto groups = collection_.groups();
-  PlaylistGroupsWindow dialog(groups, view().look, zoomPercent(), dialogParent(WindowId::playlist));
-  if (dialog.exec() != QDialog::Accepted) return;
-  const auto names = dialog.groupNames();
-  for (int i = 0; i < groups.size(); ++i) collection_.renameGroup(groups[i].id, names[i]);
-  persistCollectionCache();
-  refreshChrome();
+  QWidget* owner = dialogParent(WindowId::playlist);
+  if (!groupsWindow_) {
+    groupsWindow_ = new PlaylistGroupsWindow(collection_.groups(), skins_.tokens(),
+                                            zoomPercent(), owner);
+    if (shell_) shell_->preparePanel(groupsWindow_);
+    groupsWindow_->setAppearance(skins_.tokens(), zoomPercent(), owner);
+    if (shell_ && shell_->embedsPanels()) {
+      const QPoint center = owner ? owner->mapTo(shell_, owner->rect().center())
+                                   : shell_->rect().center();
+      groupsWindow_->move(qBound(0, center.x() - groupsWindow_->width() / 2,
+                                 qMax(0, shell_->width() - groupsWindow_->width())),
+                           qBound(0, center.y() - groupsWindow_->height() / 2,
+                                 qMax(0, shell_->height() - groupsWindow_->height())));
+    }
+    connect(groupsWindow_, &PlaylistGroupsWindow::groupNameChanged, this,
+            [this](int id, const QString& name) {
+      if (!collection_.renameGroup(id, name)) return;
+      // Only the seven names changed; do not rewrite the whole track cache
+      // for each keystroke. QSaveFile keeps each update atomic.
+      persistGroupNames();
+      if (!persistHealth_.groupsOk) groupsPersistTimer_.start();
+      refreshChrome();
+    });
+    const auto updateAppearance = [this]() {
+      groupsWindow_->setAppearance(skins_.tokens(), zoomPercent(), dialogParent(WindowId::playlist));
+    };
+    connect(this, &AoideSession::chromeChanged, groupsWindow_, updateAppearance);
+    connect(this, &AoideSession::zoomChanged, groupsWindow_, updateAppearance);
+    if (shell_) {
+      connect(shell_, &HostShell::desktopGeometryChanged, groupsWindow_, updateAppearance);
+    }
+  }
+  groupsWindow_->show();
+  groupsWindow_->raise();
+  groupsWindow_->activateWindow();
 }
 
 std::optional<QString> AoideSession::readPlaylistText(const QString& path) {

@@ -50,6 +50,10 @@ void HostShell::preparePanel(QWidget* panel, bool primary) {
   panels_.push_back(panel);
   if (embedsPanels() || primary) {
     if (panel->parentWidget() != this || panel->isWindow()) panel->setParent(this, Qt::Widget);
+    if (embedsPanels()) {
+      panel->installEventFilter(this);
+      if (!placing_) updateEmbeddedMinimum();
+    }
   } else {
     panel->setParent(nullptr, aoide::hostWindowFlags());
     panel->setWindowIcon(windowIcon());
@@ -85,6 +89,13 @@ void HostShell::notifyBoundsChanged() {
 void HostShell::placePanels(const QVector<HostPanelPlacement>& panels) {
   if (placing_) return;
   QScopedValueRollback<bool> placing(placing_, true);
+  if (embedsPanels()) {
+    placedPanels_.clear();
+    for (const HostPanelPlacement& place : panels) {
+      if (place.widget) placedPanels_.append(place.widget);
+    }
+    updateEmbeddedMinimum();
+  }
   if (panels.isEmpty()) {
     hide();
     return;
@@ -92,13 +103,6 @@ void HostShell::placePanels(const QVector<HostPanelPlacement>& panels) {
   if (!primaryPanel_) setPrimaryPanel(panels.front().widget);
   for (const HostPanelPlacement& place : panels) preparePanel(place.widget);
 
-  if (embedsPanels()) {
-    QSize minimum;
-    for (const HostPanelPlacement& place : panels) {
-      if (place.widget) minimum = minimum.expandedTo(place.widget->minimumSize());
-    }
-    setMinimumSize(minimum);
-  }
   for (const HostPanelPlacement& place : panels) {
     if (!place.widget) continue;
     if (!embedsPanels() && place.widget == primaryPanel_) {
@@ -112,6 +116,25 @@ void HostShell::placePanels(const QVector<HostPanelPlacement>& panels) {
     if (place.widget->isHidden()) place.widget->show();
   }
   if (isHidden()) show();
+}
+
+void HostShell::updateEmbeddedMinimum() {
+  if (!embedsPanels() || minimumUpdating_) return;
+  QScopedValueRollback<bool> updating(minimumUpdating_, true);
+  QSize minimum(0, 0);
+  for (const auto& panel : placedPanels_) {
+    if (panel) minimum = minimum.expandedTo(panel->minimumSize());
+  }
+  // Editors registered with the shell share its presentation but do not have
+  // persistent layout slots. A visible editor still needs room for its fields;
+  // closing it must release that constraint on the host container.
+  for (const auto& panel : panels_) {
+    if (panel && panel->parentWidget() == this && !panel->isWindow() && !panel->isHidden() &&
+        !placedPanels_.contains(panel)) {
+      minimum = minimum.expandedTo(panel->minimumSize());
+    }
+  }
+  if (minimumSize() != minimum) setMinimumSize(minimum);
 }
 
 QRect HostShell::layoutBounds() const {
@@ -175,7 +198,12 @@ void HostShell::bringPanelsForward() {
 }
 
 bool HostShell::eventFilter(QObject* watched, QEvent* event) {
-  if (!placing_ && !raising_ && !isMinimized() &&
+  if (embedsPanels() && !placing_ &&
+      (event->type() == QEvent::Show || event->type() == QEvent::Hide ||
+       event->type() == QEvent::Resize || event->type() == QEvent::ParentChange)) {
+    updateEmbeddedMinimum();
+  }
+  if (!embedsPanels() && !placing_ && !raising_ && !isMinimized() &&
       (event->type() == QEvent::WindowActivate || event->type() == QEvent::ZOrderChange)) {
     auto* panel = qobject_cast<QWidget*>(watched);
     if (panel && panel->isVisible() && panel->geometry().intersects(geometry())) {

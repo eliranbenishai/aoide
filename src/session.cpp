@@ -22,6 +22,7 @@
 #endif
 #include "duration_probe.h"
 #include "player_engine.h"
+#include "playlist_groups_window.h"
 #include "popup_anchor.h"
 #include "support_dir.h"
 #include "wait_cursor.h"
@@ -149,6 +150,13 @@ AoideSession::AoideSession(QString supportDirectory, QObject* parent)
   QObject::connect(&collectionPersistTimer_, &QTimer::timeout, this, [this]() {
     persistCollectionCache();
   });
+  groupsPersistTimer_.setSingleShot(true);
+  groupsPersistTimer_.setInterval(300);
+  QObject::connect(&groupsPersistTimer_, &QTimer::timeout, this, [this]() {
+    const bool wasFailed = persistHealth_.anyFailed();
+    persistGroupNames();
+    if (persistHealth_.anyFailed() != wasFailed) refreshChrome();
+  });
 
   playlist_.setOnChanged([this]() {
     if (playback_) playback_->onPlaylistChanged();
@@ -170,6 +178,7 @@ AoideSession::AoideSession(QString supportDirectory, QObject* parent)
 }
 
 AoideSession::~AoideSession() {
+  delete groupsWindow_.data();
   // Cancel, then wait. Bumping the generations first means a worker already past
   // its alive check still bails at its next iteration; the join is what makes the
   // raw `this` in a worker body safe, because the destructor cannot get to the
@@ -185,6 +194,7 @@ AoideSession::~AoideSession() {
 }
 
 void AoideSession::detachWindows() {
+  delete groupsWindow_.data();
   persistNow();
   windows_.clear();
   shell_ = nullptr;
@@ -410,11 +420,20 @@ void AoideSession::refreshAboutFigures() {
 void AoideSession::persistCollectionCache() {
   const bool wasFailed = persistHealth_.anyFailed();
   persistHealth_.collectionOk = collection_.saveIndex(store_);
+  if (persistHealth_.collectionOk) persistHealth_.groupsOk = true;
   persistHealth_.trackSetsOk = collection_.saveTrackSets(store_);
   figures_ = collection_.readFigures();
   figuresLoaded_ = true;
   HostWindow* about = windowFor(WindowId::about);
   if ((about && about->isVisible()) || persistHealth_.anyFailed() != wasFailed) refreshChrome();
+}
+
+void AoideSession::persistGroupNames() {
+  persistHealth_.groupsOk = store_.writePlaylistGroups(collection_.groups());
+  // A separate collection operation may also have encountered this file's
+  // failure. Recheck that aggregate before clearing its warning; other files
+  // may still be unwritable.
+  if (persistHealth_.groupsOk && !persistHealth_.collectionOk) persistCollectionCache();
 }
 
 /// Review uncertain text before changing the cache. Durations arrive later
@@ -647,6 +666,10 @@ void AoideSession::persistNow() {
   const bool wasFailed = persistHealth_.anyFailed();
   writeSessionPersist(store_, persistHealth_, settings_, resume, {playback_->spins()},
                       playlist_.sourcePath(), playlist_.altered() ? &altered : nullptr);
+  if (groupsPersistTimer_.isActive() || !persistHealth_.groupsOk) {
+    groupsPersistTimer_.stop();
+    persistGroupNames();
+  }
   if (collectionPersistTimer_.isActive()) {
     collectionPersistTimer_.stop();
     persistCollectionCache();
@@ -914,6 +937,17 @@ void AoideSession::mainMinimized(bool minimized) {
   // reconfigure a window while the compositor is minimizing it.
   if (shell_ && shell_->embedsPanels()) return;
   if (!settings_.minimizeHidesSecondaries) return;
+  if (groupsWindow_) {
+    if (minimized) {
+      if (groupsWindow_->isVisible()) {
+        groupsHiddenByMinimize_ = true;
+        groupsWindow_->hide();
+      }
+    } else if (groupsHiddenByMinimize_) {
+      groupsWindow_->show();
+      groupsHiddenByMinimize_ = false;
+    }
+  }
   layout_.setMainMinimized(minimized);
   if (!minimized) applyAlwaysOnTop();
   layout_.place();

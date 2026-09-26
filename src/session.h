@@ -19,6 +19,7 @@
 #include <QElapsedTimer>
 #include <QObject>
 #include <QPoint>
+#include <QPointer>
 #include <QRect>
 #include <QSet>
 #include <QTimer>
@@ -33,6 +34,7 @@ class HostShell;
 namespace aoide {
 
 class MainOnTopGuard;
+class PlaylistGroupsWindow;
 
 /// What a chosen options-cog row does. Dispatch reads this from the row that
 /// was built — a positional index would silently retarget if always-on-top
@@ -159,6 +161,7 @@ class AoideSession : public QObject, public PanelSurfaces {
   void scheduleUsage();
   void refreshAboutFigures();
   void persistCollectionCache();
+  void persistGroupNames();
   /// One probe answer on its way back to the GUI thread. Answers travel in
   /// batches: a thousand-track open landing one row at a time would rebuild
   /// every panel a thousand times.
@@ -252,6 +255,8 @@ class AoideSession : public QObject, public PanelSurfaces {
   SkinController skins_;
   PanelWindows windows_;
   HostShell* shell_ = nullptr;
+  QPointer<PlaylistGroupsWindow> groupsWindow_;
+  bool groupsHiddenByMinimize_ = false;
   std::unique_ptr<MainOnTopGuard> mainOnTop_;
   int settingsTab_ = 0;
   int trackScroll_ = 0;
@@ -269,6 +274,7 @@ class AoideSession : public QObject, public PanelSurfaces {
   QTimer aboutTimer_;
   QTimer eqApplyTimer_;
   QTimer collectionPersistTimer_;
+  QTimer groupsPersistTimer_;
   CollectionFigures figures_;
   std::atomic<int> durationGen_{0};
   /// Path of an M3U just created from files, rewritten once after tags arrive.

@@ -50,12 +50,15 @@ class HostShell : public QWidget {
   void notifyBoundsChanged();
   void scheduleCompositorKeepAbove();
   void applyTopHint(QWidget* window);
+  void updateEmbeddedMinimum();
 
   aoide::PanelPresentation presentation_;
   QPointer<QWidget> primaryPanel_;
   QVector<QPointer<QWidget>> panels_;
+  QVector<QPointer<QWidget>> placedPanels_;
   bool alwaysOnTop_ = false;
   bool placing_ = false;
   bool raising_ = false;
   bool boundsPending_ = false;
+  bool minimumUpdating_ = false;
 };

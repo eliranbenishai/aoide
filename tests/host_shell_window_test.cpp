@@ -42,6 +42,7 @@ class HostShellWindowTest : public QObject {
   void embeddedPanelsUseContainerCoordinates();
   void embeddedContainerHasNoDesktopMask();
   void embeddedResizeReportsNewLayoutBounds();
+  void embeddedExtraEditorConstrainsHostOnlyWhileVisible();
   void presentationMatchesDesktopCapabilities_data();
   void presentationMatchesDesktopCapabilities();
   void alwaysOnTopSetsWindowStaysOnTopHint();
@@ -258,6 +259,52 @@ void HostShellWindowTest::embeddedResizeReportsNewLayoutBounds() {
   shell.resize(550, 350);
   QTRY_COMPARE(changed.count(), 1);
   QCOMPARE(shell.layoutBounds(), QRect(0, 0, 550, 350));
+}
+
+void HostShellWindowTest::embeddedExtraEditorConstrainsHostOnlyWhileVisible() {
+  HostShell shell(aoide::PanelPresentation::embedded);
+  QWidget main;
+  main.setMinimumSize(200, 100);
+  shell.preparePanel(&main, true);
+  shell.placePanels({{&main, QRect(0, 0, 200, 100)}});
+  shell.resize(220, 120);
+  QCOMPARE(shell.size(), QSize(220, 120));
+  QCOMPARE(shell.minimumSize(), main.minimumSize());
+
+  QWidget editor;
+  editor.setFixedSize(260, 303);
+  shell.preparePanel(&editor);
+  QVERIFY(editor.isHidden());
+  QCOMPARE(shell.minimumSize(), main.minimumSize());
+  // Opening after a main-only host was shrunk must make room for every row.
+  editor.move(0, 0);
+  editor.show();
+  QCOMPARE(shell.minimumSize(), editor.minimumSize());
+  QVERIFY(shell.rect().contains(editor.geometry()));
+  shell.resize(200, 100);
+  QCOMPARE(shell.size(), editor.size());
+
+  // Registry-driven placement must not forget the separate, visible editor.
+  shell.placePanels({{&main, QRect(0, 0, 200, 100)}});
+  QCOMPARE(shell.minimumSize(), editor.minimumSize());
+  editor.setFixedSize(390, 375);
+  QCOMPARE(shell.minimumSize(), editor.minimumSize());
+  QVERIFY(shell.rect().contains(editor.geometry()));
+  editor.setFixedSize(260, 303);
+  QCOMPARE(shell.minimumSize(), editor.minimumSize());
+
+  editor.close();
+  QVERIFY(editor.isHidden());
+  QCOMPARE(shell.minimumSize(), main.minimumSize());
+  shell.resize(220, 120);
+  QCOMPARE(shell.size(), QSize(220, 120));
+  // Resizing a hidden editor must not reintroduce its constraint.
+  editor.setFixedSize(520, 460);
+  QCOMPARE(shell.minimumSize(), main.minimumSize());
+  editor.show();
+  QCOMPARE(shell.minimumSize(), editor.minimumSize());
+  editor.hide();
+  QCOMPARE(shell.minimumSize(), main.minimumSize());
 }
 
 void HostShellWindowTest::presentationMatchesDesktopCapabilities_data() {

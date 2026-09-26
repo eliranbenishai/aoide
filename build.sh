@@ -56,6 +56,7 @@ CXXFLAGS=(-std=c++17 -O2 -fPIC -Wall -Wextra -Wno-unused-parameter)
 "$MOC" "$ROOT/src/host_window.h" -o "$BUILD/moc_host_window.cpp"
 "$MOC" "$ROOT/src/host_shell_window.h" -o "$BUILD/moc_host_shell_window.cpp"
 "$MOC" "$ROOT/src/session.h" -o "$BUILD/moc_session.cpp"
+"$MOC" "$ROOT/src/playlist_groups_window.h" -o "$BUILD/moc_playlist_groups_window.cpp"
 "$MOC" "$ROOT/src/mpv_engine.h" -o "$BUILD/moc_mpv_engine.cpp"
 "$MOC" "$ROOT/src/native_file_dialog_p.h" -o "$BUILD/moc_native_file_dialog_p.cpp"
 
@@ -108,6 +109,7 @@ SRCS=(
   "$BUILD/moc_host_window.cpp"
   "$BUILD/moc_host_shell_window.cpp"
   "$BUILD/moc_session.cpp"
+  "$BUILD/moc_playlist_groups_window.cpp"
   "$BUILD/moc_mpv_engine.cpp"
 )
 

@@ -7,6 +7,7 @@
 #include "mockup_draw.h"
 #include "native_file_dialog.h"
 #include "panel_registry.h"
+#include "playlist_groups_window.h"
 #include "session.h"
 #include "session_view.h"
 #include "support_dir.h"
@@ -21,6 +22,7 @@
 #include <QContextMenuEvent>
 #include <QComboBox>
 #include <QDialogButtonBox>
+#include <QPushButton>
 #include <QPlainTextEdit>
 #include <QDataStream>
 #include <QDir>
@@ -1009,8 +1011,6 @@ int smokePlaylistGroups() {
     if (!check(session.view().collection.size() == 2 &&
                session.view().collection[1].name == QStringLiteral("Beta"),
                "filter keeps Favorites and matching saved playlist")) return 1;
-    bool acceptNames = false;
-    bool editedNames = false;
     QTimer manageGroups;
     QObject::connect(&manageGroups, &QTimer::timeout, [&] {
       if (QWidget* popup = QApplication::activePopupWidget()) {
@@ -1022,24 +1022,59 @@ int smokePlaylistGroups() {
                        Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
         QCoreApplication::sendEvent(popup, &down);
         QCoreApplication::sendEvent(popup, &up);
-      } else if (auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget())) {
-        if (dialog->windowTitle() != QStringLiteral("Playlist groups")) return;
-        const auto inputs = dialog->findChildren<QLineEdit*>();
-        if (inputs.size() != 7) { dialog->reject(); return; }
-        inputs[4]->setText(QStringLiteral("Writing"));
-        editedNames = true;
-        if (acceptNames) dialog->accept(); else dialog->reject();
       }
     });
-    manageGroups.start(10);
-    session.handleHit(id, {aoide::ChromeHit::Kind::plGroups, -1, {}}, Qt::NoModifier, {});
-    if (!check(editedNames && session.view().playlistGroupFilterLabel == QStringLiteral("Focus"),
-               "cancelled Manage groups leaves group names intact")) return 1;
-    acceptNames = true;
-    session.handleHit(id, {aoide::ChromeHit::Kind::plGroups, -1, {}}, Qt::NoModifier, {});
-    manageGroups.stop();
-    if (!check(session.view().playlistGroupFilterLabel == QStringLiteral("Writing"),
-               "Manage groups updates active filter name")) return 1;
+    const auto openGroups = [&]() -> aoide::PlaylistGroupsWindow* {
+      manageGroups.start(10);
+      session.handleHit(id, {aoide::ChromeHit::Kind::plGroups, -1, {}}, Qt::NoModifier, {});
+      manageGroups.stop();
+      for (QWidget* widget : QApplication::topLevelWidgets()) {
+        if (auto* editor = qobject_cast<aoide::PlaylistGroupsWindow*>(widget)) return editor;
+      }
+      return nullptr;
+    };
+    auto* editor = openGroups();
+    if (!check(editor && editor->isVisible() && !QApplication::activeModalWidget() &&
+               editor->windowModality() == Qt::NonModal && !editor->parentWidget(),
+               "Manage groups opens an ordinary nonmodal Aoide window")) return 1;
+    auto* groupName = editor->findChild<QLineEdit*>(QStringLiteral("groupName_4"));
+    if (!check(groupName && !editor->findChild<QPushButton*>(QStringLiteral("saveGroups")) &&
+               !editor->findChild<QPushButton*>(QStringLiteral("cancelGroups")),
+               "group editor contains no Save or Cancel buttons")) return 1;
+    for (const QString& name : {QStringLiteral("W"), QStringLiteral("Wri"), QStringLiteral("Writing")}) {
+      groupName->setText(name);
+      if (!check(session.view().playlistGroupFilterLabel == name &&
+                 store.readPlaylistGroups()[4].name == name && editor->isVisible(),
+                 "each edit updates the filter and disk before the editor closes")) return 1;
+    }
+    groupName->clear();
+    if (!check(store.readPlaylistGroups()[4].name == QStringLiteral("Writing"),
+               "empty intermediate edit retains last valid saved name")) return 1;
+    editor->close();
+    if (!check(openGroups() == editor && groupName->text() == QStringLiteral("Writing"),
+               "reopening reuses the window and its saved names")) return 1;
+    if (!check(openGroups() == editor, "repeated Manage groups never creates duplicate editors")) return 1;
+    session.mainMinimized(true);
+    if (!check(!editor->isVisible(), "minimizing main hides the group window with its siblings")) return 1;
+    session.mainMinimized(false);
+    if (!check(editor->isVisible(), "restoring main restores the open group window")) return 1;
+    const QString namesPath = QDir(store.dir()).filePath(QStringLiteral("playlist_groups.json"));
+    const QString backupPath = namesPath + QStringLiteral(".smoke-backup");
+    if (!QFile::rename(namesPath, backupPath) || !QDir().mkpath(namesPath)) return 1;
+    groupName->setText(QStringLiteral("Unable to write"));
+    pumpFor(400);
+    if (!check(session.view().persistWriteFailed,
+               "an autosave failure remains visible after its retry also fails")) return 1;
+    // A collection write can encounter the same name-file failure while the
+    // editor remains open. Recovery must clear only genuinely repaired state.
+    session.assignPlaylistGroups(1, {0, 4, 6});
+    session.assignPlaylistGroups(1, {0, 4});
+    if (!QDir().rmdir(namesPath) || !QFile::rename(backupPath, namesPath)) return 1;
+    groupName->setText(QStringLiteral("Writing"));
+    if (!check(!session.view().persistWriteFailed &&
+               store.readPlaylistGroups()[4].name == QStringLiteral("Writing"),
+               "the next successful edit clears the autosave failure")) return 1;
+    editor->close();
     loadRow(session, 1);
     if (!check(session.view().playlistName == QStringLiteral("Beta.m3u"),
                "filtered row loads the matching file, not its old index")) return 1;

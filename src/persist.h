@@ -111,11 +111,12 @@ struct PersistHealth {
   bool alteredOk = true;
   bool lastPlaylistOk = true;
   bool collectionOk = true;
+  bool groupsOk = true;
   bool trackSetsOk = true;
 
   bool anyFailed() const {
     return !settingsOk || !resumeOk || !usageOk || !alteredOk || !lastPlaylistOk ||
-           !collectionOk || !trackSetsOk;
+           !collectionOk || !groupsOk || !trackSetsOk;
   }
 };
 
