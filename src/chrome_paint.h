@@ -61,6 +61,7 @@ void paintMockupWindow(QPainter& painter,
 /// body is made of accessible input widgets rather than a session panel.
 void paintWindowFrame(QPainter& painter, QSize logical, const TitleChromeLayout& title,
                       const ChromeTokens& look,
-                      const ChromePhases& phases = ChromePhases());
+                      const ChromePhases& phases = ChromePhases(),
+                      const QFont* titleFont = nullptr);
 
 }  // namespace aoide

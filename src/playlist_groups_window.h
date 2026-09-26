@@ -13,6 +13,7 @@
 #include <QWidget>
 
 class QLineEdit;
+class QLabel;
 class QPushButton;
 
 namespace aoide {
@@ -63,6 +64,7 @@ class PlaylistGroupsWindow final : public QWidget {
   QVector<QString> validNames_;
   QVector<QRect> swatches_;
   QRect instruction_;
+  QLabel* autosaveNote_ = nullptr;
   QPushButton* close_ = nullptr;
   QImage frame_;
   ChromePhases phases_;

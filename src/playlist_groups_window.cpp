@@ -12,6 +12,7 @@
 #include <QGuiApplication>
 #include <QIODevice>
 #include <QKeyEvent>
+#include <QLabel>
 #include <QLineEdit>
 #include <QMouseEvent>
 #include <QPainter>
@@ -34,6 +35,8 @@ struct GroupEditorMetrics {
   int rowGap;
   int swatchSize;
   int swatchColumn;
+  int footerGap;
+  int footerHeight;
 
   explicit GroupEditorMetrics(qreal zoom)
       : width(qRound(520 * zoom)),
@@ -43,11 +46,16 @@ struct GroupEditorMetrics {
         rowHeight(qMax(26, qRound(36 * zoom))),
         rowGap(qMax(7, qRound(10 * zoom))),
         swatchSize(qMax(12, qRound(16 * zoom))),
-        swatchColumn(qMax(28, qRound(42 * zoom))) {}
+        swatchColumn(qMax(28, qRound(42 * zoom))),
+        footerGap(qMax(12, qRound(20 * zoom))),
+        footerHeight(qMax(16, qRound(22 * zoom))) {}
 
   int rowsTop() const { return titleHeight + pad + introHeight; }
+  int footerTop(int count) const {
+    return rowsTop() + count * rowHeight + qMax(0, count - 1) * rowGap + footerGap;
+  }
   QSize size(int count) const {
-    return QSize(width, rowsTop() + count * rowHeight + qMax(0, count - 1) * rowGap + pad);
+    return QSize(width, footerTop(count) + footerHeight + pad);
   }
 };
 
@@ -71,7 +79,7 @@ qreal fittedEditorZoom(qreal requested, QSize available, int groupCount) {
 QByteArray editorAppearanceKey(const ChromeTokens& look) {
   QByteArray key;
   QDataStream stream(&key, QIODevice::WriteOnly);
-  stream << look.id << look.chromeFamily << look.lcdFamily << chromeFamily()
+  stream << look.id << look.chromeFamily << look.lcdFamily << chromeFamily() << regularChromeFamily()
          << look.radii.window << look.radii.surface << look.radii.button << look.railStops;
   for (const QColor& color : {
            look.shellHi, look.shell, look.shellMid, look.shellLo, look.shellDeep,
@@ -153,6 +161,10 @@ PlaylistGroupsWindow::PlaylistGroupsWindow(const QVector<PlaylistGroup>& groups,
     });
     connect(name, &QLineEdit::editingFinished, this, [this, index]() { finishEdit(index); });
   }
+  autosaveNote_ = new QLabel(QStringLiteral("Changes are saved automatically"), this);
+  autosaveNote_->setObjectName(QStringLiteral("groupsAutosaveNote"));
+  autosaveNote_->setTextFormat(Qt::PlainText);
+  autosaveNote_->setAlignment(Qt::AlignCenter);
   close_ = new FrameCloseButton(this);
   close_->setObjectName(QStringLiteral("closeGroups"));
   close_->installEventFilter(this);
@@ -204,7 +216,7 @@ void PlaylistGroupsWindow::setAppearance(const ChromeTokens& look, qreal zoomPer
                         metrics.width - 2 * metrics.pad, metrics.introHeight);
   swatches_.clear();
   const LookPaintScope scope(look_);
-  const QFont inputFont = condensedFont(qMax(11, qRound(16 * zoom_)), 0.02);
+  const QFont inputFont = condensedFont(qMax(11, qRound(16 * zoom_)), 0.02, QFont::Normal);
   const QString fieldStyle = QStringLiteral(
       "QLineEdit { color: %1; background: %2; border: 1px solid %3;"
       " border-radius: %4px; padding: 0px %5px; selection-background-color: %6;"
@@ -225,6 +237,11 @@ void PlaylistGroupsWindow::setAppearance(const ChromeTokens& look, qreal zoomPer
                           metrics.swatchSize, metrics.swatchSize));
     top += metrics.rowHeight + metrics.rowGap;
   }
+  autosaveNote_->setFont(condensedFont(qMax(10, qRound(12 * zoom_)), 0.02, QFont::Normal));
+  autosaveNote_->setStyleSheet(QStringLiteral("color: %1; background: transparent;")
+                                  .arg(look_.inkDim.name()));
+  autosaveNote_->setGeometry(metrics.pad, metrics.footerTop(names_.size()),
+                             metrics.width - 2 * metrics.pad, metrics.footerHeight);
   if (size() != metrics.size(names_.size())) setFixedSize(metrics.size(names_.size()));
   logicalSize_ = QSize(qRound(width() / zoom_), qRound(height() / zoom_));
   title_ = TitleChromeLayout::forWindow(WindowId::settings, logicalSize_);
@@ -365,9 +382,10 @@ void PlaylistGroupsWindow::rebuildFrame() {
   {
     const PainterStateScope hold(painter);
     painter.scale(zoom_, zoom_);
-    paintWindowFrame(painter, logicalSize_, title_, look_, phases_);
+    const QFont titleFont = condensedFont(13, 0.26, QFont::Normal);
+    paintWindowFrame(painter, logicalSize_, title_, look_, phases_, &titleFont);
   }
-  painter.setFont(condensedFont(qMax(11, qRound(14 * zoom_)), 0.04));
+  painter.setFont(condensedFont(qMax(11, qRound(14 * zoom_)), 0.04, QFont::Normal));
   painter.setPen(look_.inkDim);
   painter.drawText(instruction_, Qt::AlignLeft | Qt::AlignTop,
                    QStringLiteral("Name your playlist groups."));

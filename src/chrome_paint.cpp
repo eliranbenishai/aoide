@@ -225,9 +225,9 @@ QFont roleFont() {
   return condensedFont(13, 0.26);
 }
 
-void drawRole(QPainter& p, const QRectF& box, const QString& name) {
+void drawRole(QPainter& p, const QRectF& box, const QString& name, const QFont& font) {
   p.save();
-  p.setFont(roleFont());
+  p.setFont(font);
   const QString text = name.toUpper();
   p.setPen(QColor(0, 0, 0, 179));
   p.drawText(box.translated(0, 1), Qt::AlignCenter, text);
@@ -237,7 +237,8 @@ void drawRole(QPainter& p, const QRectF& box, const QString& name) {
 }
 
 void drawTitleContents(QPainter& p, const TitleChromeLayout& title, const QImage* logo,
-                       const SessionView& view, const ChromePhases& phases) {
+                       const SessionView& view, const ChromePhases& phases,
+                       const QFont& nameFont) {
   constexpr int padL = 10;
   p.save();
   const QRect bar = title.titleBar;
@@ -254,7 +255,7 @@ void drawTitleContents(QPainter& p, const TitleChromeLayout& title, const QImage
     brandRight = x + wmW + 12;
   }
 
-  p.setFont(roleFont());
+  p.setFont(nameFont);
   const QFontMetrics nfm(p.font());
   const QString role = title.roleName.toUpper();
   const int nameW = nfm.horizontalAdvance(role);
@@ -266,7 +267,7 @@ void drawTitleContents(QPainter& p, const TitleChromeLayout& title, const QImage
   const QRectF nameBox(leftGrip.right() + 12, 0, nameW, bar.height());
   const QRectF rightGrip(nameBox.right() + 12, 0, qMax<qreal>(0, grips), bar.height());
   drawGrip(p, leftGrip);
-  drawRole(p, nameBox, title.roleName);
+  drawRole(p, nameBox, title.roleName, nameFont);
   drawGrip(p, rightGrip);
 
   if (title.showZoom && !title.zoomReadout.isEmpty()) {
@@ -297,7 +298,8 @@ void drawTitleContents(QPainter& p, const TitleChromeLayout& title, const QImage
 
 void paintFramedWindow(QPainter& painter, QSize logical, const TitleChromeLayout& title,
                        const QImage* logo, const SessionView& view, const ChromePhases& phases,
-                       const std::function<void(QPainter&)>& paintBody) {
+                       const std::function<void(QPainter&)>& paintBody,
+                       const QFont* titleFont = nullptr) {
   LookPaintScope scope(view.look);
   const PainterStateScope hold(painter);
   const QRectF rect(0, 0, logical.width(), logical.height());
@@ -309,7 +311,7 @@ void paintFramedWindow(QPainter& painter, QSize logical, const TitleChromeLayout
   painter.setClipPath(shell);
   drawNoiseOverlay(painter, rect, shellRadius);
   drawTitleFace(painter, QRectF(title.titleBar), shellRadius);
-  drawTitleContents(painter, title, logo, view, phases);
+  drawTitleContents(painter, title, logo, view, phases, titleFont ? *titleFont : roleFont());
   if (logical.height() > kTitleBar && paintBody) paintBody(painter);
   drawRivet(painter, QPointF(9 + 3.5, logical.height() - 8 - 3.5));
   drawRivet(painter, QPointF(logical.width() - 9 - 3.5, logical.height() - 8 - 3.5));
@@ -338,10 +340,11 @@ void paintMockupWindow(QPainter& painter,
 }
 
 void paintWindowFrame(QPainter& painter, QSize logical, const TitleChromeLayout& title,
-                      const ChromeTokens& look, const ChromePhases& phases) {
+                      const ChromeTokens& look, const ChromePhases& phases,
+                      const QFont* titleFont) {
   SessionView view;
   view.look = look;
-  paintFramedWindow(painter, logical, title, nullptr, view, phases, {});
+  paintFramedWindow(painter, logical, title, nullptr, view, phases, {}, titleFont);
 }
 
 }  // namespace aoide

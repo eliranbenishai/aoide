@@ -13,6 +13,9 @@ QString bundledDataDir(const char* leaf);
 QString bundledSkinsDir();
 QString assetPath(const char* relative);
 QString chromeFamily();
+/// Selected chrome family when it has a regular upright face, else the bundled
+/// regular chrome family. Bold-only custom skins must not make editing text bold.
+QString regularChromeFamily();
 QString lcdFamily();
 QString brandFamily();
 

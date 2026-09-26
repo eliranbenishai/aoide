@@ -64,6 +64,17 @@ void loadAoideFonts() {
   const int mono =
       QFontDatabase::addApplicationFont(assetPath("fonts/TrampMono-Medium.ttf"));
   const int brand = QFontDatabase::addApplicationFont(assetPath("fonts/Anton-Regular.ttf"));
+  // Chrome remains bold by default. Register real regular counterparts so
+  // editing controls can keep each bundled skin's family at normal weight.
+  for (const char* file : {"fonts/BarlowSemiCondensed-Regular.ttf",
+                           "fonts/Rajdhani-Regular.ttf",
+                           "fonts/ArchivoNarrow-Regular.ttf",
+                           "fonts/CormorantGaramond-Regular.ttf",
+                           "fonts/Oswald-Regular.ttf",
+                           "fonts/Cinzel-Regular.ttf",
+                           "fonts/SairaCondensed-Regular.ttf"}) {
+    QFontDatabase::addApplicationFont(assetPath(file));
+  }
   const QStringList families = QFontDatabase::applicationFontFamilies(condensed);
   if (!families.isEmpty()) {
     g_chromeFamily = families.front();
@@ -88,6 +99,22 @@ QString lookLcdOverride() { return g_lookLcd; }
 
 QString chromeFamily() {
   return g_lookChrome.isEmpty() ? g_chromeFamily : g_lookChrome;
+}
+
+QString regularChromeFamily() {
+  QString family = chromeFamily();
+  // The bundled Widow bold face has the older duplicated family name; its
+  // upstream regular counterpart uses the corrected family name.
+  if (family == QLatin1String("Saira Condensed Condensed")) {
+    family = QStringLiteral("Saira Condensed");
+  }
+  for (const QString& style : QFontDatabase::styles(family)) {
+    if (QFontDatabase::weight(family, style) == QFont::Normal &&
+        !QFontDatabase::italic(family, style)) {
+      return family;
+    }
+  }
+  return g_chromeFamily;
 }
 
 QString lcdFamily() {

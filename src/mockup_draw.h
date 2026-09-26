@@ -151,7 +151,7 @@ struct TextShadow {
 /// left `Qt::NoPen` behind, and the strip draws a dot between each pair of
 /// labels, so everything after the first dot was drawn with no pen and never
 /// appeared. Callers set state once and call these freely.
-QFont condensedFont(int px, qreal trackingEm = 0);
+QFont condensedFont(int px, qreal trackingEm = 0, QFont::Weight weight = QFont::Bold);
 QFont monoFont(int px, qreal trackingEm = 0);
 QFont brandFont(int px, qreal trackingEm = 0);
 qreal textWidth(const QFont& font, const QString& text);

@@ -637,11 +637,11 @@ void paintBlurred(QPainter& p, const QRectF& bounds, qreal sigma,
   p.drawImage(bounds.topLeft() - QPointF(pad, pad), gaussianBlur(buf, sigma));
 }
 
-QFont condensedFont(int px, qreal trackingEm) {
+QFont condensedFont(int px, qreal trackingEm, QFont::Weight weight) {
   FontAccount account;
-  QFont f(chromeFamily());
+  QFont f(weight == QFont::Normal ? regularChromeFamily() : chromeFamily());
   f.setPixelSize(px);
-  f.setWeight(QFont::Bold);
+  f.setWeight(weight);
   f.setHintingPreference(QFont::PreferNoHinting);
   f.setStyleStrategy(QFont::PreferAntialias);
   if (trackingEm != 0) {
