@@ -133,8 +133,8 @@ modules:
     sources:
       - type: git
         url: https://github.com/eliranbenishai/aoide.git
-        tag: v1.2.3
-        commit: 4bbd91529bfbf94e5073f3a463b8dcc9d32ecd26
+        tag: v1.3
+        commit: 590a28c5beac7936c18787703c5cb4c5a1fbe5df
         x-checker-data:
           type: git
           tag-pattern: ^v([\d.]+)$
