@@ -379,6 +379,35 @@ target_include_directories(layout_sync_test PRIVATE src)
 target_link_libraries(layout_sync_test PRIVATE aoide_window_spec Qt6::Test)
 set_target_properties(layout_sync_test PROPERTIES AUTOMOC ON)
 
+# Exercise session/host signal wiring with deterministic monitor discovery.
+# Reuse the app's sources so this integration test cannot silently build a
+# different session when platform or playback sources change.
+set(AOIDE_SESSION_TEST_SOURCES ${AOIDE_SOURCES})
+list(FILTER AOIDE_SESSION_TEST_SOURCES INCLUDE REGEX "\\.(cpp|h)$")
+list(REMOVE_ITEM AOIDE_SESSION_TEST_SOURCES src/main.cpp)
+qt_add_executable(session_window_move_test
+  tests/session_window_move_test.cpp ${AOIDE_SESSION_TEST_SOURCES})
+target_include_directories(session_window_move_test PRIVATE src "${AOIDE_MPV_ROOT}/include")
+get_target_property(AOIDE_SESSION_TEST_DEFINITIONS aoide COMPILE_DEFINITIONS)
+target_compile_definitions(session_window_move_test PRIVATE ${AOIDE_SESSION_TEST_DEFINITIONS})
+target_link_libraries(session_window_move_test PRIVATE
+  aoide_window_spec aoide_warnings Qt6::Widgets Qt6::Test)
+if(TARGET Qt6::DBus)
+  target_link_libraries(session_window_move_test PRIVATE Qt6::DBus)
+endif()
+if(AOIDE_HAVE_MPV)
+  target_link_libraries(session_window_move_test PRIVATE ${AOIDE_MPV_LIBS})
+endif()
+get_target_property(AOIDE_SESSION_TEST_LINK_OPTIONS aoide LINK_OPTIONS)
+if(AOIDE_SESSION_TEST_LINK_OPTIONS)
+  target_link_options(session_window_move_test PRIVATE ${AOIDE_SESSION_TEST_LINK_OPTIONS})
+endif()
+get_target_property(AOIDE_SESSION_TEST_RPATH aoide BUILD_RPATH)
+if(AOIDE_SESSION_TEST_RPATH)
+  set_target_properties(session_window_move_test PROPERTIES BUILD_RPATH "${AOIDE_SESSION_TEST_RPATH}")
+endif()
+set_target_properties(session_window_move_test PROPERTIES AUTOMOC ON)
+
 qt_add_executable(host_shell_window_test
   tests/host_shell_window_test.cpp
   src/host_shell_window.cpp
@@ -597,7 +626,7 @@ endforeach()
 # DLL in the build tree ctest dies with STATUS_DLL_NOT_FOUND (0xC0000135) and
 # reports nothing useful. The install rule below covers the package, not this.
 if(WIN32 AND AOIDE_HAVE_MPV)
-  foreach(win_mpv_target IN ITEMS aoide domain_test mpv_engine_test)
+  foreach(win_mpv_target IN ITEMS aoide domain_test mpv_engine_test session_window_move_test)
     add_custom_command(TARGET ${win_mpv_target} POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${AOIDE_WIN_MPV_DLL}" "$<TARGET_FILE_DIR:${win_mpv_target}>"
@@ -646,6 +675,9 @@ add_test(NAME host_shell COMMAND host_shell_test)
 add_test(NAME host_shell_window COMMAND host_shell_window_test)
 add_test(NAME host_window_move COMMAND host_window_move_test)
 add_test(NAME layout_sync COMMAND layout_sync_test)
+add_test(NAME session_window_move COMMAND session_window_move_test)
+set_tests_properties(session_window_move PROPERTIES
+  ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 add_test(NAME chrome_spec COMMAND chrome_spec_test)
 add_test(NAME chrome_command COMMAND chrome_command_test)
 add_test(NAME chrome_tooltip COMMAND chrome_tooltip_test)

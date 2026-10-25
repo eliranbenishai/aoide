@@ -169,7 +169,7 @@ void shrinkPlaylistToFitWork(QVector<PanelPlacement>& panels, QRect work, QSize 
 }
 
 void clearDockedSiblingsOfMain(QVector<PanelPlacement>& panels, QRect host, QSize playlistMin,
-                               PanelSurfaces* surfaces) {
+                               QRect work) {
   QRect main;
   for (const PanelPlacement& panel : panels) {
     if (panel.id == WindowId::main && panel.visible) main = panel.screen;
@@ -179,10 +179,7 @@ void clearDockedSiblingsOfMain(QVector<PanelPlacement>& panels, QRect host, QSiz
     if (!panel.visible) continue;
     if (panel.id != WindowId::equalizer && panel.id != WindowId::playlist) continue;
     QRect bounds = host;
-    if (panel.id == WindowId::playlist && surfaces) {
-      const QRect work = surfaces->workAreaFor(panel.screen);
-      if (!work.isEmpty()) bounds = work;
-    }
+    if (panel.id == WindowId::playlist && !work.isEmpty()) bounds = work;
     const bool mayShrink = panel.id == WindowId::playlist;
     panel.screen = clearKeep(panel.screen, main, bounds, playlistMin, mayShrink,
                              panelSpec(panel.id).parkSide);
@@ -236,8 +233,20 @@ void LayoutSync::setNativeFrame(WindowId id, QRect native) {
 
 QRect LayoutSync::hostRect() const { return surfaces_ ? surfaces_->hostRect() : QRect(); }
 
+QRect LayoutSync::spanningWorkAreaFor(QRect panelsNative) const {
+  if (!surfaces_) return {};
+  const QRect work = surfaces_->spanningWorkAreaFor(panelsNative);
+  return work.isEmpty() ? surfaces_->workAreaFor(panelsNative) : work;
+}
+
 int LayoutSync::reservedTopLiftFor(QRect panelNative) const {
-  const QRect work = surfaces_ ? surfaces_->workAreaFor(panelNative) : QRect();
+  // Measure the title bar's top edge. The body may already cross onto a lower
+  // display while the drag handle is still reachable on the upper display.
+  const QRect titleEdge(panelNative.topLeft(), QSize(panelNative.width(), 1));
+  QRect work = surfaces_ ? surfaces_->spanningWorkAreaFor(titleEdge) : QRect();
+  // Above a staggered display the handle can be in a gap while the body is
+  // visible. Use that body's display rather than an unrelated primary screen.
+  if (work.isEmpty() && surfaces_) work = surfaces_->workAreaFor(panelNative);
   return reservedTopLift(panelNative, work);
 }
 
@@ -306,7 +315,7 @@ void LayoutSync::clampToHost(WindowId id) {
   setNativeFrame(id, clampRectToHost(nativeFrameRect(id), host));
   if (id == WindowId::playlist) {
     const QRect hosted = nativeFrameRect(id);
-    const QRect work = surfaces_ ? surfaces_->workAreaFor(hosted) : QRect();
+    const QRect work = spanningWorkAreaFor(hosted);
     const QRect gripped = clampPlaylistGripToWorkArea(hosted, work);
     if (gripped.topLeft() != hosted.topLeft()) setNativeFrame(id, gripped);
   }
@@ -319,11 +328,16 @@ void LayoutSync::clampToHost(WindowId id) {
 void LayoutSync::fitClusterToHost() {
   const QRect host = hostRect();
   if (host.isEmpty()) return;
+  const QRect work = spanningWorkAreaFor(clusterNativeRect());
+  const QRect bounds = work.isEmpty() ? host : host.intersected(work);
   const QVector<WindowId> ids = visibleClusterMembers(docking_.layout());
   QVector<QRect> rects;
   rects.reserve(ids.size());
   for (WindowId id : ids) rects.push_back(nativeFrameRect(id));
-  const auto delta = clusterDeltaToFit(rects, host);
+  auto delta = clusterDeltaToFit(rects, bounds);
+  // A layout taller than the work area can still travel intact on the desktop;
+  // place() fits the playlist without changing its chosen size.
+  if (!delta) delta = clusterDeltaToFit(rects, host);
   if (delta) {
     if (!delta->isNull()) {
       // Only visible panels decide how far the cluster has to move, but a hidden
@@ -343,11 +357,8 @@ void LayoutSync::fitClusterToHost() {
       setNativeFrame(id, clampRectToHost(nativeFrameRect(id), host));
     }
   }
-  // The host is the virtual desktop, so y=0 is on-screen even when a menu bar
-  // covers it. A title-bar drag is app-owned and clamped to that host, which is
-  // how a Mac listener parks the cluster under the strip and cannot pick it up
-  // again. The work area names the strip; lifting from main's own screen keeps
-  // a cluster that spans two monitors from being measured against the wrong one.
+  // If the arrangement is too large for a single translation, still keep
+  // main's title bar reachable and carry every sibling with that correction.
   const int lift = reservedTopLiftFor(nativeFrameRect(WindowId::main));
   if (lift != 0) {
     for (WindowId id : allPanelIds()) {
@@ -373,6 +384,7 @@ void LayoutSync::place() {
   placing_ = true;
   docking_.ensureMainVisible();
   const QRect host = surfaces_->hostRect();
+  const QRect work = spanningWorkAreaFor(clusterNativeRect());
   // A title-bar drag always moves then places. Clearing main here would pull
   // the sibling off the rectangle the listener just chose.
   const bool clearMain = !docking_.takeUserMoved();
@@ -393,23 +405,17 @@ void LayoutSync::place() {
   }
   if (clearMain) {
     const QSize playlistMin = zoomed(playlistMinLogical_, zoomPercent_);
-    QRect playlistScreen;
-    for (const PanelPlacement& panel : panels) {
-      if (panel.id == WindowId::playlist && panel.visible) playlistScreen = panel.screen;
-    }
-    const QRect work = playlistScreen.isEmpty() ? QRect() : surfaces_->workAreaFor(playlistScreen);
     shrinkPlaylistToFitWork(panels, work, playlistMin);
   }
   for (PanelPlacement& panel : panels) {
     if (!panel.visible) continue;
     if (!host.isEmpty()) panel.screen = clampRectToHost(panel.screen, host);
     if (panel.id != WindowId::playlist) continue;
-    const QRect work = surfaces_->workAreaFor(panel.screen);
     panel.screen = clampPlaylistGripToWorkArea(panel.screen, work);
   }
   if (clearMain && !host.isEmpty()) {
     clearDockedSiblingsOfMain(panels, host, zoomed(playlistMinLogical_, zoomPercent_),
-                             surfaces_);
+                             work);
   }
   for (PanelPlacement& panel : panels) {
     const QSizeF canvas = docking_.canvasSize(panel.id);

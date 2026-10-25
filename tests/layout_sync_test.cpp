@@ -22,8 +22,15 @@ class FakeDesktop : public aoide::PanelSurfaces {
   /// state every test that is not about zoom availability wants.
   QRect workAreaFor(QRect clusterNative) const override {
     clusterAsked = clusterNative;
-    if (!screen_.isEmpty() && clusterNative.intersects(screen_)) return screenWork_;
+    if (!screen_.isEmpty() && screen_.contains(clusterNative.center())) return screenWork_;
     return work_;
+  }
+  QRect spanningWorkAreaFor(QRect clusterNative) const override {
+    spanAsked = clusterNative;
+    QRect work;
+    if (work_.intersects(clusterNative)) work = work_;
+    if (screen_.intersects(clusterNative)) work = work.united(screenWork_);
+    return work;
   }
   void setWorkArea(QRect work) { work_ = work; }
   /// A second display's work area, used when the asked rectangle sits on it.
@@ -35,6 +42,7 @@ class FakeDesktop : public aoide::PanelSurfaces {
     screenWork_ = work;
   }
   mutable QRect clusterAsked;
+  mutable QRect spanAsked;
 
   void placePanels(const QVector<aoide::PanelPlacement>& panels) override {
     ++passes;
@@ -133,6 +141,11 @@ class LayoutSyncTest : public QObject {
   void aWorkAreaFlushWithTheHostTopMovesNothing();
   void theReservedTopIsTakenFromMainsOwnScreen();
   void clampToHostPushesASiblingClearOfTheStrip();
+  void aMainDragAcrossMonitorsKeepsTheSnappedArrangement();
+  void aMainDragAcrossMonitorsKeepsTheSnappedArrangement_data();
+  void aSmallerDestinationFitsTheClusterAsAWhole();
+  void aCompanionOnTheUpperMonitorDoesNotHideMainsTitleBar();
+  void aTitleBarInAMonitorGapUsesTheDisplayUnderItsBody();
 };
 
 void LayoutSyncTest::nativeAndLogicalAreInversesAcrossTheZoomLadder() {
@@ -280,7 +293,7 @@ void LayoutSyncTest::theWorkAreaIsTakenFromTheScreenThePlaylistIsOn() {
   // against that work area would drag it onto the primary just to tuck a grip
   // that was already reachable on its own display.
   QCOMPARE(desktop.placementOf(WindowId::playlist).screen, QRect(2000, 200, 800, 600));
-  QCOMPARE(desktop.clusterAsked, QRect(2000, 200, 800, 600));
+  QCOMPARE(desktop.spanAsked, layout.clusterNativeRect());
 }
 
 void LayoutSyncTest::anEmptyWorkAreaWithdrawsNoPlaylistClamp() {
@@ -1178,7 +1191,7 @@ void LayoutSyncTest::theReservedTopIsTakenFromMainsOwnScreen() {
 
   QCOMPARE(layout.nativeFrameRect(WindowId::main).top(), -1055);
   QCOMPARE(layout.nativeFrameRect(WindowId::equalizer).top(), -707);
-  QCOMPARE(desktop.clusterAsked, QRect(40, -1080, 825, 348));
+  QCOMPARE(desktop.spanAsked, QRect(40, -1055, 825, 1));
 }
 
 void LayoutSyncTest::clampToHostPushesASiblingClearOfTheStrip() {
@@ -1191,6 +1204,130 @@ void LayoutSyncTest::clampToHostPushesASiblingClearOfTheStrip() {
 
   layout.clampToHost(WindowId::about);
   QCOMPARE(layout.nativeFrameRect(WindowId::about), QRect(200, 25, 480, 360));
+}
+
+void LayoutSyncTest::aMainDragAcrossMonitorsKeepsTheSnappedArrangement_data() {
+  QTest::addColumn<QRect>("primary");
+  QTest::addColumn<QRect>("secondary");
+  QTest::addColumn<QVector<QPoint>>("path");
+  QTest::newRow("right") << QRect(0, 0, 1920, 1080) << QRect(1920, 0, 1920, 1080)
+      << QVector<QPoint>{{20, 50}, {100, 50}, {760, 50}, {1500, 50}, {1940, 50}};
+  QTest::newRow("different-resolutions")
+      << QRect(0, 0, 2560, 1440) << QRect(2560, 0, 1920, 1080)
+      << QVector<QPoint>{{600, 50}, {700, 50}, {1500, 50}, {2200, 50}, {2580, 50}};
+  QTest::newRow("left") << QRect(0, 0, 2560, 1440) << QRect(-1920, 0, 1920, 1080)
+      << QVector<QPoint>{{20, 50}, {-100, 50}, {-760, 50}, {-1500, 50}, {-1900, 50}};
+  QTest::newRow("below") << QRect(0, 0, 1920, 1440) << QRect(0, 1440, 1920, 1080)
+      << QVector<QPoint>{{10, 50}, {10, 700}, {10, 1000}, {10, 1300}, {10, 1490}};
+  QTest::newRow("above") << QRect(0, 0, 1920, 1440) << QRect(0, -1080, 1920, 1080)
+      << QVector<QPoint>{{10, 50}, {10, -100}, {10, -500}, {10, -800}, {10, -1030}};
+  QTest::newRow("staggered") << QRect(0, 0, 2560, 1440) << QRect(2560, 240, 1920, 1080)
+      << QVector<QPoint>{{600, 300}, {700, 300}, {1500, 300}, {2200, 300}, {2580, 300}};
+}
+
+void LayoutSyncTest::aMainDragAcrossMonitorsKeepsTheSnappedArrangement() {
+  QFETCH(QRect, primary);
+  QFETCH(QRect, secondary);
+  QFETCH(QVector<QPoint>, path);
+  FakeDesktop desktop(primary.united(secondary));
+  desktop.setWorkArea(primary.adjusted(0, 25, 0, -36));
+  desktop.setWorkAreaForScreen(secondary, secondary.adjusted(0, 25, 0, -36));
+  const QPoint start = path.first();
+  DockLayout dock = playlistDockedRightOfMain();
+  dock.main.left = start.x();
+  dock.main.top = start.y();
+  dock.playlist.left = start.x() + 825;
+  dock.playlist.top = start.y();
+  dock.equalizer = {true, false, double(start.x()), double(start.y() + 348), {}, {}};
+  dock.dockEdges.append({WindowId::equalizer, WindowId::main, aoide::DockSide::top});
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+  layout.place();
+
+  // Replay the same move / fit / place sequence as AoideSession::windowMoved,
+  // including intermediate positions where the playlist straddles the seam.
+  const QVector<QPoint> returning(path.crbegin(), path.crend());
+  path += returning;
+  for (QPoint position : path) {
+    layout.docking().move(WindowId::main, position, false, false);
+    layout.fitClusterToHost();
+    layout.place();
+
+    const QRect main = desktop.placementOf(WindowId::main).screen;
+    QCOMPARE(main.topLeft(), position);
+    QCOMPARE(desktop.placementOf(WindowId::playlist).screen,
+             QRect(main.topLeft() + QPoint(825, 0), QSize(1073, 696)));
+    QCOMPARE(desktop.placementOf(WindowId::equalizer).screen,
+             QRect(main.topLeft() + QPoint(0, 348), QSize(825, 348)));
+    QCOMPARE(layout.layout().dockEdges.size(), dock.dockEdges.size());
+    // A later event-loop placement must not re-fit a panel to just one of the
+    // two displays after the user-movement latch has been consumed.
+    layout.place();
+    QCOMPARE(desktop.placementOf(WindowId::playlist).screen,
+             QRect(main.topLeft() + QPoint(825, 0), QSize(1073, 696)));
+    QCOMPARE(layout.layout().dockEdges.size(), dock.dockEdges.size());
+  }
+}
+
+void LayoutSyncTest::aSmallerDestinationFitsTheClusterAsAWhole() {
+  FakeDesktop desktop(QRect(0, 0, 4480, 1440));
+  desktop.setWorkArea(QRect(0, 25, 2560, 1379));
+  desktop.setWorkAreaForScreen(QRect(2560, 0, 1920, 900), QRect(2560, 25, 1920, 839));
+  LayoutSync layout(playlistDockedRightOfMain(), 100);
+  layout.setSurfaces(&desktop);
+  layout.docking().move(WindowId::main, QPointF(600, 300), false, false);
+  layout.place();
+
+  layout.docking().move(WindowId::main, QPointF(2580, 300), false, false);
+  layout.fitClusterToHost();
+  layout.place();
+
+  // The arrangement fits the smaller monitor after one translation. Pulling
+  // only the playlist above its Dock would break the shared top edge.
+  QCOMPARE(desktop.placementOf(WindowId::main).screen.topLeft(), QPoint(2580, 168));
+  QCOMPARE(desktop.placementOf(WindowId::playlist).screen, QRect(3405, 168, 1073, 696));
+  QCOMPARE(layout.layout().dockEdges.size(), 2);
+  layout.place();
+  QCOMPARE(desktop.placementOf(WindowId::playlist).screen, QRect(3405, 168, 1073, 696));
+  QCOMPARE(layout.layout().dockEdges.size(), 2);
+}
+
+void LayoutSyncTest::aCompanionOnTheUpperMonitorDoesNotHideMainsTitleBar() {
+  FakeDesktop desktop(QRect(0, -1080, 1920, 2160));
+  desktop.setWorkArea(QRect(0, 25, 1920, 1019));
+  desktop.setWorkAreaForScreen(QRect(0, -1080, 1920, 1080), QRect(0, -1055, 1920, 1019));
+  DockLayout dock;
+  dock.main = {true, false, 40, 0, {}, {}};
+  dock.equalizer = {true, false, 40, -348, {}, {}};
+  dock.playlist.visible = false;
+  dock.dockEdges = {{WindowId::equalizer, WindowId::main, aoide::DockSide::bottom}};
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+  layout.fitClusterToHost();
+  layout.place();
+
+  QCOMPARE(desktop.placementOf(WindowId::main).screen.top(), 25);
+  QCOMPARE(desktop.placementOf(WindowId::equalizer).screen.top(), -323);
+  QCOMPARE(layout.layout().dockEdges.size(), 1);
+}
+
+void LayoutSyncTest::aTitleBarInAMonitorGapUsesTheDisplayUnderItsBody() {
+  FakeDesktop desktop(QRect(0, 0, 4480, 1440));
+  desktop.setWorkArea(QRect(0, 25, 2560, 1379));
+  desktop.setWorkAreaForScreen(QRect(2560, 240, 1920, 1080), QRect(2560, 265, 1920, 1019));
+  DockLayout dock;
+  dock.main = {true, false, 3000, 200, {}, {}};
+  dock.equalizer.visible = false;
+  dock.playlist = {true, false, 1927, 200, 1073.0, 696.0};
+  dock.dockEdges = {{WindowId::playlist, WindowId::main, aoide::DockSide::right}};
+  LayoutSync layout(dock, 100);
+  layout.setSurfaces(&desktop);
+  layout.fitClusterToHost();
+  layout.place();
+
+  QCOMPARE(desktop.placementOf(WindowId::main).screen.top(), 265);
+  QCOMPARE(desktop.placementOf(WindowId::playlist).screen, QRect(1927, 265, 1073, 696));
+  QCOMPARE(layout.layout().dockEdges.size(), 1);
 }
 
 QTEST_APPLESS_MAIN(LayoutSyncTest)

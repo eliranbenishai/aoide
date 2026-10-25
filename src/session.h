@@ -195,6 +195,7 @@ class AoideSession : public QObject, public PanelSurfaces {
   void loadCollectionRow(int index);
   QRect hostRect() const override;
   QRect workAreaFor(QRect clusterNative) const override;
+  QRect spanningWorkAreaFor(QRect clusterNative) const override;
   void placePanels(const QVector<PanelPlacement>& panels) override;
   void syncPlaylistMin();
   void presentChromeOutcome(const ChromeCommandOutcome& out, WindowId id, const ChromeHit& hit,

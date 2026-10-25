@@ -43,6 +43,11 @@ class PanelSurfaces {
   /// the desktop keeps for itself. What a zoom step has to fit inside. Empty
   /// when it is not known, which withdraws nothing.
   virtual QRect workAreaFor(QRect clusterNative) const = 0;
+  /// Bounds of the work areas intersected by an arrangement. Crossing an
+  /// internal monitor edge must not fit its panels to separate displays.
+  /// Embedded panels return their container bounds. Empty means no intersected
+  /// display (or no known work area); the caller chooses a fallback anchor.
+  virtual QRect spanningWorkAreaFor(QRect clusterNative) const = 0;
   /// All panels arrive every pass, hidden ones included, because hiding is
   /// something this call has to do rather than something it can skip. A panel
   /// missing from the list could keep a stale window visible.
@@ -115,9 +120,9 @@ class LayoutSync {
   /// Pull [id] back onto the virtual desktop. Only the origin moves: a clamp
   /// is a placement, not a resize.
   void clampToHost(WindowId id);
-  /// Bring the cluster back onto the virtual desktop after it, or the desktop,
-  /// changed shape. Translating keeps the panels' relationship to each other;
-  /// only a cluster that cannot fit at all falls back to clamping one at a time.
+  /// Fit the cluster to the shared work-area bounds of the displays it spans.
+  /// Translating keeps the panels' relationship to each other. If that cannot
+  /// fit, fall back to the virtual desktop and the playlist's fitted size.
   void fitClusterToHost();
 
   /// Panels the listener cannot see because main is minimized. They keep their
@@ -135,6 +140,7 @@ class LayoutSync {
 
  private:
   QRect hostRect() const;
+  QRect spanningWorkAreaFor(QRect panelsNative) const;
   int reservedTopLiftFor(QRect panelNative) const;
 
   DockingCoordinator docking_;

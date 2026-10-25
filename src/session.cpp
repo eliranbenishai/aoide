@@ -705,6 +705,17 @@ QRect AoideSession::workAreaFor(QRect clusterNative) const {
   return screen ? screen->availableGeometry() : QRect();
 }
 
+QRect AoideSession::spanningWorkAreaFor(QRect clusterNative) const {
+  if (shell_ && shell_->embedsPanels()) return shell_->layoutBounds();
+  QRect work;
+  for (const QScreen* screen : QGuiApplication::screens()) {
+    if (screen->geometry().intersects(clusterNative)) {
+      work = work.united(screen->availableGeometry());
+    }
+  }
+  return work;
+}
+
 SessionView AoideSession::view() const {
   SessionView v;
   v.eqOn = layout_.layout().equalizer.visible;
@@ -1001,6 +1012,10 @@ void AoideSession::removeSelectedTracks() {
 
 void AoideSession::windowMoved(WindowId id, QPoint nativeTopLeft, bool finalize) {
   if (layout_.placing()) return;
+  // A native move acknowledgement can arrive after the placement guard has
+  // ended. Re-clamping that unchanged companion as a separate drag would tear
+  // it off a cluster spanning two displays. A real drop still gets its snap.
+  if (!finalize && layout_.nativeFrameRect(id).topLeft() == nativeTopLeft) return;
   // Shift undocks. The modifier is read here rather than carried on the move
   // signal because the drag is app-owned: what matters is whether Shift is down
   // at the moment the panel moves, and again when it is dropped, since a
