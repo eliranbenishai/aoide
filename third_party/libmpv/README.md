@@ -66,8 +66,10 @@ Windows build links against, and the DLL is what the loader resolves at run time
 and what ships. `CMakeLists.txt` only turns `AOIDE_HAVE_MPV` on for Windows when
 it finds both.
 
-Requires Visual Studio’s CMake (`cmake -E tar`) on PATH, or the VS 2022
-Community CMake path used by the script.
+Requires `curl.exe` and Visual Studio’s CMake (`cmake -E tar`) on PATH, or the
+VS 2022 Community CMake path used by the script. The downloader uses curl
+because SourceForge serves an HTML landing page to Windows PowerShell's
+default browser user agent. Both archive and DLL hashes remain mandatory.
 
 ## Fetch (macOS / Linux)
 

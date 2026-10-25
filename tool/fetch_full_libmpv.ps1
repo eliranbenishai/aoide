@@ -37,8 +37,11 @@ function Find-CMake {
 
 if (-not (Test-Path $ArchivePath) -or (Get-Sha256 $ArchivePath) -ne $Win.archiveSha256.ToUpperInvariant()) {
   Write-Host "Downloading $($Win.url)"
-  $ProgressPreference = 'SilentlyContinue'
-  Invoke-WebRequest -Uri $Win.url -OutFile $ArchivePath
+  # SourceForge gives Windows PowerShell's browser user agent an HTML landing
+  # page. Use the native downloader and still verify the archive hash below.
+  & curl.exe --fail --location --silent --show-error --retry 3 --retry-delay 2 `
+    --connect-timeout 30 --max-time 180 --output $ArchivePath $Win.url
+  if ($LASTEXITCODE -ne 0) { throw "libmpv download failed (curl exit $LASTEXITCODE)" }
 }
 
 $archiveHash = Get-Sha256 $ArchivePath
