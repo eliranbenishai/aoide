@@ -1,13 +1,13 @@
 {
   "windows": {
     "x86_64": {
-      "archive": "mpv-dev-x86_64-20260808-git-dd5d17d328.7z",
-      "url": "https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20260808/mpv-dev-x86_64-20260808-git-dd5d17d328.7z",
-      "archiveSha256": "8D87D569FE4F18D3E490AB6D82FA7B9610C9411A270EABAD107167520891F1B1",
-      "archiveMd5": "47B12D8477E27FC6F1ABC8D2D068A7E8",
+      "archive": "mpv-dev-x86_64-20260809-git-dd5d17d328.7z",
+      "url": "https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20260809-git-dd5d17d328.7z/download",
+      "archiveSha256": "C6AEBF40BB722EFE79090BFEB61E68625F0837770347E5A8B610AEF78900CF12",
+      "archiveMd5": "35624460EB2CB30DB02EA1BE67D04287",
       "dll": "libmpv-2.dll",
-      "dllSha256": "7079EBFBA8459573A45279F2CC23FEB6B228B47C43821CF0620FA5EFF9AE1CA1",
-      "notes": "Full shinchiro winbuild (filters enabled). Not the media_kit slim audio build."
+      "dllSha256": "965EFDE4C8199F942BF9ED9D3E6FBCB7DD9DC961524D5780A9CA67DA53F14D0C",
+      "notes": "Full shinchiro winbuild (filters enabled), pinned to the retained weekly SourceForge archive. Same mpv revision dd5d17d328 as the retired 20260808 GitHub build. Not the media_kit slim audio build."
     }
   },
   "macos": {

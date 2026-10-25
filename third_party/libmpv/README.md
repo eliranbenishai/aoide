@@ -53,6 +53,14 @@ This downloads the pinned shinchiro `mpv-dev` archive, verifies SHA-256, extract
 `libmpv-2.dll` **and its import library `libmpv.dll.a`** into `windows/x86_64/`,
 and checks the DLL hash.
 
+The Windows pin uses the maintainer's retained weekly
+[SourceForge archive](https://sourceforge.net/projects/mpv-player-windows/files/libmpv/).
+Its GitHub build workflow prunes releases beyond the latest 30 tags, which
+removed the former daily download. The replacement `20260809` archive uses
+the same mpv revision, `dd5d17d328`, as that `20260808` build; the archive and
+DLL bytes differ, so both hashes are pinned independently. Check the archive's
+SHA-256 against SourceForge's file metadata when refreshing this pin.
+
 Both files are needed and neither is optional: the import library is what the
 Windows build links against, and the DLL is what the loader resolves at run time
 and what ships. `CMakeLists.txt` only turns `AOIDE_HAVE_MPV` on for Windows when
