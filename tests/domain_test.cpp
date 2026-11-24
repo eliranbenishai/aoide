@@ -2007,9 +2007,9 @@ int main() {
     playlist.setTracks({a, b, c});
     NullEngine engine;
     PlaybackController playback(&playlist, &engine);
+    playlist.setOnChanged([&](std::optional<int> removed) { playback.onPlaylistChanged(removed); });
     playback.playIndex(0);
     playlist.removeAt(0);
-    playback.onPlaylistChanged();
     REQUIRE(playback.playing());
     REQUIRE_EQ(playback.currentTrack()->path, b.path);
     REQUIRE_EQ(*playback.playingIndex(), 0);
@@ -2037,6 +2037,34 @@ int main() {
   }
 
   {
+    // Clearing the displayed list leaves audio on the transport. Removing
+    // the playing row explicitly advances to its successor or stops.
+    Track only;
+    only.path = QStringLiteral("/tmp/only.mp3");
+    PlaylistController playlist;
+    playlist.loadTracks({only});
+    NullEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playlist.setOnChanged([&](std::optional<int> removed) { playback.onPlaylistChanged(removed); });
+    playback.playIndex(0);
+    playlist.clear();
+    REQUIRE(playback.offList());
+    REQUIRE(playback.playing());
+    REQUIRE(playback.currentTrack().has_value());
+    playlist.loadTracks({only});
+    playback.playIndex(0);
+    playlist.removeSelected();
+    REQUIRE(!playback.playing());
+    REQUIRE(!playback.paused());
+    REQUIRE(!playback.currentTrack().has_value());
+    playlist.loadTracks({only}, aoide::favoritesPlaylistPath());
+    playback.playIndex(0);
+    playlist.removeAt(0);
+    REQUIRE(!playback.playing());
+    REQUIRE(!playlist.altered());
+  }
+
+  {
     // The same recording can have two positions in the playlist. Selecting
     // the later occurrence during playback must still advance past that row.
     Track a, b, c;
@@ -2047,7 +2075,7 @@ int main() {
     playlist.loadTracks({a, b, a, c});
     NullEngine engine;
     PlaybackController playback(&playlist, &engine);
-    playlist.setOnChanged([&] { playback.onPlaylistChanged(); });
+    playlist.setOnChanged([&](std::optional<int> removed) { playback.onPlaylistChanged(removed); });
     playback.playIndex(1);
     playback.next();
     REQUIRE_EQ(playback.playingIndex().value_or(-1), 2);
@@ -2071,7 +2099,7 @@ int main() {
     b.path = QStringLiteral("/tmp/another.mp3");
     playlist.loadTracks({a, b});
     PlaybackController playback(&playlist, &engine);
-    playlist.setOnChanged([&] { playback.onPlaylistChanged(); });
+    playlist.setOnChanged([&](std::optional<int> removed) { playback.onPlaylistChanged(removed); });
     playback.setRepeatMode(RepeatMode::one);
     playback.playIndex(0);
     playlist.select(1);
@@ -2096,7 +2124,7 @@ int main() {
     playlist.loadTracks({a, b});
     NullEngine engine;
     PlaybackController playback(&playlist, &engine);
-    playlist.setOnChanged([&] { playback.onPlaylistChanged(); });
+    playlist.setOnChanged([&](std::optional<int> removed) { playback.onPlaylistChanged(removed); });
     playback.playIndex(1);
     playback.setShuffle(true);
     engine.onCompleted();
@@ -2146,7 +2174,7 @@ int main() {
     playlist.setTracks(many);
     NullEngine engine;
     PlaybackController playback(&playlist, &engine);
-    playlist.setOnChanged([&] { playback.onPlaylistChanged(); });
+    playlist.setOnChanged([&](std::optional<int> removed) { playback.onPlaylistChanged(removed); });
     playback.setRepeatMode(RepeatMode::all);
     playback.playIndex(0);
     playback.setShuffle(true);
@@ -3016,7 +3044,7 @@ int main() {
     list.loadTracks({a, b, a});
     list.select(2);
     int changes = 0;
-    list.setOnChanged([&] { ++changes; });
+    list.setOnChanged([&](std::optional<int>) { ++changes; });
     QHash<QString, aoide::TrackMetadata> answers;
     answers[aoide::normalizePlaylistPath(a.path)].title = QStringLiteral("First");
     answers[aoide::normalizePlaylistPath(b.path)].title = QStringLiteral("Second");

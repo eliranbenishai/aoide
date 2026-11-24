@@ -155,8 +155,8 @@ AoideSession::AoideSession(QString supportDirectory, QObject* parent)
     if (persistHealth_.anyFailed() != wasFailed) refreshChrome();
   });
 
-  playlist_.setOnChanged([this]() {
-    if (playback_) playback_->onPlaylistChanged();
+  playlist_.setOnChanged([this](std::optional<int> removedIndex) {
+    if (playback_) playback_->onPlaylistChanged(removedIndex);
     scheduleAltered();
     refreshChrome();
   });
@@ -1029,7 +1029,8 @@ void AoideSession::removeSelectedTracks() {
   }
   const auto tracks = playlist_.tracks();
   for (int index : playlist_.selectedIndices()) collection_.setFavorite(tracks[index], false);
-  syncFavoritesPlaylist();
+  playlist_.removeSelected();
+  schedulePathVerify();
   persistCollectionCache();
   refreshChrome();
 }

@@ -62,7 +62,7 @@ class PlaybackController {
   void setRepeatMode(RepeatMode mode);
 
   void pollClock();
-  void onPlaylistChanged();
+  void onPlaylistChanged(std::optional<int> removedIndex = std::nullopt);
 
  private:
   void bindEngine();

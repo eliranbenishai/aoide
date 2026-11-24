@@ -54,22 +54,6 @@ std::optional<int> lastPlayableInPass(int length, const QVector<int>& order,
   return std::nullopt;
 }
 
-bool isSameListMinusPath(const QVector<QString>& previous, const QVector<Track>& next,
-                         const QString& removed) {
-  if (next.size() != previous.size() - 1) return false;
-  int j = 0;
-  bool skipped = false;
-  for (const QString& path : previous) {
-    if (!skipped && path == removed) {
-      skipped = true;
-      continue;
-    }
-    if (j >= next.size() || next[j].path != path) return false;
-    ++j;
-  }
-  return skipped && j == next.size();
-}
-
 }  // namespace
 
 PlaybackController::PlaybackController(PlaylistController* playlist, PlayerEngine* engine)
@@ -456,32 +440,36 @@ void PlaybackController::rebuildShuffleOrder(bool openOnCurrent) {
   std::swap(shuffledOrder_[at], shuffledOrder_[openOnCurrent ? 0 : shuffledOrder_.size() - 1]);
 }
 
-void PlaybackController::onPlaylistChanged() {
+void PlaybackController::onPlaylistChanged(std::optional<int> removedIndex) {
   const auto tracks = playlist_->tracks();
   const QVector<QString> previous = previousPaths_;
   previousPaths_ = trackPaths(tracks);
+  if (removedIndex && playingIndex_ == removedIndex) {
+    playingIndex_ = nextPlayableIndex(*removedIndex - 1, tracks.size(), false, RepeatMode::off,
+                                     {}, [&](int row) { return !tracks[row].disabled; });
+    if (shuffle_) rebuildShuffleOrder(true);
+    if (playingIndex_) {
+      playIndex(*playingIndex_);
+    } else {
+      playingPath_.clear();
+      playingTrack_.reset();
+      clearLastTrack();
+      durationMs_ = 0;
+      stop();
+    }
+    return;
+  }
   if (!playingPath_.isEmpty()) {
     // A selection or metadata change leaves the playing occurrence in
     // place, even when another row points at the same file.
     int newIndex = playingIndex_.value_or(-1);
+    if (removedIndex && *removedIndex < newIndex) --newIndex;
     if (newIndex < 0 || newIndex >= tracks.size() || tracks[newIndex].path != playingPath_) {
       newIndex = int(previousPaths_.indexOf(playingPath_));
     }
     if (newIndex != -1) {
       playingIndex_ = newIndex;
       playingTrack_ = tracks[newIndex];
-    } else if (isSameListMinusPath(previous, tracks, playingPath_)) {
-      const auto advanceIndex = playingIndex_;
-      playingPath_.clear();
-      playingTrack_.reset();
-      if (advanceIndex && *advanceIndex < tracks.size()) {
-        if (shuffle_) rebuildShuffleOrder(true);
-        playIndex(*advanceIndex);
-        return;
-      }
-      playingIndex_.reset();
-      mediaOpen_ = false;
-      engine_->stop();
     } else {
       // Playlist replaced (loaded another saved list). Keep the open file
       // playing; only a true one-track removal should advance/stop.

@@ -24,9 +24,9 @@ int clampIndex(std::optional<int> index, int length) {
 
 }  // namespace
 
-void PlaylistController::notify() {
+void PlaylistController::notify(std::optional<int> removedIndex) {
   if (onChanged_) {
-    onChanged_();
+    onChanged_(removedIndex);
   }
 }
 
@@ -91,7 +91,7 @@ void PlaylistController::removeAt(int index) {
     return;
   }
   tracks_.removeAt(index);
-  altered_ = true;
+  if (!isFavoritesPlaylist(sourcePath_)) altered_ = true;
   QSet<int> next;
   for (int i : selectedIndices_) {
     if (i < index) {
@@ -111,7 +111,7 @@ void PlaylistController::removeAt(int index) {
     next.insert(*selectedIndex_);
   }
   selectedIndices_ = next;
-  notify();
+  notify(index);
 }
 
 void PlaylistController::removeSelected() {
@@ -131,12 +131,12 @@ void PlaylistController::removeSelected() {
   }
   const int removed = tracks_.size() - kept.size();
   tracks_ = kept;
-  if (removed > 0) {
+  if (removed > 0 && !isFavoritesPlaylist(sourcePath_)) {
     altered_ = true;
   }
   selectedIndex_.reset();
   selectedIndices_.clear();
-  notify();
+  notify(remove.size() == 1 ? std::optional<int>(*remove.cbegin()) : std::nullopt);
 }
 
 void PlaylistController::move(int oldIndex, int newIndex) {

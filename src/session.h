@@ -174,7 +174,6 @@ class AoideSession : public QObject, public PanelSurfaces {
   std::optional<QVector<Track>> ingestPlaylistFile(const QString& path);
   std::optional<QString> readPlaylistText(const QString& path);
   QVector<SavedPlaylist> visibleCollection() const;
-  void syncFavoritesPlaylist();
   void presentPlaylistContextMenu(ChromeHit hit, QPoint logical);
   void presentPlaylistGroups(const ChromeHit& hit);
   void presentManageGroups();

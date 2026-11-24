@@ -28,7 +28,9 @@ bool writeM3uBytes(const QString& path, const QByteArray& contents,
 
 class PlaylistController {
  public:
-  using Changed = std::function<void()>;
+  // A single-row removal identifies its former position. A replacement
+  // can have identical remaining paths and still leave playback off-list.
+  using Changed = std::function<void(std::optional<int> removedIndex)>;
 
   QVector<Track> tracks() const { return tracks_; }
   QString sourcePath() const { return sourcePath_; }
@@ -66,7 +68,7 @@ class PlaylistController {
   bool savePlaylistFile(const QString& path, const M3uCodec& codec = M3uCodec());
 
  private:
-  void notify();
+  void notify(std::optional<int> removedIndex = std::nullopt);
   void replaceTracks(const QVector<Track>& tracks, const QString& sourcePath);
   static int compareTracks(const Track& a, const Track& b, PlaylistSortKey key);
 

@@ -45,26 +45,14 @@ void AoideSession::assignPlaylistGroups(int row, const QSet<int>& groupIds) {
   }
 }
 
-void AoideSession::syncFavoritesPlaylist() {
-  if (!isFavoritesPlaylist(playlist_.sourcePath())) return;
-  const auto previous = playlist_.tracks();
-  QSet<QString> selected;
-  for (int index : playlist_.selectedIndices()) selected.insert(previous[index].path);
-  const auto favorites = collection_.favoriteTracks();
-  playlist_.loadTracks(favorites, favoritesPlaylistPath());
-  QSet<int> nextSelection;
-  for (int i = 0; i < favorites.size(); ++i) {
-    if (selected.contains(favorites[i].path)) nextSelection.insert(i);
-  }
-  playlist_.selectIndices(nextSelection);
-  schedulePathVerify();
-}
-
 void AoideSession::toggleFavoriteTrack(int index) {
   const auto tracks = playlist_.tracks();
   if (index < 0 || index >= tracks.size()) return;
-  collection_.setFavorite(tracks[index], !collection_.isFavorite(tracks[index].path));
-  syncFavoritesPlaylist();
+  if (!collection_.setFavorite(tracks[index], !collection_.isFavorite(tracks[index].path))) return;
+  if (isFavoritesPlaylist(playlist_.sourcePath())) {
+    playlist_.removeAt(index);
+    schedulePathVerify();
+  }
   persistCollectionCache();
   refreshChrome();
 }
