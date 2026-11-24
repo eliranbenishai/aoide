@@ -144,6 +144,7 @@ class LayoutSyncTest : public QObject {
   void aMainDragAcrossMonitorsKeepsTheSnappedArrangement();
   void aMainDragAcrossMonitorsKeepsTheSnappedArrangement_data();
   void aSmallerDestinationFitsTheClusterAsAWhole();
+  void aShorterMonitorFitsThePlaylistWithoutBreakingTheVerticalStack();
   void aCompanionOnTheUpperMonitorDoesNotHideMainsTitleBar();
   void aTitleBarInAMonitorGapUsesTheDisplayUnderItsBody();
 };
@@ -1290,6 +1291,39 @@ void LayoutSyncTest::aSmallerDestinationFitsTheClusterAsAWhole() {
   layout.place();
   QCOMPARE(desktop.placementOf(WindowId::playlist).screen, QRect(3405, 168, 1073, 696));
   QCOMPARE(layout.layout().dockEdges.size(), 2);
+}
+
+void LayoutSyncTest::aShorterMonitorFitsThePlaylistWithoutBreakingTheVerticalStack() {
+  const QRect left(0, 0, 1920, 1440);
+  const QRect right(1920, 0, 1920, 900);
+  FakeDesktop desktop(left.united(right));
+  desktop.setWorkArea(left.adjusted(0, 25, 0, 0));
+  desktop.setWorkAreaForScreen(right, right.adjusted(0, 25, 0, 0));
+
+  DockLayout dock = defaultCluster();
+  dock.dockEdges = {{WindowId::equalizer, WindowId::main, aoide::DockSide::top},
+                    {WindowId::playlist, WindowId::equalizer, aoide::DockSide::top}};
+  LayoutSync layout(dock, 75);
+  layout.setSurfaces(&desktop);
+  const auto drag = [&](QPoint position) {
+    layout.docking().move(WindowId::main, layout.nativeToLogical(position), false, false);
+    layout.fitClusterToHost();
+    layout.place();
+  };
+  for (int y : {50, 350}) {
+    drag({1919, y});
+    drag({1920, y});
+    const QRect eq = desktop.placementOf(WindowId::equalizer).screen;
+    const QRect pl = desktop.placementOf(WindowId::playlist).screen;
+    QCOMPARE(pl.top(), eq.bottom() + 1);
+    QCOMPARE(pl.bottom(), right.bottom());
+    QVERIFY(pl.height() >= aoide::zoomed(layout.playlistMinSize(), 75).height());
+    QCOMPARE(layout.layout().dockEdges.size(), 2);
+
+    drag({100, y});
+    QCOMPARE(desktop.placementOf(WindowId::playlist).screen, QRect(100, y + 522, 805, 522));
+    QCOMPARE(layout.layout().dockEdges.size(), 2);
+  }
 }
 
 void LayoutSyncTest::aCompanionOnTheUpperMonitorDoesNotHideMainsTitleBar() {

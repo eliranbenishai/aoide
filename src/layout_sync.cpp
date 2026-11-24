@@ -335,6 +335,15 @@ void LayoutSync::fitClusterToHost() {
   rects.reserve(ids.size());
   for (WindowId id : ids) rects.push_back(nativeFrameRect(id));
   auto delta = clusterDeltaToFit(rects, bounds);
+  // When the chosen playlist is too large, keep enough room for its minimum
+  // before placing the stack. This lets a low drag translate the whole group.
+  const auto playlist = ids.indexOf(WindowId::playlist);
+  if (!delta && !work.isEmpty() && playlist >= 0) {
+    QVector<QRect> atMinimum = rects;
+    atMinimum[playlist].setSize(rects[playlist].size().boundedTo(
+        zoomed(playlistMinLogical_, zoomPercent_)));
+    delta = clusterDeltaToFit(atMinimum, bounds);
+  }
   // A layout taller than the work area can still travel intact on the desktop;
   // place() fits the playlist without changing its chosen size.
   if (!delta) delta = clusterDeltaToFit(rects, host);
@@ -387,7 +396,8 @@ void LayoutSync::place() {
   const QRect work = spanningWorkAreaFor(clusterNativeRect());
   // A title-bar drag always moves then places. Clearing main here would pull
   // the sibling off the rectangle the listener just chose.
-  const bool clearMain = !docking_.takeUserMoved();
+  const auto moved = docking_.takeUserMoved();
+  const bool clearMain = !moved;
 
   QVector<PanelPlacement> panels;
   const QVector<WindowId> ids = allPanelIds();
@@ -403,7 +413,7 @@ void LayoutSync::place() {
     if (panel.visible) panel.screen = nativeFrameRect(id);
     panels.push_back(panel);
   }
-  if (clearMain) {
+  if (clearMain || moved == WindowId::main) {
     const QSize playlistMin = zoomed(playlistMinLogical_, zoomPercent_);
     shrinkPlaylistToFitWork(panels, work, playlistMin);
   }

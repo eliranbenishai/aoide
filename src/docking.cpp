@@ -3,6 +3,7 @@
 #include "panel_registry.h"
 
 #include <cmath>
+#include <utility>
 
 namespace aoide {
 namespace {
@@ -143,7 +144,7 @@ void DockingCoordinator::resizePlaylist(QSizeF logical) {
 }
 
 void DockingCoordinator::resizePlaylist(QPointF topLeft, QSizeF logical) {
-  userMoved_ = true;
+  userMoved_ = WindowId::playlist;
   layout_.playlist.left = topLeft.x();
   layout_.playlist.top = topLeft.y();
   resizePlaylist(logical);
@@ -196,14 +197,12 @@ bool DockingCoordinator::validateEdges() {
   return true;
 }
 
-bool DockingCoordinator::takeUserMoved() {
-  const bool moved = userMoved_;
-  userMoved_ = false;
-  return moved;
+std::optional<WindowId> DockingCoordinator::takeUserMoved() {
+  return std::exchange(userMoved_, std::nullopt);
 }
 
 void DockingCoordinator::move(WindowId id, QPointF topLeft, bool shiftUndock, bool snap) {
-  userMoved_ = true;
+  userMoved_ = id;
   if (!panelSpec(id).docks) {
     layout_.frameOf(id).left = topLeft.x();
     layout_.frameOf(id).top = topLeft.y();

@@ -85,12 +85,12 @@ class DockingCoordinator {
   /// What docking measures the panel by: its canvas, collapsed to the title bar
   /// while it is shaded.
   QSizeF logicalSize(WindowId id) const;
-  /// True when a listener gesture has run since the last take. [move] and
+  /// The panel moved by the last listener gesture. [move] and
   /// the origin-and-size [resizePlaylist] set it; [place] consumes it. One-shot:
   /// a place that cannot push (no surfaces) still takes it, or the next
   /// automatic pass would skip un-overlap for a gesture that never landed.
   /// Un-overlap of main would fight the hand that just put a sibling there.
-  bool takeUserMoved();
+  std::optional<WindowId> takeUserMoved();
 
  private:
   bool hasEdge(WindowId id) const;
@@ -101,7 +101,7 @@ class DockingCoordinator {
 
   DockLayout layout_;
   double snapThreshold_ = 20;
-  bool userMoved_ = false;
+  std::optional<WindowId> userMoved_;
 };
 
 }  // namespace aoide
