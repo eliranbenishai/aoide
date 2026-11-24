@@ -66,6 +66,36 @@
   <!-- Newest first: out-of-order entries fail validation. tool/version.sh and the
        release workflow check the top version against the VERSION file. -->
   <releases>
+    <release version="1.4" date="2026-11-24">
+      <description>
+        <ul>
+          <li>
+            Open music from your file manager in the player already running.
+            Launch Aoide again to bring its windows forward.
+          </li>
+          <li>
+            Drag a docked playlist onto a shorter monitor and back. It fits
+            the smaller screen and regains its chosen height on return.
+          </li>
+          <li>
+            Reach panel title bars on staggered displays and zoom the player
+            on the monitor where you placed it.
+          </li>
+          <li>
+            Pick up a list of loose tracks after restarting, even if you
+            never saved it as a playlist.
+          </li>
+          <li>
+            Shuffle through every enabled track once per pass, and keep the
+            same playing row when a track appears more than once.
+          </li>
+          <li>
+            Resume Favorites at the next available track if the file you
+            were listening to has moved or been deleted.
+          </li>
+        </ul>
+      </description>
+    </release>
     <release version="1.3.2" date="2026-10-25">
       <description>
         <ul>
