@@ -2004,6 +2004,36 @@ int main() {
   }
 
   {
+    // With keep-open disabled the backend has unloaded the file by EOF. A
+    // repeat must reopen it, including when browsing another playlist.
+    class UnloadingEngine : public NullEngine {
+     public:
+      void open(const Track& track) override { loadedPath = track.path; }
+      QString loadedPath;
+    } engine;
+    PlaylistController playlist;
+    Track a;
+    a.path = QStringLiteral("/tmp/repeat.mp3");
+    Track b;
+    b.path = QStringLiteral("/tmp/another.mp3");
+    playlist.loadTracks({a, b});
+    PlaybackController playback(&playlist, &engine);
+    playlist.setOnChanged([&] { playback.onPlaylistChanged(); });
+    playback.setRepeatMode(RepeatMode::one);
+    playback.playIndex(0);
+    playlist.select(1);
+    engine.loadedPath.clear();
+    engine.onCompleted();
+    REQUIRE_EQ(engine.loadedPath, a.path);
+    REQUIRE_EQ(playlist.selectedIndex().value_or(-1), 1);
+    playlist.loadTracks({b, b});
+    engine.loadedPath.clear();
+    engine.onCompleted();
+    REQUIRE_EQ(engine.loadedPath, a.path);
+    REQUIRE(playback.offList());
+  }
+
+  {
     // Shuffle was seeded from the playing index, so turning it on at the same
     // track always dealt the same order — the listener's second evening was
     // the first one again.

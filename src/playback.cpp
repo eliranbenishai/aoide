@@ -424,8 +424,13 @@ void PlaybackController::onCompleted() {
   resetListenTally();
   switch (repeatMode_) {
     case RepeatMode::one:
-      engine_->seekMs(0);
-      engine_->play();
+      // mpv has unloaded the file at EOF. Replay the transport's track
+      // without changing the listener's selection in the current playlist.
+      if (const auto track = currentTrack()) {
+        clearLastTrack();
+        positionMs_ = 0;
+        openAndPlay(*track);
+      }
       break;
     case RepeatMode::all:
       next();
