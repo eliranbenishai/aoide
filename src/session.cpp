@@ -156,6 +156,7 @@ AoideSession::AoideSession(QString supportDirectory, QObject* parent)
   });
 
   playlist_.setOnChanged([this](std::optional<int> removedIndex) {
+    pendingFavoriteResume_.reset();
     if (playback_) playback_->onPlaylistChanged(removedIndex);
     scheduleAltered();
     refreshChrome();
@@ -362,9 +363,8 @@ void AoideSession::bootstrap(const QStringList& argvFiles) {
     const auto resume = store_.readResume();
     if (resume.playingIndex && *resume.playingIndex >= 0 &&
         *resume.playingIndex < playlist_.tracks().size()) {
-      playback_->playFrom(*resume.playingIndex);
-      if (resume.positionMs > 0) playback_->seekMs(resume.positionMs);
-      if (!resume.wasPlaying) playback_->playPause();
+      if (isFavoritesPlaylist(playlist_.sourcePath())) pendingFavoriteResume_ = resume;
+      else resumePlaylistRow(resume);
     } else if (!resume.playingPath.isEmpty() && QFileInfo::exists(resume.playingPath)) {
       // Off-list at quit: there is no row to playFrom. A path that has since
       // vanished is not an error — the file is just gone.
@@ -473,6 +473,14 @@ void AoideSession::startCollectionPresenceCheck(bool includeTracks) {
   });
 }
 
+void AoideSession::resumePlaylistRow(const SessionResume& resume) {
+  playback_->playFrom(*resume.playingIndex);
+  if (!playback_->playing()) return;
+  if (playback_->playingIndex() == resume.playingIndex && resume.positionMs > 0)
+    playback_->seekMs(resume.positionMs);
+  if (!resume.wasPlaying) playback_->playPause();
+}
+
 void AoideSession::schedulePathVerify() {
   const QVector<Track> tracks = playlist_.tracks();
   ++verifyGen_;
@@ -492,7 +500,9 @@ void AoideSession::schedulePathVerify() {
         this,
         [this, missing, gen]() {
           if (gen != verifyGen_.load()) return;
+          const auto resume = std::exchange(pendingFavoriteResume_, std::nullopt);
           playlist_.markMissingPaths(missing);
+          if (resume && settings_.resumeLastSession) resumePlaylistRow(*resume);
           refreshChrome();
         },
         Qt::QueuedConnection);
@@ -673,6 +683,7 @@ void AoideSession::persistNow() {
   if (const auto current = playback_->currentTrack()) resume.playingPath = current->path;
   resume.positionMs = playback_->positionMs();
   resume.wasPlaying = playback_->playing();
+  if (pendingFavoriteResume_) resume = *pendingFavoriteResume_;
   const auto kept = currentPlaylistSnapshot();
   const bool wasFailed = persistHealth_.anyFailed();
   writeSessionPersist(store_, persistHealth_, settings_, resume, {playback_->spins()},
@@ -1019,7 +1030,10 @@ void AoideSession::playTrackAt(int index) {
 }
 /// Space and the play media key are a single toggle, unlike the separate Play and
 /// Pause faces on the chrome. Routing them at K::play only ever started playback.
-void AoideSession::togglePlayPause() { playback_->playPause(); }
+void AoideSession::togglePlayPause() {
+  pendingFavoriteResume_.reset();
+  playback_->playPause();
+}
 
 void AoideSession::selectAllTracks() { playlist_.selectAll(); }
 void AoideSession::removeSelectedTracks() {
@@ -1804,6 +1818,10 @@ void AoideSession::presentSkinFolderInstall() {
 }
 
 void AoideSession::handleHit(WindowId id, ChromeHit hit, Qt::KeyboardModifiers mods, QPoint logical) {
+  using K = ChromeHit::Kind;
+  if (hit.kind == K::stop || hit.kind == K::pause || hit.kind == K::play || hit.kind == K::plPlay ||
+      hit.kind == K::prev || hit.kind == K::plPrev || hit.kind == K::next || hit.kind == K::plNext ||
+      hit.kind == K::seek) pendingFavoriteResume_.reset();
   dragOrigin_ = logical;
   if ((hit.kind == ChromeHit::Kind::plRename || hit.kind == ChromeHit::Kind::plRemoveCollection) &&
       !view().collectionCanEdit) return;

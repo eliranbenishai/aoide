@@ -178,6 +178,7 @@ class AoideSession : public QObject, public PanelSurfaces {
   void presentPlaylistGroups(const ChromeHit& hit);
   void presentManageGroups();
   void schedulePathVerify();
+  void resumePlaylistRow(const SessionResume& resume);
   void startCollectionPresenceCheck(bool includeTracks);
   void refreshCurrentPlaylist();
   /// Ask about every track this list still needs, on a worker. [overwrite] is
@@ -290,6 +291,7 @@ class AoideSession : public QObject, public PanelSurfaces {
   QString m3uRewritePath_;
   QByteArray createdM3uContents_;
   std::atomic<int> verifyGen_{0};
+  std::optional<SessionResume> pendingFavoriteResume_;
   /// Paths the live probe generation still owes an answer for. A second ingest
   /// supersedes the first worker, so these ride along into the new run rather
   /// than staying at --:-- until the list is opened again.

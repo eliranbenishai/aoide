@@ -1458,6 +1458,35 @@ int smokeFileOpen(AoideApplication& app) {
     std::fprintf(stderr, "file-open smoke: loose audio failed to resume in order\n");
     return 1;
   }
+  // Favorites can change on disk between sessions. Wait for playback's
+  // missing-row check and give a newer Stop command precedence over resume.
+  for (bool stopBeforeCheck : {false, true}) {
+    aoide::SupportStore favorites(temporary.filePath(stopBeforeCheck ? "stopped-favorites" : "favorites"));
+    aoide::Track missing, available;
+    missing.path = temporary.filePath("deleted.wav");
+    available.path = oldPath;
+    aoide::AoideSettings audioSettings;
+    audioSettings.audioDevice = QStringLiteral("null");
+    if (!favorites.writeSettings(audioSettings) || !favorites.writeFavorites({missing, available}) ||
+        !favorites.writeLastPlaylistPath(aoide::favoritesPlaylistPath()) ||
+        !favorites.writeResume({0, missing.path, 400, false})) return 1;
+    aoide::AoideSession session(favorites.dir());
+    session.bootstrap({});
+    if (stopBeforeCheck) {
+      aoide::ChromeHit stop;
+      stop.kind = aoide::ChromeHit::Kind::stop;
+      session.handleHit(aoide::WindowId::main, stop, {}, {});
+    }
+    QElapsedTimer deadline;
+    deadline.start();
+    while (!session.view().tracks.value(0).disabled && deadline.elapsed() < 3000) pumpFor(5);
+    const auto verified = session.view();
+    if (!verified.tracks.value(0).disabled || (stopBeforeCheck ? verified.hasCurrentTrack :
+        (verified.playingIndex != 1 || !verified.paused || verified.positionMs != 0))) {
+      std::fprintf(stderr, "file-open smoke: missing favorite during resume (stop=%d)\n", stopBeforeCheck);
+      return 1;
+    }
+  }
   std::fprintf(stderr, "file-open smoke: passed\n");
   return 0;
 }
