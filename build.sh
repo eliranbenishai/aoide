@@ -195,7 +195,7 @@ QT_QPA_PLATFORM=offscreen "$BUILD/font_metrics_test"
 "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" -I"$QT/include/QtTest" -DQT_GUI_LIB -DQT_CORE_LIB \
   "$ROOT/src/layout_sync.cpp" "$ROOT/src/docking.cpp" "$ROOT/src/settings.cpp" \
   "$ROOT/src/equalizer.cpp" "$ROOT/src/host_shell.cpp" "$ROOT/src/window_spec.cpp" \
-  "$ROOT/tests/layout_sync_test.cpp" \
+  "$ROOT/src/title_chrome.cpp" "$ROOT/tests/layout_sync_test.cpp" \
   -L"$QT/lib" -lQt6Test -lQt6Widgets -lQt6Gui -lQt6Core -lstdc++ -lm -lgcc_s -pthread -Wl,-rpath,"$QT/lib" \
   -o "$BUILD/layout_sync_test"
 "$BUILD/layout_sync_test"
