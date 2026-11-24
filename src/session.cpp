@@ -343,7 +343,6 @@ void AoideSession::setShell(HostShell* shell) {
 void AoideSession::bootstrap(const QStringList& argvFiles) {
   {
     WaitCursorScope wait;
-    collection_.validateReferences();
     const auto kept = store_.readPlaylistSnapshot();
     if (kept) {
       if (kept->altered) playlist_.restoreAlteredTracks(kept->tracks, kept->sourcePath);
@@ -376,6 +375,7 @@ void AoideSession::bootstrap(const QStringList& argvFiles) {
       if (!resume.wasPlaying) playback_->playPause();
     }
   }
+  startCollectionPresenceCheck(true);
   schedulePathVerify();
   layout_.docking().nudgeOffMainIfStacked(WindowId::equalizer);
   layout_.docking().nudgeOffMainIfStacked(WindowId::playlist);
@@ -444,6 +444,33 @@ std::optional<QVector<Track>> AoideSession::ingestPlaylistFile(const QString& pa
   collection_.addWritten(path, tracks);
   persistCollectionCache();
   return tracks;
+}
+
+void AoideSession::startCollectionPresenceCheck(bool includeTracks) {
+  collectionCheckRunning_ = true;
+  checkedSource_ = playlist_.sourcePath();
+  auto check = collection_.preparePresenceCheck(includeTracks, checkedSource_);
+  const auto alive = workers_.alive();
+  workers_.start([this, check = std::move(check), alive, includeTracks]() {
+    auto presence = check([&] { return alive->load(); });
+    if (!presence || !alive->load()) return;
+    QMetaObject::invokeMethod(this,
+        [this, presence = std::move(*presence), includeTracks]() mutable {
+          collectionCheckRunning_ = false;
+          const bool changed = includeTracks || presence.missingPlaylists != collection_.disabledPaths();
+          if (!collection_.applyPresence(std::move(presence))) {
+            startCollectionPresenceCheck(includeTracks);
+            return;
+          }
+          collectionCheckAge_.start();
+          if (includeTracks) {
+            figures_ = collection_.readFigures();
+            figuresLoaded_ = true;
+          }
+          if (checkedSource_ != playlist_.sourcePath()) startCollectionPresenceCheck(false);
+          if (changed) refreshChrome();
+        }, Qt::QueuedConnection);
+  });
 }
 
 void AoideSession::schedulePathVerify() {
@@ -795,8 +822,8 @@ SessionView AoideSession::view() const {
   }
   v.playlistTotalMs = total;
   v.playlistTrackCount = listed;
-  v.playlistRefreshEnabled =
-      !playlist_.sourcePath().isEmpty() && QFileInfo::exists(playlist_.sourcePath());
+  v.playlistRefreshEnabled = !playlist_.sourcePath().isEmpty() && !v.playlistIsFavorites &&
+                             !collection_.disabledPaths().contains(playlist_.sourcePath());
   v.playlistRefreshing = ingesting_;
   if (!playlist_.sourcePath().isEmpty()) {
     v.playlistName = v.playlistIsFavorites ? QStringLiteral("Favorites")
@@ -878,6 +905,10 @@ void AoideSession::refreshChrome() {
   if (holdChrome_) {
     chromeHeld_ = true;
     return;
+  }
+  if (!collectionCheckRunning_ && collectionCheckAge_.isValid() &&
+      (checkedSource_ != playlist_.sourcePath() || collectionCheckAge_.hasExpired(2000))) {
+    startCollectionPresenceCheck(false);
   }
   emit chromeChanged();
 }

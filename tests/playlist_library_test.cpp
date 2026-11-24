@@ -9,6 +9,7 @@ class PlaylistLibraryTest : public QObject {
   Q_OBJECT
 
  private slots:
+  void presenceChecksAreDeferredAndRejectStaleResults();
   void durationTotalsFollowSharedAndRepeatedTracks();
   void groupAssignmentsAndNamesSurviveRestart();
   void favoritesRemainUniqueAndSurviveSourceRemovalAndRestart();
@@ -17,6 +18,42 @@ class PlaylistLibraryTest : public QObject {
   void failedCollectionWritePreservesSavedFavoritesAndReportsFailure();
   void savingCurrentFavoritesDiscardsOnlyAReplacedAlteredSnapshot();
 };
+
+void PlaylistLibraryTest::presenceChecksAreDeferredAndRejectStaleResults() {
+  QTemporaryDir temp;
+  aoide::PlaylistCollection collection;
+  const QString playlist = temp.filePath("mix.m3u");
+  aoide::Track track;
+  track.path = temp.filePath("track.flac");
+  int calls = 0;
+  bool present = false;
+  collection.setExists([&](const QString&) { ++calls; return present; });
+  collection.addWritten(playlist, {track, track});
+  calls = 0;
+  const auto check = collection.preparePresenceCheck(true);
+  QCOMPARE(calls, 0);
+  QVERIFY(collection.disabledPaths().isEmpty());
+  QCOMPARE(calls, 0);
+  auto missing = check([] { return true; });
+  QVERIFY(missing.has_value());
+  QCOMPARE(calls, 2);
+
+  // A Refresh completed while the slow startup result was in flight.
+  present = true;
+  collection.addWritten(playlist, {track});
+  QVERIFY(!collection.applyPresence(std::move(*missing)));
+  QCOMPARE(collection.readFigures().tracks, 1);
+  calls = 0;
+  const auto listsOnly = collection.preparePresenceCheck(false);
+  QVERIFY(!listsOnly([] { return false; }).has_value());
+  QCOMPARE(calls, 0);
+  present = false;
+  auto playlists = listsOnly([] { return true; });
+  QVERIFY(playlists && collection.applyPresence(std::move(*playlists)));
+  QCOMPARE(calls, 1);
+  QVERIFY(collection.disabledPaths().contains(playlist));
+  QCOMPARE(collection.readFigures().tracks, 1);
+}
 
 void PlaylistLibraryTest::durationTotalsFollowSharedAndRepeatedTracks() {
   QTemporaryDir temp;

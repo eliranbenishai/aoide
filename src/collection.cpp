@@ -4,6 +4,7 @@
 
 #include <QFile>
 #include <QFileInfo>
+#include <utility>
 
 namespace aoide {
 
@@ -18,10 +19,8 @@ void PlaylistCollection::load(const SupportStore& store) {
     if (isReservedPlaylistName(entry.displayName())) entry.name = availableSavedFavoritesName();
   }
   sortEntries();
-  // Reading the state files says nothing about what is still on the disk, and
-  // this is not the place to go and ask — `validateReferences` is, right after
-  // this, where the session has already decided to wait.
-  validationValid_ = false;
+  ++referenceRevision_;
+  disabledPaths_.clear();
   missingTracks_.clear();
 }
 
@@ -95,6 +94,7 @@ bool PlaylistCollection::setFavorite(const Track& track, bool favorite) {
     if (favorites_[i].path != path) continue;
     if (favorite) return false;
     favorites_.removeAt(i);
+    ++referenceRevision_;
     return true;
   }
   if (!favorite) return false;
@@ -103,6 +103,7 @@ bool PlaylistCollection::setFavorite(const Track& track, bool favorite) {
   hydrateDurations(tracks);
   favorites_.push_back(tracks[0]);
   checkTrackFiles({path});
+  ++referenceRevision_;
   return true;
 }
 
@@ -162,7 +163,7 @@ void PlaylistCollection::refreshFigures(SavedPlaylist& e, const QVector<Track>& 
   // paid to read. It is also the only way a mid-session deletion reaches the
   // figures, and it is what makes Refresh tell the truth.
   checkTrackFiles(paths);
-  validationValid_ = false;
+  ++referenceRevision_;
 }
 
 void PlaylistCollection::hydrateDurations(QVector<Track>& tracks) const {
@@ -295,7 +296,7 @@ void PlaylistCollection::remove(const QString& path) {
   // paths of a playlist that has gone are simply never visited again. They stay
   // in `missingTracks_` until something asks about them, which costs nothing
   // and is corrected if the playlist comes back.
-  validationValid_ = false;
+  ++referenceRevision_;
 }
 
 void PlaylistCollection::select(const QString& path) {
@@ -332,35 +333,41 @@ bool PlaylistCollection::resolveForLoad(const QString& path, SavedPlaylist* out)
   return true;
 }
 
-void PlaylistCollection::validateReferences() {
-  validationValid_ = false;
-  validatePlaylistFiles();
-  checkAllTrackFiles();
+PlaylistCollection::PresenceCheck PlaylistCollection::preparePresenceCheck(
+    bool includeTracks, const QString& currentSource) const {
+  QSet<QString> playlists;
+  for (const SavedPlaylist& entry : entries_) playlists.insert(entry.path);
+  if (!currentSource.isEmpty() && !isFavoritesPlaylist(currentSource)) playlists.insert(currentSource);
+
+  QSet<QString> tracks;
+  if (includeTracks) {
+    for (auto it = playlistsByTrack_.keyBegin(); it != playlistsByTrack_.keyEnd(); ++it) {
+      tracks.insert(*it);
+    }
+    for (const Track& favorite : favorites_) tracks.insert(favorite.path);
+  }
+  return [playlists = std::move(playlists), tracks = std::move(tracks), includeTracks,
+          exists = exists_, revision = referenceRevision_](const std::function<bool()>& wanted)
+             -> std::optional<Presence> {
+    auto check = [&](const QSet<QString>& paths, QSet<QString>& missing) {
+      for (const QString& path : paths) {
+        if (!wanted()) return false;
+        if (!(exists ? exists(path) : QFileInfo::exists(path))) missing.insert(path);
+      }
+      return true;
+    };
+    Presence result{revision, {}, {}};
+    if (!check(playlists, result.missingPlaylists)) return std::nullopt;
+    if (includeTracks && !check(tracks, result.missingTracks.emplace())) return std::nullopt;
+    return result;
+  };
 }
 
-void PlaylistCollection::validatePlaylistFiles() const {
-  if (validationValid_ && validationAge_.isValid() &&
-      validationAge_.elapsed() < validationIntervalMs_) {
-    return;
-  }
-  disabledPaths_.clear();
-  for (const SavedPlaylist& e : entries_) {
-    if (!onDisk(e.path)) disabledPaths_.insert(e.path);
-  }
-  validationValid_ = true;
-  validationAge_.restart();
-}
-
-void PlaylistCollection::checkAllTrackFiles() {
-  QSet<QString> reachable;
-  for (const SavedPlaylist& e : entries_) {
-    for (const QString& track : trackSets_.byEntry.value(e.path)) reachable.insert(track);
-  }
-  for (const Track& track : favorites_) reachable.insert(track.path);
-  missingTracks_.clear();
-  for (const QString& track : reachable) {
-    if (!onDisk(track)) missingTracks_.insert(track);
-  }
+bool PlaylistCollection::applyPresence(Presence presence) {
+  if (presence.revision != referenceRevision_) return false;
+  disabledPaths_ = std::move(presence.missingPlaylists);
+  if (presence.missingTracks) missingTracks_ = std::move(*presence.missingTracks);
+  return true;
 }
 
 void PlaylistCollection::checkTrackFiles(const QStringList& paths) {
@@ -368,11 +375,6 @@ void PlaylistCollection::checkTrackFiles(const QStringList& paths) {
     if (onDisk(track)) missingTracks_.remove(track);
     else missingTracks_.insert(track);
   }
-}
-
-QSet<QString> PlaylistCollection::disabledPaths() const {
-  validatePlaylistFiles();
-  return disabledPaths_;
 }
 
 QVector<Track> PlaylistCollection::tracksFor(const QString& path) const {

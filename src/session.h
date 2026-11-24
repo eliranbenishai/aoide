@@ -179,6 +179,7 @@ class AoideSession : public QObject, public PanelSurfaces {
   void presentPlaylistGroups(const ChromeHit& hit);
   void presentManageGroups();
   void schedulePathVerify();
+  void startCollectionPresenceCheck(bool includeTracks);
   void refreshCurrentPlaylist();
   /// Ask about every track this list still needs, on a worker. [overwrite] is
   /// Refresh: believe the files over the file that listed them.
@@ -279,6 +280,9 @@ class AoideSession : public QObject, public PanelSurfaces {
   QTimer collectionPersistTimer_;
   QTimer groupsPersistTimer_;
   CollectionFigures figures_;
+  QElapsedTimer collectionCheckAge_;
+  QString checkedSource_;
+  bool collectionCheckRunning_ = false;
   std::atomic<int> durationGen_{0};
   /// Path of an M3U just created from files, rewritten once after tags arrive.
   /// Empty means nothing is pending. Not durationGen_: a superseded probe

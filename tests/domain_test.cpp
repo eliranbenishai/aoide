@@ -95,6 +95,11 @@ bool allowStoreWrites(const QString& dir, const QString& fileName) {
 #endif
 }
 
+void checkPresence(aoide::PlaylistCollection& collection, bool includeTracks = true) {
+  auto result = collection.preparePresenceCheck(includeTracks)([] { return true; });
+  REQUIRE(result && collection.applyPresence(std::move(*result)));
+}
+
 }  // namespace
 
 using aoide::AudioLevels;
@@ -2345,9 +2350,9 @@ int main() {
 
     const QString missing = tmp.filePath(QStringLiteral("gone.m3u"));
     aoide::PlaylistCollection disabled;
-    disabled.setValidationIntervalMs(0);
     REQUIRE(disabled.add(missing).isEmpty());
     REQUIRE_EQ(disabled.entries().size(), 1);
+    checkPresence(disabled, false);
     REQUIRE(disabled.disabledPaths().contains(aoide::normalizePlaylistPath(missing)));
   }
 
@@ -2457,7 +2462,7 @@ int main() {
     REQUIRE(rewritten.open(QIODevice::WriteOnly | QIODevice::Text));
     rewritten.write("#EXTM3U\nonly-on-disk.mp3\n");
     rewritten.close();
-    col.validateReferences();
+    checkPresence(col);
     REQUIRE(col.disabledPaths().isEmpty());
     REQUIRE_EQ(col.tracksFor(pl).size(), 2);
     REQUIRE_EQ(col.tracksFor(pl)[0].title, QStringLiteral("Keep"));
@@ -2465,7 +2470,7 @@ int main() {
     REQUIRE(col.resolveForLoad(pl, &resolved));
 
     QFile::remove(pl);
-    col.validateReferences();
+    checkPresence(col);
     REQUIRE(col.disabledPaths().contains(aoide::normalizePlaylistPath(pl)));
     REQUIRE(col.resolveForLoad(pl, &resolved));
     REQUIRE_EQ(col.tracksFor(pl).size(), 2);
@@ -2547,15 +2552,17 @@ int main() {
     writeList();
 
     aoide::PlaylistCollection col;
-    col.setValidationIntervalMs(0);
     col.add(pl);
     const QString key = aoide::normalizePlaylistPath(pl);
+    checkPresence(col, false);
     REQUIRE(!col.disabledPaths().contains(key));
 
     REQUIRE(QFile::remove(pl));
+    checkPresence(col, false);
     REQUIRE(col.disabledPaths().contains(key));
 
     writeList();
+    checkPresence(col, false);
     REQUIRE(!col.disabledPaths().contains(key));
   }
 
@@ -2591,7 +2598,7 @@ int main() {
     REQUIRE_EQ(col.readFigures().totalDurationMs, 3000);
 
     REQUIRE(QFile::remove(gone));
-    col.validateReferences();
+    checkPresence(col);
     REQUIRE_EQ(col.readFigures().tracks, 1);
     REQUIRE_EQ(col.readFigures().totalDurationMs, 1000);
     // The row is still in the playlist and still in the cache; it is the file
@@ -2616,7 +2623,7 @@ int main() {
     col.saveTrackSets(store);
     aoide::PlaylistCollection reloaded;
     reloaded.load(store);
-    reloaded.validateReferences();  // what bootstrap does, and the only sweep
+    checkPresence(reloaded);  // what bootstrap does, and the only sweep
     REQUIRE_EQ(reloaded.readFigures().playlists, 1);
     REQUIRE_EQ(reloaded.readFigures().tracks, 1);
     REQUIRE_EQ(reloaded.readFigures().totalDurationMs, 1000);
@@ -2655,7 +2662,7 @@ int main() {
     // Bootstrap is where the whole collection may be asked about, once.
     listAsks = 0;
     trackAsks = 0;
-    col.validateReferences();
+    checkPresence(col);
     REQUIRE_EQ(trackAsks, 60);
     REQUIRE_EQ(listAsks, rows);
 
@@ -2671,13 +2678,10 @@ int main() {
     REQUIRE_EQ(trackAsks, 0);
     REQUIRE_EQ(listAsks, 0);
 
-    // Once the validation pass goes stale a read brings it up to date, which is
-    // what notices a playlist file coming and going. That costs one question
-    // per row — never one per track, however much music the collection holds.
-    col.setValidationIntervalMs(0);
+    // The periodic worker checks playlist files only.
     listAsks = 0;
     trackAsks = 0;
-    (void)col.disabledPaths();
+    checkPresence(col, false);
     REQUIRE_EQ(listAsks, rows);
     REQUIRE_EQ(trackAsks, 0);
 
@@ -2734,7 +2738,7 @@ int main() {
     a.title = QStringLiteral("A");
     a.durationMs = 1000;
     col.addWritten(pl, {a});
-    col.validateReferences();
+    checkPresence(col);
     REQUIRE(col.disabledPaths().contains(aoide::normalizePlaylistPath(pl)));
     aoide::SupportStore store(tmp.path());
     col.saveTrackSets(store);
