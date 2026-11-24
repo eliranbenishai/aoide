@@ -880,6 +880,23 @@ class AoideApplication : public QApplication {
   QStringList queuedFileOpens_;
 };
 
+QString writeSmokeWav(const QString& path) {
+  QFile file(path);
+  if (!file.open(QIODevice::WriteOnly)) return QString();
+  const QByteArray pcm(80000, '\0');
+  QDataStream wav(&file);
+  wav.setByteOrder(QDataStream::LittleEndian);
+  wav.writeRawData("RIFF", 4);
+  wav << quint32(36 + pcm.size());
+  wav.writeRawData("WAVEfmt ", 8);
+  wav << quint32(16) << quint16(1) << quint16(1) << quint32(8000)
+      << quint32(16000) << quint16(2) << quint16(16);
+  wav.writeRawData("data", 4);
+  wav << quint32(pcm.size());
+  wav.writeRawData(pcm.constData(), pcm.size());
+  return wav.status() == QDataStream::Ok ? path : QString();
+}
+
 int smokePlaylistCreate() {
   QTemporaryDir temporary;
   if (!temporary.isValid()) return 1;
@@ -893,8 +910,7 @@ int smokePlaylistCreate() {
   const QString music = temporary.filePath(QStringLiteral("mounted NAS/Album é"));
   if (!QDir().mkpath(music)) return 1;
   for (const QString& name : {QStringLiteral("Track 1.mp3"), QStringLiteral("Track 2.MP3")}) {
-    QFile file(QDir(music).filePath(name));
-    if (!file.open(QIODevice::WriteOnly) || file.write("fixture") != 7) return 1;
+    if (writeSmokeWav(QDir(music).filePath(name)).isEmpty()) return 1;
   }
   const QString previousDirectory = QDir::currentPath();
   if (!QDir::setCurrent(QDir::rootPath())) return 1;
@@ -946,9 +962,18 @@ int smokePlaylistCreate() {
   drive.stop();
   const auto view = session.view();
   QFile saved(expected);
-  const bool okay = stage == 3 && offered == expected && view.tracks.size() == 2 &&
-                    !view.playlistAltered && saved.open(QIODevice::ReadOnly) &&
-                    saved.readAll().contains(QDir(music).filePath(QStringLiteral("Track 1.mp3")).toUtf8());
+  bool okay = stage == 3 && offered == expected && view.tracks.size() == 2 &&
+              !view.playlistAltered && saved.open(QIODevice::ReadOnly) &&
+              saved.readAll().contains(QDir(music).filePath(QStringLiteral("Track 1.mp3")).toUtf8());
+  saved.close();
+  const QByteArray externalEdit("# edited in another player\nextra.flac\n");
+  if (!saved.open(QIODevice::Append) || saved.write(externalEdit) != externalEdit.size()) return 1;
+  saved.close();
+  QElapsedTimer deadline;
+  deadline.start();
+  while (session.view().playlistRefreshing && deadline.elapsed() < 5000) pumpFor(10);
+  okay = okay && !session.view().playlistRefreshing && saved.open(QIODevice::ReadOnly) &&
+         saved.readAll().endsWith(externalEdit);
   session.detachWindows();
   QDir::setCurrent(previousDirectory);
   std::fprintf(stderr, "playlist-create smoke: %s; offered=%s expected=%s\n",
@@ -1332,25 +1357,8 @@ int smokePlaylistScroll() {
 int smokeFileOpen(AoideApplication& app) {
   QTemporaryDir temporary;
   if (!temporary.isValid()) return 1;
-  auto writeAudio = [&](const QString& name) {
-    const QString path = temporary.filePath(name);
-    QFile file(path);
-    if (!file.open(QIODevice::WriteOnly)) return QString();
-    const QByteArray pcm(80000, '\0');
-    QDataStream wav(&file);
-    wav.setByteOrder(QDataStream::LittleEndian);
-    wav.writeRawData("RIFF", 4);
-    wav << quint32(36 + pcm.size());
-    wav.writeRawData("WAVEfmt ", 8);
-    wav << quint32(16) << quint16(1) << quint16(1) << quint32(8000)
-        << quint32(16000) << quint16(2) << quint16(16);
-    wav.writeRawData("data", 4);
-    wav << quint32(pcm.size());
-    wav.writeRawData(pcm.constData(), pcm.size());
-    return wav.status() == QDataStream::Ok ? path : QString();
-  };
-  const QString oldPath = writeAudio(QStringLiteral("previous.wav"));
-  const QString requestedPath = writeAudio(QStringLiteral("requested track é.wav"));
+  const QString oldPath = writeSmokeWav(temporary.filePath(QStringLiteral("previous.wav")));
+  const QString requestedPath = writeSmokeWav(temporary.filePath(QStringLiteral("requested track é.wav")));
   if (oldPath.isEmpty() || requestedPath.isEmpty()) return 1;
   enum class Delivery { argv, queuedEvent, liveEvent, none, inAppAdd, invalid };
   struct Case {

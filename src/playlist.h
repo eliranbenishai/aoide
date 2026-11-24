@@ -20,6 +20,11 @@ enum class PlaylistSortKey { title, artist, duration, path };
 bool writeM3uFile(const QString& path, const QVector<Track>& tracks,
                   const M3uCodec& codec = M3uCodec());
 
+/// Exact on-disk representation, including the platform line ending.
+QByteArray m3uFileBytes(const QVector<Track>& tracks, const M3uCodec& codec = M3uCodec());
+bool writeM3uBytes(const QString& path, const QByteArray& contents,
+                   const QByteArray* expectedContents = nullptr);
+
 class PlaylistController {
  public:
   using Changed = std::function<void()>;

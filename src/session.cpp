@@ -48,6 +48,7 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <utility>
 #ifdef Q_OS_UNIX
 #include <unistd.h>
 #endif
@@ -627,12 +628,12 @@ void AoideSession::probeFinished(int gen) {
   probeOutstanding_.clear();
   setIngesting(false);
   if (m3uRewritePath_.isEmpty()) return;
-  const QString path = m3uRewritePath_;
-  m3uRewritePath_.clear();
+  const QString path = std::exchange(m3uRewritePath_, {});
+  const QByteArray original = std::exchange(createdM3uContents_, {});
   if (playlist_.sourcePath() != path || playlist_.altered()) {
     return;
   }
-  writeM3uFile(path, playlist_.tracks());
+  writeM3uBytes(path, m3uFileBytes(playlist_.tracks()), &original);
 }
 
 void AoideSession::setIngesting(bool ingesting) {
@@ -1502,11 +1503,13 @@ bool AoideSession::createPlaylistFrom(const QVector<Track>& tracks, const QStrin
   // of the #EXTINF lines arrive behind the probe rather than in this write.
   QVector<Track> written = tracks;
   collection_.hydrateDurations(written);
-  if (!reportPlaylistWriteFailure(writeM3uFile(path, written), path)) return false;
+  const QByteArray contents = m3uFileBytes(written);
+  if (!reportPlaylistWriteFailure(writeM3uBytes(path, contents), path)) return false;
   collection_.addWritten(path, written);
   persistCollectionCache();
   playlist_.loadTracks(written, path);
   m3uRewritePath_ = path;
+  createdM3uContents_ = contents;
   startDurationProbe(written);
   refreshChrome();
   return true;

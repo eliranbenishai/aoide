@@ -437,16 +437,26 @@ bool PlaylistController::openPlaylistFile(const QString& path, const M3uCodec& c
 }
 
 bool writeM3uFile(const QString& path, const QVector<Track>& tracks, const M3uCodec& codec) {
-  // This is the listener's own file. Truncating it before writing meant a failed
-  // or interrupted save destroyed the playlist it was meant to record.
+  return writeM3uBytes(path, m3uFileBytes(tracks, codec));
+}
+
+QByteArray m3uFileBytes(const QVector<Track>& tracks, const M3uCodec& codec) {
+  QByteArray bytes = codec.encode(tracks).toUtf8();
+#ifdef Q_OS_WIN
+  bytes.replace("\n", "\r\n");
+#endif
+  return bytes;
+}
+
+bool writeM3uBytes(const QString& path, const QByteArray& contents,
+                   const QByteArray* expectedContents) {
   QSaveFile file(path);
-  if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-    return false;
-  }
-  const QByteArray payload = codec.encode(tracks).toUtf8();
-  if (file.write(payload) != payload.size()) {
-    file.cancelWriting();
-    return false;
+  if (!file.open(QIODevice::WriteOnly) || file.write(contents) != contents.size()) return false;
+  if (expectedContents) {
+    // The deferred metadata pass owns only the version Aoide originally wrote.
+    QFile current(path);
+    if (!current.open(QIODevice::ReadOnly) || current.size() != expectedContents->size() ||
+        current.readAll() != *expectedContents) return false;
   }
   return file.commit();
 }

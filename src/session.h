@@ -283,6 +283,7 @@ class AoideSession : public QObject, public PanelSurfaces {
   /// would cancel the write, and a finish after the listener edited would
   /// save work they never asked to.
   QString m3uRewritePath_;
+  QByteArray createdM3uContents_;
   std::atomic<int> verifyGen_{0};
   /// Paths the live probe generation still owes an answer for. A second ingest
   /// supersedes the first worker, so these ride along into the new run rather
