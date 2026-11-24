@@ -435,15 +435,10 @@ void PlaybackController::onCompleted() {
     case RepeatMode::all:
       next();
       break;
-    case RepeatMode::off: {
-      const auto current = playingIndex_;
-      if (!current || *current >= playlist_->tracks().size() - 1) {
-        stop();
-      } else {
-        next();
-      }
+    case RepeatMode::off:
+      if (playingIndex_) next();
+      else stop();
       break;
-    }
   }
 }
 
@@ -462,7 +457,6 @@ void PlaybackController::rebuildShuffleOrder(bool openOnCurrent) {
 }
 
 void PlaybackController::onPlaylistChanged() {
-  if (shuffle_) rebuildShuffleOrder(true);
   const auto tracks = playlist_->tracks();
   const QVector<QString> previous = previousPaths_;
   previousPaths_ = trackPaths(tracks);
@@ -481,6 +475,7 @@ void PlaybackController::onPlaylistChanged() {
       playingPath_.clear();
       playingTrack_.reset();
       if (advanceIndex && *advanceIndex < tracks.size()) {
+        if (shuffle_) rebuildShuffleOrder(true);
         playIndex(*advanceIndex);
         return;
       }
@@ -491,11 +486,11 @@ void PlaybackController::onPlaylistChanged() {
       // Playlist replaced (loaded another saved list). Keep the open file
       // playing; only a true one-track removal should advance/stop.
       playingIndex_.reset();
-      // The pass at the top of this function was pinned to that leftover
-      // index — a number that now names an unrelated row of the new list.
-      if (shuffle_) rebuildShuffleOrder(true);
     }
   }
+  // Selecting a row, opening the next song, or receiving tags also signals
+  // a playlist change. Keep this pass until its ordered paths change.
+  if (shuffle_ && previous != previousPaths_) rebuildShuffleOrder(true);
   notify();
 }
 

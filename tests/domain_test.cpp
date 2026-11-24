@@ -2056,6 +2056,28 @@ int main() {
   }
 
   {
+    // A shuffled pass can begin on the last physical row. With repeat off,
+    // both songs get a turn and playback stops after the second EOF.
+    Track a, b;
+    a.path = QStringLiteral("/tmp/first.mp3");
+    b.path = QStringLiteral("/tmp/last.mp3");
+    PlaylistController playlist;
+    playlist.loadTracks({a, b});
+    NullEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playlist.setOnChanged([&] { playback.onPlaylistChanged(); });
+    playback.playIndex(1);
+    playback.setShuffle(true);
+    engine.onCompleted();
+    REQUIRE(playback.playing());
+    REQUIRE_EQ(playback.playingIndex().value_or(-1), 0);
+    playlist.select(1);
+    engine.onCompleted();
+    REQUIRE(!playback.playing());
+    REQUIRE_EQ(playback.playingIndex().value_or(-1), 0);
+  }
+
+  {
     // Shuffle was seeded from the playing index, so turning it on at the same
     // track always dealt the same order — the listener's second evening was
     // the first one again.
@@ -2093,6 +2115,7 @@ int main() {
     playlist.setTracks(many);
     NullEngine engine;
     PlaybackController playback(&playlist, &engine);
+    playlist.setOnChanged([&] { playback.onPlaylistChanged(); });
     playback.setRepeatMode(RepeatMode::all);
     playback.playIndex(0);
     playback.setShuffle(true);
