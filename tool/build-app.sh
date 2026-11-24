@@ -63,6 +63,7 @@ SRCS=(
   "$ROOT/src/host_shell.cpp"
   "$ROOT/src/app_icon.cpp"
   "$ROOT/src/host_shell_window.cpp"
+  "$ROOT/src/compositor_keep_above.cpp"
   "$ROOT/src/mockup_draw.cpp"
   "$ROOT/src/aoide_fonts.cpp"
   "$ROOT/src/chrome_anim.cpp"

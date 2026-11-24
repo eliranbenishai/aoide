@@ -67,7 +67,8 @@ LIBS=(-L"$QT/lib" -L"$BREW/lib" -L"$MPV_LIB" -L"$STUB"
 
 APP_SRCS=(
   "$ROOT/src/window_spec.cpp" "$ROOT/src/title_chrome.cpp" "$ROOT/src/host_shell.cpp"
-  "$ROOT/src/app_icon.cpp" "$ROOT/src/host_shell_window.cpp" "$ROOT/src/mockup_draw.cpp"
+  "$ROOT/src/app_icon.cpp" "$ROOT/src/host_shell_window.cpp" "$ROOT/src/compositor_keep_above.cpp"
+  "$ROOT/src/mockup_draw.cpp" "$ROOT/src/chrome_command.cpp" "$ROOT/src/layout_sync.cpp"
   "$ROOT/src/aoide_fonts.cpp" "$ROOT/src/chrome_anim.cpp" "$ROOT/src/chrome_paint.cpp"
   "$ROOT/src/chrome_bodies.cpp" "$ROOT/src/chrome_hits.cpp" "$ROOT/src/chrome_tooltip.cpp"
   "$ROOT/src/chrome_menu.cpp" "$ROOT/src/session_view.cpp" "$ROOT/src/m3u.cpp"
