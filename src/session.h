@@ -157,6 +157,7 @@ class AoideSession : public QObject, public PanelSurfaces {
   void schedulePersist();
   QString bundledSkinsDir() const;
   SkinController::ConflictFn skinConflictPrompt();
+  std::optional<PlaylistSnapshot> currentPlaylistSnapshot() const;
   void scheduleAltered();
   void scheduleUsage();
   void refreshAboutFigures();

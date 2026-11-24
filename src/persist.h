@@ -25,10 +25,10 @@ struct SessionResume {
   bool wasPlaying = false;
 };
 
-struct AlteredPlaylist {
+struct PlaylistSnapshot {
   QVector<Track> tracks;
   QString sourcePath;
-  bool isEmpty() const { return tracks.isEmpty() && sourcePath.isEmpty(); }
+  bool altered = true;
 };
 
 struct SavedPlaylist {
@@ -79,9 +79,9 @@ class SupportStore {
   SessionResume readResume() const;
   bool writeResume(const SessionResume& r) const;
 
-  AlteredPlaylist readAltered() const;
-  bool writeAltered(const AlteredPlaylist& p) const;
-  bool clearAltered() const;
+  std::optional<PlaylistSnapshot> readPlaylistSnapshot() const;
+  bool writePlaylistSnapshot(const PlaylistSnapshot& p) const;
+  bool clearPlaylistSnapshot() const;
 
   QString readLastPlaylistPath() const;
   bool writeLastPlaylistPath(const QString& path) const;
@@ -125,7 +125,7 @@ struct PersistHealth {
 void writeSessionPersist(const SupportStore& store, PersistHealth& health,
                          const AoideSettings& settings, const SessionResume& resume,
                          const UsageCounters& usage, const QString& lastPlaylistPath,
-                         const AlteredPlaylist* altered);
+                         const PlaylistSnapshot* altered);
 
 QString normalizePlaylistPath(const QString& path);
 QString favoritesPlaylistPath();

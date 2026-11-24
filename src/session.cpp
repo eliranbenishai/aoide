@@ -119,12 +119,8 @@ AoideSession::AoideSession(QString supportDirectory, QObject* parent)
   alteredTimer_.setInterval(2000);
   QObject::connect(&alteredTimer_, &QTimer::timeout, this, [this]() {
     const bool wasFailed = persistHealth_.anyFailed();
-    if (playlist_.altered()) {
-      persistHealth_.alteredOk =
-          store_.writeAltered({playlist_.tracks(), playlist_.sourcePath()});
-    } else {
-      persistHealth_.alteredOk = store_.clearAltered();
-    }
+    const auto kept = currentPlaylistSnapshot();
+    persistHealth_.alteredOk = kept ? store_.writePlaylistSnapshot(*kept) : store_.clearPlaylistSnapshot();
     if (persistHealth_.anyFailed() != wasFailed) refreshChrome();
   });
   usageTimer_.setSingleShot(true);
@@ -348,9 +344,10 @@ void AoideSession::bootstrap(const QStringList& argvFiles) {
   {
     WaitCursorScope wait;
     collection_.validateReferences();
-    const auto kept = store_.readAltered();
-    if (!kept.isEmpty()) {
-      playlist_.restoreAlteredTracks(kept.tracks, kept.sourcePath);
+    const auto kept = store_.readPlaylistSnapshot();
+    if (kept) {
+      if (kept->altered) playlist_.restoreAlteredTracks(kept->tracks, kept->sourcePath);
+      else playlist_.loadTracks(kept->tracks, kept->sourcePath);
     } else {
       const QString last = store_.readLastPlaylistPath();
       if (!last.isEmpty() && collection_.contains(last)) {
@@ -642,6 +639,13 @@ void AoideSession::setIngesting(bool ingesting) {
   refreshChrome();
 }
 
+std::optional<PlaylistSnapshot> AoideSession::currentPlaylistSnapshot() const {
+  if (playlist_.altered() || (playlist_.sourcePath().isEmpty() && !playlist_.tracks().isEmpty())) {
+    return PlaylistSnapshot{playlist_.tracks(), playlist_.sourcePath(), playlist_.altered()};
+  }
+  return std::nullopt;
+}
+
 void AoideSession::persistNow() {
   if (qEnvironmentVariable("AOIDE_AUTO_QUIT") == QLatin1String("1")) return;
   if (!windowFor(WindowId::main)) return;
@@ -660,13 +664,10 @@ void AoideSession::persistNow() {
   if (const auto current = playback_->currentTrack()) resume.playingPath = current->path;
   resume.positionMs = playback_->positionMs();
   resume.wasPlaying = playback_->playing();
-  AlteredPlaylist altered;
-  if (playlist_.altered()) {
-    altered = {playlist_.tracks(), playlist_.sourcePath()};
-  }
+  const auto kept = currentPlaylistSnapshot();
   const bool wasFailed = persistHealth_.anyFailed();
   writeSessionPersist(store_, persistHealth_, settings_, resume, {playback_->spins()},
-                      playlist_.sourcePath(), playlist_.altered() ? &altered : nullptr);
+                      playlist_.sourcePath(), kept ? &*kept : nullptr);
   if (groupsPersistTimer_.isActive() || !persistHealth_.groupsOk) {
     groupsPersistTimer_.stop();
     persistGroupNames();

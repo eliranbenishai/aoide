@@ -54,19 +54,19 @@ void PlaylistLibraryTest::savingCurrentFavoritesDiscardsOnlyAReplacedAlteredSnap
   aoide::Track old;
   old.path = temp.filePath(QStringLiteral("old.mp3"));
   aoide::SupportStore store(temp.filePath(QStringLiteral("successful")));
-  QVERIFY(store.writeAltered({{old}, temp.filePath(QStringLiteral("old.m3u"))}));
+  QVERIFY(store.writePlaylistSnapshot({{old}, temp.filePath(QStringLiteral("old.m3u"))}));
   aoide::PersistHealth health;
   aoide::writeSessionPersist(store, health, {}, {}, {}, aoide::favoritesPlaylistPath(), nullptr);
   QVERIFY(health.lastPlaylistOk);
   QCOMPARE(store.readLastPlaylistPath(), aoide::favoritesPlaylistPath());
-  QVERIFY(store.readAltered().isEmpty());
+  QVERIFY(!store.readPlaylistSnapshot().has_value());
 
   aoide::SupportStore blocked(temp.filePath(QStringLiteral("blocked")));
-  QVERIFY(blocked.writeAltered({{old}, temp.filePath(QStringLiteral("old.m3u"))}));
+  QVERIFY(blocked.writePlaylistSnapshot({{old}, temp.filePath(QStringLiteral("old.m3u"))}));
   QVERIFY(QDir().mkpath(QDir(blocked.dir()).filePath(QStringLiteral("session.json"))));
   aoide::writeSessionPersist(blocked, health, {}, {}, {}, aoide::favoritesPlaylistPath(), nullptr);
   QVERIFY(!health.lastPlaylistOk);
-  QCOMPARE(blocked.readAltered().tracks.size(), 1);
+  QCOMPARE(blocked.readPlaylistSnapshot().value().tracks.size(), 1);
 
   aoide::SupportStore refused(temp.filePath(QStringLiteral("refused-cleanup")));
   QVERIFY(QDir().mkpath(QDir(refused.dir()).filePath(QStringLiteral("altered_playlist.json"))));

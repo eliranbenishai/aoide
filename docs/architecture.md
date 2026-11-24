@@ -184,7 +184,7 @@ Playlist bytes are decoded by `M3uCodec::decode`: Unicode first, then Windows-12
 | `session_resume.json` | Last transport / playlist origin |
 | `playlists.json` + `playlist_tracks.json` | Collection index + track-set cache (playlist → paths; path → times and tag titles), keyed on absolute paths so a collection written from one working directory still finds its tracks from another. Clicking a saved playlist loads this file, not the M3U. Save prunes the cache to the playlists still in the collection. |
 | `playlist_groups.json` + `favorites.json` | Editable group names and independent favorite track records; group assignments live in the collection index. The active filter is a setting. |
-| `altered_playlist.json` | Unsaved current list (survives restart) |
+| `altered_playlist.json` | Current playlist snapshot for edited lists and audio opened without a playlist file. The stored edit flag defaults to true for older snapshots. |
 | `usage.json` | Lifetime **spins** |
 
 ## Known v1 gaps

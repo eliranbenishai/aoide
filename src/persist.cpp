@@ -215,9 +215,11 @@ bool SupportStore::writeResume(const SessionResume& r) const {
   return writeObject(QStringLiteral("session_resume.json"), o);
 }
 
-AlteredPlaylist SupportStore::readAltered() const {
+std::optional<PlaylistSnapshot> SupportStore::readPlaylistSnapshot() const {
   const QJsonObject o = readObject(QStringLiteral("altered_playlist.json"));
-  AlteredPlaylist p;
+  if (!o.value(QStringLiteral("tracks")).isArray()) return std::nullopt;
+  PlaylistSnapshot p;
+  p.altered = o.value(QStringLiteral("altered")).toBool(true);
   p.sourcePath = o.value(QStringLiteral("sourcePath")).toString();
   const QJsonArray tracks = o.value(QStringLiteral("tracks")).toArray();
   for (const QJsonValue& v : tracks) {
@@ -229,8 +231,9 @@ AlteredPlaylist SupportStore::readAltered() const {
   return p;
 }
 
-bool SupportStore::writeAltered(const AlteredPlaylist& p) const {
+bool SupportStore::writePlaylistSnapshot(const PlaylistSnapshot& p) const {
   QJsonObject o;
+  o.insert(QStringLiteral("altered"), p.altered);
   if (!p.sourcePath.isEmpty()) {
     o.insert(QStringLiteral("sourcePath"), p.sourcePath);
   } else {
@@ -244,7 +247,7 @@ bool SupportStore::writeAltered(const AlteredPlaylist& p) const {
   return writeObject(QStringLiteral("altered_playlist.json"), o);
 }
 
-bool SupportStore::clearAltered() const {
+bool SupportStore::clearPlaylistSnapshot() const {
   const QString path = filePath(QStringLiteral("altered_playlist.json"));
   return !QFileInfo::exists(path) || QFile::remove(path);
 }
@@ -436,7 +439,7 @@ bool SupportStore::writeTrackSets(const CollectionTrackSets& sets) const {
 void writeSessionPersist(const SupportStore& store, PersistHealth& health,
                          const AoideSettings& settings, const SessionResume& resume,
                          const UsageCounters& usage, const QString& lastPlaylistPath,
-                         const AlteredPlaylist* altered) {
+                         const PlaylistSnapshot* altered) {
   health.settingsOk = store.writeSettings(settings);
   health.resumeOk = store.writeResume(resume);
   health.usageOk = store.writeUsage(usage);
@@ -444,11 +447,11 @@ void writeSessionPersist(const SupportStore& store, PersistHealth& health,
     health.lastPlaylistOk = store.writeLastPlaylistPath(lastPlaylistPath);
   }
   if (altered) {
-    health.alteredOk = store.writeAltered(*altered);
+    health.alteredOk = store.writePlaylistSnapshot(*altered);
   } else if (!lastPlaylistPath.isEmpty() && health.lastPlaylistOk) {
     // A quit may precede the debounced cleanup after loading Favorites (or
     // another saved list). Do not let an older altered list win next launch.
-    health.alteredOk = store.clearAltered();
+    health.alteredOk = store.clearPlaylistSnapshot();
   }
 }
 

@@ -1514,9 +1514,11 @@ int main() {
     dead.path = QStringLiteral("/music/dead.mp3");
     dead.durationMs = 2000;
     dead.disabled = true;
-    REQUIRE(store.writeAltered({{live, dead}, QStringLiteral("/music/set.m3u")}));
+    REQUIRE(store.writePlaylistSnapshot({{live, dead}, QStringLiteral("/music/set.m3u")}));
 
-    const aoide::AlteredPlaylist back = store.readAltered();
+    const auto snapshot = store.readPlaylistSnapshot();
+    REQUIRE(snapshot.has_value());
+    const auto& back = snapshot.value();
     REQUIRE_EQ(back.tracks.size(), 2);
     REQUIRE(!back.tracks[0].disabled);
     REQUIRE(back.tracks[1].disabled);
@@ -2807,8 +2809,8 @@ int main() {
     QTemporaryDir tmp;
     REQUIRE(tmp.isValid());
     aoide::SupportStore store(tmp.path());
-    REQUIRE(store.writeAltered({{track}, QStringLiteral("/music/set.m3u")}));
-    REQUIRE(store.readAltered().tracks == QVector<Track>{track});
+    REQUIRE(store.writePlaylistSnapshot({{track}, QStringLiteral("/music/set.m3u")}));
+    REQUIRE(store.readPlaylistSnapshot().value().tracks == QVector<Track>{track});
 
     aoide::PlaylistCollection collection;
     collection.setExists([](const QString&) { return true; });

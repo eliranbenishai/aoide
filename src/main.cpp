@@ -1222,7 +1222,7 @@ int smokePlaylistScroll() {
     if (!file.open(QIODevice::WriteOnly) || file.write("#EXTM3U\n") != 8) return 1;
     entries.push_back(entry);
   }
-  aoide::AlteredPlaylist kept;
+  aoide::PlaylistSnapshot kept;
   for (int i = 0; i < 80; ++i) {
     aoide::Track track;
     track.path = temporary.filePath(QStringLiteral("track-%1.wav").arg(i));
@@ -1230,7 +1230,7 @@ int smokePlaylistScroll() {
     kept.tracks.push_back(track);
   }
   if (!store.writeSettings(settings) || !store.writeCollectionIndex(entries) ||
-      !store.writeAltered(kept)) return 1;
+      !store.writePlaylistSnapshot(kept)) return 1;
 
   HostWindow panel(aoide::windowSpecs()[aoide::panelIndex(aoide::WindowId::playlist)]);
   aoide::AoideSession session(store.dir());
@@ -1399,7 +1399,7 @@ int smokeFileOpen(AoideApplication& app) {
       resume.playingIndex = 0;
       resume.playingPath = oldPath;
       resume.wasPlaying = test.wasPlaying;
-      if (!store.writeAltered({{old}, {}}) || !store.writeResume(resume)) return 1;
+      if (!store.writePlaylistSnapshot({{old}, {}}) || !store.writeResume(resume)) return 1;
     }
     aoide::AoideSession session(store.dir());
     QStringList args{QStringLiteral("aoide")};
@@ -1433,6 +1433,30 @@ int smokeFileOpen(AoideApplication& app) {
                    view.playingIndex.value_or(-1));
       return 1;
     }
+  }
+  // OS-opened audio can be an unedited current playlist without a backing M3U.
+  qputenv("AOIDE_AUTO_QUIT", "0");
+  aoide::SupportStore store(temporary.filePath(QStringLiteral("loose audio resume")));
+  aoide::AoideSettings settings;
+  settings.resumeLastSession = false;
+  if (!store.writeSettings(settings)) return 1;
+  {
+    HostWindow main(aoide::windowSpecs()[aoide::panelIndex(aoide::WindowId::main)]);
+    aoide::PanelWindows panels;
+    panels.set(aoide::WindowId::main, &main);
+    aoide::AoideSession session(store.dir());
+    session.setWindows(panels);
+    session.bootstrap({oldPath, requestedPath});
+    session.detachWindows();
+  }
+  aoide::AoideSession restored(store.dir());
+  restored.bootstrap({});
+  const auto reopened = restored.view();
+  if (reopened.tracks.size() != 2 || reopened.playlistAltered || reopened.hasCurrentTrack ||
+      reopened.tracks[0].title != QFileInfo(oldPath).fileName() ||
+      reopened.tracks[1].title != QFileInfo(requestedPath).fileName()) {
+    std::fprintf(stderr, "file-open smoke: loose audio failed to resume in order\n");
+    return 1;
   }
   std::fprintf(stderr, "file-open smoke: passed\n");
   return 0;
