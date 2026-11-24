@@ -329,7 +329,18 @@ std::optional<qreal> LayoutSync::zoomStepDown() const {
 
 bool LayoutSync::setZoomPercent(qreal percent) {
   if (!zoomStepAvailable(percent)) return false;
+  if (zoomPercentsEqual(percent, zoomPercent_)) return true;
+  const QPointF main = docking_.rectFor(WindowId::main).topLeft();
+  const QPoint anchor = logicalToNative(main);
   zoomPercent_ = percent;
+  // Absolute desktop coordinates include the monitor origin. Scale offsets
+  // around the player so a change of canvas size keeps it on its display.
+  const QPointF correction = nativeToLogical(anchor) - main;
+  for (const PanelSpec& panel : panelSpecs()) {
+    WindowFrame& frame = docking_.layout().frameOf(panel.id);
+    frame.left += correction.x();
+    frame.top += correction.y();
+  }
   return true;
 }
 

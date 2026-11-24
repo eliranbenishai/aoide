@@ -203,6 +203,25 @@ void SessionWindowMoveTest::aMainTitleDragCarriesSnappedNativeWindowsAcrossMonit
   QVERIFY(saved.playlist.height.has_value());
   QCOMPARE(*saved.playlist.width, *settings.playlist.width);
   QCOMPARE(*saved.playlist.height, *settings.playlist.height);
+
+  connect(&session, &aoide::AoideSession::zoomChanged, &session, [&](qreal zoom) {
+    for (const auto& window : ownedWindows) window->setZoomPercent(zoom);
+  });
+  const QPoint anchor(2200, 100);
+  session.windowMoved(WindowId::main, anchor, false);
+  for (qreal zoom : {75.0, 62.5, 75.0, 100.0}) {
+    session.setZoomPercent(zoom);
+    QCoreApplication::processEvents(QEventLoop::AllEvents);
+    QCOMPARE(main->nativeTopLeft(), anchor);
+    QCOMPARE(eq->nativeTopLeft(), anchor + QPoint(0, qRound(348 * zoom / 100)));
+    QCOMPARE(playlist->nativeTopLeft(), anchor + QPoint(qRound(825 * zoom / 100), 0));
+    QCOMPARE(playlist->size(), aoide::zoomed(QSize(1073, 696), zoom));
+  }
+  session.persistNow();
+  const auto zoomed = store.readSettings();
+  QCOMPARE(zoomed.dockEdges.size(), saved.dockEdges.size());
+  QCOMPARE(zoomed.playlist.width, saved.playlist.width);
+  QCOMPARE(zoomed.playlist.height, saved.playlist.height);
   session.detachWindows();
 }
 

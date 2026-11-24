@@ -17,6 +17,7 @@
 #include <QMimeData>
 #include <QMoveEvent>
 #include <QPainter>
+#include <QSignalBlocker>
 #include <QUrl>
 #include <QWindow>
 #include <cmath>
@@ -118,6 +119,9 @@ void HostWindow::setZoomPercent(qreal percent) {
   zoomPercent_ = percent;
   view_.zoomPercent = percent;
   hideChromeTooltipNow();
+  // The layout will place this new canvas. Its resize event still carries
+  // the old origin and must not be reported as a listener resizing the playlist.
+  const QSignalBlocker applyingZoom(this);
   applyNativeSize();
 }
 
