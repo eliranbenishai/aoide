@@ -63,43 +63,32 @@ if [[ ! -x "$APP/Contents/MacOS/Aoide" ]]; then
 fi
 require_arm64_binary "$APP/Contents/MacOS/Aoide"
 
-find_macdeployqt() {
-  if command -v macdeployqt >/dev/null; then
-    command -v macdeployqt
-    return 0
+# CMake pins the kit. A different macdeployqt will happily copy its own
+# frameworks into this app, even if the app links a newer patch release.
+qt_version="$(tr -d '[:space:]' < "$ROOT/QT_VERSION")"
+find_qt_bin() {
+  local config_dir="" path_tool bin
+  if [[ -f "$BUILD/CMakeCache.txt" ]]; then
+    config_dir="$(sed -n 's/^Qt6_DIR:PATH=//p' "$BUILD/CMakeCache.txt")"
   fi
-  if [[ -n "${QT:-}" && -x "$QT/bin/macdeployqt" ]]; then
-    printf '%s\n' "$QT/bin/macdeployqt"
-    return 0
-  fi
-  if [[ -n "${QTDIR:-}" && -x "$QTDIR/bin/macdeployqt" ]]; then
-    printf '%s\n' "$QTDIR/bin/macdeployqt"
-    return 0
-  fi
-  local qt_core prefix
-  qt_core="$(otool -L "$APP/Contents/MacOS/Aoide" | awk '/QtCore\.framework/ { print $1; exit }')"
-  if [[ "$qt_core" == /* ]]; then
-    # PREFIX/lib/QtCore.framework/Versions/A/QtCore
-    prefix="$(cd "$(dirname "$qt_core")/../../../.." && pwd)"
-    if [[ -x "$prefix/bin/macdeployqt" ]]; then
-      printf '%s\n' "$prefix/bin/macdeployqt"
-      return 0
-    fi
-  fi
-  local g
-  for g in "$ROOT/.local/qt/"*/macos/bin/macdeployqt; do
-    if [[ -x "$g" ]]; then
-      printf '%s\n' "$g"
+  path_tool="$(command -v macdeployqt || true)"
+  for bin in "${config_dir:+$config_dir/../../../bin}" \
+             "${QT:+$QT/bin}" "${QTDIR:+$QTDIR/bin}" "${QT_ROOT_DIR:+$QT_ROOT_DIR/bin}" \
+             "$ROOT/.local/qt/$qt_version/macos/bin" "${path_tool%/*}"; do
+    [[ -x "$bin/macdeployqt" && -x "$bin/qtpaths" ]] || continue
+    if [[ "$("$bin/qtpaths" --query QT_VERSION)" == "$qt_version" ]]; then
+      (cd "$bin" && pwd)
       return 0
     fi
   done
   return 1
 }
 
-if ! MACDEPLOYQT="$(find_macdeployqt)"; then
-  echo "stage_app: macdeployqt not found; refusing to ship Aoide.app without Qt" >&2
+if ! qt_bin="$(find_qt_bin)"; then
+  echo "stage_app: cannot find macdeployqt from Qt $qt_version" >&2
   exit 1
 fi
+MACDEPLOYQT="$qt_bin/macdeployqt"
 
 copy_xcframeworks() {
   local dest="$APP/Contents/Frameworks"
@@ -183,27 +172,17 @@ fi
 # smoke test runs the staged tree under, and that test clears QT_PLUGIN_PATH so
 # a stage missing its plugins cannot borrow the runner's. Same reason
 # stage.ps1 / stage_bundle.sh take the offscreen plugin on the other hosts.
-# install-qt-action exports QT_ROOT_DIR, not QT or QTDIR, so keying only on
-# those skipped this copy on every CI run. macdeployqt's own prefix is the
-# reliable answer: it lives at PREFIX/bin, beside PREFIX/plugins.
-qt_plugins=""
-for qt_cand in \
-    "${QT:-}" \
-    "${QTDIR:-}" \
-    "${QT_ROOT_DIR:-}" \
-    "$(cd "$(dirname "$MACDEPLOYQT")/.." && pwd)"; do
-  [[ -n "$qt_cand" && -d "$qt_cand/plugins/platforms" ]] || continue
-  qt_plugins="$qt_cand/plugins"
-  break
-done
-if [[ -n "$qt_plugins" && -f "$qt_plugins/platforms/libqoffscreen.dylib" ]]; then
+qt_plugins="$("$qt_bin/qtpaths" --query QT_INSTALL_PLUGINS)"
+if [[ -f "$qt_plugins/platforms/libqoffscreen.dylib" ]]; then
   mkdir -p "$APP/Contents/PlugIns/platforms"
   cp -f "$qt_plugins/platforms/libqoffscreen.dylib" \
     "$APP/Contents/PlugIns/platforms/"
 fi
 
-if [[ ! -d "$APP/Contents/Frameworks/QtCore.framework" ]]; then
-  echo "stage_app: macdeployqt did not deploy QtCore.framework" >&2
+staged_core="$APP/Contents/Frameworks/QtCore.framework/QtCore"
+staged_version="$(otool -L "$staged_core" | awk '/QtCore\.framework.*current version/ { sub(/\)$/, "", $NF); print $NF; exit }')"
+if [[ "$staged_version" != "$qt_version" ]]; then
+  echo "stage_app: expected Qt $qt_version in the bundle, found '$staged_version'" >&2
   exit 1
 fi
 if [[ ! -f "$APP/Contents/PlugIns/platforms/libqcocoa.dylib" ]]; then
