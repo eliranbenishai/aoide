@@ -48,6 +48,8 @@ class PanelSurfaces {
   /// Embedded panels return their container bounds. Empty means no intersected
   /// display (or no known work area); the caller chooses a fallback anchor.
   virtual QRect spanningWorkAreaFor(QRect clusterNative) const = 0;
+  /// Individual usable rectangles, including any gaps between displays.
+  virtual QVector<QRect> workAreas() const = 0;
   /// All panels arrive every pass, hidden ones included, because hiding is
   /// something this call has to do rather than something it can skip. A panel
   /// missing from the list could keep a stale window visible.
@@ -141,6 +143,8 @@ class LayoutSync {
  private:
   QRect hostRect() const;
   QRect spanningWorkAreaFor(QRect panelsNative) const;
+  void keepTitlesReachable(QVector<PanelPlacement>& panels, QRect host,
+                           std::optional<WindowId> moved);
   int reservedTopLiftFor(QRect panelNative) const;
 
   DockingCoordinator docking_;

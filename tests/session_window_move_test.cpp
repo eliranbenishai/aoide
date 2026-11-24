@@ -37,6 +37,8 @@ class MonitorSession : public aoide::AoideSession {
     return work;
   }
 
+  QVector<QRect> workAreas() const override { return {leftWork(), rightWork()}; }
+
   static QRect leftScreen() { return QRect(0, 0, 1920, 1200); }
   QRect rightScreen() const { return QRect(1920, 0, 2560, rightHeight_); }
   static QRect leftWork() { return QRect(0, 25, 1920, 1175); }

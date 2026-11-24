@@ -718,6 +718,15 @@ QRect AoideSession::spanningWorkAreaFor(QRect clusterNative) const {
   return work;
 }
 
+QVector<QRect> AoideSession::workAreas() const {
+  if (shell_ && shell_->embedsPanels()) return {shell_->layoutBounds()};
+  QVector<QRect> areas;
+  for (const QScreen* screen : QGuiApplication::screens()) {
+    areas.append(screen->availableGeometry());
+  }
+  return areas;
+}
+
 SessionView AoideSession::view() const {
   SessionView v;
   v.eqOn = layout_.layout().equalizer.visible;

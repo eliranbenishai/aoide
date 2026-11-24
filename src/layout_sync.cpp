@@ -3,10 +3,13 @@
 #include "chrome_layout.h"
 #include "host_shell.h"
 #include "panel_registry.h"
+#include "title_chrome.h"
 
+#include <QRegion>
 #include <QVector>
 #include <cmath>
 #include <iterator>
+#include <limits>
 
 namespace aoide {
 namespace {
@@ -184,6 +187,44 @@ void clearDockedSiblingsOfMain(QVector<PanelPlacement>& panels, QRect host, QSiz
     panel.screen = clearKeep(panel.screen, main, bounds, playlistMin, mayShrink,
                              panelSpec(panel.id).parkSide);
   }
+}
+
+QRegion reachableTitleTranslations(const PanelPlacement& panel, qreal zoom,
+                                   const QVector<QRect>& workAreas, QRect host) {
+  const QRect frame = panel.screen;
+  const QSize logical(qRound(frame.width() / zoom), qRound(frame.height() / zoom));
+  const auto title = TitleChromeLayout::forWindow(panel.id, logical);
+  const QRect drag(frame.topLeft(), QSize(qRound(title.dragRight * zoom),
+                                          qRound(title.titleBar.height() * zoom)));
+  // Keep a square of draggable chrome available. Buttons on the right edge
+  // cannot serve as a handle. A title split across a seam can use either side.
+  const int grip = qMin(drag.width(), drag.height()) / 2;
+  QRegion choices;
+  for (const QRect& work : workAreas) {
+    if (work.isEmpty()) continue;
+    choices += QRect(QPoint(work.left() - drag.right() + grip - 1,
+                            work.top() - drag.bottom() + grip - 1),
+                     QPoint(work.right() - drag.left() - grip + 1,
+                            work.bottom() - drag.top() - grip + 1));
+  }
+  // place() has already fitted every visible frame to this envelope.
+  return choices.intersected(QRect(host.topLeft() - frame.topLeft(),
+                                   host.bottomRight() - frame.bottomRight()));
+}
+
+QPoint closestTranslation(const QRegion& choices) {
+  QPoint best;
+  qint64 bestDistance = std::numeric_limits<qint64>::max();
+  for (const QRect& choice : choices) {
+    const QPoint delta(qBound(choice.left(), 0, choice.right()),
+                       qBound(choice.top(), 0, choice.bottom()));
+    const qint64 distance = qint64(delta.x()) * delta.x() + qint64(delta.y()) * delta.y();
+    if (distance < bestDistance) {
+      best = delta;
+      bestDistance = distance;
+    }
+  }
+  return best;
 }
 
 }  // namespace
@@ -384,6 +425,40 @@ void LayoutSync::setMainMinimized(bool minimized) {
   }
 }
 
+void LayoutSync::keepTitlesReachable(QVector<PanelPlacement>& panels, QRect host,
+                                     std::optional<WindowId> moved) {
+  const auto areas = surfaces_->workAreas();
+  if (areas.size() < 2 || host.isEmpty()) return;
+  QRect group;
+  for (const PanelPlacement& panel : panels) {
+    if (panel.visible) group = group.united(panel.screen);
+  }
+  for (const QRect& area : areas) {
+    if (area.contains(group)) return;
+  }
+  const bool wholeGroup = !moved || moved == WindowId::main;
+  QVector<QRegion> choices(panels.size());
+  std::optional<QRegion> shared;
+  for (qsizetype i = 0; i < panels.size(); ++i) {
+    const auto& panel = panels[i];
+    if (!panel.visible || (!wholeGroup && panel.id != *moved)) continue;
+    choices[i] = reachableTitleTranslations(panel, zoomPercent_ / 100, areas, host);
+    shared = shared ? shared->intersected(choices[i]) : choices[i];
+  }
+  if (!shared || shared->contains(QPoint())) return;
+  const QPoint together = closestTranslation(*shared);
+  for (qsizetype i = 0; i < panels.size(); ++i) {
+    auto& panel = panels[i];
+    if (panel.visible && !choices[i].isEmpty()) {
+      // Layouts too spread out for any shared correction must recover each
+      // missing handle individually. Reachable panels keep their position.
+      panel.screen.translate(shared->isEmpty() ? closestTranslation(choices[i]) : together);
+    } else if (!panel.visible && wholeGroup && !together.isNull()) {
+      setNativeFrame(panel.id, nativeFrameRect(panel.id).translated(together));
+    }
+  }
+}
+
 void LayoutSync::place() {
   if (placing_) return;
   if (!surfaces_) {
@@ -427,6 +502,7 @@ void LayoutSync::place() {
     clearDockedSiblingsOfMain(panels, host, zoomed(playlistMinLogical_, zoomPercent_),
                              work);
   }
+  keepTitlesReachable(panels, host, moved);
   for (PanelPlacement& panel : panels) {
     const QSizeF canvas = docking_.canvasSize(panel.id);
     if (panel.visible) {

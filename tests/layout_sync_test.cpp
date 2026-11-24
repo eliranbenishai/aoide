@@ -32,6 +32,9 @@ class FakeDesktop : public aoide::PanelSurfaces {
     if (screen_.intersects(clusterNative)) work = work.united(screenWork_);
     return work;
   }
+  QVector<QRect> workAreas() const override {
+    return screenWork_.isEmpty() ? QVector<QRect>{work_} : QVector<QRect>{work_, screenWork_};
+  }
   void setWorkArea(QRect work) { work_ = work; }
   /// A second display's work area, used when the asked rectangle sits on it.
   /// The default [work_] stays the answer for everything else, including the
@@ -145,6 +148,7 @@ class LayoutSyncTest : public QObject {
   void aMainDragAcrossMonitorsKeepsTheSnappedArrangement_data();
   void aSmallerDestinationFitsTheClusterAsAWhole();
   void aShorterMonitorFitsThePlaylistWithoutBreakingTheVerticalStack();
+  void aDockedEqualizerRemainsReachableAcrossAMonitorGap();
   void aCompanionOnTheUpperMonitorDoesNotHideMainsTitleBar();
   void aTitleBarInAMonitorGapUsesTheDisplayUnderItsBody();
 };
@@ -1323,6 +1327,33 @@ void LayoutSyncTest::aShorterMonitorFitsThePlaylistWithoutBreakingTheVerticalSta
     drag({100, y});
     QCOMPARE(desktop.placementOf(WindowId::playlist).screen, QRect(100, y + 522, 805, 522));
     QCOMPARE(layout.layout().dockEdges.size(), 2);
+  }
+}
+
+void LayoutSyncTest::aDockedEqualizerRemainsReachableAcrossAMonitorGap() {
+  const QRect left(0, 0, 1920, 1440);
+  const QRect right(1920, 0, 1920, 900);
+  FakeDesktop desktop(left.united(right));
+  desktop.setWorkArea(left.adjusted(0, 25, 0, 0));
+  desktop.setWorkAreaForScreen(right, right.adjusted(0, 25, 0, 0));
+  DockLayout dock = defaultCluster();
+  dock.playlist.visible = false;
+  dock.equalizer.left = 400;
+  dock.dockEdges = {{WindowId::equalizer, WindowId::main, aoide::DockSide::top}};
+  LayoutSync layout(dock, 75);
+  layout.setSurfaces(&desktop);
+
+  for (int x : {100, 900, 1300, 1600, 1640, 1800, 2100, 100}) {
+    layout.docking().move(WindowId::main, layout.nativeToLogical({x, 800}), false, false);
+    layout.fitClusterToHost();
+    layout.place();
+    const QRect main = desktop.placementOf(WindowId::main).screen;
+    const QRect eq = desktop.placementOf(WindowId::equalizer).screen;
+    const QRect handle(eq.topLeft(), QSize(500, 22));
+    QVERIFY(left.intersects(handle) || right.intersects(handle));
+    QCOMPARE(eq.topLeft() - main.topLeft(), QPoint(300, 261));
+    QCOMPARE(layout.layout().dockEdges.size(), 1);
+    if (x == 100) QCOMPARE(main.topLeft(), QPoint(x, 800));
   }
 }
 
