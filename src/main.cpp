@@ -10,6 +10,7 @@
 #include "playlist_groups_window.h"
 #include "session.h"
 #include "session_view.h"
+#include "single_instance.h"
 #include "support_dir.h"
 #include "title_chrome.h"
 #include "aoide_fonts.h"
@@ -37,6 +38,7 @@
 #include <QMessageBox>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QProcess>
 #include <QSet>
 #include <QSettings>
 #include <QShortcut>
@@ -834,6 +836,8 @@ class AoideApplication : public QApplication {
     });
   }
 
+  const QStringList& queuedFileOpens() const { return queuedFileOpens_; }
+
   QStringList takeQueuedFileOpens() {
     QStringList out;
     queuedFileOpens_.swap(out);
@@ -1491,6 +1495,49 @@ int smokeFileOpen(AoideApplication& app) {
   return 0;
 }
 
+// Launch the actual binary from another working directory. The peer inherits
+// the temporary profile only in this smoke mode.
+int smokeSingleInstance(aoide::AoideSession& session, HostShell& shell, const QString& profile) {
+  QTemporaryDir music;
+  if (!music.isValid()) return 1;
+  const QString name = QStringLiteral("peer track é.wav");
+  if (writeSmokeWav(music.filePath(name)).isEmpty()) return 1;
+  auto launch = [&](QStringList files) {
+    QProcess peer;
+    auto env = QProcessEnvironment::systemEnvironment();
+    env.insert(QStringLiteral("AOIDE_INSTANCE_SMOKE_PROFILE"), profile);
+    peer.setProcessEnvironment(env);
+    peer.setWorkingDirectory(music.path());
+    QEventLoop events;
+    QTimer timeout;
+    timeout.setSingleShot(true);
+    QObject::connect(&peer, &QProcess::finished, &events, &QEventLoop::quit);
+    QObject::connect(&peer, &QProcess::errorOccurred, &events, &QEventLoop::quit);
+    QObject::connect(&timeout, &QTimer::timeout, &events, &QEventLoop::quit);
+    files.prepend(QStringLiteral("--smoke-single-instance"));
+    timeout.start(10000);
+    peer.start(QCoreApplication::applicationFilePath(), files);
+    events.exec();
+    return peer.state() == QProcess::NotRunning && peer.exitStatus() == QProcess::NormalExit &&
+           peer.error() == QProcess::UnknownError && peer.exitCode() == 0;
+  };
+  shell.showMinimized();
+  if (!launch({name, name})) return 1;
+  // The sender may exit as soon as its request has been accepted.
+  QElapsedTimer deadline;
+  deadline.start();
+  while ((session.view().tracks.size() != 2 || shell.isMinimized()) && deadline.elapsed() < 3000)
+    pumpFor(10);
+  auto view = session.view();
+  if (shell.isMinimized() || view.tracks.size() != 2 || view.tracks[0].title != name ||
+      view.tracks[1].title != name) return 1;
+  shell.showMinimized();
+  if (!launch({})) return 1;
+  deadline.restart();
+  while (shell.isMinimized() && deadline.elapsed() < 3000) pumpFor(10);
+  return !shell.isMinimized() && session.view().tracks.size() == 2 ? 0 : 1;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -1544,12 +1591,32 @@ int main(int argc, char** argv) {
     qputenv("AOIDE_AUTO_QUIT", "1");
     return smokeFileOpen(app);
   }
+  const bool instanceSmoke = args.contains(QStringLiteral("--smoke-single-instance"));
+  const bool diagnostic = smoke || dragBench.on || invalidateBench ||
+                          qEnvironmentVariable("AOIDE_AUTO_QUIT") == QLatin1String("1");
   std::unique_ptr<QTemporaryDir> smokeSupport;
-  if (smoke) {
+  QString profile;
+  if (instanceSmoke) profile = qEnvironmentVariable("AOIDE_INSTANCE_SMOKE_PROFILE");
+  const bool smokePeer = instanceSmoke && !profile.isEmpty();
+  if (profile.isEmpty() && (smoke || instanceSmoke)) {
     smokeSupport = std::make_unique<QTemporaryDir>();
     if (!smokeSupport->isValid()) return 1;
+    profile = smokeSupport->path();
   }
-  aoide::AoideSession session(smoke ? smokeSupport->path() : aoide::aoideSupportDirectory());
+  if (profile.isEmpty()) profile = aoide::aoideSupportDirectory();
+
+  aoide::SingleInstance instance;
+  if (!diagnostic || instanceSmoke) {
+    const auto result = instance.start(profile, launchFiles(args) + app.queuedFileOpens());
+    if (result == aoide::SingleInstance::Result::forwarded) return 0;
+    if (result == aoide::SingleInstance::Result::error || smokePeer) {
+      const QString message = instance.errorString();
+      std::fprintf(stderr, "Aoide could not open the player: %s\n", qPrintable(message));
+      if (!instanceSmoke) QMessageBox::critical(nullptr, QStringLiteral("Could not open Aoide"), message);
+      return 1;
+    }
+  }
+  aoide::AoideSession session(profile);
 
   HostShell hostShell(smokeEmbedded ? aoide::PanelPresentation::embedded :
                       aoide::panelPresentationFor(QGuiApplication::platformName()));
@@ -1745,9 +1812,17 @@ int main(int argc, char** argv) {
   hostShell.show();
   session.reapplyWindowFrames();
 
-  if (smoke) {
+  instance.setHandler([&](const QStringList& paths) {
+    if (hostShell.isMinimized()) hostShell.setWindowState(hostShell.windowState() & ~Qt::WindowMinimized);
+    hostShell.bringPanelsForward();
+    hostShell.activateWindow();
+    if (!paths.isEmpty()) session.openRequestedFiles(paths);
+  });
+  if (smoke || instanceSmoke) {
     QTimer::singleShot(0, &app, [&]() {
-      QCoreApplication::exit(smokeWindows(session, hostShell, panels));
+      const int result = instanceSmoke ? smokeSingleInstance(session, hostShell, profile)
+                                       : smokeWindows(session, hostShell, panels);
+      QCoreApplication::exit(result);
     });
     const int result = app.exec();
     session.detachWindows();

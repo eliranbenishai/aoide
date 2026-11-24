@@ -52,7 +52,7 @@ elseif(UNIX)
   endif()
 endif()
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets Test)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Network Test)
 find_package(Qt6 QUIET COMPONENTS DBus)
 if(NOT Qt6_VERSION VERSION_EQUAL AOIDE_QT_VERSION)
   message(FATAL_ERROR
@@ -286,7 +286,8 @@ if(APPLE)
     "${CMAKE_CURRENT_BINARY_DIR}/Info.plist"
     @ONLY)
 endif()
-qt_add_executable(aoide WIN32 MACOSX_BUNDLE ${AOIDE_SOURCES})
+qt_add_executable(aoide WIN32 MACOSX_BUNDLE ${AOIDE_SOURCES}
+  src/single_instance.cpp src/single_instance.h)
 target_include_directories(aoide PRIVATE src "${AOIDE_MPV_ROOT}/include")
 target_compile_definitions(aoide PRIVATE
   AOIDE_VERSION="${PROJECT_VERSION}"
@@ -353,7 +354,7 @@ if(UNIX AND NOT APPLE)
   # $ORIGIN runpaths.
   set_target_properties(aoide PROPERTIES INSTALL_RPATH "$ORIGIN/lib;$ORIGIN")
 endif()
-target_link_libraries(aoide PRIVATE aoide_window_spec Qt6::Widgets)
+target_link_libraries(aoide PRIVATE aoide_window_spec Qt6::Widgets Qt6::Network)
 if(TARGET Qt6::DBus)
   target_link_libraries(aoide PRIVATE Qt6::DBus)
   target_compile_definitions(aoide PRIVATE AOIDE_HAVE_DBUS)
@@ -688,12 +689,13 @@ set_tests_properties(native_file_dialog PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=
 add_test(NAME domain COMMAND domain_test)
 add_test(NAME look COMMAND look_test)
 add_test(NAME font_metrics COMMAND font_metrics_test)
+add_test(NAME single_instance_session COMMAND aoide --smoke-single-instance)
 add_test(NAME native_window_session COMMAND aoide --smoke-windows)
 add_test(NAME embedded_window_session COMMAND aoide --smoke-embedded-windows)
 add_test(NAME playlist_create_session COMMAND aoide --smoke-playlist-create)
 add_test(NAME playlist_scroll_session COMMAND aoide --smoke-playlist-scroll)
 add_test(NAME playlist_groups_session COMMAND aoide --smoke-playlist-groups)
-set_tests_properties(native_window_session embedded_window_session
+set_tests_properties(single_instance_session native_window_session embedded_window_session
   playlist_create_session playlist_scroll_session playlist_groups_session
   PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 if(AOIDE_HAVE_MPV)

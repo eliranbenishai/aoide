@@ -25,13 +25,13 @@ fi
 
 INC=(
   -I"$QT/include" -I"$QT/include/QtWidgets" -I"$QT/include/QtGui" -I"$QT/include/QtCore" \
-  -I"$QT/include/QtDBus"
+  -I"$QT/include/QtDBus" -I"$QT/include/QtNetwork"
   -I"$MPV_INC"
   -I"$ROOT/src" -I"$BUILD"
 )
 VERSION="$(head -n 1 "$ROOT/VERSION" | tr -d '\r[:space:]')"
 DEFS=(
-  -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_DBUS_LIB -DAOIDE_HAVE_MPV -DAOIDE_HAVE_DBUS
+  -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_DBUS_LIB -DQT_NETWORK_LIB -DAOIDE_HAVE_MPV -DAOIDE_HAVE_DBUS
   -DAOIDE_VERSION="\"$VERSION\""
   -DAOIDE_ASSET_DIR="\"$ROOT/assets\""
   -DAOIDE_SKINS_DIR="\"$ROOT/skins\""
@@ -105,6 +105,7 @@ SRCS=(
   "$ROOT/src/session_playlists.cpp"
   "$ROOT/src/playlist_groups_window.cpp"
   "$ROOT/src/host_window.cpp"
+  "$ROOT/src/single_instance.cpp"
   "$ROOT/src/main.cpp"
   "$BUILD/moc_host_window.cpp"
   "$BUILD/moc_host_shell_window.cpp"
@@ -113,7 +114,7 @@ SRCS=(
   "$BUILD/moc_mpv_engine.cpp"
 )
 
-"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" "${DEFS[@]}" "${SRCS[@]}" "${LIBS[@]}" -o "$BUILD/aoide.next"
+"$CXX" "${CXXFLAGS[@]}" "${INC[@]}" "${DEFS[@]}" "${SRCS[@]}" "${LIBS[@]}" -lQt6Network -o "$BUILD/aoide.next"
 mv -f "$BUILD/aoide.next" "$BUILD/aoide"
 
 # Paint budget + optimisation guard. Drag smoothness is a paint-cost property,

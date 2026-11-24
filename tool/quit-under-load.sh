@@ -106,7 +106,8 @@ if [[ "${AOIDE_QUIT_SKIP_BUILD:-0}" != "1" ]]; then
   if [[ "$PHASE" != "loop" ]]; then
     echo "quit-load: building sanitized app"
     "$CXX" "${CXXFLAGS[@]}" "${INC[@]}" "${DEFS[@]}" "${APP_SRCS[@]}" \
-      "$ROOT/src/main.cpp" "${LIBS[@]}" -o "$WORK/aoide-asan"
+      -DQT_NETWORK_LIB -I"$QT/include/QtNetwork" "$ROOT/src/single_instance.cpp" \
+      "$ROOT/src/main.cpp" "${LIBS[@]}" -lQt6Network -o "$WORK/aoide-asan"
   fi
 fi
 
