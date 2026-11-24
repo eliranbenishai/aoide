@@ -79,6 +79,9 @@ class PlaylistCollection {
 
  private:
   int indexOf(const QString& path) const;
+  void updateCachedDuration(const QString& path, qint64 durationMs);
+  void indexPlaylistTracks(SavedPlaylist& entry);
+  void forgetPlaylistTracks(const QString& playlist);
   QString availableSavedFavoritesName() const;
   void sortEntries();
   void refreshFigures(SavedPlaylist& e, const QVector<Track>& tracks);
@@ -98,6 +101,7 @@ class PlaylistCollection {
   QVector<Track> favorites_;
   QString selectedPath_;
   CollectionTrackSets trackSets_;
+  QMultiHash<QString, QString> playlistsByTrack_;
   Exists exists_;
   bool trackSetsDirty_ = false;
   int validationIntervalMs_ = kValidationIntervalMs;

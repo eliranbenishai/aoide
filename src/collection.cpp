@@ -12,7 +12,9 @@ void PlaylistCollection::load(const SupportStore& store) {
   groups_ = store.readPlaylistGroups();
   favorites_ = store.readFavorites();
   trackSets_ = store.readTrackSets();
+  playlistsByTrack_.clear();
   for (SavedPlaylist& entry : entries_) {
+    if (trackSets_.byEntry.contains(entry.path)) indexPlaylistTracks(entry);
     if (isReservedPlaylistName(entry.displayName())) entry.name = availableSavedFavoritesName();
   }
   sortEntries();
@@ -134,17 +136,14 @@ void PlaylistCollection::sortEntries() {
 }
 
 void PlaylistCollection::refreshFigures(SavedPlaylist& e, const QVector<Track>& tracks) {
+  forgetPlaylistTracks(e.path);
   e.trackCount = tracks.size();
-  qint64 total = 0;
   QStringList paths;
   for (const Track& t : tracks) {
     const QString n = normalizePlaylistPath(t.path);
     paths.push_back(n);
     if (t.durationMs && *t.durationMs > 0) {
-      total += *t.durationMs;
-      trackSets_.durationsMs.insert(n, *t.durationMs);
-    } else {
-      total += qMax<qint64>(0, trackSets_.durationsMs.value(n, 0));
+      updateCachedDuration(n, *t.durationMs);
     }
     if (trackMetadata(t).hasTags()) {
       Track cached;
@@ -154,9 +153,9 @@ void PlaylistCollection::refreshFigures(SavedPlaylist& e, const QVector<Track>& 
       trackSets_.meta.insert(n, trackMetadata(cached));
     }
   }
-  e.totalDurationMs = total;
   e.modifiedMs = QFileInfo(e.path).lastModified().toMSecsSinceEpoch();
   trackSets_.byEntry.insert(e.path, paths);
+  indexPlaylistTracks(e);
   trackSetsDirty_ = true;
   // This list was just read off the disk — on add, on Refresh, on Save — so
   // asking about its own tracks is bounded by the playlist the caller already
@@ -184,18 +183,33 @@ void PlaylistCollection::mergeTrackDuration(const QString& trackPath, qint64 dur
   for (Track& favorite : favorites_) {
     if (favorite.path == n) favorite.durationMs = durationMs;
   }
-  if (trackSets_.durationsMs.value(n, -1) == durationMs) return;
-  trackSets_.durationsMs.insert(n, durationMs);
+  updateCachedDuration(n, durationMs);
+}
+
+void PlaylistCollection::updateCachedDuration(const QString& path, qint64 durationMs) {
+  const qint64 previous = qMax<qint64>(0, trackSets_.durationsMs.value(path));
+  if (previous == durationMs) return;
+  trackSets_.durationsMs.insert(path, durationMs);
   trackSetsDirty_ = true;
-  for (SavedPlaylist& e : entries_) {
-    const QStringList paths = trackSets_.byEntry.value(e.path);
-    qint64 total = 0;
-    bool hit = false;
-    for (const QString& p : paths) {
-      if (p == n) hit = true;
-      total += trackSets_.durationsMs.value(p, 0);
-    }
-    if (hit) e.totalDurationMs = total;
+  // Each occurrence contributes once, including repeats within the same list.
+  const auto matches = std::as_const(playlistsByTrack_).equal_range(path);
+  for (auto it = matches.first; it != matches.second; ++it) {
+    const int i = indexOf(it.value());
+    if (i >= 0) entries_[i].totalDurationMs += durationMs - previous;
+  }
+}
+
+void PlaylistCollection::indexPlaylistTracks(SavedPlaylist& entry) {
+  entry.totalDurationMs = 0;
+  for (const QString& track : trackSets_.byEntry.value(entry.path)) {
+    playlistsByTrack_.insert(track, entry.path);
+    entry.totalDurationMs += qMax<qint64>(0, trackSets_.durationsMs.value(track));
+  }
+}
+
+void PlaylistCollection::forgetPlaylistTracks(const QString& playlist) {
+  for (const QString& track : trackSets_.byEntry.take(playlist)) {
+    playlistsByTrack_.remove(track, playlist);
   }
 }
 
@@ -275,7 +289,7 @@ void PlaylistCollection::remove(const QString& path) {
   if (i < 0) return;
   const QString n = entries_[i].path;
   entries_.removeAt(i);
-  trackSets_.byEntry.remove(n);
+  forgetPlaylistTracks(n);
   if (selectedPath_ == n) selectedPath_.clear();
   // Nothing to ask the disk: the figures walk the lists that are left, so the
   // paths of a playlist that has gone are simply never visited again. They stay

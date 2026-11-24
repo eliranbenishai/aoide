@@ -9,6 +9,7 @@ class PlaylistLibraryTest : public QObject {
   Q_OBJECT
 
  private slots:
+  void durationTotalsFollowSharedAndRepeatedTracks();
   void groupAssignmentsAndNamesSurviveRestart();
   void favoritesRemainUniqueAndSurviveSourceRemovalAndRestart();
   void favoriteMetadataContinuesUpdatingAfterSourceRemoval();
@@ -16,6 +17,37 @@ class PlaylistLibraryTest : public QObject {
   void failedCollectionWritePreservesSavedFavoritesAndReportsFailure();
   void savingCurrentFavoritesDiscardsOnlyAReplacedAlteredSnapshot();
 };
+
+void PlaylistLibraryTest::durationTotalsFollowSharedAndRepeatedTracks() {
+  QTemporaryDir temp;
+  aoide::SupportStore store(temp.path());
+  aoide::PlaylistCollection collection;
+  collection.setExists([](const QString&) { return true; });
+  aoide::Track shared;
+  shared.path = temp.filePath("shared.flac");
+  const QString first = temp.filePath("first.m3u");
+  const QString second = temp.filePath("second.m3u");
+  collection.addWritten(first, {shared, shared});
+  shared.durationMs = 3000;
+  collection.addWritten(second, {shared});
+  aoide::SavedPlaylist entry;
+  QVERIFY(collection.resolveForLoad(first, &entry));
+  QCOMPARE(entry.totalDurationMs, 6000);
+
+  collection.mergeTrackDuration(shared.path, 2000);
+  QVERIFY(collection.resolveForLoad(first, &entry));
+  QCOMPARE(entry.totalDurationMs, 4000);
+  QVERIFY(collection.resolveForLoad(second, &entry));
+  QCOMPARE(entry.totalDurationMs, 2000);
+  QVERIFY(collection.saveIndex(store));
+  QVERIFY(collection.saveTrackSets(store));
+  collection.load(store);
+  collection.remove(second);
+  collection.addWritten(first, {shared});
+  collection.mergeTrackDuration(shared.path, 1500);
+  QVERIFY(collection.resolveForLoad(first, &entry));
+  QCOMPARE(entry.totalDurationMs, 1500);
+}
 
 void PlaylistLibraryTest::savingCurrentFavoritesDiscardsOnlyAReplacedAlteredSnapshot() {
   QTemporaryDir temp;
