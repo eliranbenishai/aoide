@@ -828,7 +828,7 @@ const LookManifest* SkinController::findInstalled(const QString& id) const {
   return nullptr;
 }
 
-void SkinController::seedBundled() {
+void SkinController::seedBundled(bool restoreRemoved) {
   if (bundledDir_.isEmpty() || bundledDir_ == skinsDir_) return;
   for (const QString& retired : kRetiredBundledIds) {
     QDir(QDir(skinsDir_).filePath(retired)).removeRecursively();
@@ -836,8 +836,11 @@ void SkinController::seedBundled() {
   const LookCatalogResult bundled = scanLookCatalog(bundledDir_);
   for (const LookManifest& m : bundled.manifests) {
     const QString dest = QDir(skinsDir_).filePath(m.id);
-    if (QDir(dest).exists()) continue;
-    copyDir(m.packRoot, dest);
+    // Remember each successfully seeded ID, so a later release can introduce
+    // a new pack without bringing back ones the listener deliberately removed.
+    const QString marker = QDir(skinsDir_).filePath(QStringLiteral(".seeded/") + m.id);
+    if (!restoreRemoved && QDir(marker).exists()) continue;
+    if (QDir(dest).exists() || copyDir(m.packRoot, dest)) QDir().mkpath(marker);
   }
 }
 
@@ -1071,7 +1074,7 @@ void SkinController::setSkinsDirectory(const QString& path, AoideSettings& setti
   settings.skinsDirectory = path;
   skinsDir_ = path.isEmpty() ? defaultSkinsDirectory(supportDir_) : path;
   QDir().mkpath(skinsDir_);
-  if (path.isEmpty()) seedBundled();
+  if (path.isEmpty()) seedBundled(true);
   rescan();
   const QString active = canonicalActiveSkinId(settings.activeSkinId);
   if (active != QLatin1String("builtin") && findInstalled(active) == nullptr) {

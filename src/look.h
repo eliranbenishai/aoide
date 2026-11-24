@@ -282,7 +282,7 @@ class SkinController {
  private:
   bool activateInternal(const QString& id, AoideSettings& settings);
   void applyFonts(const QString& id);
-  void seedBundled();
+  void seedBundled(bool restoreRemoved = false);
   LookManifest* findInstalled(const QString& id);
   const LookManifest* findInstalled(const QString& id) const;
   bool canRemoveId(const QString& id, const QString& activeId) const;

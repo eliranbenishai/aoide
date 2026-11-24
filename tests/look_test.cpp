@@ -640,13 +640,16 @@ int main() {
     SkinController skins;
     skins.bootstrap(support.path(), bundled.path(), settings);
     REQUIRE(skins.catalog().size() >= 3);
-    QDir(QDir(support.path()).filePath(QStringLiteral("skins/arc"))).removeRecursively();
-    skins.rescan();
+    REQUIRE(skins.remove(QStringLiteral("arc"), settings));
+    SkinController restarted;
+    restarted.bootstrap(support.path(), bundled.path(), settings);
     QStringList ids;
-    for (const auto& e : skins.catalog()) ids.push_back(e.id);
+    for (const auto& e : restarted.catalog()) ids.push_back(e.id);
     REQUIRE(ids.contains(QStringLiteral("builtin")));
     REQUIRE(ids.contains(QStringLiteral("gamma")));
     REQUIRE(!ids.contains(QStringLiteral("arc")));
+    restarted.setSkinsDirectory({}, settings);
+    REQUIRE(QFileInfo::exists(QDir(restarted.skinsDirectory()).filePath(QStringLiteral("arc/skin.json"))));
   }
 
   {
