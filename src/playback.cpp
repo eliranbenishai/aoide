@@ -467,12 +467,11 @@ void PlaybackController::onPlaylistChanged() {
   const QVector<QString> previous = previousPaths_;
   previousPaths_ = trackPaths(tracks);
   if (!playingPath_.isEmpty()) {
-    int newIndex = -1;
-    for (int i = 0; i < tracks.size(); ++i) {
-      if (tracks[i].path == playingPath_) {
-        newIndex = i;
-        break;
-      }
+    // A selection or metadata change leaves the playing occurrence in
+    // place, even when another row points at the same file.
+    int newIndex = playingIndex_.value_or(-1);
+    if (newIndex < 0 || newIndex >= tracks.size() || tracks[newIndex].path != playingPath_) {
+      newIndex = int(previousPaths_.indexOf(playingPath_));
     }
     if (newIndex != -1) {
       playingIndex_ = newIndex;

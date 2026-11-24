@@ -2004,6 +2004,26 @@ int main() {
   }
 
   {
+    // The same recording can have two positions in the playlist. Selecting
+    // the later occurrence during playback must still advance past that row.
+    Track a, b, c;
+    a.path = QStringLiteral("/tmp/a.mp3");
+    b.path = QStringLiteral("/tmp/b.mp3");
+    c.path = QStringLiteral("/tmp/c.mp3");
+    PlaylistController playlist;
+    playlist.loadTracks({a, b, a, c});
+    NullEngine engine;
+    PlaybackController playback(&playlist, &engine);
+    playlist.setOnChanged([&] { playback.onPlaylistChanged(); });
+    playback.playIndex(1);
+    playback.next();
+    REQUIRE_EQ(playback.playingIndex().value_or(-1), 2);
+    playlist.select(0);
+    engine.onCompleted();
+    REQUIRE_EQ(playback.currentTrack()->path, c.path);
+  }
+
+  {
     // With keep-open disabled the backend has unloaded the file by EOF. A
     // repeat must reopen it, including when browsing another playlist.
     class UnloadingEngine : public NullEngine {
