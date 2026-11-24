@@ -6,6 +6,7 @@
 #include <QString>
 #include <QVector>
 #include <atomic>
+#include <optional>
 
 struct mpv_handle;
 
@@ -56,6 +57,7 @@ class MpvEngine : public QObject, public PlayerEngine {
   bool pendingExclusive_ = false;
   QString currentPath_;
   qint64 lastPositionMs_ = 0;
+  std::optional<qint64> pendingSeekMs_;
   bool paused_ = false;
   bool restoringAfterEqFailure_ = false;
   bool retryWithoutEq_ = false;

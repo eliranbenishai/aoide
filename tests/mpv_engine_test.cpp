@@ -309,6 +309,27 @@ class MpvEngineTest : public QObject {
     QVERIFY(engine.pendingAf_.isEmpty());
   }
 
+  void pausedResumeSeeksOnFirstLoad() {
+    QTemporaryDir dir;
+    QFile source(dir.filePath("tone.wav"));
+    QVERIFY(source.open(QIODevice::WriteOnly));
+    source.write(tone(5));
+    source.close();
+    MpvEngine engine;
+    QVERIFY(engine.available());
+    property(engine, "ao", "null");
+    Track track;
+    track.path = source.fileName();
+    engine.open(track);
+    engine.play();
+    engine.seekMs(3000);
+    engine.pause();
+    QTRY_VERIFY_WITH_TIMEOUT(std::abs(engine.queryPositionMs() - 3000) < 50, 1000);
+    const qint64 paused = engine.queryPositionMs();
+    QTest::qWait(100);
+    QCOMPARE(engine.queryPositionMs(), paused);
+  }
+
   void recoveryPreservesPausedResumePosition() {
     QTemporaryDir dir;
     QFile source(dir.filePath("tone.wav"));

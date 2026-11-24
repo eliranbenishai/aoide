@@ -84,6 +84,7 @@ void MpvEngine::open(const Track& track) {
   if (!mpv_) return;
   currentPath_ = track.path;
   lastPositionMs_ = 0;
+  pendingSeekMs_.reset();
   restoringAfterEqFailure_ = false;
   retryWithoutEq_ = false;
   if (onFormat) onFormat({});
@@ -116,6 +117,7 @@ void MpvEngine::pause() {
 void MpvEngine::stop() {
   currentPath_.clear();
   lastPositionMs_ = 0;
+  pendingSeekMs_.reset();
   restoringAfterEqFailure_ = false;
   retryWithoutEq_ = false;
   if (!mpv_) return;
@@ -127,10 +129,13 @@ void MpvEngine::stop() {
 
 void MpvEngine::seekMs(qint64 positionMs) {
   lastPositionMs_ = std::max(qint64(0), positionMs);
-  if (!mpv_) return;
-  const QByteArray secs = QByteArray::number(positionMs / 1000.0, 'f', 3);
+  if (!mpv_ || currentPath_.isEmpty()) return;
+  const QByteArray secs = QByteArray::number(lastPositionMs_ / 1000.0, 'f', 3);
   const char* cmd[] = {"seek", secs.constData(), "absolute", nullptr};
-  mpv_command(mpv_, cmd);
+  // loadfile returns before the demuxer can seek. Resume issues its seek
+  // immediately, so retry it on FILE_LOADED if mpv is still opening the file.
+  if (mpv_command(mpv_, cmd) < 0) pendingSeekMs_ = lastPositionMs_;
+  else pendingSeekMs_.reset();
 }
 
 void MpvEngine::setVolume(double volume) {
@@ -270,9 +275,10 @@ void MpvEngine::drainEvents() {
       case MPV_EVENT_FILE_LOADED:
         if (restoringAfterEqFailure_) {
           restoringAfterEqFailure_ = false;
-          if (lastPositionMs_ > 0) seekMs(lastPositionMs_);
+          if (!pendingSeekMs_ && lastPositionMs_ > 0) pendingSeekMs_ = lastPositionMs_;
           setString(mpv_, "pause", paused_ ? "yes" : "no");
         }
+        if (pendingSeekMs_) seekMs(*pendingSeekMs_);
         break;
       case MPV_EVENT_END_FILE: {
         const auto* end = static_cast<mpv_event_end_file*>(event->data);
