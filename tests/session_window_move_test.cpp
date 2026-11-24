@@ -52,9 +52,42 @@ class SessionWindowMoveTest : public QObject {
   Q_OBJECT
 
  private slots:
+  void zoomButtonReflectsTheDestinationDisplay();
   void aMainTitleDragCarriesSnappedNativeWindowsAcrossMonitors_data();
   void aMainTitleDragCarriesSnappedNativeWindowsAcrossMonitors();
 };
+
+void SessionWindowMoveTest::zoomButtonReflectsTheDestinationDisplay() {
+  aoide::loadAoideFonts();
+  using aoide::WindowId;
+  QTemporaryDir support;
+  aoide::AoideSettings settings;
+  settings.equalizer.visible = false;
+  settings.playlist.visible = false;
+  settings.zoomPercent = 75;
+  QVERIFY(aoide::SupportStore(support.path()).writeSettings(settings));
+  const auto spec = aoide::windowSpecs()[aoide::panelIndex(WindowId::main)];
+  HostWindow main(spec);
+  MonitorSession session(support.path(), 300);
+  aoide::PanelWindows panels;
+  panels.set(WindowId::main, &main);
+  session.setWindows(panels);
+  main.setZoomPercent(settings.zoomPercent);
+  session.reapplyWindowFrames();
+  main.setSessionView(session.view());
+  QVERIFY(session.zoomStepUp().has_value());
+  const QRect button = main.widgetRectFromLogical(
+      aoide::TitleChromeLayout::forWindow(WindowId::main, spec.logicalSize).zoomIn);
+  const QImage enabled = main.grab(button).toImage();
+  session.windowMoved(WindowId::main, {2100, 25}, false);
+  QVERIFY(!session.zoomStepUp().has_value());
+  const QImage afterCrossing = main.grab(button).toImage();
+  main.setSessionView(session.view());
+  const QImage disabled = main.grab(button).toImage();
+  QVERIFY(enabled != disabled);
+  QCOMPARE(afterCrossing, disabled);
+  session.detachWindows();
+}
 
 void SessionWindowMoveTest::aMainTitleDragCarriesSnappedNativeWindowsAcrossMonitors_data() {
   QTest::addColumn<int>("rightHeight");

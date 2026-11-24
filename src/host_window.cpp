@@ -125,6 +125,14 @@ void HostWindow::setZoomPercent(qreal percent) {
   applyNativeSize();
 }
 
+void HostWindow::setZoomAvailability(bool canZoomIn, bool canZoomOut) {
+  if (view_.zoomInEnabled == canZoomIn && view_.zoomOutEnabled == canZoomOut) return;
+  view_.zoomInEnabled = canZoomIn;
+  view_.zoomOutEnabled = canZoomOut;
+  invalidateChassis();
+  update();
+}
+
 void HostWindow::setShaded(bool shaded) {
   if (spec_.id == aoide::WindowId::main || shaded_ == shaded) return;
   shaded_ = shaded;

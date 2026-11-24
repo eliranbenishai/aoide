@@ -36,6 +36,7 @@ class HostWindow : public QWidget {
 
   aoide::WindowId id() const { return spec_.id; }
   void setZoomPercent(qreal percent);
+  void setZoomAvailability(bool canZoomIn, bool canZoomOut);
   void setShaded(bool shaded);
   void setSessionView(const aoide::SessionView& view);
   void applyLiveReadouts(const aoide::MainLiveReadouts& live);

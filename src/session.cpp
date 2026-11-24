@@ -1077,6 +1077,9 @@ void AoideSession::reapplyWindowFrames() {
 }
 
 void AoideSession::placePanels(const QVector<PanelPlacement>& panels) {
+  if (HostWindow* main = windowFor(WindowId::main)) {
+    main->setZoomAvailability(layout_.zoomStepUp().has_value(), layout_.zoomStepDown().has_value());
+  }
   QVector<HostPanelPlacement> shown;
   shown.reserve(panels.size());
   for (const PanelPlacement& panel : panels) {
