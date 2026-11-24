@@ -383,12 +383,19 @@ bool PlaylistController::applyDurations(const QMap<QString, qint64>& durations) 
 }
 
 bool PlaylistController::applyMetadata(const QString& path, const TrackMetadata& metadata) {
-  const QString n = normalizePlaylistPath(path);
+  return applyMetadataBatch({{normalizePlaylistPath(path), metadata}}, false);
+}
+
+bool PlaylistController::applyMetadataBatch(const QHash<QString, TrackMetadata>& byNormalizedPath,
+                                           bool overwrite) {
+  if (byNormalizedPath.isEmpty()) return false;
   bool changed = false;
   for (Track& t : tracks_) {
-    if (normalizePlaylistPath(t.path) != n && t.path != path) continue;
+    const auto answer = byNormalizedPath.constFind(normalizePlaylistPath(t.path));
+    if (answer == byNormalizedPath.cend()) continue;
+    const TrackMetadata& metadata = answer.value();
     const Track previous = t;
-    applyTrackMetadata(t, metadata, false);
+    applyTrackMetadata(t, metadata, overwrite);
     // Measured duration is authoritative even when ingest keeps an M3U title.
     if (metadata.durationMs && *metadata.durationMs > 0) t.durationMs = metadata.durationMs;
     changed = (t != previous) || changed;

@@ -36,7 +36,7 @@
 #include <QGuiApplication>
 #include <QInputDialog>
 #include <QLineEdit>
-#include <QMap>
+#include <QHash>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QScreen>
@@ -574,29 +574,10 @@ void AoideSession::applyProbedBatch(const QVector<ProbedTrack>& batch, int gen, 
   holdChrome_ = true;
   bool touchedCache = false;
   bool gotDuration = false;
-  // Read the list once for the whole batch. No answer in a batch names the same
-  // row twice, and nothing turns the event loop in here, so a row taken now is
-  // still the row when its answer comes up.
-  QMap<QString, Track> rows;
-  if (overwrite) {
-    for (const Track& t : playlist_.tracks()) rows.insert(normalizePlaylistPath(t.path), t);
-  }
+  QHash<QString, TrackMetadata> byNormalizedPath;
   for (const ProbedTrack& answer : batch) {
     probeOutstanding_.remove(answer.path);
-    if (overwrite) {
-      // `applyMetadata` deliberately never replaces a title that is already
-      // there, which is the wrong answer for Refresh: the point of Refresh is
-      // that the file wins.
-      const auto row = rows.constFind(normalizePlaylistPath(answer.path));
-      if (row != rows.constEnd()) {
-        Track next = *row;
-        applyProbedAudio(next, answer.metadata, true);
-        // Keeps whatever the path verify has said about the row since.
-        playlist_.updateTrackByPath(next.path, next);
-      }
-    } else {
-      playlist_.applyMetadata(answer.path, answer.metadata);
-    }
+    byNormalizedPath.insert(normalizePlaylistPath(answer.path), answer.metadata);
     collection_.mergeTrackTags(answer.path, answer.metadata, overwrite);
     if (answer.metadata.durationMs.value_or(0) > 0) {
       collection_.mergeTrackDuration(answer.path, *answer.metadata.durationMs);
@@ -606,6 +587,7 @@ void AoideSession::applyProbedBatch(const QVector<ProbedTrack>& batch, int gen, 
       touchedCache = true;
     }
   }
+  playlist_.applyMetadataBatch(byNormalizedPath, overwrite);
   if (touchedCache && !collectionPersistTimer_.isActive()) collectionPersistTimer_.start();
   if (gotDuration) {
     // A pure read of what the last track pass found. No batch of probe answers

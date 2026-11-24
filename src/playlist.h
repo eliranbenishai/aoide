@@ -3,6 +3,7 @@
 #include "m3u.h"
 #include "track.h"
 
+#include <QHash>
 #include <QMap>
 #include <QSet>
 #include <QString>
@@ -58,6 +59,7 @@ class PlaylistController {
   bool updateTrackByPath(const QString& path, const Track& next);
   bool applyDurations(const QMap<QString, qint64>& durations);
   bool applyMetadata(const QString& path, const TrackMetadata& metadata);
+  bool applyMetadataBatch(const QHash<QString, TrackMetadata>& byNormalizedPath, bool overwrite);
   void markMissingPaths(const QSet<QString>& missingNormalized);
 
   bool openPlaylistFile(const QString& path, const M3uCodec& codec = M3uCodec());

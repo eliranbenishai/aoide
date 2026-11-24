@@ -2975,6 +2975,34 @@ int main() {
   }
 
   {
+    // One batch updates every occurrence of its paths together. A Refresh
+    // can correct the tags while retaining selection and disabled rows.
+    PlaylistController list;
+    Track a, b;
+    a.path = QStringLiteral("first.mp3");
+    a.title = QStringLiteral("Existing title");
+    b.path = QStringLiteral("second.mp3");
+    b.disabled = true;
+    list.loadTracks({a, b, a});
+    list.select(2);
+    int changes = 0;
+    list.setOnChanged([&] { ++changes; });
+    QHash<QString, aoide::TrackMetadata> answers;
+    answers[aoide::normalizePlaylistPath(a.path)].title = QStringLiteral("First");
+    answers[aoide::normalizePlaylistPath(b.path)].title = QStringLiteral("Second");
+    REQUIRE(list.applyMetadataBatch(answers, true));
+    REQUIRE_EQ(changes, 1);
+    REQUIRE_EQ(list.tracks()[0].title, QStringLiteral("First"));
+    REQUIRE_EQ(list.tracks()[1].title, QStringLiteral("Second"));
+    REQUIRE_EQ(list.tracks()[2].title, QStringLiteral("First"));
+    REQUIRE(list.tracks()[1].disabled);
+    REQUIRE_EQ(list.selectedIndex().value_or(-1), 2);
+    REQUIRE(!list.altered());
+    REQUIRE(!list.applyMetadataBatch(answers, true));
+    REQUIRE_EQ(changes, 1);
+  }
+
+  {
     // The two ends of the background probe apply an answer differently on
     // purpose. An ingest fills in what the row does not know; Refresh believes
     // the file over the file that listed it, so a stale #EXTINF is corrected
