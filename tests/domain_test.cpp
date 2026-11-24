@@ -23,6 +23,8 @@
 #include "transport.h"
 #include "wav_reader.h"
 
+#include <QBuffer>
+
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
@@ -612,6 +614,30 @@ int main() {
     for (qint16 s : interleaved) appendU16(out, quint16(s));
     return out;
   };
+  {
+    // The live WAV path may read overlapping FFT windows, including their tails,
+    // but its largest read must stay independent of the length of the track.
+    class MeteredBuffer : public QBuffer {
+     public:
+      qint64 largestRead = 0;
+     protected:
+      qint64 readData(char* dst, qint64 count) override {
+        largestRead = qMax(largestRead, count);
+        return QBuffer::readData(dst, count);
+      }
+    } input;
+    QVector<qint16> samples(48000 * 5);
+    for (qsizetype i = 0; i < samples.size(); ++i) samples[i] = qint16((i % 97) * 301);
+    const QByteArray wav = makePcm16Wav(samples, 1, 48000);
+    input.setData(wav);
+    REQUIRE(input.open(QIODevice::ReadOnly));
+    const auto streamed = SpectrumAnalyzer::analyzeWav(input);
+    const auto pcm = WavReader::read(wav);
+    const auto expected = SpectrumAnalyzer().analyzeMonoPcm(pcm.samples, pcm.sampleRateHz);
+    REQUIRE(streamed.frames == expected.frames);
+    REQUIRE(input.largestRead < wav.size() / 2);
+  }
+
   auto argmax = [](const std::array<double, AudioLevels::kBandCount>& bands) {
     int best = 0;
     for (int i = 1; i < AudioLevels::kBandCount; ++i) {
@@ -622,7 +648,7 @@ int main() {
 
   {
     const QByteArray wav = makePcm16Wav({0, 16384, -16384}, 1, 44100);
-    const PcmBuffer pcm = WavReader().read(wav);
+    const PcmBuffer pcm = WavReader::read(wav);
     REQUIRE(pcm.sampleRateHz == 44100);
     REQUIRE(pcm.samples.size() == 3);
     REQUIRE(qAbs(pcm.samples[0]) < 1e-9);
@@ -632,7 +658,7 @@ int main() {
 
   {
     const QByteArray wav = makePcm16Wav({32767, 0}, 2, 48000);
-    const PcmBuffer pcm = WavReader().read(wav);
+    const PcmBuffer pcm = WavReader::read(wav);
     REQUIRE(pcm.sampleRateHz == 48000);
     REQUIRE(pcm.samples.size() == 1);
     REQUIRE(qAbs(pcm.samples[0] - 0.5) < 1e-3);
@@ -1296,7 +1322,7 @@ int main() {
     qToLittleEndian(quint32(0x80000000u), reinterpret_cast<uchar*>(wav.data() + 40));
     bool refused = false;
     try {
-      WavReader().read(wav);
+      WavReader::read(wav);
     } catch (const std::exception&) {
       refused = true;
     }
@@ -1307,7 +1333,7 @@ int main() {
     qToLittleEndian(quint32(0), reinterpret_cast<uchar*>(stuck.data() + 16));
     bool refusedZero = false;
     try {
-      WavReader().read(stuck);
+      WavReader::read(stuck);
     } catch (const std::exception&) {
       refusedZero = true;
     }

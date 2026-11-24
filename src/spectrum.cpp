@@ -20,29 +20,29 @@ constexpr int kFramesPerSecond = 30;
 ///
 /// Worth the arithmetic because a five-minute track is the better part of a
 /// second of band folding, and a session being torn down waits for it.
-QVector<std::array<double, AudioLevels::kBandCount>> foldInSlices(
-    const QVector<double>& samples, int sampleRateHz,
-    const SpectrumAnalyzer::CancelFn& stillWanted) {
+template <typename ReadSamples>
+Spectrogram foldInSlices(qint64 sampleCount, int sampleRateHz, ReadSamples read,
+                         const SpectrumAnalyzer::CancelFn& stillWanted) {
   const StftBandFolder stft(kFftSize, kFramesPerSecond);
+  Spectrogram spec;
+  spec.sampleRateHz = sampleRateHz;
+  spec.framesPerSecond = kFramesPerSecond;
+  if (stillWanted && !stillWanted()) return Spectrogram::cancelled();
+  if (sampleRateHz <= 0 || sampleCount < kFftSize) {
+    spec.frames = {{}};
+    return spec;
+  }
   const int hop = std::max(1, sampleRateHz / kFramesPerSecond);
-  if (sampleRateHz <= 0 || samples.size() < kFftSize) {
-    return stft.analyze(samples, sampleRateHz);
+  const qint64 frameCount = (sampleCount - kFftSize) / hop + 1;
+  const int perSlice = qBound(1, 96000 / hop, kFramesPerSecond * 2);
+  spec.frames.reserve(frameCount);
+  for (qint64 first = 0; first < frameCount; first += perSlice) {
+    if (stillWanted && !stillWanted()) return Spectrogram::cancelled();
+    const qint64 count = qMin<qint64>(perSlice, frameCount - first);
+    const auto samples = read(first * hop, (count - 1) * hop + kFftSize);
+    spec.frames += stft.analyze(samples, sampleRateHz);
   }
-  const int frameCount = (int(samples.size()) - kFftSize) / hop + 1;
-  const int perSlice = kFramesPerSecond * 2;
-  QVector<std::array<double, AudioLevels::kBandCount>> frames;
-  frames.reserve(frameCount);
-  for (int first = 0; first < frameCount; first += perSlice) {
-    // No frames means cancelled, which is not the same as silent and not a
-    // failure either: the caller asked us to stop and will drop the result
-    // unread. A decode that fails says so with [Spectrogram::unmeasured]
-    // instead, because a broken analyser must not read as a quiet passage.
-    if (!stillWanted()) return {};
-    const int last = std::min(first + perSlice, frameCount);
-    frames += stft.analyze(samples.mid(first * hop, (last - 1 - first) * hop + kFftSize),
-                           sampleRateHz);
-  }
-  return frames;
+  return spec;
 }
 
 }  // namespace
@@ -89,14 +89,29 @@ AudioLevels spectrumFrame(const Spectrogram& spec, bool playing, qint64 position
   return spec.levelsAt(positionMs);
 }
 
-SpectrumAnalyzer::SpectrumAnalyzer(PcmLoader loader) {
+SpectrumAnalyzer::SpectrumAnalyzer(PcmLoader loader)
+    : SpectrumAnalyzer(loader ? CancellablePcmLoader(
+          [loader](const QString& path, const CancelFn&) { return loader(path); })
+                              : CancellablePcmLoader{}) {}
+
+SpectrumAnalyzer::SpectrumAnalyzer(CancellablePcmLoader loader) {
   if (!loader) return;
-  loader_ = [loader = std::move(loader)](const QString& path, const CancelFn&) {
-    return loader(path);
+  loader_ = [loader = std::move(loader)](const QString& path, const CancelFn& wanted) {
+    const PcmBuffer pcm = loader(path, wanted);
+    return foldInSlices(pcm.samples.size(), pcm.sampleRateHz,
+                        [&](qint64 first, qint64 count) { return pcm.samples.mid(first, count); },
+                        wanted);
   };
 }
 
-SpectrumAnalyzer::SpectrumAnalyzer(CancellablePcmLoader loader) : loader_(std::move(loader)) {}
+SpectrumAnalyzer::SpectrumAnalyzer(AnalysisLoader loader) : loader_(std::move(loader)) {}
+
+Spectrogram SpectrumAnalyzer::analyzeWav(QIODevice& wav, const CancelFn& stillWanted) {
+  WavReader reader(wav);
+  return foldInSlices(reader.frameCount(), reader.sampleRateHz(),
+                      [&](qint64 first, qint64 count) { return reader.readFrames(first, count); },
+                      stillWanted);
+}
 
 Spectrogram SpectrumAnalyzer::analyzeMonoPcm(const QVector<double>& samples,
                                              int sampleRateHz) const {
@@ -117,15 +132,7 @@ Spectrogram SpectrumAnalyzer::load(const QString& path, const CancelFn& stillWan
   // development case synthetic levels were named for.
   if (!loader_) return Spectrogram::unmeasured();
   try {
-    const PcmBuffer pcm = loader_(path, stillWanted);
-    if (!wanted()) return Spectrogram::cancelled();
-    if (!stillWanted) return analyzeMonoPcm(pcm.samples, pcm.sampleRateHz);
-    Spectrogram spec;
-    spec.framesPerSecond = kFramesPerSecond;
-    spec.sampleRateHz = pcm.sampleRateHz;
-    spec.frames = foldInSlices(pcm.samples, pcm.sampleRateHz, stillWanted);
-    if (spec.frames.isEmpty()) return Spectrogram::cancelled();
-    return spec;
+    return loader_(path, stillWanted);
   } catch (...) {
     // The decoder throws for a deadline it never met and for a caller that has
     // moved on, and only the first failed to measure anything. Ask again rather

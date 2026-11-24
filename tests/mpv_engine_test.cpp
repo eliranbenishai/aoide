@@ -79,7 +79,7 @@ class MpvEngineTest : public QObject {
     engine.dispose();
     QFile pcm(output);
     QVERIFY(pcm.open(QIODevice::ReadOnly));
-    result.pcm = WavReader().read(pcm.readAll());
+    result.pcm = WavReader::read(pcm.readAll());
     QVERIFY(result.pcm.samples.size() >= 47000);
   }
 

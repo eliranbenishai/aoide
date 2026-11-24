@@ -44,10 +44,13 @@ class SpectrumAnalyzer {
   using CancellablePcmLoader =
       std::function<PcmBuffer(const QString& path, const CancelFn& stillWanted)>;
 
+  using AnalysisLoader = std::function<Spectrogram(const QString&, const CancelFn&)>;
+  explicit SpectrumAnalyzer(AnalysisLoader loader);
   explicit SpectrumAnalyzer(PcmLoader loader = {});
   explicit SpectrumAnalyzer(CancellablePcmLoader loader);
 
   Spectrogram analyzeMonoPcm(const QVector<double>& samples, int sampleRateHz) const;
+  static Spectrogram analyzeWav(QIODevice& wav, const CancelFn& stillWanted = {});
   Spectrogram load(const QString& path) const;
   /// Decoding a track takes seconds, and a session being torn down waits for it.
   /// [stillWanted] reaches the decoder's own wait loop, so the wait is a tick
@@ -56,7 +59,7 @@ class SpectrumAnalyzer {
   static double bandCenterHz(int index, int sampleRateHz);
 
  private:
-  CancellablePcmLoader loader_;
+  AnalysisLoader loader_;
 };
 
 struct SpectrumHold {

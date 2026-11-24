@@ -89,9 +89,9 @@ AoideSession::AoideSession(QString supportDirectory, QObject* parent)
   playback_ = std::make_unique<PlaybackController>(&playlist_, engine_.get());
   playback_->setSpins(store_.readUsage().spins);
 #ifdef AOIDE_HAVE_MPV
-  analyzer_ = SpectrumAnalyzer(SpectrumAnalyzer::CancellablePcmLoader(
+  analyzer_ = SpectrumAnalyzer(SpectrumAnalyzer::AnalysisLoader(
       [](const QString& path, const SpectrumAnalyzer::CancelFn& stillWanted) {
-        return MpvPcmDecoder().decode(path, stillWanted);
+        return MpvPcmDecoder().analyze(path, stillWanted);
       }));
 #endif
   spectrumTimer_.setInterval(33);

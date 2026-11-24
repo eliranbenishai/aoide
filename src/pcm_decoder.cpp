@@ -1,7 +1,5 @@
 #include "pcm_decoder.h"
 
-#include "wav_reader.h"
-
 #include <QByteArray>
 #include <QDir>
 #include <QFile>
@@ -71,7 +69,7 @@ void renderToWav(const QString& inputPath, const QString& outputPath,
 
 }  // namespace
 
-PcmBuffer MpvPcmDecoder::decode(const QString& path, const CancelFn& stillWanted) const {
+Spectrogram MpvPcmDecoder::analyze(const QString& path, const CancelFn& stillWanted) const {
   QTemporaryDir work(QDir::temp().filePath(QStringLiteral("aoide_pcm_XXXXXX")));
   if (!work.isValid()) throw std::runtime_error("PCM temp dir failed");
   const QString outPath = work.filePath(QStringLiteral("out.wav"));
@@ -80,7 +78,7 @@ PcmBuffer MpvPcmDecoder::decode(const QString& path, const CancelFn& stillWanted
   if (!file.open(QIODevice::ReadOnly)) {
     throw std::runtime_error("PCM wav missing");
   }
-  return WavReader().read(file.readAll());
+  return SpectrumAnalyzer::analyzeWav(file, stillWanted);
 }
 
 }  // namespace aoide
