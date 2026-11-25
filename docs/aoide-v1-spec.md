@@ -40,7 +40,8 @@ Aoide is a multi-platform desktop music player — a spiritual successor to Wina
 - **Zoom:** six discrete steps — 50%, 62.5%, 75%, 100%, 125%, 150% (default **75%**) — persisted across sessions; a saved factor that is no longer a step snaps to the nearest surviving one, and steps larger than the current display’s work area are disabled. Main title-bar zoom-in / zoom-out change the step for **all three** dockable panels, and are the only control that does: there is no zoom row in the options menu and no zoom shortcut (see Accessibility).
 - **Windowshade:** EQ and playlist title-bar collapse → title bar only; docking uses shaded height.
 - **EQ band faders:** bottom→thumb fill using the spectrum cyan→magenta gradient (product enhancement vs mockup HTML bands).
-- **Options cog** on main (gutter left of the display well), with **Skins** and **Track info** stacked under it. The cog opens Always on top / Open files… / Settings… / About Aoide / Quit. Replaces mockup clutter **O / A / I** (approved delta). Skins are their own freestanding panel — “look pack” is a retired term ([`CONTEXT.md`](../CONTEXT.md): **Skin**). Settings tabs are **General | Audio** (output device and exclusive output).
+- **Main display** shares its left and right margins with the volume, seek and transport rows.
+- **Options**, **Skins** and **Track info** sit at the left end of the volume row in that order. Each is the same size as **Mute**. A vertical separator sits between **Track info** and **Mute**. The Options cog opens Always on top / Open files… / Settings… / About Aoide / Quit. These buttons replace the mockup’s **O / A / I**. Skins are their own freestanding panel — “look pack” is a retired term ([`CONTEXT.md`](../CONTEXT.md): **Skin**). Settings tabs are **General | Audio** (output device and exclusive output).
 
 ## UI direction
 

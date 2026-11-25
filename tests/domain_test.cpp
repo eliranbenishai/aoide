@@ -3322,7 +3322,7 @@ int main() {
   }
 
   {
-    // Overflow only: Skins and Track info are gutter buttons, not menu rows.
+    // Skins and Track info have their own buttons on the main player.
     // Open files sits with Settings; About sits with Quit. keepAboveAvailable
     // is an argument so the shape does not depend on the test binary's D-Bus
     // flag — the compositor predicate is false in some builds, true in others.

@@ -187,16 +187,11 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
   const bool live = pass != BodyPaint::chassis;
   const bool glow = pass == BodyPaint::full;
 
-  const MainDisplayRow display = layoutMainDisplay(body);
-  const QRectF& well = display.well;
+  const QRectF well = mainDisplayWell(body);
   const QRectF inner = well.adjusted(16, 12, -16, -12);
 
   if (chassis) {
     drawScreenWell(p, well);
-    drawGlyphBtn(p, display.options, MockupIcon::options, faceOf(phases, K::options, false), 16);
-    drawGlyphBtn(p, display.skins, MockupIcon::skins, faceOf(phases, K::skins, view.skinsOn), 16);
-    drawGlyphBtn(p, display.trackInfo, MockupIcon::trackInfo, faceOf(phases, K::trackInfo, view.trackInfoOn), 16,
-                 view.trackInfoEnabled);
     const QRectF marks = displayWellMarks(inner);
     qreal markX = marks.left();
     auto paintMark = [&](const QString& label) {
@@ -348,7 +343,13 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
 
   if (chassis) {
     const MainVolumeRow vol = layoutMainVolumeRow(body);
-    drawGlyphBtn(p, vol.mute, MockupIcon::mute, faceOf(phases, K::mute, view.muted), 21);
+    constexpr qreal iconSize = 21;
+    drawGlyphBtn(p, vol.options, MockupIcon::options, faceOf(phases, K::options, false), iconSize);
+    drawGlyphBtn(p, vol.skins, MockupIcon::skins, faceOf(phases, K::skins, view.skinsOn), iconSize);
+    drawGlyphBtn(p, vol.trackInfo, MockupIcon::trackInfo,
+                 faceOf(phases, K::trackInfo, view.trackInfoOn), iconSize, view.trackInfoEnabled);
+    drawFooterSep(p, vol.separator);
+    drawGlyphBtn(p, vol.mute, MockupIcon::mute, faceOf(phases, K::mute, view.muted), iconSize);
     p.setFont(condensedFont(11, 0.2));
     p.setPen(T().inkFaint);
     p.drawText(vol.label, Qt::AlignVCenter, QStringLiteral("VOL"));

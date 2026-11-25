@@ -98,20 +98,7 @@ QRect toHitRect(const QRectF& r) { return r.toAlignedRect(); }
 
 ChromeHit hitMain(QSize logical, QPoint pos, const SessionView& view) {
   const QRectF body = panelBody(logical);
-  const MainDisplayRow display = layoutMainDisplay(body);
-  if (auto h = hitIf(toHitRect(display.options), pos, ChromeHit::Kind::options);
-      h.kind != ChromeHit::Kind::none) {
-    return h;
-  }
-  if (auto h = hitIf(toHitRect(display.skins), pos, ChromeHit::Kind::skins);
-      h.kind != ChromeHit::Kind::none) {
-    return h;
-  }
-  if (auto h = hitIf(toHitRect(display.trackInfo), pos, ChromeHit::Kind::trackInfo);
-      h.kind != ChromeHit::Kind::none) {
-    return h;
-  }
-  if (auto h = hitIf(toHitRect(display.well), pos, ChromeHit::Kind::timeToggle);
+  if (auto h = hitIf(toHitRect(mainDisplayWell(body)), pos, ChromeHit::Kind::timeToggle);
       h.kind != ChromeHit::Kind::none) {
     return h;
   }
@@ -132,6 +119,18 @@ ChromeHit hitMain(QSize logical, QPoint pos, const SessionView& view) {
     return h;
   }
   if (auto h = hitIf(toHitRect(vol.pl), pos, ChromeHit::Kind::plToggle);
+      h.kind != ChromeHit::Kind::none) {
+    return h;
+  }
+  if (auto h = hitIf(toHitRect(vol.options), pos, ChromeHit::Kind::options);
+      h.kind != ChromeHit::Kind::none) {
+    return h;
+  }
+  if (auto h = hitIf(toHitRect(vol.skins), pos, ChromeHit::Kind::skins);
+      h.kind != ChromeHit::Kind::none) {
+    return h;
+  }
+  if (auto h = hitIf(toHitRect(vol.trackInfo), pos, ChromeHit::Kind::trackInfo);
       h.kind != ChromeHit::Kind::none) {
     return h;
   }
@@ -433,7 +432,7 @@ ChromeHit hitTest(WindowId id, QSize logical, QPoint pos, const SessionView& vie
 }
 
 QRect mainOptionsHit(QSize logical) {
-  return toHitRect(layoutMainDisplay(panelBody(logical)).options);
+  return toHitRect(layoutMainVolumeRow(panelBody(logical)).options);
 }
 
 QRect mainEqHit(QSize logical) { return toHitRect(layoutMainVolumeRow(panelBody(logical)).eq); }
