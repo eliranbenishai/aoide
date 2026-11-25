@@ -66,7 +66,7 @@ inline qreal marqueeOffset(qreal textWidth, qreal clipWidth, qint64 elapsedMs, b
 /// Main and EQ bodies inset their rows by the same pad.
 inline constexpr qreal kBodySidePad = 22;
 
-inline constexpr qreal kMainOptionsSize = 26;
+inline constexpr qreal kCompactToolButtonSize = 26;
 inline constexpr qreal kDisplayWellTop = 14;
 inline constexpr qreal kDisplayWellH = 132;
 
@@ -116,7 +116,6 @@ inline QRect sliderHitRect(const QRectF& track, qreal thumbH) {
 
 inline constexpr qreal kVolRowTop = 156;
 inline constexpr qreal kVolRowH = 40;
-inline constexpr qreal kVolMuteW = 40;
 inline constexpr qreal kVolLabelGap = 14;
 inline constexpr qreal kVolLabelW = 34;
 inline constexpr qreal kVolTrackGap = 10;
@@ -131,34 +130,35 @@ inline constexpr qreal kPanelBtnGap = 8;
 
 struct MainVolumeRow {
   QRectF row;
+  QRectF options;
+  QRectF skins;
+  QRectF trackInfo;
+  QRectF separator;
   QRectF mute;
   QRectF label;
   QRectF track;
   QRectF mono;
   QRectF eq;
   QRectF pl;
-  QRectF options;
-  QRectF skins;
-  QRectF trackInfo;
 };
 
-/// Mute and VOL start the row. The mode, panel and utility buttons pack from
-/// the right, leaving the middle for the volume slider.
+/// Utility buttons and Mute flow from the left. MONO, EQ and PL anchor the
+/// right edge, leaving the space between the two groups for volume.
 inline MainVolumeRow layoutMainVolumeRow(const QRectF& body) {
   MainVolumeRow out;
   out.row = mainControlRow(body, kVolRowTop, kVolRowH);
   const QRectF& row = out.row;
-  out.mute = QRectF(row.left(), row.top(), kVolMuteW, kVolRowH);
+  auto squareButton = [&](qreal left) {
+    return QRectF(left, row.top(), row.height(), row.height());
+  };
+  out.options = squareButton(row.left());
+  out.skins = squareButton(out.options.right() + kPanelBtnGap);
+  out.trackInfo = squareButton(out.skins.right() + kPanelBtnGap);
+  out.separator = QRectF(out.trackInfo.right() + kPanelBtnGap, row.top() + 4, 2, row.height() - 8);
+  out.mute = squareButton(out.separator.right() + kPanelBtnGap);
   out.label = QRectF(out.mute.right() + kVolLabelGap, row.top(), kVolLabelW, kVolRowH);
   const qreal btnY = row.top() + kVolBtnInset;
-  auto utilityEndingAt = [&](qreal right) {
-    return QRectF(right - kMainOptionsSize, row.center().y() - kMainOptionsSize / 2,
-                  kMainOptionsSize, kMainOptionsSize);
-  };
-  out.trackInfo = utilityEndingAt(row.right());
-  out.skins = utilityEndingAt(out.trackInfo.left() - kPanelBtnGap);
-  out.options = utilityEndingAt(out.skins.left() - kPanelBtnGap);
-  out.pl = QRectF(out.options.left() - kVolGroupGap - kPanelBtnW, btnY, kPanelBtnW, kVolBtnH);
+  out.pl = QRectF(row.right() - kPanelBtnW, btnY, kPanelBtnW, kVolBtnH);
   out.eq = QRectF(out.pl.left() - kPanelBtnGap - kPanelBtnW, btnY, kPanelBtnW, kVolBtnH);
   out.mono = QRectF(out.eq.left() - kVolGroupGap - kMonoBtnW, btnY, kMonoBtnW, kVolBtnH);
   const qreal trackLeft = out.label.right() + kVolTrackGap;
@@ -364,7 +364,7 @@ inline constexpr qreal kSkinCellPad = 4;
 inline constexpr qreal kSkinTrash = 18;
 inline constexpr qreal kSkinTrashInset = 4;
 inline constexpr qreal kSkinPreviewAspect = 825.0 / 348.0;
-inline constexpr qreal kSkinsToolBtn = kMainOptionsSize;
+inline constexpr qreal kSkinsToolBtn = kCompactToolButtonSize;
 inline constexpr qreal kSkinsToolGap = 8;
 /// Playlist deck: pane pad 12 + deck pad 12 / 10, gap 10 above the footer.
 inline constexpr qreal kSkinsFooterPadX = 24;
@@ -392,8 +392,9 @@ inline QRectF settingsPane(QSize logical) { return settingsPane(panelBody(logica
 /// Reload glyph under the tab stack. It lives in the rail so it is a panel
 /// action, not something that belongs to the tab that is showing.
 inline QRectF settingsResetBtn(const QRectF& body) {
-  return QRectF(body.left() + (kSettingsRailW - kMainOptionsSize) / 2,
-                body.bottom() - 12 - kMainOptionsSize, kMainOptionsSize, kMainOptionsSize);
+  return QRectF(body.left() + (kSettingsRailW - kCompactToolButtonSize) / 2,
+                body.bottom() - 12 - kCompactToolButtonSize, kCompactToolButtonSize,
+                kCompactToolButtonSize);
 }
 
 inline QRectF settingsAudioDeviceBtn(const QRectF& pane) {
@@ -569,8 +570,7 @@ inline constexpr qreal kPlaylistDeckPadY = 10;
 inline constexpr qreal kPlaylistStripGap = 8;
 inline constexpr qreal kPlaylistStripBtn = 52;
 inline constexpr qreal kPlaylistStripBtnH = 52;
-/// Same face as the main player's utility buttons (Options / Skins / Track info).
-inline constexpr qreal kPlaylistStripBtnCompact = kMainOptionsSize;
+inline constexpr qreal kPlaylistStripBtnCompact = kCompactToolButtonSize;
 inline constexpr qreal kPlaylistStripTotalH = 34;
 inline constexpr qreal kPlaylistStripRefresh = 34;
 inline constexpr qreal kPlaylistStripSepExtra = 6;
@@ -628,7 +628,7 @@ inline qreal playlistStripMinWidth(qreal btn, qreal totalW) {
          playlistStripRightClusterWidth(btn, totalW);
 }
 
-/// Large faces while they still fit; the player's 26px utility face after that.
+/// Use compact tool buttons when the large faces no longer fit.
 inline qreal playlistStripButtonSize(qreal deckInnerW, qreal totalW) {
   return deckInnerW >= playlistStripMinWidth(kPlaylistStripBtn, totalW) ? kPlaylistStripBtn
                                                                        : kPlaylistStripBtnCompact;

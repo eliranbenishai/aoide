@@ -343,7 +343,13 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
 
   if (chassis) {
     const MainVolumeRow vol = layoutMainVolumeRow(body);
-    drawGlyphBtn(p, vol.mute, MockupIcon::mute, faceOf(phases, K::mute, view.muted), 21);
+    constexpr qreal iconSize = 21;
+    drawGlyphBtn(p, vol.options, MockupIcon::options, faceOf(phases, K::options, false), iconSize);
+    drawGlyphBtn(p, vol.skins, MockupIcon::skins, faceOf(phases, K::skins, view.skinsOn), iconSize);
+    drawGlyphBtn(p, vol.trackInfo, MockupIcon::trackInfo,
+                 faceOf(phases, K::trackInfo, view.trackInfoOn), iconSize, view.trackInfoEnabled);
+    drawFooterSep(p, vol.separator);
+    drawGlyphBtn(p, vol.mute, MockupIcon::mute, faceOf(phases, K::mute, view.muted), iconSize);
     p.setFont(condensedFont(11, 0.2));
     p.setPen(T().inkFaint);
     p.drawText(vol.label, Qt::AlignVCenter, QStringLiteral("VOL"));
@@ -351,10 +357,6 @@ void paintMain(QPainter& p, const QRectF& body, const SessionView& view, BodyPai
     drawBtn(p, vol.mono, faceOf(phases, K::mono, view.forceMono), QStringLiteral("MONO"));
     drawBtn(p, vol.eq, faceOf(phases, K::eqToggle, view.eqOn), QStringLiteral("EQ"));
     drawBtn(p, vol.pl, faceOf(phases, K::plToggle, view.plOn), QStringLiteral("PL"));
-    drawGlyphBtn(p, vol.options, MockupIcon::options, faceOf(phases, K::options, false), 16);
-    drawGlyphBtn(p, vol.skins, MockupIcon::skins, faceOf(phases, K::skins, view.skinsOn), 16);
-    drawGlyphBtn(p, vol.trackInfo, MockupIcon::trackInfo,
-                 faceOf(phases, K::trackInfo, view.trackInfoOn), 16, view.trackInfoEnabled);
   }
 
   if (live) {
