@@ -66,6 +66,20 @@
   <!-- Newest first: out-of-order entries fail validation. tool/version.sh and the
        release workflow check the top version against the VERSION file. -->
   <releases>
+    <release version="1.4.1" date="2026-11-25">
+      <description>
+        <ul>
+          <li>
+            See more of long track titles on a wider display that lines up
+            with the playback controls.
+          </li>
+          <li>
+            Find Options, Skins and Track info together to the left of Mute.
+            All four buttons are the same size.
+          </li>
+        </ul>
+      </description>
+    </release>
     <release version="1.4" date="2026-11-24">
       <description>
         <ul>
