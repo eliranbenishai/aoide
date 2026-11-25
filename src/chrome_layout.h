@@ -66,34 +66,17 @@ inline qreal marqueeOffset(qreal textWidth, qreal clipWidth, qint64 elapsedMs, b
 /// Main and EQ bodies inset their rows by the same pad.
 inline constexpr qreal kBodySidePad = 22;
 
-inline constexpr qreal kMainOptionsTop = 18;
 inline constexpr qreal kMainOptionsSize = 26;
-inline constexpr qreal kMainGutterBtnGap = 8;
-inline constexpr qreal kDisplayWellLeft = 96;
 inline constexpr qreal kDisplayWellTop = 14;
-inline constexpr qreal kDisplayWellW = 705;
 inline constexpr qreal kDisplayWellH = 132;
 
-struct MainDisplayRow {
-  QRectF options;
-  QRectF skins;
-  QRectF trackInfo;
-  QRectF well;
-};
+inline QRectF mainControlRow(const QRectF& body, qreal top, qreal height) {
+  return QRectF(body.left() + kBodySidePad, body.top() + top, body.width() - 2 * kBodySidePad,
+                height);
+}
 
-/// The options cog sits in the gutter left of the display well; Skins and
-/// Track info stack under it. The well takes the rest of the row.
-inline MainDisplayRow layoutMainDisplay(const QRectF& body) {
-  MainDisplayRow out;
-  out.options = QRectF(body.left() + kBodySidePad, body.top() + kMainOptionsTop, kMainOptionsSize,
-                       kMainOptionsSize);
-  out.skins = QRectF(out.options.left(), out.options.bottom() + kMainGutterBtnGap, kMainOptionsSize,
-                     kMainOptionsSize);
-  out.trackInfo = QRectF(out.skins.left(), out.skins.bottom() + kMainGutterBtnGap, kMainOptionsSize,
-                         kMainOptionsSize);
-  out.well = QRectF(body.left() + kDisplayWellLeft, body.top() + kDisplayWellTop, kDisplayWellW,
-                    kDisplayWellH);
-  return out;
+inline QRectF mainDisplayWell(const QRectF& body) {
+  return mainControlRow(body, kDisplayWellTop, kDisplayWellH);
 }
 
 /// Failure-surface marks sit in the gap above the spectrum viz, left-aligned
@@ -107,9 +90,6 @@ inline QRectF displayWellMarks(const QRectF& inner) {
                 inner.bottom() - kDisplayWellVizH - kDisplayWellMarkGap - kDisplayWellMarkH,
                 248, kDisplayWellMarkH);
 }
-
-/// Well 705, inner pad 16 per side, title meta inset 288.
-inline constexpr qreal kDisplayTitleClipW = kDisplayWellW - 32 - 288;
 
 /// Moving lines paint on the live pass; static lines stay on the chassis.
 inline bool displayTitleOnLivePass(qreal offset) { return offset > 0; }
@@ -145,7 +125,7 @@ inline constexpr qreal kVolTrackToMono = 14;
 inline constexpr qreal kVolBtnH = 38;
 inline constexpr qreal kVolBtnInset = 1;
 inline constexpr qreal kMonoBtnW = 86;
-inline constexpr qreal kMonoToEqGap = 14;
+inline constexpr qreal kVolGroupGap = 14;
 inline constexpr qreal kPanelBtnW = 74;
 inline constexpr qreal kPanelBtnGap = 8;
 
@@ -157,21 +137,30 @@ struct MainVolumeRow {
   QRectF mono;
   QRectF eq;
   QRectF pl;
+  QRectF options;
+  QRectF skins;
+  QRectF trackInfo;
 };
 
-/// Mute and the VOL label flow from the left; PL, EQ and MONO pack from the
-/// right; the volume well takes the span between them.
+/// Mute and VOL start the row. The mode, panel and utility buttons pack from
+/// the right, leaving the middle for the volume slider.
 inline MainVolumeRow layoutMainVolumeRow(const QRectF& body) {
   MainVolumeRow out;
-  out.row = QRectF(body.left() + kBodySidePad, body.top() + kVolRowTop,
-                   body.width() - 2 * kBodySidePad, kVolRowH);
+  out.row = mainControlRow(body, kVolRowTop, kVolRowH);
   const QRectF& row = out.row;
   out.mute = QRectF(row.left(), row.top(), kVolMuteW, kVolRowH);
   out.label = QRectF(out.mute.right() + kVolLabelGap, row.top(), kVolLabelW, kVolRowH);
   const qreal btnY = row.top() + kVolBtnInset;
-  out.pl = QRectF(row.right() - kPanelBtnW, btnY, kPanelBtnW, kVolBtnH);
+  auto utilityEndingAt = [&](qreal right) {
+    return QRectF(right - kMainOptionsSize, row.center().y() - kMainOptionsSize / 2,
+                  kMainOptionsSize, kMainOptionsSize);
+  };
+  out.trackInfo = utilityEndingAt(row.right());
+  out.skins = utilityEndingAt(out.trackInfo.left() - kPanelBtnGap);
+  out.options = utilityEndingAt(out.skins.left() - kPanelBtnGap);
+  out.pl = QRectF(out.options.left() - kVolGroupGap - kPanelBtnW, btnY, kPanelBtnW, kVolBtnH);
   out.eq = QRectF(out.pl.left() - kPanelBtnGap - kPanelBtnW, btnY, kPanelBtnW, kVolBtnH);
-  out.mono = QRectF(out.eq.left() - kMonoToEqGap - kMonoBtnW, btnY, kMonoBtnW, kVolBtnH);
+  out.mono = QRectF(out.eq.left() - kVolGroupGap - kMonoBtnW, btnY, kMonoBtnW, kVolBtnH);
   const qreal trackLeft = out.label.right() + kVolTrackGap;
   const qreal trackRight = out.mono.left() - kVolTrackToMono;
   out.track = QRectF(trackLeft, row.center().y() - kVolTrackH / 2, trackRight - trackLeft,
@@ -197,8 +186,7 @@ struct MainSeekRow {
 /// measured widths; layout stays independent of the font machinery.
 inline MainSeekRow layoutMainSeekRow(const QRectF& body, qreal posW, qreal durW) {
   MainSeekRow out;
-  out.row = QRectF(body.left() + kBodySidePad, body.top() + kSeekRowTop,
-                   body.width() - 2 * kBodySidePad, kSeekRowH);
+  out.row = mainControlRow(body, kSeekRowTop, kSeekRowH);
   const QRectF& row = out.row;
   out.elapsed = QRectF(row.left(), row.top(), posW, kSeekRowH);
   out.duration = QRectF(row.right() - durW, row.top(), durW, kSeekRowH);
@@ -231,8 +219,7 @@ struct MainTransportRow {
 /// pass the measured widths.
 inline MainTransportRow layoutMainTransportRow(const QRectF& body, qreal shuffleW, qreal repeatW) {
   MainTransportRow out;
-  out.row = QRectF(body.left() + kBodySidePad, body.top() + kPlayRowTop,
-                   body.width() - 2 * kBodySidePad, kPlayRowH);
+  out.row = mainControlRow(body, kPlayRowTop, kPlayRowH);
   const QRectF& row = out.row;
   qreal x = row.left();
   auto place = [&](qreal w) {
@@ -582,7 +569,7 @@ inline constexpr qreal kPlaylistDeckPadY = 10;
 inline constexpr qreal kPlaylistStripGap = 8;
 inline constexpr qreal kPlaylistStripBtn = 52;
 inline constexpr qreal kPlaylistStripBtnH = 52;
-/// Same face as the main player's gutter buttons (Options / Skins / Track info).
+/// Same face as the main player's utility buttons (Options / Skins / Track info).
 inline constexpr qreal kPlaylistStripBtnCompact = kMainOptionsSize;
 inline constexpr qreal kPlaylistStripTotalH = 34;
 inline constexpr qreal kPlaylistStripRefresh = 34;
@@ -641,7 +628,7 @@ inline qreal playlistStripMinWidth(qreal btn, qreal totalW) {
          playlistStripRightClusterWidth(btn, totalW);
 }
 
-/// Large faces while they still fit; the player's 26px gutter face after that.
+/// Large faces while they still fit; the player's 26px utility face after that.
 inline qreal playlistStripButtonSize(qreal deckInnerW, qreal totalW) {
   return deckInnerW >= playlistStripMinWidth(kPlaylistStripBtn, totalW) ? kPlaylistStripBtn
                                                                        : kPlaylistStripBtnCompact;

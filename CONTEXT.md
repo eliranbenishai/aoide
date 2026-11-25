@@ -149,7 +149,7 @@ _Premise_ (2026-08-21, accepted without evidence; 50% and 62.5% added 2026-08-29
 _Avoid_: DPI scale (OS setting), continuous zoom, maximize (as a window-size control), per-panel zoom (product model is global), stretching main/EQ via panel drag, 200% / 250% / 300% (retired steps), zoom menu row / zoom keyboard shortcut (never built — see Accessibility in the v1 spec)
 
 **Options cog**:
-The cog at the top of the gutter left of the main player's **display well**. Under it sit **Skins** (comedy-and-tragedy mask glyph; latches while the Skins panel is up) and **Track info** (circled lowercase-i information glyph; dead until a track is loaded). The cog opens overflow: **always-on-top** where the platform can honour it (a check, applied to the **host window**), Open files… (the same enqueue as the eject glyph), Settings…, About Aoide, Quit. One cog plus two named buttons — the mockup's clutterbar is not the product chrome.
+The cog immediately after **PL** on the main player's volume row. To its right sit **Skins** (comedy-and-tragedy mask glyph; latches while the Skins panel is up) and **Track info** (circled lowercase-i information glyph; dead until a track is loaded). The cog opens overflow: **always-on-top** where the platform can honour it (a check, applied to the **host window**), Open files… (the same enqueue as the eject glyph), Settings…, About Aoide, Quit. One cog plus two named buttons — the mockup's clutterbar is not the product chrome.
 _Avoid_: clutterbar, clutter rail, **O** / **A** / **I** as product controls (all retired — the mockup's vertical letter strip, replaced by the cog); toolbar (when this control is meant); doublesize button (**D**), viz button (**V**); always-on-top as a per-panel or per-group control; Track info as a cog-menu row; treating a missing always-on-top row as a defect
 
 **Always-on-top**:
@@ -157,7 +157,7 @@ A **host window** stacking preference: Aoide stays above other apps. Not which *
 _Avoid_: keep-above (compositor jargon in product talk); treating a missing row as broken; always-on-top as a per-panel or per-group control; treating this as panel stacking
 
 **Skins panel**:
-Freestanding panel (shade + close, no snap) that holds a **2-column matrix** of main-player preview PNGs, a **+** menu (Install ZIP / Install Folder), an open-folder glyph, a refresh glyph, and the install-error strip. Opened from the gutter Skins button. Click a preview to apply it; a trashcan on a non-active, non-Aoide, non-extended pack confirms then deletes that pack's files. Not a Settings tab.
+Freestanding panel (shade + close, no snap) that holds a **2-column matrix** of main-player preview PNGs, a **+** menu (Install ZIP / Install Folder), an open-folder glyph, a refresh glyph, and the install-error strip. Opened from the Skins button on the main player's volume row. Click a preview to apply it; a trashcan on a non-active, non-Aoide, non-extended pack confirms then deletes that pack's files. Not a Settings tab.
 _Avoid_: Skins tab (retired home), look packs dialog; Reset folder (retired — Reset Settings re-seeds)
 
 **Settings**:

@@ -310,17 +310,16 @@ void HostWindowMoveTest::hitRegionsCoverWhatIsPainted() {
     assertPaintIsGrabbable(id, logical, view, painted, kind, index, what);
   };
 
-  const aoide::MainDisplayRow display = aoide::layoutMainDisplay(aoide::panelBody(main));
-  grabCoversPaint(aoide::WindowId::main, main, display.options, aoide::ChromeHit::Kind::options,
-                  "the options cog");
-  grabCoversPaint(aoide::WindowId::main, main, display.skins, aoide::ChromeHit::Kind::skins,
-                  "the skins button");
-  grabCoversPaint(aoide::WindowId::main, main, display.trackInfo, aoide::ChromeHit::Kind::trackInfo,
-                  "the track info button");
-  grabCoversPaint(aoide::WindowId::main, main, display.well, aoide::ChromeHit::Kind::timeToggle,
-                  "the display well");
+  grabCoversPaint(aoide::WindowId::main, main, aoide::mainDisplayWell(aoide::panelBody(main)),
+                  aoide::ChromeHit::Kind::timeToggle, "the display well");
 
   const aoide::MainVolumeRow vol = aoide::layoutMainVolumeRow(aoide::panelBody(main));
+  grabCoversPaint(aoide::WindowId::main, main, vol.options, aoide::ChromeHit::Kind::options,
+                  "the options cog");
+  grabCoversPaint(aoide::WindowId::main, main, vol.skins, aoide::ChromeHit::Kind::skins,
+                  "the skins button");
+  grabCoversPaint(aoide::WindowId::main, main, vol.trackInfo, aoide::ChromeHit::Kind::trackInfo,
+                  "the track info button");
   grabCoversPaint(aoide::WindowId::main, main, vol.mute, aoide::ChromeHit::Kind::mute, "Mute");
   grabCoversPaint(aoide::WindowId::main, main,
                   QRectF(vol.track.left(), vol.track.center().y() - aoide::kVolumeThumbH / 2,

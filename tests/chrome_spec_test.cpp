@@ -16,7 +16,8 @@ class ChromeSpecTest : public QObject {
   void titleBarStopsMatchMockupStylesheet();
   void nativeSeedIsRoundedSeventyFivePercent();
   void windowSpecsUseNativeSeeds();
-  void gutterStacksSkinsAndTrackInfoUnderTheCog();
+  void volumeRowEndsWithOptionsSkinsAndTrackInfo();
+  void mainDisplaySharesBothEdgesWithControlRows();
   void mainTitleDragExcludesWindowButtons();
   void extrasOmitBrandAndZoomAndUseCollapse();
   void zoomStepsMoveAcrossTheDiscreteLadder();
@@ -37,7 +38,7 @@ class ChromeSpecTest : public QObject {
   void playlistStripKeepsGapBeforeLengthWell();
   void playlistStripRefreshSitsRightOfTotal();
   void playlistStripSaveSitsLeftOfAdd();
-  void playlistStripShrinksToThePlayerGutterOnceLargeButtonsWouldOverlap();
+  void playlistStripUsesCompactButtonsOnceLargeButtonsWouldOverlap();
   void playlistMinWidthIsWhereTheCompactStripWouldOverlap();
   void longPlaylistNameGivesWayBeforeTheFooterStripDoes();
   void playlistStatusPlayingIsTheCuedRowOrBareWhenOffList();
@@ -98,16 +99,27 @@ void ChromeSpecTest::windowSpecsUseNativeSeeds() {
   }
 }
 
-void ChromeSpecTest::gutterStacksSkinsAndTrackInfoUnderTheCog() {
-  const aoide::MainDisplayRow row = aoide::layoutMainDisplay(aoide::panelBody(aoide::kMainPlayer));
-  QCOMPARE(row.options.size(), QSizeF(26, 26));
-  QCOMPARE(row.skins.size(), QSizeF(26, 26));
-  QCOMPARE(row.trackInfo.size(), QSizeF(26, 26));
-  QCOMPARE(row.skins.left(), row.options.left());
-  QCOMPARE(row.trackInfo.left(), row.options.left());
-  QCOMPARE(row.skins.top(), row.options.bottom() + aoide::kMainGutterBtnGap);
-  QCOMPARE(row.trackInfo.top(), row.skins.bottom() + aoide::kMainGutterBtnGap);
-  QVERIFY(row.trackInfo.bottom() < row.well.bottom());
+void ChromeSpecTest::mainDisplaySharesBothEdgesWithControlRows() {
+  const QRectF body = aoide::panelBody(aoide::kMainPlayer);
+  const QRectF well = aoide::mainDisplayWell(body);
+  for (const QRectF& row : {aoide::layoutMainVolumeRow(body).row,
+                            aoide::layoutMainSeekRow(body, 36, 36).row,
+                            aoide::layoutMainTransportRow(body, 108, 100).row}) {
+    QCOMPARE(well.left(), row.left());
+    QCOMPARE(well.right(), row.right());
+  }
+}
+
+void ChromeSpecTest::volumeRowEndsWithOptionsSkinsAndTrackInfo() {
+  const auto vol = aoide::layoutMainVolumeRow(aoide::panelBody(aoide::kMainPlayer));
+  qreal previousRight = vol.pl.right();
+  for (const QRectF& button : {vol.options, vol.skins, vol.trackInfo}) {
+    QCOMPARE(button.size(), QSizeF(26, 26));
+    QCOMPARE(button.center().y(), vol.row.center().y());
+    QVERIFY(button.left() > previousRight);
+    previousRight = button.right();
+  }
+  QCOMPARE(vol.trackInfo.right(), vol.row.right());
 }
 
 void ChromeSpecTest::mainTitleDragExcludesWindowButtons() {
@@ -242,7 +254,6 @@ void ChromeSpecTest::overflowingTitleMarqueeHoldsThenLoops() {
   QVERIFY(!aoide::displayTitleOnLivePass(aoide::marqueeOffset(200, 100, 0, true)));
   QVERIFY(!aoide::displayTitleOnLivePass(aoide::marqueeOffset(80, 100, 5000, true)));
   QVERIFY(aoide::displayTitleOnLivePass(aoide::marqueeOffset(200, 100, 2200, true)));
-  QCOMPARE(aoide::kDisplayTitleClipW, 385.0);
 }
 
 void ChromeSpecTest::chromePaintBufferMatchesWidgetTimesDpr() {
@@ -460,7 +471,7 @@ void ChromeSpecTest::playlistStripSaveSitsLeftOfAdd() {
   QVERIFY(!strip.options.intersects(strip.prev));
 }
 
-void ChromeSpecTest::playlistStripShrinksToThePlayerGutterOnceLargeButtonsWouldOverlap() {
+void ChromeSpecTest::playlistStripUsesCompactButtonsOnceLargeButtonsWouldOverlap() {
   const qreal totalW = 140;
   // 5 tool faces + 4 gaps + sep run + cluster gap + 3 transport + 2 gaps + TOTAL + Refresh.
   const qreal largeNeed = 5 * 52 + 4 * 8 + 6 + 1 + 14 + 8 + 3 * 52 + 2 * 8 + 8 + totalW + 8 + 34;
